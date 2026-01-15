@@ -1,73 +1,160 @@
-# React + TypeScript + Vite
+# 세워라! 무너트려라!
 
-This template provides a minimal setup to get React working in Vite with HMR and some ESLint rules.
+> 자원을 채집하고, 기지를 세우고, 적을 무너트려라!
 
-Currently, two official plugins are available:
+실시간 전략(RTS) 게임으로, 자원을 수집하고 유닛을 생산하여 적 기지를 먼저 파괴하면 승리합니다.
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Babel](https://babeljs.io/) (or [oxc](https://oxc.rs) when used in [rolldown-vite](https://vite.dev/guide/rolldown)) for Fast Refresh
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/) for Fast Refresh
+**Version: 1.0.0**
 
-## React Compiler
+---
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
+## 게임 소개
 
-## Expanding the ESLint configuration
+20분 안에 적 기지를 파괴하세요! 자원을 채집하고, 유닛을 생산하고, 전략적으로 공격과 방어를 조율해야 합니다.
 
-If you are developing a production application, we recommend updating the configuration to enable type-aware lint rules:
+### 승리 조건
+- 적 기지 HP를 0으로 만들면 **승리**
+- 시간 종료 시 HP가 더 높으면 **승리**
 
-```js
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
+### 패배 조건
+- 내 기지 HP가 0이 되면 **패배**
+- 시간 종료 시 적 HP가 더 높거나 같으면 **패배**
 
-      // Remove tseslint.configs.recommended and replace with this
-      tseslint.configs.recommendedTypeChecked,
-      // Alternatively, use this for stricter rules
-      tseslint.configs.strictTypeChecked,
-      // Optionally, add this for stylistic rules
-      tseslint.configs.stylisticTypeChecked,
+---
 
-      // Other configs...
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+## 기술 스택
+
+| 기술 | 버전 | 용도 |
+|------|------|------|
+| React | 19.x | UI 프레임워크 |
+| TypeScript | 5.x | 타입 안정성 |
+| Vite | 7.x | 빌드 도구 |
+| Zustand | 5.x | 상태 관리 |
+| Tailwind CSS | 4.x | 스타일링 |
+
+---
+
+## 설치 및 실행
+
+```bash
+# 의존성 설치
+npm install
+
+# 개발 서버 실행
+npm run dev
+
+# 프로덕션 빌드
+npm run build
 ```
 
-You can also install [eslint-plugin-react-x](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-x) and [eslint-plugin-react-dom](https://github.com/Rel1cx/eslint-react/tree/main/packages/plugins/eslint-plugin-react-dom) for React-specific lint rules:
+---
 
-```js
-// eslint.config.js
-import reactX from 'eslint-plugin-react-x'
-import reactDom from 'eslint-plugin-react-dom'
+## 게임 플레이
 
-export default defineConfig([
-  globalIgnores(['dist']),
-  {
-    files: ['**/*.{ts,tsx}'],
-    extends: [
-      // Other configs...
-      // Enable lint rules for React
-      reactX.configs['recommended-typescript'],
-      // Enable lint rules for React DOM
-      reactDom.configs.recommended,
-    ],
-    languageOptions: {
-      parserOptions: {
-        project: ['./tsconfig.node.json', './tsconfig.app.json'],
-        tsconfigRootDir: import.meta.dirname,
-      },
-      // other options...
-    },
-  },
-])
+### 자원
+
+| 자원 | 아이콘 | 획득 방법 |
+|------|--------|----------|
+| 골드 | 금색 | 자동 획득 (2/초) |
+| 나무 | 갈색 | 나무꾼 / 직접 채집 |
+| 돌 | 회색 | 광부 / 직접 채집 |
+| 약초 | 초록 | 채집꾼 / 직접 채집 |
+| 수정 | 보라 | 채집꾼 (희귀) / 수정 노드 |
+
+### 유닛
+
+#### 전투 유닛
+
+| 유닛 | 비용 | HP | 공격력 | 사거리 | 설명 |
+|------|------|----|----|--------|------|
+| 검병 | 50 골드 | 100 | 15 | 30 | 근접 전투 유닛 |
+| 궁수 | 80 골드 + 10 나무 | 50 | 25 | 150 | 원거리 공격 유닛 |
+
+#### 지원 유닛
+
+| 유닛 | 비용 | HP | 채집 속도 | 채집 자원 |
+|------|------|----|----|----------|
+| 나무꾼 | 30 골드 | 60 | 1.0 | 나무 |
+| 광부 | 40 골드 + 5 나무 | 70 | 0.8 | 돌 |
+| 채집꾼 | 35 골드 | 50 | 1.2 | 약초 (수정 확률) |
+
+### 건설
+
+| 행동 | 비용 | 효과 |
+|------|------|------|
+| 벽 건설 | 20 나무 + 10 돌 | 방어벽 생성 (HP 200) |
+| 기지 업그레이드 | 100 골드 + 50 돌 | 기지 HP +200 |
+
+---
+
+## 조작법
+
+### 키보드
+
+| 키 | 동작 |
+|----|------|
+| `WASD` / `방향키` | 카메라 이동 |
+| `Space` | 본진으로 카메라 이동 |
+| `ESC` | 메뉴로 돌아가기 |
+
+### 마우스
+
+| 동작 | 기능 |
+|------|------|
+| 좌클릭 (유닛) | 유닛 선택 |
+| 좌클릭 (자원) | 직접 채집 (거리 제한) |
+| 우클릭 드래그 | 카메라 이동 |
+| 미니맵 클릭 | 해당 위치로 이동 |
+
+---
+
+## 프로젝트 구조
+
 ```
+src/
+├── components/           # React 컴포넌트
+│   ├── canvas/          # 게임 렌더링 (GameCanvas, Minimap)
+│   ├── common/          # 공통 컴포넌트 (Button, HPBar)
+│   ├── screens/         # 화면 (MainMenu, GameScreen, GameOverScreen)
+│   └── ui/              # UI 패널 (ResourceBar, UnitPanel 등)
+├── constants/           # 게임 설정 (config.ts)
+├── game/                # 게임 로직
+│   ├── ai/              # 적 AI
+│   ├── resources/       # 자원 노드 관리
+│   └── units/           # 유닛 타입 및 동작
+├── hooks/               # 커스텀 훅 (게임 루프, 입력 처리)
+├── renderer/            # 캔버스 렌더링
+├── stores/              # Zustand 상태 관리
+├── types/               # TypeScript 타입
+└── utils/               # 유틸리티 함수
+```
+
+---
+
+## 게임 밸런스
+
+| 항목 | 값 |
+|------|-----|
+| 게임 시간 | 20분 |
+| 맵 크기 | 3000 x 2000 |
+| 기지 초기 HP | 1000 |
+| 골드 자동 획득 | 2/초 |
+| AI 행동 주기 | 5초 |
+
+---
+
+## 버전 히스토리
+
+### V1.0.0 (현재)
+- 기본 게임 시스템 구현
+- 5종 유닛 (검병, 궁수, 나무꾼, 광부, 채집꾼)
+- 5종 자원 (골드, 나무, 돌, 약초, 수정)
+- 적 AI 시스템
+- 벽 건설 및 기지 업그레이드
+- 미니맵 및 카메라 시스템
+
+---
+
+## 라이선스
+
+MIT License
