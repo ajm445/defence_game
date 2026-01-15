@@ -38,7 +38,7 @@ export const useGameLoop = () => {
 
       // 골드 자동 획득
       addGold(CONFIG.GOLD_PER_SECOND * deltaTime, 'player');
-      addGold(CONFIG.GOLD_PER_SECOND * deltaTime, 'enemy');
+      addGold(CONFIG.AI_GOLD_PER_SECOND * deltaTime, 'enemy');
 
       // 유닛 업데이트
       const updatedPlayerUnits: Unit[] = [];
@@ -177,9 +177,9 @@ export const useGameLoop = () => {
 
       updateUnits(alivePlayerUnits, aliveEnemyUnits);
 
-      // AI 업데이트 (5초마다)
+      // AI 업데이트
       aiTimerRef.current += deltaTime;
-      if (aiTimerRef.current >= 5) {
+      if (aiTimerRef.current >= CONFIG.AI_ACTION_INTERVAL) {
         aiTimerRef.current = 0;
         const currentState = useGameStore.getState();
         const decision = makeAIDecision(

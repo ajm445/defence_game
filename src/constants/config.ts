@@ -6,6 +6,8 @@ export const CONFIG = {
   MAP_HEIGHT: 2000,
   GAME_TIME: 20 * 60, // 20분
   GOLD_PER_SECOND: 4,
+  AI_GOLD_PER_SECOND: 3,
+  AI_ACTION_INTERVAL: 6, // AI 행동 주기 (초)
   BASE_HP: 1000,
 
   UNITS: {
