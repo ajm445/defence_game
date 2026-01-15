@@ -5,7 +5,7 @@ export const CONFIG = {
   MAP_WIDTH: 3000,
   MAP_HEIGHT: 2000,
   GAME_TIME: 20 * 60, // 20분
-  GOLD_PER_SECOND: 2,
+  GOLD_PER_SECOND: 4,
   BASE_HP: 1000,
 
   UNITS: {

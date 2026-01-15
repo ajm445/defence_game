@@ -19,6 +19,7 @@ export const useGameLoop = () => {
   const updateUnits = useGameStore((state) => state.updateUnits);
   const updateResourceNode = useGameStore((state) => state.updateResourceNode);
   const damageBase = useGameStore((state) => state.damageBase);
+  const damageWall = useGameStore((state) => state.damageWall);
   const spawnUnit = useGameStore((state) => state.spawnUnit);
   const checkGameEnd = useGameStore((state) => state.checkGameEnd);
   const stopGame = useGameStore((state) => state.stopGame);
@@ -111,7 +112,8 @@ export const useGameLoop = () => {
             unit,
             deltaTime,
             state.playerBase,
-            playerUnitsCopy
+            playerUnitsCopy,
+            state.walls
           );
           updatedEnemyUnits.push(result.unit);
 
@@ -125,6 +127,9 @@ export const useGameLoop = () => {
               damage: newDamage,
               attackerId: result.unitDamage.attackerId
             });
+          }
+          if (result.wallDamage) {
+            damageWall(result.wallDamage.wallId, result.wallDamage.damage);
           }
         } else {
           const result = updateSupportUnit(unit, deltaTime, state.resourceNodes, playerUnitsCopy);
@@ -204,6 +209,7 @@ export const useGameLoop = () => {
       updateUnits,
       updateResourceNode,
       damageBase,
+      damageWall,
       spawnUnit,
       checkGameEnd,
       stopGame,

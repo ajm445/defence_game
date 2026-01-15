@@ -16,7 +16,9 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
   const playerBase = useGameStore((state) => state.playerBase);
   const addResource = useGameStore((state) => state.addResource);
   const updateResourceNode = useGameStore((state) => state.updateResourceNode);
+  const buildWall = useGameStore((state) => state.buildWall);
   const showNotification = useUIStore((state) => state.showNotification);
+  const setPlacementMode = useUIStore((state) => state.setPlacementMode);
 
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
@@ -54,9 +56,27 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
       if (!canvas) return;
 
       const state = useGameStore.getState();
+      const uiState = useUIStore.getState();
       const rect = canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left + state.camera.x;
       const clickY = e.clientY - rect.top + state.camera.y;
+
+      // 벽 배치 모드
+      if (uiState.placementMode === 'wall') {
+        // 플레이어 진영 내에서만 건설 가능 (맵 왼쪽 절반)
+        if (clickX < CONFIG.MAP_WIDTH / 2) {
+          const success = buildWall(clickX, clickY);
+          if (success) {
+            showNotification('벽 건설 완료!');
+          } else {
+            showNotification('자원이 부족합니다!');
+          }
+        } else {
+          showNotification('플레이어 진영에만 건설할 수 있습니다!');
+        }
+        setPlacementMode('none');
+        return;
+      }
 
       // 유닛 선택 확인
       let clicked = false;
@@ -112,7 +132,7 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
         selectUnit(null);
       }
     },
-    [canvasRef, selectUnit, addResource, updateResourceNode, showNotification]
+    [canvasRef, selectUnit, addResource, updateResourceNode, buildWall, showNotification, setPlacementMode]
   );
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {

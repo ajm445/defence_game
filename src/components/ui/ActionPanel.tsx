@@ -4,17 +4,22 @@ import { useUIStore } from '../../stores/useUIStore';
 import { CONFIG } from '../../constants/config';
 
 export const ActionPanel: React.FC = () => {
-  const buildWall = useGameStore((state) => state.buildWall);
   const upgradePlayerBase = useGameStore((state) => state.upgradePlayerBase);
   const showNotification = useUIStore((state) => state.showNotification);
+  const setPlacementMode = useUIStore((state) => state.setPlacementMode);
+  const placementMode = useUIStore((state) => state.placementMode);
   const resources = useResources();
 
   const canBuildWall = resources.wood >= CONFIG.WALL_COST.wood && resources.stone >= CONFIG.WALL_COST.stone;
   const canUpgrade = resources.gold >= CONFIG.BASE_UPGRADE_COST.gold && resources.stone >= CONFIG.BASE_UPGRADE_COST.stone;
 
   const handleBuildWall = () => {
-    if (buildWall()) {
-      showNotification('벽 건설 완료!');
+    if (placementMode === 'wall') {
+      setPlacementMode('none');
+      showNotification('벽 배치 취소');
+    } else if (canBuildWall) {
+      setPlacementMode('wall');
+      showNotification('벽을 배치할 위치를 클릭하세요!');
     } else {
       showNotification('자원이 부족합니다!');
     }
@@ -35,24 +40,33 @@ export const ActionPanel: React.FC = () => {
       {/* 벽 건설 */}
       <button
         onClick={handleBuildWall}
-        disabled={!canBuildWall}
+        disabled={!canBuildWall && placementMode !== 'wall'}
         className={`
           group relative px-4 py-2 rounded-lg text-left
           transition-all duration-200
-          ${canBuildWall
-            ? 'bg-dark-600/50 hover:bg-dark-500/50 cursor-pointer'
-            : 'bg-dark-700/30 opacity-50 cursor-not-allowed'
+          ${placementMode === 'wall'
+            ? 'bg-neon-purple/20 cursor-pointer'
+            : canBuildWall
+              ? 'bg-dark-600/50 hover:bg-dark-500/50 cursor-pointer'
+              : 'bg-dark-700/30 opacity-50 cursor-not-allowed'
           }
         `}
       >
         <div className={`
           absolute inset-0 border rounded-lg transition-all duration-200
-          ${canBuildWall ? 'border-dark-400 group-hover:border-neon-purple' : 'border-dark-600'}
+          ${placementMode === 'wall'
+            ? 'border-neon-purple animate-pulse'
+            : canBuildWall
+              ? 'border-dark-400 group-hover:border-neon-purple'
+              : 'border-dark-600'
+          }
         `} />
         <div className="relative flex items-center gap-2">
           <span className="text-lg">🧱</span>
           <div className="flex flex-col">
-            <span className="text-xs text-gray-300">벽 건설</span>
+            <span className="text-xs text-gray-300">
+              {placementMode === 'wall' ? '배치 중... (클릭하여 취소)' : '벽 건설'}
+            </span>
             <span className="text-[10px] text-gray-500">20🪵 10🪨</span>
           </div>
         </div>

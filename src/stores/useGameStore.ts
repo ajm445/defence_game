@@ -31,7 +31,9 @@ interface GameActions {
   upgradePlayerBase: () => boolean;
 
   // 벽
-  buildWall: () => boolean;
+  buildWall: (x: number, y: number) => boolean;
+  canBuildWall: () => boolean;
+  damageWall: (wallId: string, damage: number) => void;
 
   // 자원 노드
   updateResourceNode: (nodeId: string, amount: number) => void;
@@ -354,15 +356,15 @@ export const useGameStore = create<GameStore>()(
       return false;
     },
 
-    buildWall: () => {
+    buildWall: (x: number, y: number) => {
       const state = get();
       const cost = CONFIG.WALL_COST;
 
       if (state.resources.wood >= cost.wood && state.resources.stone >= cost.stone) {
         const wall: Wall = {
           id: generateId(),
-          x: state.playerBase.x + 100 + state.walls.length * 45,
-          y: state.playerBase.y + (Math.random() - 0.5) * 200,
+          x,
+          y,
           hp: CONFIG.WALL_HP,
           maxHp: CONFIG.WALL_HP,
         };
@@ -379,6 +381,21 @@ export const useGameStore = create<GameStore>()(
       }
       return false;
     },
+
+    canBuildWall: () => {
+      const state = get();
+      const cost = CONFIG.WALL_COST;
+      return state.resources.wood >= cost.wood && state.resources.stone >= cost.stone;
+    },
+
+    damageWall: (wallId: string, damage: number) =>
+      set((state) => ({
+        walls: state.walls
+          .map((wall) =>
+            wall.id === wallId ? { ...wall, hp: wall.hp - damage } : wall
+          )
+          .filter((wall) => wall.hp > 0),
+      })),
 
     updateResourceNode: (nodeId, amount) =>
       set((state) => ({

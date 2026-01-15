@@ -47,4 +47,25 @@ export function drawWall(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText('🧱', screenX, screenY);
+
+  // HP 바 (피해를 입었을 때만 표시)
+  if (wall.hp < wall.maxHp) {
+    const hpBarWidth = 30;
+    const hpBarHeight = 4;
+    const hpPercent = wall.hp / wall.maxHp;
+
+    // 배경
+    ctx.fillStyle = '#1a1a25';
+    ctx.fillRect(screenX - hpBarWidth / 2, screenY + 22, hpBarWidth, hpBarHeight);
+
+    // HP 바
+    const hpColor = hpPercent > 0.5 ? '#22c55e' : hpPercent > 0.25 ? '#eab308' : '#ef4444';
+    ctx.fillStyle = hpColor;
+    ctx.fillRect(screenX - hpBarWidth / 2, screenY + 22, hpBarWidth * hpPercent, hpBarHeight);
+
+    // 테두리
+    ctx.strokeStyle = '#a855f7';
+    ctx.lineWidth = 1;
+    ctx.strokeRect(screenX - hpBarWidth / 2, screenY + 22, hpBarWidth, hpBarHeight);
+  }
 }

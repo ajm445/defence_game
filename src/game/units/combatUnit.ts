@@ -1,17 +1,19 @@
-import { Unit, Base } from '../../types';
+import { Unit, Base, Wall } from '../../types';
 import { distance } from '../../utils/math';
 
 export interface CombatUpdateResult {
   unit: Unit;
   baseDamage?: { team: 'player' | 'enemy'; damage: number };
   unitDamage?: { targetId: string; damage: number; attackerId: string };
+  wallDamage?: { wallId: string; damage: number };
 }
 
 export function updateCombatUnit(
   unit: Unit,
   deltaTime: number,
   enemyBase: Base,
-  enemies: Unit[]
+  enemies: Unit[],
+  enemyWalls: Wall[] = []
 ): CombatUpdateResult {
   const config = unit.config;
   const range = config.range || 30;
@@ -20,6 +22,7 @@ export function updateCombatUnit(
   let updatedUnit = { ...unit };
   let baseDamage: { team: 'player' | 'enemy'; damage: number } | undefined;
   let unitDamage: { targetId: string; damage: number; attackerId: string } | undefined;
+  let wallDamage: { wallId: string; damage: number } | undefined;
 
   // 쿨다운 감소
   if (updatedUnit.attackCooldown > 0) {
@@ -40,25 +43,54 @@ export function updateCombatUnit(
     }
   }
 
-  if (!target) {
-    // 적 유닛이 없으면 적 본진으로
-    const distToBase = distance(unit.x, unit.y, enemyBase.x, enemyBase.y);
+  // 가장 가까운 벽 찾기
+  let targetWall: Wall | null = null;
+  let minWallDist = Infinity;
 
-    if (distToBase > range) {
-      // 본진으로 이동
-      const angle = Math.atan2(enemyBase.y - unit.y, enemyBase.x - unit.x);
+  for (const wall of enemyWalls) {
+    if (wall.hp > 0) {
+      const dist = distance(unit.x, unit.y, wall.x, wall.y);
+      if (dist < minWallDist) {
+        minWallDist = dist;
+        targetWall = wall;
+      }
+    }
+  }
+
+  if (!target) {
+    // 적 유닛이 없으면 벽 또는 본진 공격
+
+    // 벽이 있고 범위 내에 있으면 벽 공격
+    if (targetWall && minWallDist <= range) {
+      if (updatedUnit.attackCooldown <= 0) {
+        wallDamage = { wallId: targetWall.id, damage: attack };
+        updatedUnit.attackCooldown = 1;
+        updatedUnit.state = 'attacking';
+      }
+    } else if (targetWall && minWallDist < distance(unit.x, unit.y, enemyBase.x, enemyBase.y)) {
+      // 벽이 본진보다 가까우면 벽으로 이동
+      const angle = Math.atan2(targetWall.y - unit.y, targetWall.x - unit.x);
       updatedUnit.x += Math.cos(angle) * config.speed;
       updatedUnit.y += Math.sin(angle) * config.speed;
       updatedUnit.state = 'moving';
     } else {
-      // 본진 공격
-      if (updatedUnit.attackCooldown <= 0) {
-        baseDamage = {
-          team: unit.team === 'player' ? 'enemy' : 'player',
-          damage: attack,
-        };
-        updatedUnit.attackCooldown = 1;
-        updatedUnit.state = 'attacking';
+      // 본진으로 이동/공격
+      const distToBase = distance(unit.x, unit.y, enemyBase.x, enemyBase.y);
+
+      if (distToBase > range) {
+        const angle = Math.atan2(enemyBase.y - unit.y, enemyBase.x - unit.x);
+        updatedUnit.x += Math.cos(angle) * config.speed;
+        updatedUnit.y += Math.sin(angle) * config.speed;
+        updatedUnit.state = 'moving';
+      } else {
+        if (updatedUnit.attackCooldown <= 0) {
+          baseDamage = {
+            team: unit.team === 'player' ? 'enemy' : 'player',
+            damage: attack,
+          };
+          updatedUnit.attackCooldown = 1;
+          updatedUnit.state = 'attacking';
+        }
       }
     }
   } else {
@@ -78,5 +110,5 @@ export function updateCombatUnit(
     }
   }
 
-  return { unit: updatedUnit, baseDamage, unitDamage };
+  return { unit: updatedUnit, baseDamage, unitDamage, wallDamage };
 }
