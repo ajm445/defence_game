@@ -48,6 +48,9 @@ export const useGameLoop = () => {
       const damageToEnemyUnits: Map<string, { damage: number; attackerId: string }> = new Map();
       const damageToPlayerUnits: Map<string, { damage: number; attackerId: string }> = new Map();
 
+      // 자원 채집량 누적 (여러 유닛이 같은 노드에서 채집할 때)
+      const nodeGatheredAmounts: Map<string, number> = new Map();
+
       // 복사본 생성 (상호 참조 문제 방지)
       const playerUnitsCopy = [...state.units];
       const enemyUnitsCopy = [...state.enemyUnits];
@@ -82,12 +85,9 @@ export const useGameLoop = () => {
 
           if (result.resourceGathered) {
             addResource(result.resourceGathered.type, result.resourceGathered.amount, 'player');
-            const node = state.resourceNodes.find(
-              (n) => n.id === result.resourceGathered!.nodeId
-            );
-            if (node) {
-              updateResourceNode(node.id, node.amount - result.resourceGathered.amount);
-            }
+            // 채집량 누적
+            const prevAmount = nodeGatheredAmounts.get(result.resourceGathered.nodeId) || 0;
+            nodeGatheredAmounts.set(result.resourceGathered.nodeId, prevAmount + result.resourceGathered.amount);
           }
           if (result.crystalFound) {
             addResource('crystal', 1, 'player');
@@ -137,12 +137,9 @@ export const useGameLoop = () => {
 
           if (result.resourceGathered) {
             addResource(result.resourceGathered.type, result.resourceGathered.amount, 'enemy');
-            const node = state.resourceNodes.find(
-              (n) => n.id === result.resourceGathered!.nodeId
-            );
-            if (node) {
-              updateResourceNode(node.id, node.amount - result.resourceGathered.amount);
-            }
+            // 채집량 누적
+            const prevAmount = nodeGatheredAmounts.get(result.resourceGathered.nodeId) || 0;
+            nodeGatheredAmounts.set(result.resourceGathered.nodeId, prevAmount + result.resourceGathered.amount);
           }
           if (result.unitDamage) {
             const prev = damageToPlayerUnits.get(result.unitDamage.targetId);
@@ -176,6 +173,14 @@ export const useGameLoop = () => {
       const aliveEnemyUnits = updatedEnemyUnits.filter((u) => u.hp > 0);
 
       updateUnits(alivePlayerUnits, aliveEnemyUnits);
+
+      // 자원 노드 업데이트 (누적된 채집량 적용)
+      for (const [nodeId, gatheredAmount] of nodeGatheredAmounts) {
+        const node = state.resourceNodes.find((n) => n.id === nodeId);
+        if (node) {
+          updateResourceNode(nodeId, node.amount - gatheredAmount);
+        }
+      }
 
       // AI 업데이트
       aiTimerRef.current += deltaTime;
