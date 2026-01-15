@@ -11,8 +11,8 @@ export function makeAIDecision(
 ): AIDecision {
   const decision: AIDecision = {};
 
-  // 50% 확률로 행동
-  if (Math.random() >= 0.6) {
+  // 60% 확률로 행동
+  if (Math.random() >= 0.4) {
     return decision;
   }
 
