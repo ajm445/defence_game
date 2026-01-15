@@ -8,7 +8,7 @@ export interface Resources {
   crystal: number;
 }
 
-export type ResourceNodeType = 'tree' | 'rock' | 'herb' | 'crystal';
+export type ResourceNodeType = 'tree' | 'rock' | 'herb' | 'crystal' | 'goldmine';
 
 export interface ResourceNode {
   id: string;

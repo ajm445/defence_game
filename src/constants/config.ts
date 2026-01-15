@@ -54,6 +54,15 @@ export const CONFIG = {
       type: 'support',
       resource: 'herb',
     },
+    goldminer: {
+      name: '금광부',
+      cost: { gold: 100, wood: 20 },
+      hp: 70,
+      gatherRate: 1.5,
+      speed: 1.0,
+      type: 'support',
+      resource: 'gold',
+    },
   } as Record<UnitType, UnitConfig>,
 
   RESOURCE_NODES: {
@@ -61,6 +70,7 @@ export const CONFIG = {
     rock: { resource: 'stone', amount: 80, respawn: 90 },
     herb: { resource: 'herb', amount: 50, respawn: 45 },
     crystal: { resource: 'crystal', amount: 30, respawn: 180 },
+    goldmine: { resource: 'gold', amount: 80, respawn: 120 },
   } as Record<ResourceNodeType, ResourceNodeConfig>,
 
   // UI 관련 상수

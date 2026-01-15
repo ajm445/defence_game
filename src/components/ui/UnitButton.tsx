@@ -14,6 +14,7 @@ const UNIT_CONFIG: Record<UnitType, { icon: string; name: string; color: string 
   woodcutter: { icon: '🪓', name: '나무꾼', color: 'from-amber-500 to-amber-700' },
   miner: { icon: '⛏️', name: '광부', color: 'from-gray-400 to-gray-600' },
   gatherer: { icon: '🧺', name: '채집꾼', color: 'from-emerald-400 to-emerald-600' },
+  goldminer: { icon: '💰', name: '금광부', color: 'from-yellow-400 to-yellow-600' },
 };
 
 export const UnitButton: React.FC<UnitButtonProps> = ({

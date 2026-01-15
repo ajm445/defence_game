@@ -5,6 +5,7 @@ const EMOJI_MAP: Record<string, string> = {
   rock: '🪨',
   herb: '🌿',
   crystal: '💎',
+  goldmine: '🏔️',
 };
 
 const GLOW_COLORS: Record<string, string> = {
@@ -12,6 +13,7 @@ const GLOW_COLORS: Record<string, string> = {
   rock: '#6b7280',
   herb: '#86efac',
   crystal: '#a855f7',
+  goldmine: '#fbbf24',
 };
 
 export function drawResourceNode(

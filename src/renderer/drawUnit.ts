@@ -6,6 +6,7 @@ const EMOJI_MAP: Record<string, string> = {
   woodcutter: '🪓',
   miner: '⛏️',
   gatherer: '🧺',
+  goldminer: '💰',
 };
 
 export function drawUnit(

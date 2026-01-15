@@ -30,7 +30,8 @@ export function updateSupportUnit(
       (node.type === 'tree' && resourceType === 'wood') ||
       (node.type === 'rock' && resourceType === 'stone') ||
       (node.type === 'herb' && resourceType === 'herb') ||
-      (node.type === 'crystal' && resourceType === 'herb'); // 채집꾼은 수정도 채집 가능
+      (node.type === 'crystal' && resourceType === 'herb') || // 채집꾼은 수정도 채집 가능
+      (node.type === 'goldmine' && resourceType === 'gold'); // 금광부는 광산에서 채집
 
     if (canGather && node.amount > 0) {
       const dist = distance(unit.x, unit.y, node.x, node.y);
@@ -65,6 +66,8 @@ export function updateSupportUnit(
         if (resourceType === 'herb' && Math.random() < 0.001) {
           crystalFound = true;
         }
+      } else if (nearestNode.type === 'goldmine') {
+        gatheredType = 'gold';
       } else {
         gatheredType = 'crystal';
       }

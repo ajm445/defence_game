@@ -21,9 +21,25 @@ export function makeAIDecision(
     (u) => u.config.type === 'support'
   ).length;
 
+  // 금광부 수 확인
+  const goldminerCount = enemyUnits.filter(
+    (u) => u.type === 'goldminer'
+  ).length;
+
   // 지원 유닛이 3마리 미만이면 나무꾼 우선 생산
   if (supportCount < 3 && aiResources.gold >= 30) {
     decision.spawnUnit = 'woodcutter';
+    return decision;
+  }
+
+  // 금광부가 1마리 미만이고 자원이 충분하면 금광부 생산 (20% 확률)
+  if (
+    goldminerCount < 1 &&
+    aiResources.gold >= 100 &&
+    aiResources.wood >= 20 &&
+    Math.random() < 0.2
+  ) {
+    decision.spawnUnit = 'goldminer';
     return decision;
   }
 

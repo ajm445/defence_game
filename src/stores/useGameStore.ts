@@ -113,6 +113,30 @@ function generateResourceNodes(): ResourceNode[] {
     });
   }
 
+  // 광산 (플레이어 쪽 2개)
+  for (let i = 0; i < 2; i++) {
+    nodes.push({
+      id: generateId(),
+      type: 'goldmine',
+      x: 400 + Math.random() * 300,
+      y: 300 + Math.random() * (CONFIG.MAP_HEIGHT - 600),
+      amount: CONFIG.RESOURCE_NODES.goldmine.amount,
+      maxAmount: CONFIG.RESOURCE_NODES.goldmine.amount,
+    });
+  }
+
+  // 광산 (적 쪽 2개)
+  for (let i = 0; i < 2; i++) {
+    nodes.push({
+      id: generateId(),
+      type: 'goldmine',
+      x: CONFIG.MAP_WIDTH - 700 + Math.random() * 300,
+      y: 300 + Math.random() * (CONFIG.MAP_HEIGHT - 600),
+      amount: CONFIG.RESOURCE_NODES.goldmine.amount,
+      maxAmount: CONFIG.RESOURCE_NODES.goldmine.amount,
+    });
+  }
+
   return nodes;
 }
 
