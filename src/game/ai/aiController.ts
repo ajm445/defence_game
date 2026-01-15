@@ -43,6 +43,17 @@ export function makeAIDecision(
     return decision;
   }
 
+  // 돌이 충분하면 기사 생산 시도 (25% 확률)
+  if (
+    aiResources.gold >= 120 &&
+    aiResources.wood >= 20 &&
+    aiResources.stone >= 30 &&
+    Math.random() < 0.25
+  ) {
+    decision.spawnUnit = 'knight';
+    return decision;
+  }
+
   // 나무가 있으면 궁수 생산 시도 (30% 확률)
   if (
     aiResources.wood >= 10 &&

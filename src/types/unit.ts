@@ -1,6 +1,6 @@
 import { Resources } from './resource';
 
-export type UnitType = 'melee' | 'ranged' | 'woodcutter' | 'miner' | 'gatherer' | 'goldminer';
+export type UnitType = 'melee' | 'ranged' | 'knight' | 'woodcutter' | 'miner' | 'gatherer' | 'goldminer';
 export type UnitRole = 'combat' | 'support';
 export type UnitState = 'idle' | 'moving' | 'attacking' | 'gathering';
 export type Team = 'player' | 'enemy';

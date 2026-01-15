@@ -113,25 +113,25 @@ function generateResourceNodes(): ResourceNode[] {
     });
   }
 
-  // 광산 (플레이어 쪽 2개)
-  for (let i = 0; i < 2; i++) {
+  // 광산 (플레이어 쪽 4개)
+  for (let i = 0; i < 4; i++) {
     nodes.push({
       id: generateId(),
       type: 'goldmine',
-      x: 400 + Math.random() * 300,
-      y: 300 + Math.random() * (CONFIG.MAP_HEIGHT - 600),
+      x: 400 + Math.random() * 400,
+      y: 200 + Math.random() * (CONFIG.MAP_HEIGHT - 400),
       amount: CONFIG.RESOURCE_NODES.goldmine.amount,
       maxAmount: CONFIG.RESOURCE_NODES.goldmine.amount,
     });
   }
 
-  // 광산 (적 쪽 2개)
-  for (let i = 0; i < 2; i++) {
+  // 광산 (적 쪽 4개)
+  for (let i = 0; i < 4; i++) {
     nodes.push({
       id: generateId(),
       type: 'goldmine',
-      x: CONFIG.MAP_WIDTH - 700 + Math.random() * 300,
-      y: 300 + Math.random() * (CONFIG.MAP_HEIGHT - 600),
+      x: CONFIG.MAP_WIDTH - 800 + Math.random() * 400,
+      y: 200 + Math.random() * (CONFIG.MAP_HEIGHT - 400),
       amount: CONFIG.RESOURCE_NODES.goldmine.amount,
       maxAmount: CONFIG.RESOURCE_NODES.goldmine.amount,
     });

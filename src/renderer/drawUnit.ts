@@ -3,6 +3,7 @@ import { Unit, Camera } from '../types';
 const EMOJI_MAP: Record<string, string> = {
   melee: '⚔️',
   ranged: '🏹',
+  knight: '🛡️',
   woodcutter: '🪓',
   miner: '⛏️',
   gatherer: '🧺',

@@ -11,6 +11,7 @@ interface UnitButtonProps {
 const UNIT_CONFIG: Record<UnitType, { icon: string; name: string; color: string }> = {
   melee: { icon: '⚔️', name: '검병', color: 'from-red-500 to-red-700' },
   ranged: { icon: '🏹', name: '궁수', color: 'from-green-500 to-green-700' },
+  knight: { icon: '🛡️', name: '기사', color: 'from-blue-500 to-blue-700' },
   woodcutter: { icon: '🪓', name: '나무꾼', color: 'from-amber-500 to-amber-700' },
   miner: { icon: '⛏️', name: '광부', color: 'from-gray-400 to-gray-600' },
   gatherer: { icon: '🧺', name: '채집꾼', color: 'from-emerald-400 to-emerald-600' },

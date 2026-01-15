@@ -27,6 +27,15 @@ export const CONFIG = {
       range: 150,
       type: 'combat',
     },
+    knight: {
+      name: '기사',
+      cost: { gold: 120, wood: 20, stone: 30 },
+      hp: 200,
+      attack: 25,
+      speed: 1.5,
+      range: 35,
+      type: 'combat',
+    },
     woodcutter: {
       name: '나무꾼',
       cost: { gold: 30 },
@@ -78,7 +87,7 @@ export const CONFIG = {
     rock: { resource: 'stone', amount: 80, respawn: 90 },
     herb: { resource: 'herb', amount: 50, respawn: 45 },
     crystal: { resource: 'crystal', amount: 30, respawn: 180 },
-    goldmine: { resource: 'gold', amount: 80, respawn: 120 },
+    goldmine: { resource: 'gold', amount: 80, respawn: 60 },
   } as Record<ResourceNodeType, ResourceNodeConfig>,
 
   // UI 관련 상수
