@@ -51,28 +51,34 @@ export const MainMenu: React.FC = () => {
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 flex flex-col items-center animate-fade-in">
         {/* 서브 타이틀 */}
-        <div className="text-neon-cyan/60 text-sm tracking-[0.5em] uppercase mb-4 font-game">
+        <div className="text-neon-cyan/70 text-sm tracking-[0.5em] uppercase font-game">
           Defense Strategy
         </div>
 
-        {/* 메인 타이틀 */}
-        <h1 className="font-game text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white via-neon-cyan to-neon-blue mb-2 animate-float">
-          세워라! 무너트려라!
-        </h1>
+        {/* 간격 */}
+        <div style={{ height: '30px' }} />
 
-        {/* 타이틀 글로우 효과 */}
-        <div className="text-neon-cyan/20 text-3xl md:text-4xl font-game font-bold absolute top-[72px] blur-2xl pointer-events-none">
-          세워라! 무너트려라!
+        {/* 메인 타이틀 */}
+        <div className="relative mb-2">
+          <h1 className="font-game text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white via-neon-cyan to-neon-blue animate-float">
+            세워라! 무너트려라!
+          </h1>
+          {/* 타이틀 글로우 효과 */}
+          <div className="absolute inset-0 font-game text-4xl md:text-5xl font-bold text-neon-cyan/20 blur-2xl pointer-events-none flex items-center justify-center">
+            세워라! 무너트려라!
+          </div>
         </div>
 
         {/* 구분선 */}
         <div className="w-64 h-px bg-gradient-to-r from-transparent via-neon-cyan/50 to-transparent my-8" />
 
+        <div style={{ height: '30px' }} />
+        
         {/* 버튼 그룹 */}
-        <div className="flex flex-col gap-4 mt-4 z-20">
+        <div className="flex flex-col gap-4 mt-4">
           <button
             onClick={handleStartGame}
-            className="group relative z-10 px-12 py-4 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            className="group relative px-12 py-4 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
           >
             {/* 버튼 배경 */}
             <div className="absolute inset-0 bg-gradient-to-r from-neon-cyan/20 to-neon-blue/20 group-hover:from-neon-cyan/30 group-hover:to-neon-blue/30 transition-all duration-300 pointer-events-none" />
@@ -89,7 +95,7 @@ export const MainMenu: React.FC = () => {
 
           <button
             onClick={handleShowHelp}
-            className="group relative z-10 px-12 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            className="group relative px-12 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
           >
             <div className="absolute inset-0 bg-dark-700/50 group-hover:bg-dark-600/50 transition-all duration-300 pointer-events-none" />
             <div className="absolute inset-0 border border-dark-400 rounded-lg group-hover:border-gray-500 transition-all duration-300 pointer-events-none" />
@@ -98,19 +104,19 @@ export const MainMenu: React.FC = () => {
             </span>
           </button>
         </div>
+      </div>
 
-        {/* 하단 정보 */}
-        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none">
-          <div className="text-dark-400 text-xs tracking-widest uppercase">
-            Press any button to start
-          </div>
-          <div className="flex items-center gap-4 text-dark-500 text-xs">
-            <span>WASD - Move Camera</span>
-            <span className="w-1 h-1 rounded-full bg-dark-500" />
-            <span>SPACE - Home Base</span>
-            <span className="w-1 h-1 rounded-full bg-dark-500" />
-            <span>ESC - Menu</span>
-          </div>
+      {/* 하단 정보 - 메인 컨테이너 기준으로 배치 */}
+      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none z-10">
+        <div className="text-gray-400 text-xs tracking-widest uppercase">
+          Press any button to start
+        </div>
+        <div className="flex items-center gap-4 text-gray-500 text-xs">
+          <span>WASD - Move Camera</span>
+          <span className="w-1 h-1 rounded-full bg-gray-500" />
+          <span>SPACE - Home Base</span>
+          <span className="w-1 h-1 rounded-full bg-gray-500" />
+          <span>ESC - Menu</span>
         </div>
       </div>
 
