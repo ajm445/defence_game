@@ -38,6 +38,10 @@ interface GameActions {
   // 자원 노드
   updateResourceNode: (nodeId: string, amount: number) => void;
 
+  // 약초 판매
+  sellHerb: () => boolean;
+  canSellHerb: () => boolean;
+
   // 게임 종료
   checkGameEnd: () => 'victory' | 'defeat' | null;
 }
@@ -403,6 +407,29 @@ export const useGameStore = create<GameStore>()(
           node.id === nodeId ? { ...node, amount: Math.max(0, amount) } : node
         ),
       })),
+
+    sellHerb: () => {
+      const state = get();
+      const herbCost = CONFIG.HERB_SELL_COST;
+      const goldGain = CONFIG.HERB_SELL_GOLD;
+
+      if (state.resources.herb >= herbCost) {
+        set({
+          resources: {
+            ...state.resources,
+            herb: state.resources.herb - herbCost,
+            gold: state.resources.gold + goldGain,
+          },
+        });
+        return true;
+      }
+      return false;
+    },
+
+    canSellHerb: () => {
+      const state = get();
+      return state.resources.herb >= CONFIG.HERB_SELL_COST;
+    },
 
     checkGameEnd: () => {
       const state = get();

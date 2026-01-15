@@ -5,6 +5,7 @@ import { CONFIG } from '../../constants/config';
 
 export const ActionPanel: React.FC = () => {
   const upgradePlayerBase = useGameStore((state) => state.upgradePlayerBase);
+  const sellHerb = useGameStore((state) => state.sellHerb);
   const showNotification = useUIStore((state) => state.showNotification);
   const setPlacementMode = useUIStore((state) => state.setPlacementMode);
   const placementMode = useUIStore((state) => state.placementMode);
@@ -12,6 +13,7 @@ export const ActionPanel: React.FC = () => {
 
   const canBuildWall = resources.wood >= CONFIG.WALL_COST.wood && resources.stone >= CONFIG.WALL_COST.stone;
   const canUpgrade = resources.gold >= CONFIG.BASE_UPGRADE_COST.gold && resources.stone >= CONFIG.BASE_UPGRADE_COST.stone;
+  const canSellHerb = resources.herb >= CONFIG.HERB_SELL_COST;
 
   const handleBuildWall = () => {
     if (placementMode === 'wall') {
@@ -30,6 +32,14 @@ export const ActionPanel: React.FC = () => {
       showNotification('본진 강화! (+200 HP)');
     } else {
       showNotification('자원이 부족합니다!');
+    }
+  };
+
+  const handleSellHerb = () => {
+    if (sellHerb()) {
+      showNotification(`약초 판매! (+${CONFIG.HERB_SELL_GOLD} 골드)`);
+    } else {
+      showNotification('약초가 부족합니다!');
     }
   };
 
@@ -94,6 +104,32 @@ export const ActionPanel: React.FC = () => {
           <div className="flex flex-col">
             <span className="text-xs text-gray-300">본진 강화</span>
             <span className="text-[10px] text-gray-500">100💰 50🪨</span>
+          </div>
+        </div>
+      </button>
+
+      {/* 약초 판매 */}
+      <button
+        onClick={handleSellHerb}
+        disabled={!canSellHerb}
+        className={`
+          group relative px-4 py-2 rounded-lg text-left
+          transition-all duration-200
+          ${canSellHerb
+            ? 'bg-dark-600/50 hover:bg-dark-500/50 cursor-pointer'
+            : 'bg-dark-700/30 opacity-50 cursor-not-allowed'
+          }
+        `}
+      >
+        <div className={`
+          absolute inset-0 border rounded-lg transition-all duration-200
+          ${canSellHerb ? 'border-dark-400 group-hover:border-yellow-500' : 'border-dark-600'}
+        `} />
+        <div className="relative flex items-center gap-2">
+          <span className="text-lg">🌿</span>
+          <div className="flex flex-col">
+            <span className="text-xs text-gray-300">약초 판매</span>
+            <span className="text-[10px] text-gray-500">10🌿 → 30💰</span>
           </div>
         </div>
       </button>

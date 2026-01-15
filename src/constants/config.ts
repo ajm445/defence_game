@@ -16,7 +16,7 @@ export const CONFIG = {
       cost: { gold: 50 },
       hp: 100,
       attack: 15,
-      speed: 2,
+      speed: 1.5,
       range: 30,
       type: 'combat',
     },
@@ -25,16 +25,16 @@ export const CONFIG = {
       cost: { gold: 80, wood: 10 },
       hp: 50,
       attack: 25,
-      speed: 1.5,
+      speed: 1.6,
       range: 150,
       type: 'combat',
     },
     knight: {
       name: '기사',
       cost: { gold: 120, wood: 20, stone: 30 },
-      hp: 200,
-      attack: 25,
-      speed: 1.5,
+      hp: 250,
+      attack: 30,
+      speed: 1.3,
       range: 35,
       type: 'combat',
     },
@@ -45,7 +45,7 @@ export const CONFIG = {
       attack: 5,
       range: 25,
       gatherRate: 1,
-      speed: 1.2,
+      speed: 1.5,
       type: 'support',
       resource: 'wood',
     },
@@ -56,7 +56,7 @@ export const CONFIG = {
       attack: 6,
       range: 25,
       gatherRate: 0.8,
-      speed: 1.2,
+      speed: 1.5,
       type: 'support',
       resource: 'stone',
     },
@@ -78,7 +78,7 @@ export const CONFIG = {
       attack: 4,
       range: 25,
       gatherRate: 1.5,
-      speed: 1.0,
+      speed: 1.5,
       type: 'support',
       resource: 'gold',
     },
@@ -106,6 +106,10 @@ export const CONFIG = {
   WALL_HP: 200,
   BASE_UPGRADE_COST: { gold: 100, stone: 50 },
   BASE_UPGRADE_HP: 200,
+
+  // 약초 판매
+  HERB_SELL_COST: 10,   // 필요 약초 수
+  HERB_SELL_GOLD: 30,   // 획득 골드
 } as const;
 
 export type Config = typeof CONFIG;
