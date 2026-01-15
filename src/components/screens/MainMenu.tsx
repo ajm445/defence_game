@@ -109,7 +109,7 @@ export const MainMenu: React.FC = () => {
       {/* 하단 정보 - 메인 컨테이너 기준으로 배치 */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none z-10">
         <div className="text-gray-400 text-xs tracking-widest uppercase">
-          Press any button to start
+          Press a button to start
         </div>
         <div className="flex items-center gap-4 text-gray-500 text-xs">
           <span>WASD - Move Camera</span>
