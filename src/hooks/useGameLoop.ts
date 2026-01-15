@@ -43,6 +43,10 @@ export const useGameLoop = () => {
       const updatedPlayerUnits: Unit[] = [];
       const updatedEnemyUnits: Unit[] = [];
 
+      // 데미지 기록 (나중에 적용)
+      const damageToEnemyUnits: Map<string, number> = new Map();
+      const damageToPlayerUnits: Map<string, number> = new Map();
+
       // 복사본 생성 (상호 참조 문제 방지)
       const playerUnitsCopy = [...state.units];
       const enemyUnitsCopy = [...state.enemyUnits];
@@ -62,6 +66,10 @@ export const useGameLoop = () => {
 
           if (result.baseDamage) {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
+          }
+          if (result.unitDamage) {
+            const prev = damageToEnemyUnits.get(result.unitDamage.targetId) || 0;
+            damageToEnemyUnits.set(result.unitDamage.targetId, prev + result.unitDamage.damage);
           }
         } else {
           const result = updateSupportUnit(unit, deltaTime, state.resourceNodes);
@@ -98,6 +106,10 @@ export const useGameLoop = () => {
           if (result.baseDamage) {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
           }
+          if (result.unitDamage) {
+            const prev = damageToPlayerUnits.get(result.unitDamage.targetId) || 0;
+            damageToPlayerUnits.set(result.unitDamage.targetId, prev + result.unitDamage.damage);
+          }
         } else {
           const result = updateSupportUnit(unit, deltaTime, state.resourceNodes);
           updatedEnemyUnits.push(result.unit);
@@ -111,6 +123,20 @@ export const useGameLoop = () => {
               updateResourceNode(node.id, node.amount - result.resourceGathered.amount);
             }
           }
+        }
+      }
+
+      // 데미지 적용
+      for (const unit of updatedPlayerUnits) {
+        const damage = damageToPlayerUnits.get(unit.id);
+        if (damage) {
+          unit.hp -= damage;
+        }
+      }
+      for (const unit of updatedEnemyUnits) {
+        const damage = damageToEnemyUnits.get(unit.id);
+        if (damage) {
+          unit.hp -= damage;
         }
       }
 

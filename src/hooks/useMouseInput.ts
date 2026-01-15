@@ -83,13 +83,15 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
             ) {
               const gatherAmount = Math.min(CONFIG.DIRECT_GATHER_AMOUNT, node.amount);
 
-              let resourceType: 'wood' | 'stone' | 'herb' | 'crystal';
+              let resourceType: 'gold' | 'wood' | 'stone' | 'herb' | 'crystal';
               if (node.type === 'tree') {
                 resourceType = 'wood';
               } else if (node.type === 'rock') {
                 resourceType = 'stone';
               } else if (node.type === 'herb') {
                 resourceType = 'herb';
+              } else if (node.type === 'goldmine') {
+                resourceType = 'gold';
               } else {
                 resourceType = 'crystal';
               }

@@ -4,6 +4,7 @@ import { distance } from '../../utils/math';
 export interface CombatUpdateResult {
   unit: Unit;
   baseDamage?: { team: 'player' | 'enemy'; damage: number };
+  unitDamage?: { targetId: string; damage: number };
 }
 
 export function updateCombatUnit(
@@ -18,6 +19,7 @@ export function updateCombatUnit(
 
   let updatedUnit = { ...unit };
   let baseDamage: { team: 'player' | 'enemy'; damage: number } | undefined;
+  let unitDamage: { targetId: string; damage: number } | undefined;
 
   // 쿨다운 감소
   if (updatedUnit.attackCooldown > 0) {
@@ -68,13 +70,13 @@ export function updateCombatUnit(
       updatedUnit.state = 'moving';
     } else {
       if (updatedUnit.attackCooldown <= 0) {
-        // 타겟에게 데미지 (반환하지 않고 직접 수정됨)
-        target.hp -= attack;
+        // 타겟에게 데미지
+        unitDamage = { targetId: target.id, damage: attack };
         updatedUnit.attackCooldown = 1;
         updatedUnit.state = 'attacking';
       }
     }
   }
 
-  return { unit: updatedUnit, baseDamage };
+  return { unit: updatedUnit, baseDamage, unitDamage };
 }
