@@ -1,0 +1,133 @@
+@import url('https://fonts.googleapis.com/css2?family=Noto+Sans+KR:wght@400;500;700;900&family=Orbitron:wght@400;500;700;900&display=swap');
+
+@import "tailwindcss";
+@config "../tailwind.config.js";
+
+* {
+  margin: 0;
+  padding: 0;
+  box-sizing: border-box;
+}
+
+body {
+  font-family: 'Noto Sans KR', sans-serif;
+  overflow: hidden;
+  background: #0a0a0f;
+}
+
+/* 글래스모피즘 유틸리티 */
+@utility glass {
+  background: rgba(26, 26, 37, 0.8);
+  backdrop-filter: blur(12px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+@utility glass-dark {
+  background: rgba(10, 10, 15, 0.9);
+  backdrop-filter: blur(16px);
+  border: 1px solid rgba(255, 255, 255, 0.05);
+}
+
+@utility glass-light {
+  background: rgba(45, 45, 61, 0.6);
+  backdrop-filter: blur(8px);
+  border: 1px solid rgba(255, 255, 255, 0.1);
+}
+
+/* 네온 글로우 텍스트 */
+@utility text-glow-cyan {
+  text-shadow: 0 0 10px #00f5ff, 0 0 20px #00f5ff, 0 0 40px #00f5ff;
+}
+
+@utility text-glow-purple {
+  text-shadow: 0 0 10px #a855f7, 0 0 20px #a855f7, 0 0 40px #a855f7;
+}
+
+@utility text-glow-green {
+  text-shadow: 0 0 10px #10b981, 0 0 20px #10b981;
+}
+
+@utility text-glow-red {
+  text-shadow: 0 0 10px #ef4444, 0 0 20px #ef4444;
+}
+
+/* 커스텀 스크롤바 */
+::-webkit-scrollbar {
+  width: 6px;
+  height: 6px;
+}
+
+::-webkit-scrollbar-track {
+  background: #1a1a25;
+}
+
+::-webkit-scrollbar-thumb {
+  background: #3d3d52;
+  border-radius: 3px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: #4d7cff;
+}
+
+/* 애니메이션 */
+@keyframes fadeInOut {
+  0% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+  15% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  85% {
+    opacity: 1;
+    transform: translateX(-50%) translateY(0);
+  }
+  100% {
+    opacity: 0;
+    transform: translateX(-50%) translateY(-20px);
+  }
+}
+
+@keyframes scanline {
+  0% {
+    transform: translateY(-100%);
+  }
+  100% {
+    transform: translateY(100vh);
+  }
+}
+
+@keyframes borderGlow {
+  0%, 100% {
+    border-color: rgba(0, 245, 255, 0.3);
+  }
+  50% {
+    border-color: rgba(0, 245, 255, 0.8);
+  }
+}
+
+/* 배경 그라데이션 */
+@utility bg-game-gradient {
+  background:
+    radial-gradient(ellipse at top, rgba(77, 124, 255, 0.1) 0%, transparent 50%),
+    radial-gradient(ellipse at bottom, rgba(168, 85, 247, 0.1) 0%, transparent 50%),
+    linear-gradient(180deg, #0a0a0f 0%, #12121a 100%);
+}
+
+@utility bg-menu-gradient {
+  background:
+    radial-gradient(circle at 30% 20%, rgba(0, 245, 255, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 70% 80%, rgba(168, 85, 247, 0.08) 0%, transparent 40%),
+    radial-gradient(circle at 50% 50%, rgba(77, 124, 255, 0.05) 0%, transparent 60%),
+    linear-gradient(180deg, #0a0a0f 0%, #12121a 50%, #0a0a0f 100%);
+}
+
+/* 그리드 패턴 오버레이 */
+@utility grid-overlay {
+  background-image:
+    linear-gradient(rgba(255, 255, 255, 0.02) 1px, transparent 1px),
+    linear-gradient(90deg, rgba(255, 255, 255, 0.02) 1px, transparent 1px);
+  background-size: 50px 50px;
+}

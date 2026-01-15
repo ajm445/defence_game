@@ -1,0 +1,104 @@
+import React from 'react';
+import { useGameStore } from '../../stores/useGameStore';
+import { useUIStore } from '../../stores/useUIStore';
+
+export const GameOverScreen: React.FC = () => {
+  const playerBase = useGameStore((state) => state.playerBase);
+  const enemyBase = useGameStore((state) => state.enemyBase);
+  const time = useGameStore((state) => state.time);
+  const initGame = useGameStore((state) => state.initGame);
+  const startGame = useGameStore((state) => state.startGame);
+  const setScreen = useUIStore((state) => state.setScreen);
+
+  // 승리 조건 확인
+  let victory = false;
+  if (enemyBase.hp <= 0) {
+    victory = true;
+  } else if (playerBase.hp <= 0) {
+    victory = false;
+  } else if (time <= 0) {
+    victory = playerBase.hp > enemyBase.hp;
+  }
+
+  const handleBackToMenu = () => {
+    setScreen('menu');
+  };
+
+  const handleRestartGame = () => {
+    initGame();
+    startGame();
+    setScreen('game');
+  };
+
+  return (
+    <div className="fixed inset-0 bg-dark-900/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center animate-fade-in">
+      {/* 배경 효과 */}
+      <div className="absolute inset-0 overflow-hidden pointer-events-none">
+        <div className={`absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-3xl ${victory ? 'bg-neon-cyan/10' : 'bg-neon-red/10'}`} />
+      </div>
+
+      {/* 결과 */}
+      <div className="relative z-10 flex flex-col items-center">
+        {/* 아이콘 */}
+        <div className={`text-8xl mb-6 ${victory ? 'animate-float' : ''}`}>
+          {victory ? '🏆' : '💀'}
+        </div>
+
+        {/* 메인 텍스트 */}
+        <h1 className={`
+          font-game text-6xl md:text-7xl font-bold mb-4
+          ${victory
+            ? 'text-transparent bg-clip-text bg-gradient-to-b from-neon-cyan to-neon-blue text-glow-cyan'
+            : 'text-transparent bg-clip-text bg-gradient-to-b from-neon-red to-orange-500 text-glow-red'
+          }
+        `}>
+          {victory ? 'VICTORY' : 'DEFEAT'}
+        </h1>
+
+        <p className="text-gray-400 text-lg mb-8">
+          {victory ? '적 본진을 파괴했습니다!' : '본진이 파괴되었습니다...'}
+        </p>
+
+        {/* 통계 */}
+        <div className="glass-dark rounded-xl p-6 mb-8 min-w-[300px] border border-dark-500/50">
+          <div className="flex justify-between mb-3">
+            <span className="text-gray-400">내 본진 HP</span>
+            <span className="text-white font-bold tabular-nums">{Math.floor(playerBase.hp)}</span>
+          </div>
+          <div className="flex justify-between">
+            <span className="text-gray-400">적 본진 HP</span>
+            <span className="text-white font-bold tabular-nums">{Math.floor(enemyBase.hp)}</span>
+          </div>
+        </div>
+
+        {/* 버튼 */}
+        <div className="flex gap-4">
+          <button
+            onClick={handleRestartGame}
+            className={`
+              group relative px-8 py-3 rounded-lg overflow-hidden
+              transition-all duration-300 hover:scale-105 active:scale-95
+            `}
+          >
+            <div className={`absolute inset-0 ${victory ? 'bg-neon-cyan/20' : 'bg-neon-red/20'}`} />
+            <div className={`absolute inset-0 border rounded-lg ${victory ? 'border-neon-cyan/50 group-hover:border-neon-cyan group-hover:shadow-neon-cyan' : 'border-neon-red/50 group-hover:border-neon-red group-hover:shadow-neon-red'} transition-all duration-300`} />
+            <span className={`relative font-game text-lg tracking-wider ${victory ? 'text-neon-cyan' : 'text-neon-red'}`}>
+              다시 시작
+            </span>
+          </button>
+
+          <button
+            onClick={handleBackToMenu}
+            className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95"
+          >
+            <div className="absolute inset-0 bg-dark-600/50" />
+            <div className="absolute inset-0 border border-dark-400 rounded-lg group-hover:border-gray-500 transition-all duration-300" />
+            <span className="relative font-korean text-lg text-gray-400 group-hover:text-white transition-colors duration-300">
+              메인 메뉴
+            </span>
+          </button>
+        </div>
+      </div>
+    </div>
+  );
+};
