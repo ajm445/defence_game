@@ -7,7 +7,7 @@ export const CONFIG = {
   GAME_TIME: 20 * 60, // 20분
   GOLD_PER_SECOND: 4,
   AI_GOLD_PER_SECOND: 3,
-  AI_ACTION_INTERVAL: 6, // AI 행동 주기 (초)
+  AI_ACTION_INTERVAL: 5, // AI 행동 주기 (초)
   BASE_HP: 1000,
 
   UNITS: {
@@ -56,7 +56,7 @@ export const CONFIG = {
       attack: 6,
       range: 25,
       gatherRate: 0.8,
-      speed: 1,
+      speed: 1.2,
       type: 'support',
       resource: 'stone',
     },
