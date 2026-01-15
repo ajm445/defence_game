@@ -43,9 +43,9 @@ export const useGameLoop = () => {
       const updatedPlayerUnits: Unit[] = [];
       const updatedEnemyUnits: Unit[] = [];
 
-      // 데미지 기록 (나중에 적용)
-      const damageToEnemyUnits: Map<string, number> = new Map();
-      const damageToPlayerUnits: Map<string, number> = new Map();
+      // 데미지 기록 (나중에 적용) - damage와 attackerId 포함
+      const damageToEnemyUnits: Map<string, { damage: number; attackerId: string }> = new Map();
+      const damageToPlayerUnits: Map<string, { damage: number; attackerId: string }> = new Map();
 
       // 복사본 생성 (상호 참조 문제 방지)
       const playerUnitsCopy = [...state.units];
@@ -68,11 +68,15 @@ export const useGameLoop = () => {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
           }
           if (result.unitDamage) {
-            const prev = damageToEnemyUnits.get(result.unitDamage.targetId) || 0;
-            damageToEnemyUnits.set(result.unitDamage.targetId, prev + result.unitDamage.damage);
+            const prev = damageToEnemyUnits.get(result.unitDamage.targetId);
+            const newDamage = (prev?.damage || 0) + result.unitDamage.damage;
+            damageToEnemyUnits.set(result.unitDamage.targetId, {
+              damage: newDamage,
+              attackerId: result.unitDamage.attackerId
+            });
           }
         } else {
-          const result = updateSupportUnit(unit, deltaTime, state.resourceNodes);
+          const result = updateSupportUnit(unit, deltaTime, state.resourceNodes, enemyUnitsCopy);
           updatedPlayerUnits.push(result.unit);
 
           if (result.resourceGathered) {
@@ -86,6 +90,14 @@ export const useGameLoop = () => {
           }
           if (result.crystalFound) {
             addResource('crystal', 1, 'player');
+          }
+          if (result.unitDamage) {
+            const prev = damageToEnemyUnits.get(result.unitDamage.targetId);
+            const newDamage = (prev?.damage || 0) + result.unitDamage.damage;
+            damageToEnemyUnits.set(result.unitDamage.targetId, {
+              damage: newDamage,
+              attackerId: result.unitDamage.attackerId
+            });
           }
         }
       }
@@ -107,11 +119,15 @@ export const useGameLoop = () => {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
           }
           if (result.unitDamage) {
-            const prev = damageToPlayerUnits.get(result.unitDamage.targetId) || 0;
-            damageToPlayerUnits.set(result.unitDamage.targetId, prev + result.unitDamage.damage);
+            const prev = damageToPlayerUnits.get(result.unitDamage.targetId);
+            const newDamage = (prev?.damage || 0) + result.unitDamage.damage;
+            damageToPlayerUnits.set(result.unitDamage.targetId, {
+              damage: newDamage,
+              attackerId: result.unitDamage.attackerId
+            });
           }
         } else {
-          const result = updateSupportUnit(unit, deltaTime, state.resourceNodes);
+          const result = updateSupportUnit(unit, deltaTime, state.resourceNodes, playerUnitsCopy);
           updatedEnemyUnits.push(result.unit);
 
           if (result.resourceGathered) {
@@ -123,20 +139,30 @@ export const useGameLoop = () => {
               updateResourceNode(node.id, node.amount - result.resourceGathered.amount);
             }
           }
+          if (result.unitDamage) {
+            const prev = damageToPlayerUnits.get(result.unitDamage.targetId);
+            const newDamage = (prev?.damage || 0) + result.unitDamage.damage;
+            damageToPlayerUnits.set(result.unitDamage.targetId, {
+              damage: newDamage,
+              attackerId: result.unitDamage.attackerId
+            });
+          }
         }
       }
 
-      // 데미지 적용
+      // 데미지 적용 (damage와 attackerId 함께)
       for (const unit of updatedPlayerUnits) {
-        const damage = damageToPlayerUnits.get(unit.id);
-        if (damage) {
-          unit.hp -= damage;
+        const damageInfo = damageToPlayerUnits.get(unit.id);
+        if (damageInfo) {
+          unit.hp -= damageInfo.damage;
+          unit.attackerId = damageInfo.attackerId;
         }
       }
       for (const unit of updatedEnemyUnits) {
-        const damage = damageToEnemyUnits.get(unit.id);
-        if (damage) {
-          unit.hp -= damage;
+        const damageInfo = damageToEnemyUnits.get(unit.id);
+        if (damageInfo) {
+          unit.hp -= damageInfo.damage;
+          unit.attackerId = damageInfo.attackerId;
         }
       }
 

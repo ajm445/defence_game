@@ -4,7 +4,7 @@ import { distance } from '../../utils/math';
 export interface CombatUpdateResult {
   unit: Unit;
   baseDamage?: { team: 'player' | 'enemy'; damage: number };
-  unitDamage?: { targetId: string; damage: number };
+  unitDamage?: { targetId: string; damage: number; attackerId: string };
 }
 
 export function updateCombatUnit(
@@ -19,19 +19,19 @@ export function updateCombatUnit(
 
   let updatedUnit = { ...unit };
   let baseDamage: { team: 'player' | 'enemy'; damage: number } | undefined;
-  let unitDamage: { targetId: string; damage: number } | undefined;
+  let unitDamage: { targetId: string; damage: number; attackerId: string } | undefined;
 
   // 쿨다운 감소
   if (updatedUnit.attackCooldown > 0) {
     updatedUnit.attackCooldown -= deltaTime;
   }
 
-  // 가장 가까운 적 전투 유닛 찾기
+  // 가장 가까운 적 유닛 찾기 (전투/지원 유닛 모두 포함)
   let target: Unit | null = null;
   let minDist = Infinity;
 
   for (const enemy of enemies) {
-    if (enemy.config.type === 'combat' && enemy.hp > 0) {
+    if (enemy.hp > 0) {
       const dist = distance(unit.x, unit.y, enemy.x, enemy.y);
       if (dist < minDist) {
         minDist = dist;
@@ -71,7 +71,7 @@ export function updateCombatUnit(
     } else {
       if (updatedUnit.attackCooldown <= 0) {
         // 타겟에게 데미지
-        unitDamage = { targetId: target.id, damage: attack };
+        unitDamage = { targetId: target.id, damage: attack, attackerId: unit.id };
         updatedUnit.attackCooldown = 1;
         updatedUnit.state = 'attacking';
       }

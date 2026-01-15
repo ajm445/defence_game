@@ -28,4 +28,5 @@ export interface Unit {
   state: UnitState;
   attackCooldown: number;
   team: Team;
+  attackerId?: string; // 마지막으로 공격한 유닛 ID (반격용)
 }

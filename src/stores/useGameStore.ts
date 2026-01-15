@@ -383,7 +383,7 @@ export const useGameStore = create<GameStore>()(
     updateResourceNode: (nodeId, amount) =>
       set((state) => ({
         resourceNodes: state.resourceNodes.map((node) =>
-          node.id === nodeId ? { ...node, amount } : node
+          node.id === nodeId ? { ...node, amount: Math.max(0, amount) } : node
         ),
       })),
 
