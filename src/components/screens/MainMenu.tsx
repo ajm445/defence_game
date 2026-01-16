@@ -32,11 +32,11 @@ export const MainMenu: React.FC = () => {
         {/* 메인 타이틀 */}
         <div className="relative mb-2">
           <h1 className="font-game text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white via-neon-cyan to-neon-blue animate-float">
-            세워라! 무너트려라!
+            막아라! 무너트려라!
           </h1>
           {/* 타이틀 글로우 효과 */}
           <div className="absolute inset-0 font-game text-4xl md:text-5xl font-bold text-neon-cyan/20 blur-2xl pointer-events-none flex items-center justify-center">
-            세워라! 무너트려라!
+            막아라! 무너트려라!
           </div>
         </div>
 
