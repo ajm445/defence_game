@@ -19,6 +19,8 @@ export const ModeSelectScreen: React.FC = () => {
           게임 모드 선택
         </h1>
 
+        <div style={{ height: '30px' }} />
+
         {/* 모드 버튼들 */}
         <div className="flex gap-8">
           {/* AI 대전 */}
@@ -62,6 +64,8 @@ export const ModeSelectScreen: React.FC = () => {
           </button>
         </div>
 
+        <div style={{ height: '30px' }} />
+        
         {/* 뒤로 가기 */}
         <button
           onClick={() => setScreen('menu')}

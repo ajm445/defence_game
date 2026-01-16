@@ -49,6 +49,8 @@ export const DifficultySelectScreen: React.FC = () => {
         </h1>
         <p className="text-gray-400 mb-8">난이도를 선택하세요</p>
 
+        <div style={{ height: '30px' }} />
+
         {/* 난이도 버튼들 */}
         <div className="flex gap-6 mb-8">
           {difficulties.map((difficulty) => {
@@ -80,6 +82,8 @@ export const DifficultySelectScreen: React.FC = () => {
           })}
         </div>
 
+        <div style={{ height: '30px' }} />
+
         {/* 선택된 난이도 설명 */}
         <div className="w-full max-w-lg bg-dark-800/80 border border-neon-cyan/20 rounded-lg p-6 mb-8">
           <h3 className="font-game text-lg text-neon-cyan mb-2">
@@ -109,6 +113,8 @@ export const DifficultySelectScreen: React.FC = () => {
           </div>
         </div>
 
+        <div style={{ height: '30px' }} />
+        
         {/* 뒤로 가기 */}
         <button
           onClick={() => setScreen('modeSelect')}
