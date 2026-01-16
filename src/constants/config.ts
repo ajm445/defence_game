@@ -117,8 +117,8 @@ export const CONFIG = {
 export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
   easy: {
     name: '쉬움',
-    description: '초보자에게 추천합니다. 느린 AI와 적은 자원으로 여유롭게 플레이할 수 있습니다.',
-    goldPerSecond: 3,
+    description: '초보자에게 추천합니다. 느린 AI로 여유롭게 플레이할 수 있습니다.',
+    goldPerSecond: 4,
     actionInterval: 5,
     actionChance: 0.6,
     minSupportUnits: 3,
@@ -133,7 +133,7 @@ export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
   normal: {
     name: '중간',
     description: '균형 잡힌 난이도입니다. AI가 적극적으로 유닛을 생산하고 기지 체력이 증가합니다.',
-    goldPerSecond: 5,
+    goldPerSecond: 4,
     actionInterval: 3,
     actionChance: 0.8,
     minSupportUnits: 4,
@@ -148,7 +148,7 @@ export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
   hard: {
     name: '어려움',
     description: '숙련자를 위한 도전입니다. AI가 매우 빠르고 공격적이며 기지 체력이 크게 증가합니다.',
-    goldPerSecond: 7,
+    goldPerSecond: 4,
     actionInterval: 2,
     actionChance: 0.95,
     minSupportUnits: 5,
