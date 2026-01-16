@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useGameStore } from '../stores/useGameStore';
 import { useUIStore } from '../stores/useUIStore';
-import { CONFIG } from '../constants/config';
+import { CONFIG, AI_DIFFICULTY_CONFIG } from '../constants/config';
 import { updateCombatUnit } from '../game/units/combatUnit';
 import { updateSupportUnit } from '../game/units/supportUnit';
 import { makeAIDecision } from '../game/ai/aiController';
@@ -13,6 +13,7 @@ export const useGameLoop = () => {
   const aiTimerRef = useRef<number>(0);
 
   const running = useGameStore((state) => state.running);
+  const difficulty = useUIStore((state) => state.selectedDifficulty);
   const updateTime = useGameStore((state) => state.updateTime);
   const addGold = useGameStore((state) => state.addGold);
   const addResource = useGameStore((state) => state.addResource);
@@ -36,9 +37,10 @@ export const useGameLoop = () => {
       // 시간 업데이트
       updateTime(deltaTime);
 
-      // 골드 자동 획득
+      // 골드 자동 획득 (AI는 난이도별 골드 수입)
+      const difficultyConfig = AI_DIFFICULTY_CONFIG[difficulty];
       addGold(CONFIG.GOLD_PER_SECOND * deltaTime, 'player');
-      addGold(CONFIG.AI_GOLD_PER_SECOND * deltaTime, 'enemy');
+      addGold(difficultyConfig.goldPerSecond * deltaTime, 'enemy');
 
       // 유닛 업데이트
       const updatedPlayerUnits: Unit[] = [];
@@ -182,14 +184,15 @@ export const useGameLoop = () => {
         }
       }
 
-      // AI 업데이트
+      // AI 업데이트 (난이도별 행동 주기)
       aiTimerRef.current += deltaTime;
-      if (aiTimerRef.current >= CONFIG.AI_ACTION_INTERVAL) {
+      if (aiTimerRef.current >= difficultyConfig.actionInterval) {
         aiTimerRef.current = 0;
         const currentState = useGameStore.getState();
         const decision = makeAIDecision(
           currentState.aiResources,
-          currentState.enemyUnits
+          currentState.enemyUnits,
+          difficultyConfig
         );
 
         if (decision.spawnUnit) {

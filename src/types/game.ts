@@ -34,7 +34,24 @@ export interface GameState {
   aiResources: Resources;
 }
 
-export type GameScreen = 'menu' | 'game' | 'gameover';
+export type GameScreen = 'menu' | 'modeSelect' | 'difficultySelect' | 'game' | 'gameover';
+
+export type GameMode = 'ai' | 'pvp';
+
+export type AIDifficulty = 'easy' | 'normal' | 'hard';
+
+export interface AIDifficultyConfig {
+  name: string;
+  description: string;
+  goldPerSecond: number;
+  actionInterval: number;
+  actionChance: number;
+  minSupportUnits: number;
+  goldminerChance: number;
+  knightChance: number;
+  archerChance: number;
+  initialGold: number;
+}
 
 export interface GameResult {
   victory: boolean;

@@ -1,12 +1,12 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { GameState, Base, Camera, Wall, Resources, ResourceNode, Unit, UnitType, Team } from '../types';
-import { CONFIG } from '../constants/config';
+import { GameState, Base, Camera, Wall, Resources, ResourceNode, Unit, UnitType, Team, AIDifficulty } from '../types';
+import { CONFIG, AI_DIFFICULTY_CONFIG } from '../constants/config';
 import { generateId, clamp } from '../utils/math';
 
 interface GameActions {
   // 게임 제어
-  initGame: () => void;
+  initGame: (difficulty?: AIDifficulty) => void;
   startGame: () => void;
   stopGame: () => void;
 
@@ -175,7 +175,12 @@ export const useGameStore = create<GameStore>()(
   subscribeWithSelector((set, get) => ({
     ...createInitialState(),
 
-    initGame: () => set(createInitialState()),
+    initGame: (difficulty: AIDifficulty = 'easy') => {
+      const state = createInitialState();
+      const difficultyConfig = AI_DIFFICULTY_CONFIG[difficulty];
+      state.aiResources.gold = difficultyConfig.initialGold;
+      set(state);
+    },
 
     startGame: () => set({ running: true }),
 

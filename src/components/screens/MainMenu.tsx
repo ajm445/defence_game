@@ -1,17 +1,12 @@
 import React, { useState } from 'react';
-import { useGameStore } from '../../stores/useGameStore';
 import { useUIStore } from '../../stores/useUIStore';
 
 export const MainMenu: React.FC = () => {
-  const initGame = useGameStore((state) => state.initGame);
-  const startGame = useGameStore((state) => state.startGame);
   const setScreen = useUIStore((state) => state.setScreen);
   const [showHelp, setShowHelp] = useState(false);
 
   const handleStartGame = () => {
-    initGame();
-    startGame();
-    setScreen('game');
+    setScreen('modeSelect');
   };
 
   return (

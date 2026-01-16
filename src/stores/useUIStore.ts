@@ -1,5 +1,5 @@
 import { create } from 'zustand';
-import { GameScreen } from '../types';
+import { GameScreen, AIDifficulty } from '../types';
 
 export type PlacementMode = 'none' | 'wall';
 
@@ -8,12 +8,14 @@ interface UIState {
   notification: string | null;
   notificationKey: number;
   placementMode: PlacementMode;
+  selectedDifficulty: AIDifficulty;
 }
 
 interface UIActions {
   setScreen: (screen: GameScreen) => void;
   showNotification: (message: string) => void;
   setPlacementMode: (mode: PlacementMode) => void;
+  setSelectedDifficulty: (difficulty: AIDifficulty) => void;
 }
 
 interface UIStore extends UIState, UIActions {}
@@ -23,6 +25,7 @@ export const useUIStore = create<UIStore>((set) => ({
   notification: null,
   notificationKey: 0,
   placementMode: 'none',
+  selectedDifficulty: 'easy',
 
   setScreen: (screen) => set({ currentScreen: screen }),
 
@@ -33,4 +36,6 @@ export const useUIStore = create<UIStore>((set) => ({
     })),
 
   setPlacementMode: (mode) => set({ placementMode: mode }),
+
+  setSelectedDifficulty: (difficulty) => set({ selectedDifficulty: difficulty }),
 }));

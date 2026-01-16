@@ -1,5 +1,6 @@
 import { UnitConfig, UnitType } from '../types/unit';
 import { ResourceNodeConfig, ResourceNodeType } from '../types/resource';
+import { AIDifficulty, AIDifficultyConfig } from '../types/game';
 
 export const CONFIG = {
   MAP_WIDTH: 3000,
@@ -111,5 +112,45 @@ export const CONFIG = {
   HERB_SELL_COST: 10,   // 필요 약초 수
   HERB_SELL_GOLD: 30,   // 획득 골드
 } as const;
+
+// AI 난이도별 설정
+export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
+  easy: {
+    name: '쉬움',
+    description: '초보자에게 추천합니다. 느린 AI와 적은 자원으로 여유롭게 플레이할 수 있습니다.',
+    goldPerSecond: 3,
+    actionInterval: 5,
+    actionChance: 0.6,
+    minSupportUnits: 3,
+    goldminerChance: 0.2,
+    knightChance: 0.25,
+    archerChance: 0.3,
+    initialGold: 100,
+  },
+  normal: {
+    name: '중간',
+    description: '균형 잡힌 난이도입니다. AI가 적극적으로 유닛을 생산합니다.',
+    goldPerSecond: 4,
+    actionInterval: 4,
+    actionChance: 0.7,
+    minSupportUnits: 4,
+    goldminerChance: 0.3,
+    knightChance: 0.35,
+    archerChance: 0.4,
+    initialGold: 100,
+  },
+  hard: {
+    name: '어려움',
+    description: '숙련자를 위한 도전입니다. AI가 빠르고 공격적으로 플레이합니다.',
+    goldPerSecond: 5,
+    actionInterval: 3,
+    actionChance: 0.85,
+    minSupportUnits: 5,
+    goldminerChance: 0.4,
+    knightChance: 0.45,
+    archerChance: 0.5,
+    initialGold: 150,
+  },
+};
 
 export type Config = typeof CONFIG;
