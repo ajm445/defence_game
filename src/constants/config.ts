@@ -4,7 +4,7 @@ import { ResourceNodeConfig, ResourceNodeType } from '../types/resource';
 export const CONFIG = {
   MAP_WIDTH: 3000,
   MAP_HEIGHT: 2000,
-  GAME_TIME: 20 * 60, // 20분
+  GAME_TIME: 10 * 60, // 10분
   GOLD_PER_SECOND: 4,
   AI_GOLD_PER_SECOND: 3,
   AI_ACTION_INTERVAL: 5, // AI 행동 주기 (초)

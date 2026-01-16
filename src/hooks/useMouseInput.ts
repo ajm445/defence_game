@@ -88,46 +88,6 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
         }
       }
 
-      // 자원 직접 채집 (선택된 유닛 없을 때)
-      if (!clicked) {
-        for (const node of state.resourceNodes) {
-          if (distance(clickX, clickY, node.x, node.y) < 30 && node.amount > 0) {
-            // 플레이어 본진 근처에서만 직접 채집 가능
-            if (
-              distance(
-                clickX,
-                clickY,
-                state.playerBase.x,
-                state.playerBase.y
-              ) < CONFIG.DIRECT_GATHER_RANGE
-            ) {
-              const gatherAmount = Math.min(CONFIG.DIRECT_GATHER_AMOUNT, node.amount);
-
-              let resourceType: 'gold' | 'wood' | 'stone' | 'herb' | 'crystal';
-              if (node.type === 'tree') {
-                resourceType = 'wood';
-              } else if (node.type === 'rock') {
-                resourceType = 'stone';
-              } else if (node.type === 'herb') {
-                resourceType = 'herb';
-              } else if (node.type === 'goldmine') {
-                resourceType = 'gold';
-              } else {
-                resourceType = 'crystal';
-              }
-
-              addResource(resourceType, gatherAmount, 'player');
-              updateResourceNode(node.id, node.amount - gatherAmount);
-              showNotification(`${resourceType} +${gatherAmount}`);
-            } else {
-              showNotification('너무 멀어서 채집할 수 없습니다!');
-            }
-            clicked = true;
-            break;
-          }
-        }
-      }
-
       if (!clicked) {
         selectUnit(null);
       }
