@@ -23,23 +23,17 @@ export function makeAIDecision(
     return decision;
   }
 
-  // 지원 유닛 수 확인
-  const supportCount = enemyUnits.filter(
-    (u) => u.config.type === 'support'
-  ).length;
-
-  // 각 지원 유닛 수 확인
+  // 유닛 수 확인
+  const supportCount = enemyUnits.filter((u) => u.config.type === 'support').length;
+  const combatCount = enemyUnits.filter((u) => u.config.type === 'combat').length;
   const goldminerCount = enemyUnits.filter((u) => u.type === 'goldminer').length;
-  const gathererCount = enemyUnits.filter((u) => u.type === 'gatherer').length;
-  const minerCount = enemyUnits.filter((u) => u.type === 'miner').length;
 
-  // 지원 유닛이 최소 수보다 적으면 지원 유닛 생산
+  // 초반: 지원 유닛이 최소 수보다 적으면 지원 유닛 생산
   if (supportCount < difficultyConfig.minSupportUnits && aiResources.gold >= 30) {
-    // 나무꾼, 채집꾼, 광부 중 랜덤 선택
     const roll = Math.random();
-    if (roll < 0.5) {
+    if (roll < 0.6) {
       decision.spawnUnit = 'woodcutter';
-    } else if (roll < 0.75) {
+    } else if (roll < 0.8) {
       decision.spawnUnit = 'gatherer';
     } else if (aiResources.wood >= 5) {
       decision.spawnUnit = 'miner';
@@ -49,60 +43,68 @@ export function makeAIDecision(
     return decision;
   }
 
-  // 금광부가 1마리 미만이고 자원이 충분하면 금광부 생산
+  // 중후반: 지원 유닛이 충분하면 전투 유닛 우선 (80% 확률)
+  // 자원이 풍부할수록 전투 유닛 생산 확률 증가
+  const hasSufficientSupport = supportCount >= difficultyConfig.minSupportUnits;
+  const hasGoodResources = aiResources.wood >= 20 && aiResources.stone >= 10;
+  const combatPriority = hasSufficientSupport ? (hasGoodResources ? 0.85 : 0.7) : 0.3;
+
+  if (Math.random() < combatPriority) {
+    // 전투 유닛 생산 시도
+
+    // 돌이 충분하면 기사 생산 시도
+    if (
+      aiResources.gold >= 120 &&
+      aiResources.wood >= 20 &&
+      aiResources.stone >= 30 &&
+      Math.random() < difficultyConfig.knightChance
+    ) {
+      decision.spawnUnit = 'knight';
+      return decision;
+    }
+
+    // 나무가 있으면 궁수 생산 시도
+    if (
+      aiResources.wood >= 10 &&
+      aiResources.gold >= 80 &&
+      Math.random() < difficultyConfig.archerChance
+    ) {
+      decision.spawnUnit = 'ranged';
+      return decision;
+    }
+
+    // 기본: 검병 생산
+    if (aiResources.gold >= 50) {
+      decision.spawnUnit = 'melee';
+      return decision;
+    }
+  }
+
+  // 추가 지원 유닛 생산 (낮은 확률)
+
+  // 금광부가 없고 자원 충분하면 금광부 생산
   if (
     goldminerCount < 1 &&
     aiResources.gold >= 100 &&
     aiResources.wood >= 20 &&
-    Math.random() < difficultyConfig.goldminerChance
+    Math.random() < difficultyConfig.goldminerChance * 0.5
   ) {
     decision.spawnUnit = 'goldminer';
     return decision;
   }
 
-  // 채집꾼이 2마리 미만이면 채집꾼 생산 시도
-  if (
-    gathererCount < 2 &&
-    aiResources.gold >= 35 &&
-    Math.random() < difficultyConfig.gathererChance
-  ) {
+  // 추가 채집꾼/광부 (매우 낮은 확률)
+  if (aiResources.gold >= 35 && Math.random() < difficultyConfig.gathererChance * 0.3) {
     decision.spawnUnit = 'gatherer';
     return decision;
   }
 
-  // 광부가 2마리 미만이고 나무가 있으면 광부 생산 시도
-  if (
-    minerCount < 2 &&
-    aiResources.gold >= 40 &&
-    aiResources.wood >= 5 &&
-    Math.random() < difficultyConfig.minerChance
-  ) {
+  if (aiResources.gold >= 40 && aiResources.wood >= 5 && Math.random() < difficultyConfig.minerChance * 0.3) {
     decision.spawnUnit = 'miner';
     return decision;
   }
 
-  // 돌이 충분하면 기사 생산 시도
-  if (
-    aiResources.gold >= 120 &&
-    aiResources.wood >= 20 &&
-    aiResources.stone >= 30 &&
-    Math.random() < difficultyConfig.knightChance
-  ) {
-    decision.spawnUnit = 'knight';
-    return decision;
-  }
-
-  // 나무가 있으면 궁수 생산 시도
-  if (
-    aiResources.wood >= 10 &&
-    aiResources.gold >= 80 &&
-    Math.random() < difficultyConfig.archerChance
-  ) {
-    decision.spawnUnit = 'ranged';
-    return decision;
-  }
-
-  // 기본: 검병 생산
+  // 폴백: 검병 생산
   if (aiResources.gold >= 50) {
     decision.spawnUnit = 'melee';
     return decision;
