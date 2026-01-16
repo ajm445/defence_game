@@ -4,7 +4,7 @@
 
 실시간 전략(RTS) 게임으로, 자원을 수집하고 유닛을 생산하여 적 기지를 먼저 파괴하면 승리합니다.
 
-**Version: 1.4.0**
+**Version: 1.5.0**
 
 ---
 
@@ -24,6 +24,8 @@
 
 ## 기술 스택
 
+### 클라이언트
+
 | 기술 | 버전 | 용도 |
 |------|------|------|
 | React | 19.x | UI 프레임워크 |
@@ -32,9 +34,19 @@
 | Zustand | 5.x | 상태 관리 |
 | Tailwind CSS | 4.x | 스타일링 |
 
+### 서버 (멀티플레이어)
+
+| 기술 | 버전 | 용도 |
+|------|------|------|
+| Node.js | 22.x | 런타임 |
+| ws | 8.x | WebSocket 서버 |
+| TypeScript | 5.x | 타입 안정성 |
+
 ---
 
 ## 설치 및 실행
+
+### AI 대전 (싱글플레이어)
 
 ```bash
 # 의존성 설치
@@ -45,6 +57,20 @@ npm run dev
 
 # 프로덕션 빌드
 npm run build
+```
+
+### 1vs1 대전 (멀티플레이어)
+
+```bash
+# 전체 의존성 설치 (루트 + 서버)
+npm install
+
+# 서버 실행 (별도 터미널)
+cd server
+npm run dev
+
+# 클라이언트 실행 (별도 터미널)
+npm run dev
 ```
 
 ---
@@ -113,22 +139,32 @@ npm run build
 ## 프로젝트 구조
 
 ```
-src/
-├── components/           # React 컴포넌트
-│   ├── canvas/          # 게임 렌더링 (GameCanvas, Minimap)
-│   ├── common/          # 공통 컴포넌트 (Button, HPBar)
-│   ├── screens/         # 화면 (MainMenu, GameScreen, GameOverScreen)
-│   └── ui/              # UI 패널 (ResourceBar, UnitPanel 등)
-├── constants/           # 게임 설정 (config.ts)
-├── game/                # 게임 로직
-│   ├── ai/              # 적 AI
-│   ├── resources/       # 자원 노드 관리
-│   └── units/           # 유닛 타입 및 동작
-├── hooks/               # 커스텀 훅 (게임 루프, 입력 처리)
-├── renderer/            # 캔버스 렌더링
-├── stores/              # Zustand 상태 관리
-├── types/               # TypeScript 타입
-└── utils/               # 유틸리티 함수
+defence_game/
+├── src/                      # 클라이언트 (React)
+│   ├── components/           # React 컴포넌트
+│   │   ├── canvas/          # 게임 렌더링 (GameCanvas, Minimap)
+│   │   ├── common/          # 공통 컴포넌트 (Button, HPBar)
+│   │   ├── screens/         # 화면 (MainMenu, LobbyScreen 등)
+│   │   └── ui/              # UI 패널 (ResourceBar, UnitPanel 등)
+│   ├── constants/           # 게임 설정 (config.ts)
+│   ├── game/                # 게임 로직
+│   │   ├── ai/              # 적 AI
+│   │   ├── resources/       # 자원 노드 관리
+│   │   └── units/           # 유닛 타입 및 동작
+│   ├── hooks/               # 커스텀 훅 (게임 루프, 입력 처리)
+│   ├── renderer/            # 캔버스 렌더링
+│   ├── services/            # WebSocket 클라이언트
+│   ├── stores/              # Zustand 상태 관리
+│   ├── types/               # TypeScript 타입
+│   └── utils/               # 유틸리티 함수
+├── server/                   # 멀티플레이어 서버 (Node.js)
+│   └── src/
+│       ├── game/            # 서버 게임 로직 (GameRoom)
+│       ├── matchmaking/     # 매칭 시스템
+│       ├── state/           # 서버 상태 관리
+│       └── websocket/       # WebSocket 서버
+└── shared/                   # 공유 타입
+    └── types/               # 네트워크 메시지 및 게임 타입
 ```
 
 ---
@@ -154,7 +190,14 @@ src/
 
 ## 버전 히스토리
 
-### V1.4.0 (현재)
+### V1.5.0 (현재)
+- 1vs1 네트워크 멀티플레이어 모드 추가 (개발중)
+- WebSocket 기반 실시간 대전 서버 구현
+- 매칭 대기열 시스템 추가
+- 서버 권위 모델로 게임 상태 동기화
+- 모노레포 구조로 프로젝트 재구성 (client/server/shared)
+
+### V1.4.0
 - AI 난이도 시스템 추가 (쉬움/중간/어려움)
 - 난이도별 적 기지 HP 차등 적용
 - AI 채집꾼/광부 생산 기능 추가
@@ -187,6 +230,16 @@ src/
 - 적 AI 시스템
 - 벽 건설 및 기지 업그레이드
 - 미니맵 및 카메라 시스템
+
+---
+
+## 알려진 문제
+
+### V1.5.0
+
+| 문제 | 상태 | 설명 |
+|------|------|------|
+| 멀티플레이어 상태 동기화 | 개발중 | 서버는 연결되지만 상대방의 게임 상태가 보이지 않음 |
 
 ---
 
