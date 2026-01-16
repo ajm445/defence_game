@@ -3,6 +3,7 @@ import type {
   ServerMessage,
   ConnectionState,
   MatchInfo,
+  RoomInfo,
   GameEvent,
 } from '@shared/types/network';
 import type {
@@ -18,8 +19,8 @@ interface MultiplayerState {
   playerId: string | null;
   playerName: string;
 
-  // 매칭 상태
-  queuePosition: number;
+  // 방 상태
+  roomInfo: RoomInfo | null;
   matchInfo: MatchInfo | null;
 
   // 게임 상태
@@ -39,8 +40,9 @@ interface MultiplayerState {
   // 액션
   connect: (playerName: string) => Promise<void>;
   disconnect: () => void;
-  joinQueue: () => void;
-  leaveQueue: () => void;
+  createRoom: () => void;
+  joinRoom: (roomCode: string) => void;
+  leaveRoom: () => void;
   setPlayerName: (name: string) => void;
   reset: () => void;
 }
@@ -49,7 +51,7 @@ const initialState = {
   connectionState: 'disconnected' as ConnectionState,
   playerId: null,
   playerName: '',
-  queuePosition: 0,
+  roomInfo: null,
   matchInfo: null,
   countdown: 0,
   gameState: null,
@@ -69,27 +71,63 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => {
         });
         break;
 
-      case 'QUEUE_JOINED':
+      case 'ROOM_CREATED':
         set({
-          connectionState: 'in_queue',
-          queuePosition: message.position,
+          connectionState: 'in_room_waiting',
+          roomInfo: {
+            roomId: message.roomId,
+            roomCode: message.roomCode,
+            isHost: true,
+            side: 'left',
+          },
         });
         break;
 
-      case 'QUEUE_UPDATE':
-        set({ queuePosition: message.position });
-        break;
-
-      case 'MATCH_FOUND':
-        set({
+      case 'ROOM_JOINED':
+        set((state) => ({
           connectionState: 'matched',
+          roomInfo: state.roomInfo
+            ? {
+                ...state.roomInfo,
+                opponentName: message.opponent,
+              }
+            : {
+                roomId: message.roomId,
+                roomCode: '',
+                isHost: false,
+                opponentName: message.opponent,
+                side: message.side,
+              },
           matchInfo: {
             roomId: message.roomId,
             opponentName: message.opponent,
             side: message.side,
           },
           mySide: message.side,
-        });
+        }));
+        break;
+
+      case 'PLAYER_JOINED':
+        set((state) => ({
+          connectionState: 'in_room_ready',
+          roomInfo: state.roomInfo
+            ? { ...state.roomInfo, opponentName: message.opponent }
+            : null,
+        }));
+        break;
+
+      case 'PLAYER_LEFT':
+        set((state) => ({
+          connectionState: 'in_room_waiting',
+          roomInfo: state.roomInfo
+            ? { ...state.roomInfo, opponentName: undefined }
+            : null,
+          matchInfo: null,
+        }));
+        break;
+
+      case 'ROOM_ERROR':
+        set({ error: message.message });
         break;
 
       case 'GAME_COUNTDOWN':
@@ -159,16 +197,22 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => {
       set(initialState);
     },
 
-    joinQueue: () => {
+    createRoom: () => {
       const { playerName } = get();
-      wsClient.joinQueue(playerName || 'Player');
+      wsClient.createRoom(playerName || 'Player');
     },
 
-    leaveQueue: () => {
-      wsClient.leaveQueue();
+    joinRoom: (roomCode: string) => {
+      const { playerName } = get();
+      wsClient.joinRoom(roomCode, playerName || 'Player');
+    },
+
+    leaveRoom: () => {
+      wsClient.leaveRoom();
       set({
         connectionState: 'connected',
-        queuePosition: 0,
+        roomInfo: null,
+        matchInfo: null,
       });
     },
 
@@ -178,7 +222,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => {
 
     reset: () => {
       set({
-        queuePosition: 0,
+        roomInfo: null,
         matchInfo: null,
         countdown: 0,
         gameState: null,

@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
 import { handleMessage, getRoom } from './MessageHandler';
-import { removeFromQueue } from '../matchmaking/MatchMaker';
+import { handlePlayerDisconnect } from '../room/RoomManager';
 import { players, sendMessage, Player } from '../state/players';
 
 // Re-export for backwards compatibility
@@ -60,8 +60,8 @@ export function createWebSocketServer(port: number) {
         }
       }
 
-      // 매칭 큐에서 제거
-      removeFromQueue(playerId);
+      // 대기 방에서 제거
+      handlePlayerDisconnect(playerId);
 
       players.delete(playerId);
       console.log(`현재 접속자: ${players.size}명`);

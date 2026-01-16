@@ -123,12 +123,16 @@ class WebSocketClient {
   }
 
   // 편의 메서드들
-  public joinQueue(playerName: string): void {
-    this.send({ type: 'JOIN_QUEUE', playerName });
+  public createRoom(playerName: string): void {
+    this.send({ type: 'CREATE_ROOM', playerName });
   }
 
-  public leaveQueue(): void {
-    this.send({ type: 'LEAVE_QUEUE' });
+  public joinRoom(roomCode: string, playerName: string): void {
+    this.send({ type: 'JOIN_ROOM', roomCode, playerName });
+  }
+
+  public leaveRoom(): void {
+    this.send({ type: 'LEAVE_ROOM' });
   }
 
   public sendReady(): void {

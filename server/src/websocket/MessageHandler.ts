@@ -1,6 +1,6 @@
 import type { ClientMessage } from '../../../shared/types/network';
 import { players } from '../state/players';
-import { addToQueue, removeFromQueue } from '../matchmaking/MatchMaker';
+import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import { GameRoom } from '../game/GameRoom';
 
 // 게임 방 저장소
@@ -26,12 +26,16 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
   }
 
   switch (message.type) {
-    case 'JOIN_QUEUE':
-      handleJoinQueue(playerId, message.playerName);
+    case 'CREATE_ROOM':
+      handleCreateRoom(playerId, message.playerName);
       break;
 
-    case 'LEAVE_QUEUE':
-      handleLeaveQueue(playerId);
+    case 'JOIN_ROOM':
+      handleJoinRoom(playerId, message.roomCode, message.playerName);
+      break;
+
+    case 'LEAVE_ROOM':
+      handleLeaveRoom(playerId);
       break;
 
     case 'GAME_READY':
@@ -63,19 +67,27 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
   }
 }
 
-function handleJoinQueue(playerId: string, playerName: string): void {
+function handleCreateRoom(playerId: string, playerName: string): void {
   const player = players.get(playerId);
   if (!player) return;
 
-  player.name = playerName || `Player_${playerId.slice(0, 4)}`;
-
-  console.log(`${player.name}(${playerId}) 매칭 대기열 참가`);
-  addToQueue(playerId);
+  const name = playerName || `Player_${playerId.slice(0, 4)}`;
+  console.log(`${name}(${playerId}) 방 생성 요청`);
+  createRoom(playerId, name);
 }
 
-function handleLeaveQueue(playerId: string): void {
-  console.log(`${playerId} 매칭 대기열 이탈`);
-  removeFromQueue(playerId);
+function handleJoinRoom(playerId: string, roomCode: string, playerName: string): void {
+  const player = players.get(playerId);
+  if (!player) return;
+
+  const name = playerName || `Player_${playerId.slice(0, 4)}`;
+  console.log(`${name}(${playerId}) 방 참가 요청: ${roomCode}`);
+  joinRoom(roomCode, playerId, name);
+}
+
+function handleLeaveRoom(playerId: string): void {
+  console.log(`${playerId} 방 나가기`);
+  leaveRoom(playerId);
 }
 
 function handleGameReady(playerId: string): void {

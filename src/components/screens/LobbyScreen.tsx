@@ -7,15 +7,16 @@ export const LobbyScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
   const {
     connectionState,
-    queuePosition,
+    roomInfo,
     matchInfo,
     countdown,
     error,
     playerName,
     connect,
     disconnect,
-    joinQueue,
-    leaveQueue,
+    createRoom,
+    joinRoom,
+    leaveRoom,
     setPlayerName,
     reset,
   } = useMultiplayerStore();
@@ -23,6 +24,8 @@ export const LobbyScreen: React.FC = () => {
   const initGame = useGameStore((state) => state.initGame);
   const [inputName, setInputName] = useState(playerName || '');
   const [isConnecting, setIsConnecting] = useState(false);
+  const [showJoinInput, setShowJoinInput] = useState(false);
+  const [roomCode, setRoomCode] = useState('');
 
   // 매칭 성공 후 게임 시작
   useEffect(() => {
@@ -31,6 +34,16 @@ export const LobbyScreen: React.FC = () => {
       setScreen('game');
     }
   }, [connectionState, initGame, setScreen]);
+
+  // 에러 발생 시 3초 후 자동 클리어
+  useEffect(() => {
+    if (error) {
+      const timer = setTimeout(() => {
+        useMultiplayerStore.setState({ error: null });
+      }, 3000);
+      return () => clearTimeout(timer);
+    }
+  }, [error]);
 
   const handleConnect = async () => {
     if (!inputName.trim()) {
@@ -46,19 +59,47 @@ export const LobbyScreen: React.FC = () => {
     setIsConnecting(false);
   };
 
-  const handleJoinQueue = () => {
+  const handleCreateRoom = () => {
     setPlayerName(inputName.trim());
-    joinQueue();
+    createRoom();
+  };
+
+  const handleJoinRoom = () => {
+    if (roomCode.trim().length !== 6) {
+      useMultiplayerStore.setState({ error: '6자리 초대 코드를 입력하세요.' });
+      return;
+    }
+    setPlayerName(inputName.trim());
+    joinRoom(roomCode.trim().toUpperCase());
   };
 
   const handleBack = () => {
-    if (connectionState === 'in_queue') {
-      leaveQueue();
+    if (connectionState === 'in_room_waiting' || connectionState === 'in_room_ready') {
+      leaveRoom();
     } else if (connectionState !== 'disconnected') {
       disconnect();
     }
     reset();
+    setShowJoinInput(false);
+    setRoomCode('');
     setScreen('modeSelect');
+  };
+
+  const handleLeaveRoom = () => {
+    leaveRoom();
+    setShowJoinInput(false);
+    setRoomCode('');
+  };
+
+  const copyRoomCode = async () => {
+    if (roomInfo?.roomCode) {
+      try {
+        await navigator.clipboard.writeText(roomInfo.roomCode);
+        // 복사 성공 피드백 (간단히 alert 대신 상태로 처리 가능)
+      } catch (e) {
+        console.error('클립보드 복사 실패:', e);
+      }
+    }
   };
 
   const renderContent = () => {
@@ -85,7 +126,7 @@ export const LobbyScreen: React.FC = () => {
           <button
             onClick={handleConnect}
             disabled={!inputName.trim() || isConnecting}
-            className="px-8 py-3 rounded-lg bg-neon-cyan/20 border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all"
+            className="px-8 py-3 rounded-lg bg-neon-cyan/20 border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
           >
             {isConnecting ? '연결 중...' : '서버 연결'}
           </button>
@@ -93,42 +134,143 @@ export const LobbyScreen: React.FC = () => {
       );
     }
 
-    // 연결됨 - 대기열 참가 버튼
+    // 연결됨 - 방 생성 / 방 참가 선택
     if (connectionState === 'connected') {
+      if (showJoinInput) {
+        // 방 참가 - 코드 입력
+        return (
+          <div className="flex flex-col items-center gap-6">
+            <p className="text-gray-400 mb-2">초대 코드를 입력하세요</p>
+
+            <input
+              type="text"
+              value={roomCode}
+              onChange={(e) => setRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+              placeholder="6자리 코드"
+              maxLength={6}
+              className="w-48 px-4 py-4 bg-gray-800/50 border border-neon-purple rounded-lg text-white text-center text-2xl tracking-[0.3em] font-mono focus:border-neon-purple focus:outline-none uppercase"
+              onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
+              autoFocus
+            />
+
+            {error && (
+              <p className="text-red-400 text-sm">{error}</p>
+            )}
+
+            <div className="flex gap-4">
+              <button
+                onClick={() => {
+                  setShowJoinInput(false);
+                  setRoomCode('');
+                  useMultiplayerStore.setState({ error: null });
+                }}
+                className="px-6 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleJoinRoom}
+                disabled={roomCode.length !== 6}
+                className="px-6 py-3 rounded-lg bg-neon-purple/20 border border-neon-purple text-neon-purple hover:bg-neon-purple/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                참가
+              </button>
+            </div>
+          </div>
+        );
+      }
+
+      // 방 생성 / 참가 선택
       return (
         <div className="flex flex-col items-center gap-6">
-          <p className="text-green-400 mb-4">✓ 서버 연결됨</p>
-          <p className="text-gray-400">
+          <p className="text-green-400 mb-2">서버 연결됨</p>
+          <p className="text-gray-400 mb-4">
             플레이어: <span className="text-white font-bold">{inputName}</span>
           </p>
 
-          <button
-            onClick={handleJoinQueue}
-            className="px-8 py-4 rounded-lg bg-neon-purple/20 border border-neon-purple text-neon-purple hover:bg-neon-purple/30 transition-all text-lg"
+          {error && (
+            <p className="text-red-400 text-sm mb-2">{error}</p>
+          )}
+
+          <div className="flex gap-4">
+            <button
+              onClick={handleCreateRoom}
+              className="px-8 py-4 rounded-lg bg-neon-cyan/20 border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/30 transition-all text-lg cursor-pointer"
+            >
+              방 생성
+            </button>
+
+            <button
+              onClick={() => setShowJoinInput(true)}
+              className="px-8 py-4 rounded-lg bg-neon-purple/20 border border-neon-purple text-neon-purple hover:bg-neon-purple/30 transition-all text-lg cursor-pointer"
+            >
+              방 참가
+            </button>
+          </div>
+        </div>
+      );
+    }
+
+    // 방에서 대기 중 (방장)
+    if (connectionState === 'in_room_waiting') {
+      return (
+        <div className="flex flex-col items-center gap-6">
+          <p className="text-neon-cyan text-lg">초대 코드</p>
+
+          <div
+            className="px-8 py-4 bg-gray-800/50 border-2 border-neon-cyan rounded-lg cursor-pointer hover:bg-gray-800/70 transition-all"
+            onClick={copyRoomCode}
+            title="클릭하여 복사"
           >
-            대전 찾기
+            <p className="text-4xl font-bold tracking-[0.4em] text-white font-mono">
+              {roomInfo?.roomCode}
+            </p>
+          </div>
+
+          <p className="text-gray-400 text-sm">이 코드를 상대방에게 공유하세요</p>
+          <p className="text-gray-500 text-xs">(클릭하면 복사됩니다)</p>
+
+          <div className="flex items-center gap-2 mt-4">
+            <div className="w-4 h-4 border-2 border-neon-cyan border-t-transparent rounded-full animate-spin" />
+            <p className="text-gray-400">상대방을 기다리는 중...</p>
+          </div>
+
+          <button
+            onClick={handleLeaveRoom}
+            className="mt-4 px-6 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+          >
+            나가기
           </button>
         </div>
       );
     }
 
-    // 대기열에 있음
-    if (connectionState === 'in_queue') {
+    // 방에 2명 있음 (카운트다운 전)
+    if (connectionState === 'in_room_ready') {
       return (
         <div className="flex flex-col items-center gap-6">
-          <div className="w-16 h-16 border-4 border-neon-cyan border-t-transparent rounded-full animate-spin" />
+          <p className="text-green-400 text-xl">상대방 참가!</p>
 
-          <p className="text-neon-cyan text-xl">상대를 찾는 중...</p>
-          <p className="text-gray-400">
-            대기열 위치: <span className="text-white font-bold">{queuePosition}</span>
-          </p>
+          <div className="flex items-center gap-8">
+            <div className="text-center">
+              <p className="text-gray-400 text-sm">나</p>
+              <p className="text-neon-cyan text-lg font-bold">{inputName}</p>
+              <p className="text-gray-500 text-xs">(왼쪽)</p>
+            </div>
 
-          <button
-            onClick={leaveQueue}
-            className="mt-4 px-6 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all"
-          >
-            취소
-          </button>
+            <div className="text-4xl text-neon-purple">VS</div>
+
+            <div className="text-center">
+              <p className="text-gray-400 text-sm">상대</p>
+              <p className="text-red-400 text-lg font-bold">{roomInfo?.opponentName}</p>
+              <p className="text-gray-500 text-xs">(오른쪽)</p>
+            </div>
+          </div>
+
+          <div className="flex items-center gap-2 mt-4">
+            <div className="w-4 h-4 border-2 border-green-400 border-t-transparent rounded-full animate-spin" />
+            <p className="text-gray-400">게임 시작 준비 중...</p>
+          </div>
         </div>
       );
     }
@@ -137,7 +279,7 @@ export const LobbyScreen: React.FC = () => {
     if (connectionState === 'matched') {
       return (
         <div className="flex flex-col items-center gap-6">
-          <p className="text-green-400 text-xl">매칭 성공!</p>
+          <p className="text-green-400 text-xl">게임 시작!</p>
 
           <div className="flex items-center gap-8">
             <div className="text-center">

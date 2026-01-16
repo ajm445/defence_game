@@ -14,8 +14,11 @@ import type {
 // ============================================
 
 export type ClientMessage =
-  | { type: 'JOIN_QUEUE'; playerName: string }
-  | { type: 'LEAVE_QUEUE' }
+  // 방 관련 메시지
+  | { type: 'CREATE_ROOM'; playerName: string }
+  | { type: 'JOIN_ROOM'; roomCode: string; playerName: string }
+  | { type: 'LEAVE_ROOM' }
+  // 게임 액션 메시지
   | { type: 'GAME_READY' }
   | { type: 'SPAWN_UNIT'; unitType: UnitType }
   | { type: 'BUILD_WALL'; x: number; y: number }
@@ -29,9 +32,13 @@ export type ClientMessage =
 
 export type ServerMessage =
   | { type: 'CONNECTED'; playerId: string }
-  | { type: 'QUEUE_JOINED'; position: number }
-  | { type: 'QUEUE_UPDATE'; position: number }
-  | { type: 'MATCH_FOUND'; roomId: string; opponent: string; side: PlayerSide }
+  // 방 관련 메시지
+  | { type: 'ROOM_CREATED'; roomCode: string; roomId: string }
+  | { type: 'ROOM_JOINED'; roomId: string; opponent: string; side: PlayerSide }
+  | { type: 'PLAYER_JOINED'; opponent: string }
+  | { type: 'PLAYER_LEFT' }
+  | { type: 'ROOM_ERROR'; message: string }
+  // 게임 진행 메시지
   | { type: 'GAME_COUNTDOWN'; seconds: number }
   | { type: 'GAME_START'; state: NetworkGameState }
   | { type: 'GAME_STATE'; state: NetworkGameState }
@@ -69,7 +76,8 @@ export type ConnectionState =
   | 'disconnected'
   | 'connecting'
   | 'connected'
-  | 'in_queue'
+  | 'in_room_waiting'  // 방에서 상대 대기 중
+  | 'in_room_ready'    // 2명 모두 있음
   | 'matched'
   | 'in_game';
 
@@ -80,5 +88,17 @@ export type ConnectionState =
 export interface MatchInfo {
   roomId: string;
   opponentName: string;
+  side: PlayerSide;
+}
+
+// ============================================
+// 방 정보
+// ============================================
+
+export interface RoomInfo {
+  roomId: string;
+  roomCode: string;
+  isHost: boolean;
+  opponentName?: string;
   side: PlayerSide;
 }

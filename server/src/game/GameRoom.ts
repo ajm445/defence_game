@@ -145,6 +145,7 @@ export class GameRoom {
   private resourceNodes: NetworkResourceNode[] = [];
 
   private lastGoldTick: number = 0;
+  private lastFullSync: number = 0;
 
   constructor(id: string, leftPlayerId: string, rightPlayerId: string) {
     this.id = id;
@@ -315,7 +316,8 @@ export class GameRoom {
     this.checkWinCondition();
 
     // 500ms마다 전체 상태 동기화
-    if (Math.floor(this.gameTime * 2) % 1 === 0) {
+    if (this.gameTime - this.lastFullSync >= 0.5) {
+      this.lastFullSync = this.gameTime;
       this.broadcastState();
     }
   }
