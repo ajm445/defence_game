@@ -28,7 +28,7 @@ export const DifficultySelectScreen: React.FC = () => {
 
   const handleSelectDifficulty = (difficulty: AIDifficulty) => {
     setSelectedDifficulty(difficulty);
-    initGame(difficulty);
+    initGame('ai', difficulty);
     startGame();
     setScreen('game');
   };

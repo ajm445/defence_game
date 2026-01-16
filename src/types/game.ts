@@ -34,9 +34,9 @@ export interface GameState {
   aiResources: Resources;
 }
 
-export type GameScreen = 'menu' | 'modeSelect' | 'difficultySelect' | 'game' | 'gameover';
+export type GameScreen = 'menu' | 'modeSelect' | 'difficultySelect' | 'lobby' | 'game' | 'gameover';
 
-export type GameMode = 'ai' | 'pvp';
+export type GameMode = 'ai' | 'multiplayer';
 
 export type AIDifficulty = 'easy' | 'normal' | 'hard';
 

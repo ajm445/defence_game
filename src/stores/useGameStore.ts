@@ -1,12 +1,13 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { GameState, Base, Camera, Wall, Resources, ResourceNode, Unit, UnitType, Team, AIDifficulty } from '../types';
+import { GameState, Base, Camera, Wall, Resources, ResourceNode, Unit, UnitType, Team, AIDifficulty, GameMode } from '../types';
 import { CONFIG, AI_DIFFICULTY_CONFIG } from '../constants/config';
 import { generateId, clamp } from '../utils/math';
 
 interface GameActions {
   // 게임 제어
-  initGame: (difficulty?: AIDifficulty) => void;
+  initGame: (mode?: GameMode, difficulty?: AIDifficulty) => void;
+  gameMode: GameMode;
   startGame: () => void;
   stopGame: () => void;
 
@@ -47,7 +48,9 @@ interface GameActions {
   checkGameEnd: () => 'victory' | 'defeat' | null;
 }
 
-interface GameStore extends GameState, GameActions {}
+interface GameStore extends GameState, GameActions {
+  gameMode: GameMode;
+}
 
 const initialResources: Resources = {
   gold: 100,
@@ -175,14 +178,21 @@ const createInitialState = (): GameState => ({
 export const useGameStore = create<GameStore>()(
   subscribeWithSelector((set, get) => ({
     ...createInitialState(),
+    gameMode: 'ai' as GameMode,
 
-    initGame: (difficulty: AIDifficulty = 'easy') => {
+    initGame: (mode: GameMode = 'ai', difficulty: AIDifficulty = 'easy') => {
       const state = createInitialState();
-      const difficultyConfig = AI_DIFFICULTY_CONFIG[difficulty];
-      state.aiResources.gold = difficultyConfig.initialGold;
-      state.enemyBase.hp = difficultyConfig.enemyBaseHp;
-      state.enemyBase.maxHp = difficultyConfig.enemyBaseHp;
-      set(state);
+
+      if (mode === 'ai') {
+        const difficultyConfig = AI_DIFFICULTY_CONFIG[difficulty];
+        state.aiResources.gold = difficultyConfig.initialGold;
+        state.enemyBase.hp = difficultyConfig.enemyBaseHp;
+        state.enemyBase.maxHp = difficultyConfig.enemyBaseHp;
+      }
+      // 멀티플레이어 모드에서는 서버에서 상태를 받아옴
+      // 기본 상태만 설정
+
+      set({ ...state, gameMode: mode });
     },
 
     startGame: () => set({ running: true }),
@@ -482,3 +492,4 @@ export const useGameTime = () => useGameStore((state) => state.time);
 export const useSelectedUnit = () => useGameStore((state) => state.selectedUnit);
 export const useIsRunning = () => useGameStore((state) => state.running);
 export const useCamera = () => useGameStore((state) => state.camera);
+export const useGameMode = () => useGameStore((state) => state.gameMode);

@@ -43,22 +43,22 @@ export const ModeSelectScreen: React.FC = () => {
             </div>
           </button>
 
-          {/* 1vs1 대전 (준비중) */}
+          {/* 1vs1 대전 */}
           <button
-            disabled
-            className="group relative w-48 h-64 rounded-lg overflow-hidden transition-all duration-300 cursor-not-allowed opacity-50"
+            onClick={() => setScreen('lobby')}
+            className="group relative w-48 h-64 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
           >
-            <div className="absolute inset-0 bg-gradient-to-b from-gray-700/20 to-gray-800/20" />
-            <div className="absolute inset-0 border-2 border-gray-600 rounded-lg" />
+            <div className="absolute inset-0 bg-gradient-to-b from-neon-purple/20 to-neon-pink/20 group-hover:from-neon-purple/30 group-hover:to-neon-pink/30 transition-all duration-300" />
+            <div className="absolute inset-0 border-2 border-neon-purple/50 rounded-lg group-hover:border-neon-purple group-hover:shadow-neon-purple transition-all duration-300" />
 
             <div className="relative h-full flex flex-col items-center justify-center p-6">
-              <div className="text-6xl mb-4 grayscale">⚔️</div>
-              <h2 className="font-game text-xl text-gray-400 mb-2">1vs1 대전</h2>
-              <p className="text-gray-500 text-sm text-center">
+              <div className="text-6xl mb-4">⚔️</div>
+              <h2 className="font-game text-xl text-white mb-2">1vs1 대전</h2>
+              <p className="text-gray-400 text-sm text-center">
                 다른 플레이어와 대결
               </p>
-              <p className="text-yellow-500 text-xs mt-2 font-bold">
-                준비중
+              <p className="text-neon-purple text-xs mt-2">
+                실시간 매칭
               </p>
             </div>
           </button>

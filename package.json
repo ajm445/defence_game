@@ -1,11 +1,17 @@
 {
   "name": "defence_game",
   "private": true,
-  "version": "0.0.0",
+  "version": "1.5.0",
   "type": "module",
+  "workspaces": [
+    "server"
+  ],
   "scripts": {
     "dev": "vite",
+    "dev:server": "cd server && npm run dev",
+    "dev:all": "concurrently \"npm run dev\" \"npm run dev:server\"",
     "build": "tsc -b && vite build",
+    "build:server": "cd server && npm run build",
     "lint": "eslint .",
     "preview": "vite preview"
   },
@@ -15,6 +21,7 @@
     "zustand": "^5.0.10"
   },
   "devDependencies": {
+    "concurrently": "^9.1.0",
     "@eslint/js": "^9.39.1",
     "@tailwindcss/postcss": "^4.1.18",
     "@types/node": "^24.10.1",
