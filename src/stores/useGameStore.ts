@@ -41,6 +41,7 @@ interface GameActions {
   // 약초 판매
   sellHerb: () => boolean;
   canSellHerb: () => boolean;
+  aiSellHerb: () => boolean;
 
   // 게임 종료
   checkGameEnd: () => 'victory' | 'defeat' | null;
@@ -436,6 +437,24 @@ export const useGameStore = create<GameStore>()(
     canSellHerb: () => {
       const state = get();
       return state.resources.herb >= CONFIG.HERB_SELL_COST;
+    },
+
+    aiSellHerb: () => {
+      const state = get();
+      const herbCost = CONFIG.HERB_SELL_COST;
+      const goldGain = CONFIG.HERB_SELL_GOLD;
+
+      if (state.aiResources.herb >= herbCost) {
+        set({
+          aiResources: {
+            ...state.aiResources,
+            herb: state.aiResources.herb - herbCost,
+            gold: state.aiResources.gold + goldGain,
+          },
+        });
+        return true;
+      }
+      return false;
     },
 
     checkGameEnd: () => {

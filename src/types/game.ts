@@ -50,6 +50,8 @@ export interface AIDifficultyConfig {
   goldminerChance: number;
   knightChance: number;
   archerChance: number;
+  gathererChance: number;
+  minerChance: number;
   initialGold: number;
   enemyBaseHp: number;
 }

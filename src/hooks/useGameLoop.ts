@@ -22,6 +22,7 @@ export const useGameLoop = () => {
   const damageBase = useGameStore((state) => state.damageBase);
   const damageWall = useGameStore((state) => state.damageWall);
   const spawnUnit = useGameStore((state) => state.spawnUnit);
+  const aiSellHerb = useGameStore((state) => state.aiSellHerb);
   const checkGameEnd = useGameStore((state) => state.checkGameEnd);
   const stopGame = useGameStore((state) => state.stopGame);
   const setScreen = useUIStore((state) => state.setScreen);
@@ -195,6 +196,11 @@ export const useGameLoop = () => {
           difficultyConfig
         );
 
+        // AI 약초 판매
+        if (decision.sellHerb) {
+          aiSellHerb();
+        }
+
         if (decision.spawnUnit) {
           spawnUnit(decision.spawnUnit, 'enemy');
         }
@@ -219,6 +225,7 @@ export const useGameLoop = () => {
       damageBase,
       damageWall,
       spawnUnit,
+      aiSellHerb,
       checkGameEnd,
       stopGame,
       setScreen,
