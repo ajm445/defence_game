@@ -110,6 +110,10 @@ export const DifficultySelectScreen: React.FC = () => {
               <span className="text-gray-400">AI 초기 골드</span>
               <span className="text-white">{AI_DIFFICULTY_CONFIG[hoveredDifficulty].initialGold}</span>
             </div>
+            <div className="flex justify-between">
+              <span className="text-gray-400">적 기지 체력</span>
+              <span className="text-red-400">{AI_DIFFICULTY_CONFIG[hoveredDifficulty].enemyBaseHp}</span>
+            </div>
           </div>
         </div>
 

@@ -179,6 +179,8 @@ export const useGameStore = create<GameStore>()(
       const state = createInitialState();
       const difficultyConfig = AI_DIFFICULTY_CONFIG[difficulty];
       state.aiResources.gold = difficultyConfig.initialGold;
+      state.enemyBase.hp = difficultyConfig.enemyBaseHp;
+      state.enemyBase.maxHp = difficultyConfig.enemyBaseHp;
       set(state);
     },
 

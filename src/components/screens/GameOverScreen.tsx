@@ -44,6 +44,8 @@ export const GameOverScreen: React.FC = () => {
           {victory ? '🏆' : '💀'}
         </div>
 
+        <div style={{ height: '30px' }} />
+
         {/* 메인 텍스트 */}
         <h1 className={`
           font-game text-6xl md:text-7xl font-bold mb-4
@@ -58,6 +60,8 @@ export const GameOverScreen: React.FC = () => {
         <p className="text-gray-400 text-lg mb-8">
           {victory ? '적 본진을 파괴했습니다!' : '본진이 파괴되었습니다...'}
         </p>
+        
+        <div style={{ height: '30px' }} />
 
         {/* 통계 */}
         <div className="glass-dark rounded-xl p-6 mb-8 min-w-[300px] border border-dark-500/50">
@@ -71,6 +75,8 @@ export const GameOverScreen: React.FC = () => {
           </div>
         </div>
 
+        <div style={{ height: '30px' }} />
+        
         {/* 버튼 */}
         <div className="flex gap-4">
           <button

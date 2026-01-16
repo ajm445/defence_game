@@ -51,6 +51,7 @@ export interface AIDifficultyConfig {
   knightChance: number;
   archerChance: number;
   initialGold: number;
+  enemyBaseHp: number;
 }
 
 export interface GameResult {
