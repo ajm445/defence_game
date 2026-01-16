@@ -1,5 +1,5 @@
 import { v4 as uuidv4 } from 'uuid';
-import { players, sendToPlayer } from '../websocket/WebSocketServer';
+import { players, sendToPlayer } from '../state/players';
 import { addRoom } from '../websocket/MessageHandler';
 import { GameRoom } from '../game/GameRoom';
 

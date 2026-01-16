@@ -1,32 +1,12 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { v4 as uuidv4 } from 'uuid';
-import { handleMessage } from './MessageHandler';
-import type { ServerMessage } from '../../../shared/types/network';
+import { handleMessage, getRoom } from './MessageHandler';
+import { removeFromQueue } from '../matchmaking/MatchMaker';
+import { players, sendMessage, Player } from '../state/players';
 
-export interface Player {
-  id: string;
-  name: string;
-  ws: WebSocket;
-  roomId: string | null;
-}
-
-// 전역 플레이어 맵
-export const players = new Map<string, Player>();
-
-// 메시지 전송 헬퍼
-export function sendMessage(ws: WebSocket, message: ServerMessage): void {
-  if (ws.readyState === WebSocket.OPEN) {
-    ws.send(JSON.stringify(message));
-  }
-}
-
-// 플레이어에게 메시지 전송
-export function sendToPlayer(playerId: string, message: ServerMessage): void {
-  const player = players.get(playerId);
-  if (player) {
-    sendMessage(player.ws, message);
-  }
-}
+// Re-export for backwards compatibility
+export { players, sendMessage, sendToPlayer } from '../state/players';
+export type { Player } from '../state/players';
 
 export function createWebSocketServer(port: number) {
   const wss = new WebSocketServer({ port });
@@ -73,9 +53,7 @@ export function createWebSocketServer(port: number) {
 
       const player = players.get(playerId);
       if (player && player.roomId) {
-        // 게임 방에서 플레이어 제거 처리는 GameRoom에서
-        // 여기서는 상대방에게 알림만
-        const { getRoom } = require('./MessageHandler');
+        // 게임 방에서 플레이어 제거 처리
         const room = getRoom(player.roomId);
         if (room) {
           room.handlePlayerDisconnect(playerId);
@@ -83,7 +61,6 @@ export function createWebSocketServer(port: number) {
       }
 
       // 매칭 큐에서 제거
-      const { removeFromQueue } = require('../matchmaking/MatchMaker');
       removeFromQueue(playerId);
 
       players.delete(playerId);

@@ -1,5 +1,5 @@
 import type { ClientMessage } from '../../../shared/types/network';
-import { players, sendToPlayer } from './WebSocketServer';
+import { players } from '../state/players';
 import { addToQueue, removeFromQueue } from '../matchmaking/MatchMaker';
 import { GameRoom } from '../game/GameRoom';
 
