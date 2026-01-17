@@ -78,15 +78,15 @@ export function useMultiplayerGameState(): MultiplayerGameState | null {
 
   // 기지 위치 (서버와 동일)
   const playerBase: Base = {
-    x: mySide === 'left' ? 200 : 2800,
-    y: 1000,
+    x: mySide === 'left' ? 200 : CONFIG.MAP_WIDTH - 200,
+    y: CONFIG.MAP_HEIGHT / 2,
     hp: myPlayer.baseHp,
     maxHp: myPlayer.maxBaseHp,
   };
 
   const enemyBase: Base = {
-    x: mySide === 'left' ? 2800 : 200,
-    y: 1000,
+    x: mySide === 'left' ? CONFIG.MAP_WIDTH - 200 : 200,
+    y: CONFIG.MAP_HEIGHT / 2,
     hp: enemyPlayer.baseHp,
     maxHp: enemyPlayer.maxBaseHp,
   };

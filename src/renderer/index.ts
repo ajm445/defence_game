@@ -1,5 +1,6 @@
 import { GameState, Camera } from '../types';
 import type { NetworkGameState, PlayerSide } from '@shared/types/game';
+import { CONFIG } from '../constants/config';
 import { drawGrid } from './drawGrid';
 import { drawResourceNode } from './drawResourceNode';
 import { drawBase } from './drawBase';
@@ -131,14 +132,15 @@ export function renderMultiplayer(
   }
 
   // 본진 그리기 - 내 진영 기준으로 색상 결정
-  const myBaseX = mySide === 'left' ? 200 : 2800;
-  const enemyBaseX = mySide === 'left' ? 2800 : 200;
+  const myBaseX = mySide === 'left' ? 200 : CONFIG.MAP_WIDTH - 200;
+  const enemyBaseX = mySide === 'left' ? CONFIG.MAP_WIDTH - 200 : 200;
+  const baseY = CONFIG.MAP_HEIGHT / 2;
   const myPlayer = mySide === 'left' ? gameState.leftPlayer : gameState.rightPlayer;
   const enemyPlayer = mySide === 'left' ? gameState.rightPlayer : gameState.leftPlayer;
 
   drawBase(
     ctx,
-    { x: myBaseX, y: 1000, hp: myPlayer.baseHp, maxHp: myPlayer.maxBaseHp },
+    { x: myBaseX, y: baseY, hp: myPlayer.baseHp, maxHp: myPlayer.maxBaseHp },
     camera,
     '#00f5ff', // 시안 (내 기지)
     '아군 본진',
@@ -147,7 +149,7 @@ export function renderMultiplayer(
   );
   drawBase(
     ctx,
-    { x: enemyBaseX, y: 1000, hp: enemyPlayer.baseHp, maxHp: enemyPlayer.maxBaseHp },
+    { x: enemyBaseX, y: baseY, hp: enemyPlayer.baseHp, maxHp: enemyPlayer.maxBaseHp },
     camera,
     '#ef4444', // 레드 (적 기지)
     '적 본진',

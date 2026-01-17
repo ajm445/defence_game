@@ -3,8 +3,8 @@ import { ResourceNodeConfig, ResourceNodeType } from '../types/resource';
 import { AIDifficulty, AIDifficultyConfig } from '../types/game';
 
 export const CONFIG = {
-  MAP_WIDTH: 3000,
-  MAP_HEIGHT: 2000,
+  MAP_WIDTH: 4000,
+  MAP_HEIGHT: 2400,
   GAME_TIME: 10 * 60, // 10분
   GOLD_PER_SECOND: 4,
   AI_GOLD_PER_SECOND: 3,

@@ -172,22 +172,23 @@ export function drawMinimapMultiplayer(
   }
 
   // 본진
-  const myBaseX = mySide === 'left' ? 200 : 2800;
-  const enemyBaseX = mySide === 'left' ? 2800 : 200;
+  const myBaseX = mySide === 'left' ? 200 : CONFIG.MAP_WIDTH - 200;
+  const enemyBaseX = mySide === 'left' ? CONFIG.MAP_WIDTH - 200 : 200;
+  const baseY = CONFIG.MAP_HEIGHT / 2;
 
   // 내 본진
   ctx.fillStyle = '#00f5ff';
   ctx.shadowColor = '#00f5ff';
   ctx.shadowBlur = 5;
   ctx.beginPath();
-  ctx.arc(myBaseX * scaleX, 1000 * scaleY, 5, 0, Math.PI * 2);
+  ctx.arc(myBaseX * scaleX, baseY * scaleY, 5, 0, Math.PI * 2);
   ctx.fill();
 
   // 적 본진
   ctx.fillStyle = '#ef4444';
   ctx.shadowColor = '#ef4444';
   ctx.beginPath();
-  ctx.arc(enemyBaseX * scaleX, 1000 * scaleY, 5, 0, Math.PI * 2);
+  ctx.arc(enemyBaseX * scaleX, baseY * scaleY, 5, 0, Math.PI * 2);
   ctx.fill();
 
   ctx.shadowBlur = 0;
