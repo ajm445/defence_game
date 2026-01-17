@@ -119,148 +119,209 @@ export const MainMenu: React.FC = () => {
             </div>
 
             {/* 모달 내용 - 스크롤 가능 */}
-            <div className="overflow-y-auto px-6 py-4 text-gray-200 font-korean text-sm leading-relaxed">
+            <div className="overflow-y-auto px-6 py-5 font-korean text-base leading-relaxed">
               {/* 승리 조건 */}
-              <section className="mb-6">
-                <h3 className="text-neon-cyan font-bold mb-2 flex items-center gap-2">
+              <section className="mb-8">
+                <h3 className="text-neon-cyan font-bold text-lg mb-3 flex items-center gap-2">
                   <span>🎯</span> 승리 조건
                 </h3>
-                <ul className="list-disc list-inside space-y-1 text-gray-300">
-                  <li>적 본진의 HP를 0으로 만들면 승리</li>
-                  <li>10분 종료 시 HP가 높은 쪽이 승리</li>
-                  <li>HP가 같으면 패배</li>
+                <ul className="space-y-2 text-white">
+                  <li className="flex items-start gap-2">
+                    <span className="text-neon-cyan">•</span>
+                    <span>적 본진의 HP를 0으로 만들면 승리</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-neon-cyan">•</span>
+                    <span>10분 종료 시 HP가 높은 쪽이 승리</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-neon-cyan">•</span>
+                    <span>HP가 같으면 패배</span>
+                  </li>
                 </ul>
               </section>
 
               {/* 자원 */}
-              <section className="mb-6">
-                <h3 className="text-neon-cyan font-bold mb-2 flex items-center gap-2">
+              <section className="mb-8">
+                <h3 className="text-neon-cyan font-bold text-lg mb-3 flex items-center gap-2">
                   <span>📦</span> 자원
                 </h3>
-                <ul className="list-disc list-inside space-y-1 text-gray-300">
-                  <li><span className="text-yellow-400">골드</span>: 초당 4 자동 획득 (모든 행동의 기본)</li>
-                  <li><span className="text-amber-600">나무</span>: 나무꾼이 채집, 궁수/기사/건설에 필요</li>
-                  <li><span className="text-gray-400">돌</span>: 광부가 채집, 기사/벽/업그레이드에 필요</li>
-                  <li><span className="text-green-400">약초</span>: 채집꾼이 채집, 10개당 30골드로 판매 가능</li>
-                  <li><span className="text-purple-400">수정</span>: 맵 중앙에서 획득 가능한 희귀 자원</li>
-                </ul>
+                <div className="space-y-3">
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">💰</span>
+                    <div>
+                      <span className="text-yellow-300 font-bold">골드</span>
+                      <span className="text-gray-200 ml-2">- 초당 4 자동 획득, 모든 행동의 기본</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🪵</span>
+                    <div>
+                      <span className="text-amber-400 font-bold">나무</span>
+                      <span className="text-gray-200 ml-2">- 나무꾼이 채집, 궁수/기사/건설에 필요</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🪨</span>
+                    <div>
+                      <span className="text-gray-300 font-bold">돌</span>
+                      <span className="text-gray-200 ml-2">- 광부가 채집, 기사/벽/업그레이드에 필요</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">🌿</span>
+                    <div>
+                      <span className="text-green-300 font-bold">약초</span>
+                      <span className="text-gray-200 ml-2">- 채집꾼이 채집, 10개당 30골드로 판매</span>
+                    </div>
+                  </div>
+                  <div className="flex items-center gap-3">
+                    <span className="text-2xl">💎</span>
+                    <div>
+                      <span className="text-purple-300 font-bold">수정</span>
+                      <span className="text-gray-200 ml-2">- 맵 중앙에서 획득 가능한 희귀 자원</span>
+                    </div>
+                  </div>
+                </div>
               </section>
 
               {/* 전투 유닛 */}
-              <section className="mb-6">
-                <h3 className="text-neon-cyan font-bold mb-2 flex items-center gap-2">
+              <section className="mb-8">
+                <h3 className="text-neon-cyan font-bold text-lg mb-3 flex items-center gap-2">
                   <span>⚔️</span> 전투 유닛
                 </h3>
-                <div className="space-y-2 text-gray-300">
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-white font-bold">검병</span>
-                    <span className="text-gray-400 ml-2">50골드 | HP 100 | 공격력 15 | 근접</span>
+                <div className="space-y-3">
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">🗡️ 검병</div>
+                    <div className="text-yellow-300">비용: 50골드</div>
+                    <div className="text-gray-200">HP 100 | 공격력 15 | 근접</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-white font-bold">궁수</span>
-                    <span className="text-gray-400 ml-2">80골드+10나무 | HP 50 | 공격력 25 | 원거리</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">🏹 궁수</div>
+                    <div className="text-yellow-300">비용: 80골드 + 10나무</div>
+                    <div className="text-gray-200">HP 50 | 공격력 25 | 원거리</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-white font-bold">기사</span>
-                    <span className="text-gray-400 ml-2">120골드+20나무+30돌 | HP 250 | 공격력 30 | 근접 탱커</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">🛡️ 기사</div>
+                    <div className="text-yellow-300">비용: 120골드 + 20나무 + 30돌</div>
+                    <div className="text-gray-200">HP 250 | 공격력 30 | 근접 탱커</div>
                   </div>
                 </div>
               </section>
 
               {/* 지원 유닛 */}
-              <section className="mb-6">
-                <h3 className="text-neon-cyan font-bold mb-2 flex items-center gap-2">
+              <section className="mb-8">
+                <h3 className="text-neon-cyan font-bold text-lg mb-3 flex items-center gap-2">
                   <span>👷</span> 지원 유닛 (자동 채집)
                 </h3>
-                <div className="space-y-2 text-gray-300">
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-white font-bold">나무꾼</span>
-                    <span className="text-gray-400 ml-2">30골드 | 나무 채집 (1.0/초)</span>
+                <div className="space-y-3">
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">🪓 나무꾼</div>
+                    <div className="text-yellow-300">비용: 30골드</div>
+                    <div className="text-gray-200">나무 채집 (1.0/초)</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-white font-bold">광부</span>
-                    <span className="text-gray-400 ml-2">40골드+5나무 | 돌 채집 (0.8/초)</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">⛏️ 광부</div>
+                    <div className="text-yellow-300">비용: 40골드 + 5나무</div>
+                    <div className="text-gray-200">돌 채집 (0.8/초)</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-white font-bold">채집꾼</span>
-                    <span className="text-gray-400 ml-2">35골드 | 약초 채집 (1.2/초)</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">🧺 채집꾼</div>
+                    <div className="text-yellow-300">비용: 35골드</div>
+                    <div className="text-gray-200">약초 채집 (1.2/초)</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-white font-bold">금광부</span>
-                    <span className="text-gray-400 ml-2">100골드+20나무 | 골드 채집 (1.5/초)</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">⚒️ 금광부</div>
+                    <div className="text-yellow-300">비용: 100골드 + 20나무</div>
+                    <div className="text-gray-200">골드 채집 (1.5/초) - 광산 필요</div>
                   </div>
                 </div>
               </section>
 
               {/* 건설/업그레이드 */}
-              <section className="mb-6">
-                <h3 className="text-neon-cyan font-bold mb-2 flex items-center gap-2">
+              <section className="mb-8">
+                <h3 className="text-neon-cyan font-bold text-lg mb-3 flex items-center gap-2">
                   <span>🏗️</span> 건설 / 업그레이드
                 </h3>
-                <div className="space-y-2 text-gray-300">
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-white font-bold">벽 건설</span>
-                    <span className="text-gray-400 ml-2">20나무+10돌 → HP 200 방어벽</span>
+                <div className="space-y-3">
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">🧱 벽 건설</div>
+                    <div className="text-yellow-300">비용: 20나무 + 10돌</div>
+                    <div className="text-gray-200">HP 200 방어벽 생성</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-white font-bold">기지 업그레이드</span>
-                    <span className="text-gray-400 ml-2">100골드+50돌 → 본진 HP +200</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">🏰 기지 업그레이드</div>
+                    <div className="text-yellow-300">비용: 100골드 + 50돌</div>
+                    <div className="text-gray-200">본진 HP +200 증가</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-white font-bold">약초 판매</span>
-                    <span className="text-gray-400 ml-2">약초 10개 → 30골드</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">🌿 약초 판매</div>
+                    <div className="text-yellow-300">필요: 약초 10개</div>
+                    <div className="text-gray-200">30골드 획득</div>
                   </div>
                 </div>
               </section>
 
               {/* 조작법 */}
-              <section className="mb-6">
-                <h3 className="text-neon-cyan font-bold mb-2 flex items-center gap-2">
+              <section className="mb-8">
+                <h3 className="text-neon-cyan font-bold text-lg mb-3 flex items-center gap-2">
                   <span>🎮</span> 조작법
                 </h3>
-                <div className="grid grid-cols-2 gap-2 text-gray-300">
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-neon-cyan">좌클릭</span>
-                    <span className="text-gray-400 ml-2">유닛 선택</span>
+                <div className="grid grid-cols-2 gap-3">
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-neon-cyan font-bold">좌클릭</div>
+                    <div className="text-gray-200">유닛 선택</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-neon-cyan">우클릭 드래그</span>
-                    <span className="text-gray-400 ml-2">카메라 이동</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-neon-cyan font-bold">우클릭 드래그</div>
+                    <div className="text-gray-200">카메라 이동</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-neon-cyan">WASD / 방향키</span>
-                    <span className="text-gray-400 ml-2">카메라 이동</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-neon-cyan font-bold">WASD / 방향키</div>
+                    <div className="text-gray-200">카메라 이동</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-neon-cyan">스페이스바</span>
-                    <span className="text-gray-400 ml-2">본진으로 이동</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-neon-cyan font-bold">스페이스바</div>
+                    <div className="text-gray-200">본진으로 이동</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-neon-cyan">미니맵 클릭</span>
-                    <span className="text-gray-400 ml-2">해당 위치로 이동</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-neon-cyan font-bold">미니맵 클릭</div>
+                    <div className="text-gray-200">해당 위치로 이동</div>
                   </div>
-                  <div className="bg-dark-700/50 p-2 rounded">
-                    <span className="text-neon-cyan">ESC</span>
-                    <span className="text-gray-400 ml-2">메인 메뉴</span>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-neon-cyan font-bold">ESC</div>
+                    <div className="text-gray-200">메인 메뉴</div>
                   </div>
                 </div>
               </section>
 
               {/* 전략 팁 */}
-              <section className="mb-4">
-                <h3 className="text-neon-cyan font-bold mb-2 flex items-center gap-2">
+              <section className="mb-6">
+                <h3 className="text-neon-cyan font-bold text-lg mb-3 flex items-center gap-2">
                   <span>💡</span> 전략 팁
                 </h3>
-                <ul className="list-disc list-inside space-y-1 text-gray-300">
-                  <li>초반에 나무꾼 2~3명을 먼저 고용하세요</li>
-                  <li>궁수는 비싸지만 원거리 공격으로 효율적입니다</li>
-                  <li>기사는 HP가 높아 전선 유지에 좋습니다</li>
-                  <li>벽으로 적의 공격을 지연시킬 수 있습니다</li>
+                <ul className="space-y-2 text-white">
+                  <li className="flex items-start gap-2">
+                    <span className="text-yellow-300">•</span>
+                    <span>초반에 나무꾼 2~3명을 먼저 고용하세요</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-yellow-300">•</span>
+                    <span>궁수는 비싸지만 원거리 공격으로 효율적입니다</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-yellow-300">•</span>
+                    <span>기사는 HP가 높아 전선 유지에 좋습니다</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-yellow-300">•</span>
+                    <span>벽으로 적의 공격을 지연시킬 수 있습니다</span>
+                  </li>
                 </ul>
               </section>
 
               {/* 제한 시간 */}
-              <div className="text-center py-3 bg-dark-700/50 rounded text-neon-cyan font-bold">
+              <div className="text-center py-4 bg-neon-cyan/10 rounded-lg border border-neon-cyan/30 text-neon-cyan font-bold text-lg">
                 ⏱️ 제한 시간: 10분
               </div>
             </div>
