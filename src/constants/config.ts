@@ -86,11 +86,11 @@ export const CONFIG = {
   } as Record<UnitType, UnitConfig>,
 
   RESOURCE_NODES: {
-    tree: { resource: 'wood', amount: 100, respawn: 60 },
+    tree: { resource: 'wood', amount: 100, respawn: 40 },
     rock: { resource: 'stone', amount: 80, respawn: 90 },
-    herb: { resource: 'herb', amount: 50, respawn: 45 },
+    herb: { resource: 'herb', amount: 50, respawn: 30 },
     crystal: { resource: 'crystal', amount: 30, respawn: 180 },
-    goldmine: { resource: 'gold', amount: 80, respawn: 60 },
+    goldmine: { resource: 'gold', amount: 80, respawn: 40 },
   } as Record<ResourceNodeType, ResourceNodeConfig>,
 
   // UI 관련 상수

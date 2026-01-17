@@ -52,6 +52,7 @@ export interface NetworkResourceNode {
   y: number;
   amount: number;
   maxAmount: number;
+  depletedAt?: number; // 고갈된 시간 (게임 시간 기준)
 }
 
 // 플레이어 상태

@@ -40,6 +40,7 @@ interface GameActions {
 
   // 자원 노드
   updateResourceNode: (nodeId: string, amount: number) => void;
+  respawnResourceNodes: () => void;
 
   // 약초 판매
   sellHerb: () => boolean;
@@ -471,9 +472,37 @@ export const useGameStore = create<GameStore>()(
 
     updateResourceNode: (nodeId, amount) =>
       set((state) => ({
-        resourceNodes: state.resourceNodes.map((node) =>
-          node.id === nodeId ? { ...node, amount: Math.max(0, amount) } : node
-        ),
+        resourceNodes: state.resourceNodes.map((node) => {
+          if (node.id !== nodeId) return node;
+          const newAmount = Math.max(0, amount);
+          // 자원이 고갈되었을 때 시간 기록
+          if (newAmount <= 0 && node.amount > 0) {
+            return { ...node, amount: newAmount, depletedAt: state.time };
+          }
+          return { ...node, amount: newAmount };
+        }),
+      })),
+
+    respawnResourceNodes: () =>
+      set((state) => ({
+        resourceNodes: state.resourceNodes.map((node) => {
+          // 고갈되지 않았거나 depletedAt이 없으면 그대로
+          if (node.amount > 0 || !node.depletedAt) return node;
+
+          // 재생성 시간 확인 (게임 시간은 감소하므로 depletedAt - time)
+          const respawnTime = CONFIG.RESOURCE_NODES[node.type]?.respawn || 60;
+          const timeSinceDepleted = node.depletedAt - state.time;
+
+          if (timeSinceDepleted >= respawnTime) {
+            // 자원 재생성
+            return {
+              ...node,
+              amount: node.maxAmount,
+              depletedAt: undefined,
+            };
+          }
+          return node;
+        }),
       })),
 
     sellHerb: () => {

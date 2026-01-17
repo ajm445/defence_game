@@ -20,6 +20,7 @@ export const useGameLoop = () => {
   const addResource = useGameStore((state) => state.addResource);
   const updateUnits = useGameStore((state) => state.updateUnits);
   const updateResourceNode = useGameStore((state) => state.updateResourceNode);
+  const respawnResourceNodes = useGameStore((state) => state.respawnResourceNodes);
   const damageBase = useGameStore((state) => state.damageBase);
   const damageWall = useGameStore((state) => state.damageWall);
   const spawnUnit = useGameStore((state) => state.spawnUnit);
@@ -193,6 +194,9 @@ export const useGameLoop = () => {
         }
       }
 
+      // 자원 노드 재생성 확인
+      respawnResourceNodes();
+
       // AI 업데이트 (난이도별 행동 주기)
       aiTimerRef.current += deltaTime;
       if (aiTimerRef.current >= difficultyConfig.actionInterval) {
@@ -230,6 +234,7 @@ export const useGameLoop = () => {
       addResource,
       updateUnits,
       updateResourceNode,
+      respawnResourceNodes,
       damageBase,
       damageWall,
       spawnUnit,

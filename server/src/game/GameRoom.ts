@@ -105,6 +105,15 @@ const CONFIG = {
   BASE_UPGRADE_HP: 200,
   HERB_SELL_COST: 10,
   HERB_SELL_GOLD: 30,
+
+  // 자원 재생성 시간 (초)
+  RESOURCE_RESPAWN: {
+    tree: 40,
+    rock: 90,
+    herb: 30,
+    crystal: 180,
+    goldmine: 40,
+  } as Record<string, number>,
 };
 
 interface ServerUnit extends NetworkUnit {
@@ -312,6 +321,9 @@ export class GameRoom {
     // 유닛 업데이트
     this.updateUnits(deltaTime);
 
+    // 자원 노드 재생성 확인
+    this.respawnResourceNodes();
+
     // 승리 조건 체크
     this.checkWinCondition();
 
@@ -370,7 +382,13 @@ export class GameRoom {
         unit.state = 'gathering';
         if (targetNode.amount > 0 && config.gatherRate) {
           const gathered = Math.min(config.gatherRate * deltaTime, targetNode.amount);
+          const wasNotDepleted = targetNode.amount > 0;
           targetNode.amount -= gathered;
+
+          // 자원이 고갈되면 시간 기록
+          if (wasNotDepleted && targetNode.amount <= 0) {
+            targetNode.depletedAt = this.gameTime;
+          }
 
           const resources = unit.side === 'left' ? this.leftResources : this.rightResources;
           const resourceKey = config.resource as keyof Resources;
@@ -507,6 +525,23 @@ export class GameRoom {
     }
 
     return nearest;
+  }
+
+  private respawnResourceNodes(): void {
+    for (const node of this.resourceNodes) {
+      // 고갈되지 않았거나 depletedAt이 없으면 스킵
+      if (node.amount > 0 || !node.depletedAt) continue;
+
+      // 재생성 시간 확인
+      const respawnTime = CONFIG.RESOURCE_RESPAWN[node.type] || 60;
+      const timeSinceDepleted = this.gameTime - node.depletedAt;
+
+      if (timeSinceDepleted >= respawnTime) {
+        // 자원 재생성
+        node.amount = node.maxAmount;
+        node.depletedAt = undefined;
+      }
+    }
   }
 
   private findNearestResourceNode(unit: ServerUnit, resourceType: string): NetworkResourceNode | null {

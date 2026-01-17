@@ -17,6 +17,7 @@ export interface ResourceNode {
   y: number;
   amount: number;
   maxAmount: number;
+  depletedAt?: number; // 고갈된 시간 (게임 시간 기준)
 }
 
 export interface ResourceNodeConfig {
