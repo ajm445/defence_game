@@ -1,4 +1,5 @@
 import { WebSocketServer, WebSocket } from 'ws';
+import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { v4 as uuidv4 } from 'uuid';
 import { handleMessage, getRoom } from './MessageHandler';
 import { handlePlayerDisconnect } from '../room/RoomManager';
@@ -9,9 +10,24 @@ export { players, sendMessage, sendToPlayer } from '../state/players';
 export type { Player } from '../state/players';
 
 export function createWebSocketServer(port: number) {
-  const wss = new WebSocketServer({ port });
+  // HTTP 서버 생성 (health check용)
+  const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
+    if (req.url === '/health' || req.url === '/') {
+      res.writeHead(200, { 'Content-Type': 'application/json' });
+      res.end(JSON.stringify({ status: 'ok', players: players.size }));
+    } else {
+      res.writeHead(404);
+      res.end();
+    }
+  });
 
-  console.log(`WebSocket 서버 시작: ws://localhost:${port}`);
+  // WebSocket 서버를 HTTP 서버에 연결
+  const wss = new WebSocketServer({ server: httpServer });
+
+  // HTTP 서버 시작
+  httpServer.listen(port, () => {
+    console.log(`서버 시작: http://localhost:${port} (WebSocket 지원)`);
+  });
 
   wss.on('connection', (ws: WebSocket) => {
     const playerId = uuidv4();
@@ -79,8 +95,9 @@ export function createWebSocketServer(port: number) {
       ws.close();
     });
     wss.close();
-    console.log('WebSocket 서버 종료됨');
+    httpServer.close();
+    console.log('서버 종료됨');
   };
 
-  return { wss, close };
+  return { wss, httpServer, close };
 }

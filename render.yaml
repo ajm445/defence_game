@@ -1,0 +1,37 @@
+services:
+  # WebSocket 서버
+  - type: web
+    name: defence-game-server
+    runtime: node
+    region: singapore  # 한국에서 가장 가까운 리전
+    plan: free
+    rootDir: server
+    buildCommand: npm install && npm run build
+    startCommand: npm start
+    envVars:
+      - key: NODE_ENV
+        value: production
+    healthCheckPath: /health
+
+  # React 클라이언트 (Static Site)
+  - type: web
+    name: defence-game-client
+    runtime: static
+    plan: free
+    buildCommand: npm install && npm run build
+    staticPublishPath: dist
+    envVars:
+      - key: VITE_WS_URL
+        fromService:
+          type: web
+          name: defence-game-server
+          property: host
+          # 실제 배포 시 wss://defence-game-server.onrender.com 형식으로 설정
+    headers:
+      - path: /*
+        name: Cache-Control
+        value: public, max-age=0, must-revalidate
+    routes:
+      - type: rewrite
+        source: /*
+        destination: /index.html
