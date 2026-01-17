@@ -61,11 +61,14 @@ export const GameTimer: React.FC = () => {
           {/* 타이머 아이콘 */}
           <div className={`w-2 h-2 rounded-full animate-pulse ${isLowTime ? 'bg-neon-red' : 'bg-neon-cyan'}`} />
 
-          {/* 시간 표시 */}
-          <div className={`
-            font-game text-2xl tracking-wider tabular-nums
-            ${isLowTime ? 'text-neon-red text-glow-red' : 'text-white'}
-          `}>
+          {/* 시간 표시 - 고정 너비 */}
+          <div
+            className={`
+              font-game text-2xl tracking-wider tabular-nums text-center
+              ${isLowTime ? 'text-neon-red text-glow-red' : 'text-white'}
+            `}
+            style={{ minWidth: '5.5rem' }}
+          >
             {formatTime(time)}
           </div>
 
