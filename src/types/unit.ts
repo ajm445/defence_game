@@ -29,4 +29,5 @@ export interface Unit {
   attackCooldown: number;
   team: Team;
   attackerId?: string; // 마지막으로 공격한 유닛 ID (반격용)
+  targetWallId?: string; // 현재 공격 중인 벽 ID (벽 파괴 전까지 유지)
 }

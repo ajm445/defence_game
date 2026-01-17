@@ -123,6 +123,7 @@ interface ServerUnit extends NetworkUnit {
   attackCooldown: number;
   targetId?: string;
   attackerId?: string; // 이 유닛을 공격한 적의 ID (반격용)
+  targetWallId?: string; // 현재 공격 중인 벽 ID (벽 파괴 전까지 유지)
   gatherRate?: number;
   resourceType?: string;
   unitType: string;
@@ -418,15 +419,26 @@ export class GameRoom {
       }
     }
 
-    // 2. 가장 가까운 벽 찾기
+    // 2. 현재 타겟 벽 확인 (이미 공격 중인 벽이 있으면 그 벽 유지)
     const enemyWalls = this.walls.filter(w => w.side !== unit.side && w.hp > 0);
     let targetWall: ServerWall | null = null;
-    let minWallDist = Infinity;
-    for (const wall of enemyWalls) {
-      const dist = this.getDistance(unit.x, unit.y, wall.x, wall.y);
-      if (dist < minWallDist) {
-        minWallDist = dist;
-        targetWall = wall;
+    if (unit.targetWallId) {
+      targetWall = enemyWalls.find(w => w.id === unit.targetWallId) || null;
+      // 타겟 벽이 파괴되었으면 targetWallId 초기화
+      if (!targetWall) {
+        unit.targetWallId = undefined;
+      }
+    }
+
+    // 타겟 벽이 없으면 가장 가까운 벽 찾기
+    let minWallDist = targetWall ? this.getDistance(unit.x, unit.y, targetWall.x, targetWall.y) : Infinity;
+    if (!targetWall) {
+      for (const wall of enemyWalls) {
+        const dist = this.getDistance(unit.x, unit.y, wall.x, wall.y);
+        if (dist < minWallDist) {
+          minWallDist = dist;
+          targetWall = wall;
+        }
       }
     }
 
@@ -442,7 +454,7 @@ export class GameRoom {
       }
     }
 
-    // 우선순위: 반격 대상 > 벽(경로상) > 범위 내 적 > 본진
+    // 우선순위: 반격 대상 > 벽(공격중 또는 경로상) > 범위 내 적 > 본진
 
     // 1순위: 반격 대상 (공격받은 경우)
     if (attacker) {
@@ -465,11 +477,18 @@ export class GameRoom {
         unit.state = 'moving';
         this.moveTowards(unit, attacker.x, attacker.y, deltaTime);
       }
+      // 반격 중에도 targetWallId는 유지 (공격자 처리 후 벽으로 복귀)
       return;
     }
 
-    // 2순위: 벽 (본진보다 가까운 경우)
-    if (targetWall && minWallDist < distToBase) {
+    // 2순위: 벽 (이미 공격 중이거나 본진보다 가까운 경우)
+    const hasTargetWall = unit.targetWallId && targetWall;
+    const shouldAttackWall = targetWall && (hasTargetWall || minWallDist < distToBase);
+
+    if (shouldAttackWall && targetWall) {
+      // 벽 타겟 고정
+      unit.targetWallId = targetWall.id;
+
       if (minWallDist <= unit.range) {
         if (unit.attackCooldown <= 0) {
           targetWall.hp -= unit.attack;
@@ -477,6 +496,7 @@ export class GameRoom {
           unit.state = 'attacking';
 
           if (targetWall.hp <= 0) {
+            unit.targetWallId = undefined; // 벽 파괴 시 타겟 초기화
             this.walls = this.walls.filter(w => w.id !== targetWall!.id);
             this.broadcastEvent({ event: 'WALL_DESTROYED', wallId: targetWall.id });
           } else {

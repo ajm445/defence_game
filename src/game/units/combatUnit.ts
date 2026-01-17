@@ -39,16 +39,26 @@ export function updateCombatUnit(
     }
   }
 
-  // 2. 가장 가까운 벽 찾기
+  // 2. 현재 타겟 벽 확인 (이미 공격 중인 벽이 있으면 그 벽 유지)
   let targetWall: Wall | null = null;
-  let minWallDist = Infinity;
+  if (unit.targetWallId) {
+    targetWall = enemyWalls.find(w => w.id === unit.targetWallId && w.hp > 0) || null;
+    // 타겟 벽이 파괴되었으면 targetWallId 초기화
+    if (!targetWall) {
+      updatedUnit.targetWallId = undefined;
+    }
+  }
 
-  for (const wall of enemyWalls) {
-    if (wall.hp > 0) {
-      const dist = distance(unit.x, unit.y, wall.x, wall.y);
-      if (dist < minWallDist) {
-        minWallDist = dist;
-        targetWall = wall;
+  // 타겟 벽이 없으면 가장 가까운 벽 찾기
+  let minWallDist = targetWall ? distance(unit.x, unit.y, targetWall.x, targetWall.y) : Infinity;
+  if (!targetWall) {
+    for (const wall of enemyWalls) {
+      if (wall.hp > 0) {
+        const dist = distance(unit.x, unit.y, wall.x, wall.y);
+        if (dist < minWallDist) {
+          minWallDist = dist;
+          targetWall = wall;
+        }
       }
     }
   }
@@ -69,7 +79,7 @@ export function updateCombatUnit(
 
   const distToBase = distance(unit.x, unit.y, enemyBase.x, enemyBase.y);
 
-  // 우선순위: 반격 대상 > 벽(경로상) > 범위 내 적 > 본진
+  // 우선순위: 반격 대상 > 벽(공격중 또는 경로상) > 범위 내 적 > 본진
 
   // 1순위: 반격 대상 (공격받은 경우)
   if (attacker) {
@@ -87,11 +97,18 @@ export function updateCombatUnit(
       updatedUnit.y += Math.sin(angle) * config.speed;
       updatedUnit.state = 'moving';
     }
+    // 반격 중에도 targetWallId는 유지 (공격자 처리 후 벽으로 복귀)
     return { unit: updatedUnit, baseDamage, unitDamage, wallDamage };
   }
 
-  // 2순위: 벽 (본진보다 가까운 경우)
-  if (targetWall && minWallDist < distToBase) {
+  // 2순위: 벽 (이미 공격 중이거나 본진보다 가까운 경우)
+  const hasTargetWall = unit.targetWallId && targetWall;
+  const shouldAttackWall = targetWall && (hasTargetWall || minWallDist < distToBase);
+
+  if (shouldAttackWall && targetWall) {
+    // 벽 타겟 고정
+    updatedUnit.targetWallId = targetWall.id;
+
     if (minWallDist <= range) {
       if (updatedUnit.attackCooldown <= 0) {
         wallDamage = { wallId: targetWall.id, damage: attack };
