@@ -101,8 +101,12 @@ const CONFIG = {
 
   WALL_COST: { wood: 20, stone: 10 },
   WALL_HP: 200,
-  BASE_UPGRADE_COST: { gold: 100, stone: 50 },
-  BASE_UPGRADE_HP: 200,
+  BASE_UPGRADE: {
+    BASE_COST: { gold: 100, stone: 50 }, // 기본 비용 (레벨 1)
+    COST_MULTIPLIER: 1.5, // 레벨당 비용 증가 배율
+    HP_BONUS: 200, // 업그레이드당 HP 증가량
+    GOLD_BONUS: 1, // 업그레이드당 골드 수입 증가량
+  },
   HERB_SELL_COST: 10,
   HERB_SELL_GOLD: 30,
 
@@ -115,6 +119,16 @@ const CONFIG = {
     goldmine: 40,
   } as Record<string, number>,
 };
+
+// 업그레이드 레벨에 따른 비용 계산
+function getUpgradeCost(level: number): { gold: number; stone: number } {
+  const base = CONFIG.BASE_UPGRADE.BASE_COST;
+  const multiplier = Math.pow(CONFIG.BASE_UPGRADE.COST_MULTIPLIER, level);
+  return {
+    gold: Math.floor(base.gold * multiplier),
+    stone: Math.floor(base.stone * multiplier),
+  };
+}
 
 interface ServerUnit extends NetworkUnit {
   attack: number;
@@ -150,6 +164,10 @@ export class GameRoom {
   private rightBaseHp: number = CONFIG.BASE_HP;
   private leftMaxBaseHp: number = CONFIG.BASE_HP;
   private rightMaxBaseHp: number = CONFIG.BASE_HP;
+  private leftUpgradeLevel: number = 0;
+  private rightUpgradeLevel: number = 0;
+  private leftGoldPerSecond: number = CONFIG.GOLD_PER_SECOND;
+  private rightGoldPerSecond: number = CONFIG.GOLD_PER_SECOND;
 
   private units: ServerUnit[] = [];
   private walls: ServerWall[] = [];
@@ -313,11 +331,11 @@ export class GameRoom {
 
     this.gameTime += deltaTime;
 
-    // 골드 자동 획득 (1초마다)
+    // 골드 자동 획득 (1초마다, 업그레이드 레벨에 따라)
     if (Math.floor(this.gameTime) > this.lastGoldTick) {
       this.lastGoldTick = Math.floor(this.gameTime);
-      this.leftResources.gold += CONFIG.GOLD_PER_SECOND;
-      this.rightResources.gold += CONFIG.GOLD_PER_SECOND;
+      this.leftResources.gold += this.leftGoldPerSecond;
+      this.rightResources.gold += this.rightGoldPerSecond;
     }
 
     // 유닛 업데이트
@@ -829,25 +847,36 @@ export class GameRoom {
     if (!side) return;
 
     const resources = side === 'left' ? this.leftResources : this.rightResources;
+    const currentLevel = side === 'left' ? this.leftUpgradeLevel : this.rightUpgradeLevel;
+    const cost = getUpgradeCost(currentLevel);
 
-    if (!this.canAfford(resources, CONFIG.BASE_UPGRADE_COST)) {
+    if (!this.canAfford(resources, cost)) {
       return;
     }
 
-    this.deductCost(resources, CONFIG.BASE_UPGRADE_COST);
+    this.deductCost(resources, cost);
+
+    const newLevel = currentLevel + 1;
+    const newGoldPerSecond = CONFIG.GOLD_PER_SECOND + (newLevel * CONFIG.BASE_UPGRADE.GOLD_BONUS);
 
     if (side === 'left') {
-      this.leftMaxBaseHp += CONFIG.BASE_UPGRADE_HP;
-      this.leftBaseHp += CONFIG.BASE_UPGRADE_HP;
+      this.leftMaxBaseHp += CONFIG.BASE_UPGRADE.HP_BONUS;
+      this.leftBaseHp += CONFIG.BASE_UPGRADE.HP_BONUS;
+      this.leftUpgradeLevel = newLevel;
+      this.leftGoldPerSecond = newGoldPerSecond;
     } else {
-      this.rightMaxBaseHp += CONFIG.BASE_UPGRADE_HP;
-      this.rightBaseHp += CONFIG.BASE_UPGRADE_HP;
+      this.rightMaxBaseHp += CONFIG.BASE_UPGRADE.HP_BONUS;
+      this.rightBaseHp += CONFIG.BASE_UPGRADE.HP_BONUS;
+      this.rightUpgradeLevel = newLevel;
+      this.rightGoldPerSecond = newGoldPerSecond;
     }
 
     this.broadcastEvent({
       event: 'BASE_UPGRADED',
       side,
       newMaxHp: side === 'left' ? this.leftMaxBaseHp : this.rightMaxBaseHp,
+      upgradeLevel: newLevel,
+      goldPerSecond: newGoldPerSecond,
     });
     this.broadcastEvent({ event: 'RESOURCE_UPDATED', side, resources });
   }

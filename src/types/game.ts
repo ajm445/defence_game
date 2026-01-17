@@ -13,6 +13,7 @@ export interface Camera extends Position {
 export interface Base extends Position {
   hp: number;
   maxHp: number;
+  upgradeLevel?: number; // 업그레이드 레벨 (0부터 시작, 멀티플레이어 호환을 위해 선택적)
 }
 
 export interface Wall extends Position {

@@ -47,9 +47,9 @@ export const useGameLoop = () => {
       // 시간 업데이트
       updateTime(deltaTime);
 
-      // 골드 자동 획득 (AI는 난이도별 골드 수입)
+      // 골드 자동 획득 (플레이어는 업그레이드 레벨에 따라, AI는 난이도별 골드 수입)
       const difficultyConfig = AI_DIFFICULTY_CONFIG[difficulty];
-      addGold(CONFIG.GOLD_PER_SECOND * deltaTime, 'player');
+      addGold(state.playerGoldPerSecond * deltaTime, 'player');
       addGold(difficultyConfig.goldPerSecond * deltaTime, 'enemy');
 
       // 유닛 업데이트

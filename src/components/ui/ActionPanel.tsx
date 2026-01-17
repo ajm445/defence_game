@@ -58,6 +58,9 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 export const ActionPanel: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);
   const upgradePlayerBase = useGameStore((state) => state.upgradePlayerBase);
+  const getNextUpgradeCost = useGameStore((state) => state.getNextUpgradeCost);
+  const playerGoldPerSecond = useGameStore((state) => state.playerGoldPerSecond);
+  const playerBaseLevel = useGameStore((state) => state.playerBase.upgradeLevel);
   const sellHerb = useGameStore((state) => state.sellHerb);
   const showNotification = useUIStore((state) => state.showNotification);
   const setPlacementMode = useUIStore((state) => state.setPlacementMode);
@@ -71,8 +74,9 @@ export const ActionPanel: React.FC = () => {
     ? (mySide === 'left' ? gameState.leftPlayer.resources : gameState.rightPlayer.resources)
     : singlePlayerResources;
 
+  const upgradeCost = getNextUpgradeCost();
   const canBuildWall = resources.wood >= CONFIG.WALL_COST.wood && resources.stone >= CONFIG.WALL_COST.stone;
-  const canUpgrade = resources.gold >= CONFIG.BASE_UPGRADE_COST.gold && resources.stone >= CONFIG.BASE_UPGRADE_COST.stone;
+  const canUpgrade = resources.gold >= upgradeCost.gold && resources.stone >= upgradeCost.stone;
   const canSellHerb = resources.herb >= CONFIG.HERB_SELL_COST;
 
   const handleBuildWall = () => {
@@ -95,7 +99,9 @@ export const ActionPanel: React.FC = () => {
     } else {
       // 싱글플레이어: 로컬에서 처리
       if (upgradePlayerBase()) {
-        showNotification('본진 강화! (+200 HP)');
+        const newLevel = (playerBaseLevel ?? 0) + 1;
+        const newGoldPerSec = CONFIG.GOLD_PER_SECOND + (newLevel * CONFIG.BASE_UPGRADE.GOLD_BONUS);
+        showNotification(`본진 강화! (+${CONFIG.BASE_UPGRADE.HP_BONUS} HP, 골드 수입 ${newGoldPerSec}/초)`);
       } else {
         showNotification('자원이 부족합니다!');
       }
@@ -133,8 +139,8 @@ export const ActionPanel: React.FC = () => {
         />
         <ActionButton
           icon="🏰"
-          label="강화"
-          cost="100💰 50🪨"
+          label={`강화 Lv${(playerBaseLevel ?? 0) + 1}`}
+          cost={`${upgradeCost.gold}💰 ${upgradeCost.stone}🪨`}
           onClick={handleUpgradeBase}
           disabled={!canUpgrade}
           hoverColor="border-neon-green"

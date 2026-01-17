@@ -105,8 +105,12 @@ export const CONFIG = {
   // 건설 비용
   WALL_COST: { wood: 20, stone: 10 },
   WALL_HP: 200,
-  BASE_UPGRADE_COST: { gold: 100, stone: 50 },
-  BASE_UPGRADE_HP: 200,
+  BASE_UPGRADE: {
+    BASE_COST: { gold: 100, stone: 50 }, // 기본 비용 (레벨 1)
+    COST_MULTIPLIER: 1.5, // 레벨당 비용 증가 배율
+    HP_BONUS: 200, // 업그레이드당 HP 증가량
+    GOLD_BONUS: 1, // 업그레이드당 골드 수입 증가량
+  },
 
   // 약초 판매
   HERB_SELL_COST: 10,   // 필요 약초 수
@@ -163,3 +167,13 @@ export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
 };
 
 export type Config = typeof CONFIG;
+
+// 업그레이드 레벨에 따른 비용 계산
+export function getUpgradeCost(level: number): { gold: number; stone: number } {
+  const base = CONFIG.BASE_UPGRADE.BASE_COST;
+  const multiplier = Math.pow(CONFIG.BASE_UPGRADE.COST_MULTIPLIER, level);
+  return {
+    gold: Math.floor(base.gold * multiplier),
+    stone: Math.floor(base.stone * multiplier),
+  };
+}

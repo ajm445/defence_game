@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { GameState, Base, Camera, Wall, Resources, ResourceNode, Unit, UnitType, Team, AIDifficulty, GameMode } from '../types';
-import { CONFIG, AI_DIFFICULTY_CONFIG } from '../constants/config';
+import { CONFIG, AI_DIFFICULTY_CONFIG, getUpgradeCost } from '../constants/config';
 import { generateId, clamp } from '../utils/math';
 
 interface GameActions {
@@ -32,6 +32,8 @@ interface GameActions {
   // 기지
   damageBase: (team: Team, damage: number) => void;
   upgradePlayerBase: () => boolean;
+  getNextUpgradeCost: () => { gold: number; stone: number };
+  canUpgradeBase: () => boolean;
 
   // 벽
   buildWall: (x: number, y: number) => boolean;
@@ -53,6 +55,7 @@ interface GameActions {
 
 interface GameStore extends GameState, GameActions {
   gameMode: GameMode;
+  playerGoldPerSecond: number;
 }
 
 const initialResources: Resources = {
@@ -153,7 +156,7 @@ function generateResourceNodes(): ResourceNode[] {
   return nodes;
 }
 
-const createInitialState = (): GameState => ({
+const createInitialState = (): GameState & { playerGoldPerSecond: number } => ({
   running: false,
   time: CONFIG.GAME_TIME,
   camera: { x: 0, y: CONFIG.MAP_HEIGHT / 2 - 400, zoom: 1 },
@@ -163,12 +166,14 @@ const createInitialState = (): GameState => ({
     y: CONFIG.MAP_HEIGHT / 2,
     hp: CONFIG.BASE_HP,
     maxHp: CONFIG.BASE_HP,
+    upgradeLevel: 0,
   },
   enemyBase: {
     x: CONFIG.MAP_WIDTH - 200,
     y: CONFIG.MAP_HEIGHT / 2,
     hp: CONFIG.BASE_HP,
     maxHp: CONFIG.BASE_HP,
+    upgradeLevel: 0,
   },
   units: [],
   enemyUnits: [],
@@ -176,6 +181,7 @@ const createInitialState = (): GameState => ({
   walls: [],
   selectedUnit: null,
   aiResources: { ...initialResources },
+  playerGoldPerSecond: CONFIG.GOLD_PER_SECOND, // 초기 골드 수입
 });
 
 export const useGameStore = create<GameStore>()(
@@ -406,12 +412,16 @@ export const useGameStore = create<GameStore>()(
 
     upgradePlayerBase: () => {
       const state = get();
-      const cost = CONFIG.BASE_UPGRADE_COST;
+      const currentLevel = state.playerBase.upgradeLevel ?? 0;
+      const cost = getUpgradeCost(currentLevel);
 
       if (
         state.resources.gold >= cost.gold &&
         state.resources.stone >= cost.stone
       ) {
+        const newUpgradeLevel = currentLevel + 1;
+        const newGoldPerSecond = CONFIG.GOLD_PER_SECOND + (newUpgradeLevel * CONFIG.BASE_UPGRADE.GOLD_BONUS);
+
         set({
           resources: {
             ...state.resources,
@@ -420,13 +430,28 @@ export const useGameStore = create<GameStore>()(
           },
           playerBase: {
             ...state.playerBase,
-            hp: state.playerBase.hp + CONFIG.BASE_UPGRADE_HP,
-            maxHp: state.playerBase.maxHp + CONFIG.BASE_UPGRADE_HP,
+            hp: state.playerBase.hp + CONFIG.BASE_UPGRADE.HP_BONUS,
+            maxHp: state.playerBase.maxHp + CONFIG.BASE_UPGRADE.HP_BONUS,
+            upgradeLevel: newUpgradeLevel,
           },
+          playerGoldPerSecond: newGoldPerSecond,
         });
         return true;
       }
       return false;
+    },
+
+    getNextUpgradeCost: () => {
+      const state = get();
+      const currentLevel = state.playerBase.upgradeLevel ?? 0;
+      return getUpgradeCost(currentLevel);
+    },
+
+    canUpgradeBase: () => {
+      const state = get();
+      const currentLevel = state.playerBase.upgradeLevel ?? 0;
+      const cost = getUpgradeCost(currentLevel);
+      return state.resources.gold >= cost.gold && state.resources.stone >= cost.stone;
     },
 
     buildWall: (x: number, y: number) => {
