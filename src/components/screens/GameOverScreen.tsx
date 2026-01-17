@@ -23,7 +23,14 @@ export const GameOverScreen: React.FC = () => {
     // 멀티플레이어 결과
     victory = multiplayerResult.result === 'win';
     isDraw = multiplayerResult.result === 'draw';
-    resultMessage = multiplayerResult.reason;
+    // 간단한 메시지만 표시
+    if (multiplayerResult.reason.includes('연결 끊김')) {
+      resultMessage = '상대방 연결 끊김';
+    } else if (multiplayerResult.reason.includes('시간 종료')) {
+      resultMessage = '시간 종료';
+    } else {
+      resultMessage = ''; // 기지 파괴 메시지는 표시하지 않음
+    }
   } else {
     // 싱글플레이어 결과
     if (enemyBase.hp <= 0) {
@@ -87,9 +94,11 @@ export const GameOverScreen: React.FC = () => {
           {isDraw ? 'DRAW' : victory ? 'VICTORY' : 'DEFEAT'}
         </h1>
 
-        <p className="text-gray-400 text-lg mb-8">
-          {resultMessage || (victory ? '적 본진을 파괴했습니다!' : '본진이 파괴되었습니다...')}
-        </p>
+        {(resultMessage || gameMode !== 'multiplayer') && (
+          <p className="text-gray-400 text-lg mb-8">
+            {resultMessage || (victory ? '적 본진을 파괴했습니다!' : '본진이 파괴되었습니다...')}
+          </p>
+        )}
         
         {/* 통계 - AI 대전에서만 표시 */}
         {gameMode !== 'multiplayer' && (
