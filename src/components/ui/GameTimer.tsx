@@ -76,13 +76,6 @@ export const GameTimer: React.FC = () => {
           <div className={`w-2 h-2 rounded-full animate-pulse ${isLowTime ? 'bg-neon-red' : 'bg-neon-cyan'}`} />
         </div>
 
-        {/* 프로그레스 바 */}
-        <div className="mt-2 h-1 bg-dark-700 rounded-full overflow-hidden">
-          <div
-            className={`h-full transition-all duration-100 ${isLowTime ? 'bg-neon-red' : 'bg-neon-cyan'}`}
-            style={{ width: `${(time / (10 * 60)) * 100}%` }}
-          />
-        </div>
       </div>
     </div>
   );
