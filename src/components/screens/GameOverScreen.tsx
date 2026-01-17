@@ -91,19 +91,22 @@ export const GameOverScreen: React.FC = () => {
           {resultMessage || (victory ? '적 본진을 파괴했습니다!' : '본진이 파괴되었습니다...')}
         </p>
         
-        <div style={{ height: '30px' }} />
-
-        {/* 통계 */}
-        <div className="glass-dark rounded-xl p-6 mb-8 min-w-[300px] border border-dark-500/50">
-          <div className="flex justify-between mb-3">
-            <span className="text-gray-400">내 본진 HP</span>
-            <span className="text-white font-bold tabular-nums">{Math.floor(playerBase.hp)}</span>
-          </div>
-          <div className="flex justify-between">
-            <span className="text-gray-400">적 본진 HP</span>
-            <span className="text-white font-bold tabular-nums">{Math.floor(enemyBase.hp)}</span>
-          </div>
-        </div>
+        {/* 통계 - AI 대전에서만 표시 */}
+        {gameMode !== 'multiplayer' && (
+          <>
+            <div style={{ height: '30px' }} />
+            <div className="glass-dark rounded-xl p-6 mb-8 min-w-[300px] border border-dark-500/50">
+              <div className="flex justify-between mb-3">
+                <span className="text-gray-400">내 본진 HP</span>
+                <span className="text-white font-bold tabular-nums">{Math.floor(playerBase.hp)}</span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">적 본진 HP</span>
+                <span className="text-white font-bold tabular-nums">{Math.floor(enemyBase.hp)}</span>
+              </div>
+            </div>
+          </>
+        )}
 
         <div style={{ height: '30px' }} />
         
