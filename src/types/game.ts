@@ -6,7 +6,9 @@ export interface Position {
   y: number;
 }
 
-export interface Camera extends Position {}
+export interface Camera extends Position {
+  zoom: number;
+}
 
 export interface Base extends Position {
   hp: number;

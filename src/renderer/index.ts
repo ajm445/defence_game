@@ -12,6 +12,8 @@ export function render(
   canvasWidth: number,
   canvasHeight: number
 ) {
+  const zoom = state.camera.zoom;
+
   // 캔버스 클리어 - 다크 그라데이션 배경
   const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
   gradient.addColorStop(0, '#1a2e1a');
@@ -20,17 +22,23 @@ export function render(
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
+  // 줌 변환 적용
+  ctx.save();
+  ctx.scale(zoom, zoom);
+
   // 배경 그리드
-  drawGrid(ctx, state.camera, canvasWidth, canvasHeight);
+  const scaledWidth = canvasWidth / zoom;
+  const scaledHeight = canvasHeight / zoom;
+  drawGrid(ctx, state.camera, scaledWidth, scaledHeight);
 
   // 자원 노드 그리기
   for (const node of state.resourceNodes) {
-    drawResourceNode(ctx, node, state.camera, canvasWidth, canvasHeight);
+    drawResourceNode(ctx, node, state.camera, scaledWidth, scaledHeight);
   }
 
   // 벽 그리기
   for (const wall of state.walls) {
-    drawWall(ctx, wall, state.camera, canvasWidth, canvasHeight);
+    drawWall(ctx, wall, state.camera, scaledWidth, scaledHeight);
   }
 
   // 본진 그리기
@@ -40,8 +48,8 @@ export function render(
     state.camera,
     '#00f5ff', // 시안
     '아군 본진',
-    canvasWidth,
-    canvasHeight
+    scaledWidth,
+    scaledHeight
   );
   drawBase(
     ctx,
@@ -49,8 +57,8 @@ export function render(
     state.camera,
     '#ef4444', // 레드
     '적 본진',
-    canvasWidth,
-    canvasHeight
+    scaledWidth,
+    scaledHeight
   );
 
   // 유닛 그리기
@@ -61,8 +69,8 @@ export function render(
       state.camera,
       '#00f5ff',
       unit === state.selectedUnit,
-      canvasWidth,
-      canvasHeight
+      scaledWidth,
+      scaledHeight
     );
   }
   for (const unit of state.enemyUnits) {
@@ -72,10 +80,13 @@ export function render(
       state.camera,
       '#ef4444',
       false,
-      canvasWidth,
-      canvasHeight
+      scaledWidth,
+      scaledHeight
     );
   }
+
+  // 줌 변환 복원
+  ctx.restore();
 }
 
 // 멀티플레이어용 렌더 함수
@@ -87,6 +98,8 @@ export function renderMultiplayer(
   canvasWidth: number,
   canvasHeight: number
 ) {
+  const zoom = camera.zoom;
+
   // 캔버스 클리어 - 다크 그라데이션 배경
   const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
   gradient.addColorStop(0, '#1a2e1a');
@@ -95,19 +108,26 @@ export function renderMultiplayer(
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
+  // 줌 변환 적용
+  ctx.save();
+  ctx.scale(zoom, zoom);
+
+  const scaledWidth = canvasWidth / zoom;
+  const scaledHeight = canvasHeight / zoom;
+
   // 배경 그리드
-  drawGrid(ctx, camera, canvasWidth, canvasHeight);
+  drawGrid(ctx, camera, scaledWidth, scaledHeight);
 
   // 자원 노드 그리기
   for (const node of gameState.resourceNodes) {
-    drawResourceNode(ctx, node, camera, canvasWidth, canvasHeight);
+    drawResourceNode(ctx, node, camera, scaledWidth, scaledHeight);
   }
 
   // 벽 그리기
   for (const wall of gameState.walls) {
     // 내 벽은 시안, 적 벽은 빨강
     const color = wall.side === mySide ? '#00f5ff' : '#ef4444';
-    drawNetworkWall(ctx, wall, camera, color, canvasWidth, canvasHeight);
+    drawNetworkWall(ctx, wall, camera, color, scaledWidth, scaledHeight);
   }
 
   // 본진 그리기 - 내 진영 기준으로 색상 결정
@@ -122,8 +142,8 @@ export function renderMultiplayer(
     camera,
     '#00f5ff', // 시안 (내 기지)
     '아군 본진',
-    canvasWidth,
-    canvasHeight
+    scaledWidth,
+    scaledHeight
   );
   drawBase(
     ctx,
@@ -131,16 +151,19 @@ export function renderMultiplayer(
     camera,
     '#ef4444', // 레드 (적 기지)
     '적 본진',
-    canvasWidth,
-    canvasHeight
+    scaledWidth,
+    scaledHeight
   );
 
   // 유닛 그리기
   for (const unit of gameState.units) {
     // 내 유닛은 시안, 적 유닛은 빨강
     const color = unit.side === mySide ? '#00f5ff' : '#ef4444';
-    drawNetworkUnit(ctx, unit, camera, color, false, canvasWidth, canvasHeight);
+    drawNetworkUnit(ctx, unit, camera, color, false, scaledWidth, scaledHeight);
   }
+
+  // 줌 변환 복원
+  ctx.restore();
 }
 
 export { drawMinimap, drawMinimapMultiplayer } from './drawMinimap';

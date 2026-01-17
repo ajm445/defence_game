@@ -26,6 +26,8 @@ interface GameActions {
   // 카메라
   moveCamera: (dx: number, dy: number) => void;
   setCameraPosition: (x: number, y: number) => void;
+  setZoom: (zoom: number) => void;
+  zoomAt: (zoom: number, screenX: number, screenY: number) => void;
 
   // 기지
   damageBase: (team: Team, damage: number) => void;
@@ -153,7 +155,7 @@ function generateResourceNodes(): ResourceNode[] {
 const createInitialState = (): GameState => ({
   running: false,
   time: CONFIG.GAME_TIME,
-  camera: { x: 0, y: CONFIG.MAP_HEIGHT / 2 - 400 },
+  camera: { x: 0, y: CONFIG.MAP_HEIGHT / 2 - 400, zoom: 1 },
   resources: { ...initialResources },
   playerBase: {
     x: 200,
@@ -315,23 +317,71 @@ export const useGameStore = create<GameStore>()(
     selectUnit: (unit) => set({ selectedUnit: unit }),
 
     moveCamera: (dx, dy) =>
-      set((state) => ({
-        camera: {
-          x: clamp(state.camera.x + dx, 0, CONFIG.MAP_WIDTH - window.innerWidth),
-          y: clamp(
-            state.camera.y + dy,
-            0,
-            CONFIG.MAP_HEIGHT - (window.innerHeight - CONFIG.UI_PANEL_HEIGHT)
-          ),
-        },
-      })),
+      set((state) => {
+        const zoom = state.camera.zoom;
+        const viewWidth = window.innerWidth / zoom;
+        const viewHeight = (window.innerHeight - CONFIG.UI_PANEL_HEIGHT) / zoom;
+        return {
+          camera: {
+            ...state.camera,
+            x: clamp(state.camera.x + dx, 0, Math.max(0, CONFIG.MAP_WIDTH - viewWidth)),
+            y: clamp(state.camera.y + dy, 0, Math.max(0, CONFIG.MAP_HEIGHT - viewHeight)),
+          },
+        };
+      }),
 
     setCameraPosition: (x, y) =>
-      set({
-        camera: {
-          x: clamp(x, 0, CONFIG.MAP_WIDTH - window.innerWidth),
-          y: clamp(y, 0, CONFIG.MAP_HEIGHT - (window.innerHeight - CONFIG.UI_PANEL_HEIGHT)),
-        },
+      set((state) => {
+        const zoom = state.camera.zoom;
+        const viewWidth = window.innerWidth / zoom;
+        const viewHeight = (window.innerHeight - CONFIG.UI_PANEL_HEIGHT) / zoom;
+        return {
+          camera: {
+            ...state.camera,
+            x: clamp(x, 0, Math.max(0, CONFIG.MAP_WIDTH - viewWidth)),
+            y: clamp(y, 0, Math.max(0, CONFIG.MAP_HEIGHT - viewHeight)),
+          },
+        };
+      }),
+
+    setZoom: (zoom) =>
+      set((state) => {
+        const newZoom = clamp(zoom, 0.5, 2);
+        const viewWidth = window.innerWidth / newZoom;
+        const viewHeight = (window.innerHeight - CONFIG.UI_PANEL_HEIGHT) / newZoom;
+        return {
+          camera: {
+            ...state.camera,
+            zoom: newZoom,
+            x: clamp(state.camera.x, 0, Math.max(0, CONFIG.MAP_WIDTH - viewWidth)),
+            y: clamp(state.camera.y, 0, Math.max(0, CONFIG.MAP_HEIGHT - viewHeight)),
+          },
+        };
+      }),
+
+    zoomAt: (newZoom, screenX, screenY) =>
+      set((state) => {
+        const clampedZoom = clamp(newZoom, 0.5, 2);
+        const oldZoom = state.camera.zoom;
+
+        // 마우스 위치의 월드 좌표 계산
+        const worldX = state.camera.x + screenX / oldZoom;
+        const worldY = state.camera.y + screenY / oldZoom;
+
+        // 새 줌에서 같은 월드 좌표가 같은 화면 위치에 오도록 카메라 위치 조정
+        const newCameraX = worldX - screenX / clampedZoom;
+        const newCameraY = worldY - screenY / clampedZoom;
+
+        const viewWidth = window.innerWidth / clampedZoom;
+        const viewHeight = (window.innerHeight - CONFIG.UI_PANEL_HEIGHT) / clampedZoom;
+
+        return {
+          camera: {
+            zoom: clampedZoom,
+            x: clamp(newCameraX, 0, Math.max(0, CONFIG.MAP_WIDTH - viewWidth)),
+            y: clamp(newCameraY, 0, Math.max(0, CONFIG.MAP_HEIGHT - viewHeight)),
+          },
+        };
       }),
 
     damageBase: (team, damage) =>
@@ -492,4 +542,5 @@ export const useGameTime = () => useGameStore((state) => state.time);
 export const useSelectedUnit = () => useGameStore((state) => state.selectedUnit);
 export const useIsRunning = () => useGameStore((state) => state.running);
 export const useCamera = () => useGameStore((state) => state.camera);
+export const useZoom = () => useGameStore((state) => state.camera.zoom);
 export const useGameMode = () => useGameStore((state) => state.gameMode);

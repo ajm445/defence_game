@@ -6,12 +6,15 @@ import { distance } from '../utils/math';
 import { CONFIG } from '../constants/config';
 import { wsClient } from '../services/WebSocketClient';
 
+const ZOOM_SPEED = 0.1;
+
 export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) => {
   const isDraggingRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
 
   const camera = useGameStore((state) => state.camera);
   const moveCamera = useGameStore((state) => state.moveCamera);
+  const zoomAt = useGameStore((state) => state.zoomAt);
   const units = useGameStore((state) => state.units);
   const selectUnit = useGameStore((state) => state.selectUnit);
   const resourceNodes = useGameStore((state) => state.resourceNodes);
@@ -61,8 +64,9 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
       const uiState = useUIStore.getState();
       const mpState = useMultiplayerStore.getState();
       const rect = canvas.getBoundingClientRect();
-      const clickX = e.clientX - rect.left + state.camera.x;
-      const clickY = e.clientY - rect.top + state.camera.y;
+      const zoom = state.camera.zoom;
+      const clickX = (e.clientX - rect.left) / zoom + state.camera.x;
+      const clickY = (e.clientY - rect.top) / zoom + state.camera.y;
 
       // 벽 배치 모드
       if (uiState.placementMode === 'wall') {
@@ -119,10 +123,34 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
     e.preventDefault();
   }, []);
 
+  const handleWheel = useCallback(
+    (e: React.WheelEvent) => {
+      e.preventDefault();
+
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const rect = canvas.getBoundingClientRect();
+      const mouseX = e.clientX - rect.left;
+      const mouseY = e.clientY - rect.top;
+
+      const state = useGameStore.getState();
+      const currentZoom = state.camera.zoom;
+
+      // 스크롤 방향에 따라 줌 인/아웃
+      const delta = e.deltaY > 0 ? -ZOOM_SPEED : ZOOM_SPEED;
+      const newZoom = currentZoom + delta;
+
+      zoomAt(newZoom, mouseX, mouseY);
+    },
+    [canvasRef, zoomAt]
+  );
+
   return {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
     handleContextMenu,
+    handleWheel,
   };
 };
