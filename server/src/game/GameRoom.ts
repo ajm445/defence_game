@@ -122,6 +122,7 @@ interface ServerUnit extends NetworkUnit {
   range: number;
   attackCooldown: number;
   targetId?: string;
+  attackerId?: string; // 이 유닛을 공격한 적의 ID (반격용)
   gatherRate?: number;
   resourceType?: string;
   unitType: string;
@@ -403,90 +404,140 @@ export class GameRoom {
   }
 
   private updateCombatUnit(unit: ServerUnit, deltaTime: number): void {
-    // 가장 가까운 적 찾기
-    const enemy = this.findNearestEnemy(unit);
-    const enemyWall = this.findNearestEnemyWall(unit);
-
     // 적 기지 위치
     const enemyBaseX = unit.side === 'left' ? CONFIG.RIGHT_BASE_X : CONFIG.LEFT_BASE_X;
+    const distToBase = this.getDistance(unit.x, unit.y, enemyBaseX, CONFIG.BASE_Y);
 
-    // 우선순위: 적 유닛 > 적 벽 > 적 기지
-    if (enemy) {
-      const distance = this.getDistance(unit.x, unit.y, enemy.x, enemy.y);
+    // 1. 공격받은 적 찾기 (반격 대상)
+    let attacker: ServerUnit | null = null;
+    if (unit.attackerId) {
+      attacker = this.units.find(u => u.id === unit.attackerId && u.hp > 0) || null;
+      // 공격자가 죽었으면 attackerId 초기화
+      if (!attacker) {
+        unit.attackerId = undefined;
+      }
+    }
 
-      if (distance <= unit.range) {
-        // 공격
-        unit.state = 'attacking';
+    // 2. 가장 가까운 벽 찾기
+    const enemyWalls = this.walls.filter(w => w.side !== unit.side && w.hp > 0);
+    let targetWall: ServerWall | null = null;
+    let minWallDist = Infinity;
+    for (const wall of enemyWalls) {
+      const dist = this.getDistance(unit.x, unit.y, wall.x, wall.y);
+      if (dist < minWallDist) {
+        minWallDist = dist;
+        targetWall = wall;
+      }
+    }
+
+    // 3. 가장 가까운 적 유닛 찾기
+    const enemies = this.units.filter(u => u.side !== unit.side && u.hp > 0);
+    let nearestEnemy: ServerUnit | null = null;
+    let minEnemyDist = Infinity;
+    for (const enemy of enemies) {
+      const dist = this.getDistance(unit.x, unit.y, enemy.x, enemy.y);
+      if (dist < minEnemyDist) {
+        minEnemyDist = dist;
+        nearestEnemy = enemy;
+      }
+    }
+
+    // 우선순위: 반격 대상 > 벽(경로상) > 범위 내 적 > 본진
+
+    // 1순위: 반격 대상 (공격받은 경우)
+    if (attacker) {
+      const attackerDist = this.getDistance(unit.x, unit.y, attacker.x, attacker.y);
+      if (attackerDist <= unit.range) {
         if (unit.attackCooldown <= 0) {
-          enemy.hp -= unit.attack;
-          unit.attackCooldown = 1; // 1초 쿨다운
+          attacker.hp -= unit.attack;
+          attacker.attackerId = unit.id; // 공격자 기록 (반격 체인)
+          unit.attackCooldown = 1;
+          unit.state = 'attacking';
           this.broadcastEvent({
             event: 'UNIT_ATTACKED',
             attackerId: unit.id,
-            targetId: enemy.id,
+            targetId: attacker.id,
             damage: unit.attack,
           });
         }
       } else {
-        // 적에게 이동
+        // 공격자에게 이동
         unit.state = 'moving';
-        this.moveTowards(unit, enemy.x, enemy.y, deltaTime);
+        this.moveTowards(unit, attacker.x, attacker.y, deltaTime);
       }
-    } else if (enemyWall) {
-      const distance = this.getDistance(unit.x, unit.y, enemyWall.x, enemyWall.y);
+      return;
+    }
 
-      if (distance <= unit.range) {
-        // 벽 공격
-        unit.state = 'attacking';
+    // 2순위: 벽 (본진보다 가까운 경우)
+    if (targetWall && minWallDist < distToBase) {
+      if (minWallDist <= unit.range) {
         if (unit.attackCooldown <= 0) {
-          enemyWall.hp -= unit.attack;
+          targetWall.hp -= unit.attack;
           unit.attackCooldown = 1;
+          unit.state = 'attacking';
 
-          if (enemyWall.hp <= 0) {
-            this.walls = this.walls.filter(w => w.id !== enemyWall.id);
-            this.broadcastEvent({ event: 'WALL_DESTROYED', wallId: enemyWall.id });
+          if (targetWall.hp <= 0) {
+            this.walls = this.walls.filter(w => w.id !== targetWall!.id);
+            this.broadcastEvent({ event: 'WALL_DESTROYED', wallId: targetWall.id });
           } else {
             this.broadcastEvent({
               event: 'WALL_DAMAGED',
-              wallId: enemyWall.id,
+              wallId: targetWall.id,
               damage: unit.attack,
-              hp: enemyWall.hp,
+              hp: targetWall.hp,
             });
           }
         }
       } else {
+        // 벽으로 이동
         unit.state = 'moving';
-        this.moveTowards(unit, enemyWall.x, enemyWall.y, deltaTime);
+        this.moveTowards(unit, targetWall.x, targetWall.y, deltaTime);
       }
-    } else {
-      // 기지로 이동/공격
-      const distanceToBase = this.getDistance(unit.x, unit.y, enemyBaseX, CONFIG.BASE_Y);
+      return;
+    }
 
-      if (distanceToBase <= unit.range) {
+    // 3순위: 범위 내 적 유닛
+    if (nearestEnemy && minEnemyDist <= unit.range) {
+      if (unit.attackCooldown <= 0) {
+        nearestEnemy.hp -= unit.attack;
+        nearestEnemy.attackerId = unit.id; // 공격자 기록
+        unit.attackCooldown = 1;
         unit.state = 'attacking';
-        if (unit.attackCooldown <= 0) {
-          if (unit.side === 'left') {
-            this.rightBaseHp -= unit.attack;
-            this.broadcastEvent({
-              event: 'BASE_DAMAGED',
-              side: 'right',
-              damage: unit.attack,
-              hp: this.rightBaseHp,
-            });
-          } else {
-            this.leftBaseHp -= unit.attack;
-            this.broadcastEvent({
-              event: 'BASE_DAMAGED',
-              side: 'left',
-              damage: unit.attack,
-              hp: this.leftBaseHp,
-            });
-          }
-          unit.attackCooldown = 1;
+        this.broadcastEvent({
+          event: 'UNIT_ATTACKED',
+          attackerId: unit.id,
+          targetId: nearestEnemy.id,
+          damage: unit.attack,
+        });
+      }
+      return;
+    }
+
+    // 4순위: 본진으로 이동/공격
+    if (distToBase > unit.range) {
+      unit.state = 'moving';
+      this.moveTowards(unit, enemyBaseX, CONFIG.BASE_Y, deltaTime);
+    } else {
+      if (unit.attackCooldown <= 0) {
+        if (unit.side === 'left') {
+          this.rightBaseHp -= unit.attack;
+          this.broadcastEvent({
+            event: 'BASE_DAMAGED',
+            side: 'right',
+            damage: unit.attack,
+            hp: this.rightBaseHp,
+          });
+        } else {
+          this.leftBaseHp -= unit.attack;
+          this.broadcastEvent({
+            event: 'BASE_DAMAGED',
+            side: 'left',
+            damage: unit.attack,
+            hp: this.leftBaseHp,
+          });
         }
-      } else {
-        unit.state = 'moving';
-        this.moveTowards(unit, enemyBaseX, CONFIG.BASE_Y, deltaTime);
+        unit.attackCooldown = 1;
+        unit.state = 'attacking';
       }
     }
   }
