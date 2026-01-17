@@ -3,7 +3,7 @@ import { useMultiplayerStore } from '../stores/useMultiplayerStore';
 import type { NetworkGameState, NetworkUnit, NetworkWall, Resources } from '@shared/types/game';
 
 // 보간 설정
-const INTERPOLATION_DELAY = 100; // ms - 서버 업데이트 간격에 맞춤
+const INTERPOLATION_DELAY = 50; // ms - 서버 업데이트 간격에 맞춤
 const GOLD_PER_SECOND = 4;
 
 interface InterpolatedUnit extends NetworkUnit {

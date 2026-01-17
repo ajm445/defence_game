@@ -315,8 +315,8 @@ export class GameRoom {
     // 승리 조건 체크
     this.checkWinCondition();
 
-    // 100ms마다 전체 상태 동기화 (클라이언트 보간을 위해 빈번한 업데이트)
-    if (this.gameTime - this.lastFullSync >= 0.1) {
+    // 50ms마다 전체 상태 동기화 (더 부드러운 통신)
+    if (this.gameTime - this.lastFullSync >= 0.05) {
       this.lastFullSync = this.gameTime;
       this.broadcastState();
     }
