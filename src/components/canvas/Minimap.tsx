@@ -1,12 +1,14 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useGameStore } from '../../stores/useGameStore';
-import { drawMinimap } from '../../renderer';
+import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
+import { drawMinimap, drawMinimapMultiplayer } from '../../renderer';
 import { CONFIG } from '../../constants/config';
 
 export const Minimap: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
   const animationRef = useRef<number>(0);
   const setCameraPosition = useGameStore((state) => state.setCameraPosition);
+  const gameMode = useGameStore((state) => state.gameMode);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -22,14 +24,32 @@ export const Minimap: React.FC = () => {
       const state = useGameStore.getState();
       const viewportHeight = window.innerHeight - CONFIG.UI_PANEL_HEIGHT;
 
-      drawMinimap(
-        ctx,
-        state,
-        CONFIG.MINIMAP_WIDTH,
-        CONFIG.MINIMAP_HEIGHT,
-        window.innerWidth,
-        viewportHeight
-      );
+      if (state.gameMode === 'multiplayer') {
+        // 멀티플레이어 모드
+        const mpState = useMultiplayerStore.getState();
+        if (mpState.gameState && mpState.mySide) {
+          drawMinimapMultiplayer(
+            ctx,
+            mpState.gameState,
+            mpState.mySide,
+            state.camera,
+            CONFIG.MINIMAP_WIDTH,
+            CONFIG.MINIMAP_HEIGHT,
+            window.innerWidth,
+            viewportHeight
+          );
+        }
+      } else {
+        // 싱글플레이어 모드
+        drawMinimap(
+          ctx,
+          state,
+          CONFIG.MINIMAP_WIDTH,
+          CONFIG.MINIMAP_HEIGHT,
+          window.innerWidth,
+          viewportHeight
+        );
+      }
 
       animationRef.current = requestAnimationFrame(animate);
     };
@@ -41,7 +61,7 @@ export const Minimap: React.FC = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, []);
+  }, [gameMode]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {

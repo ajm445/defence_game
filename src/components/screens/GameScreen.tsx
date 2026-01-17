@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useGameLoop } from '../../hooks/useGameLoop';
 import { useKeyboardInput } from '../../hooks/useKeyboardInput';
 import { GameCanvas } from '../canvas/GameCanvas';
@@ -11,11 +11,27 @@ import { ActionPanel } from '../ui/ActionPanel';
 import { SelectionInfo } from '../ui/SelectionInfo';
 import { Notification } from '../ui/Notification';
 import { CONFIG } from '../../constants/config';
+import { useGameStore } from '../../stores/useGameStore';
+import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
+import { useUIStore } from '../../stores/useUIStore';
 
 export const GameScreen: React.FC = () => {
   // 게임 루프 시작
   useGameLoop();
   useKeyboardInput();
+
+  const gameMode = useGameStore((state) => state.gameMode);
+  const stopGame = useGameStore((state) => state.stopGame);
+  const gameResult = useMultiplayerStore((state) => state.gameResult);
+  const setScreen = useUIStore((state) => state.setScreen);
+
+  // 멀티플레이어 게임 종료 처리
+  useEffect(() => {
+    if (gameMode === 'multiplayer' && gameResult) {
+      stopGame();
+      setScreen('gameover');
+    }
+  }, [gameMode, gameResult, stopGame, setScreen]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-dark-900">

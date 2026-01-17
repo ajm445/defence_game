@@ -1,8 +1,10 @@
 import { useRef, useCallback, RefObject } from 'react';
 import { useGameStore } from '../stores/useGameStore';
 import { useUIStore } from '../stores/useUIStore';
+import { useMultiplayerStore } from '../stores/useMultiplayerStore';
 import { distance } from '../utils/math';
 import { CONFIG } from '../constants/config';
+import { wsClient } from '../services/WebSocketClient';
 
 export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) => {
   const isDraggingRef = useRef(false);
@@ -57,39 +59,57 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
 
       const state = useGameStore.getState();
       const uiState = useUIStore.getState();
+      const mpState = useMultiplayerStore.getState();
       const rect = canvas.getBoundingClientRect();
       const clickX = e.clientX - rect.left + state.camera.x;
       const clickY = e.clientY - rect.top + state.camera.y;
 
       // 벽 배치 모드
       if (uiState.placementMode === 'wall') {
-        // 플레이어 진영 내에서만 건설 가능 (맵 왼쪽 절반)
-        if (clickX < CONFIG.MAP_WIDTH / 2) {
-          const success = buildWall(clickX, clickY);
-          if (success) {
-            showNotification('벽 건설 완료!');
+        if (state.gameMode === 'multiplayer') {
+          // 멀티플레이어: 내 진영에서만 건설 가능
+          const mySide = mpState.mySide;
+          const isMyTerritory = mySide === 'left'
+            ? clickX < CONFIG.MAP_WIDTH / 2
+            : clickX > CONFIG.MAP_WIDTH / 2;
+
+          if (isMyTerritory) {
+            wsClient.buildWall(clickX, clickY);
+            showNotification('벽 건설 요청!');
           } else {
-            showNotification('자원이 부족합니다!');
+            showNotification('내 진영에만 건설할 수 있습니다!');
           }
         } else {
-          showNotification('플레이어 진영에만 건설할 수 있습니다!');
+          // 싱글플레이어: 플레이어 진영 내에서만 건설 가능 (맵 왼쪽 절반)
+          if (clickX < CONFIG.MAP_WIDTH / 2) {
+            const success = buildWall(clickX, clickY);
+            if (success) {
+              showNotification('벽 건설 완료!');
+            } else {
+              showNotification('자원이 부족합니다!');
+            }
+          } else {
+            showNotification('플레이어 진영에만 건설할 수 있습니다!');
+          }
         }
         setPlacementMode('none');
         return;
       }
 
-      // 유닛 선택 확인
-      let clicked = false;
-      for (const unit of state.units) {
-        if (distance(clickX, clickY, unit.x, unit.y) < 20) {
-          selectUnit(unit);
-          clicked = true;
-          break;
+      // 유닛 선택 확인 (싱글플레이어 전용)
+      if (state.gameMode !== 'multiplayer') {
+        let clicked = false;
+        for (const unit of state.units) {
+          if (distance(clickX, clickY, unit.x, unit.y) < 20) {
+            selectUnit(unit);
+            clicked = true;
+            break;
+          }
         }
-      }
 
-      if (!clicked) {
-        selectUnit(null);
+        if (!clicked) {
+          selectUnit(null);
+        }
       }
     },
     [canvasRef, selectUnit, addResource, updateResourceNode, buildWall, showNotification, setPlacementMode]

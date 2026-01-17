@@ -1,9 +1,18 @@
 import React from 'react';
-import { useGameTime } from '../../stores/useGameStore';
+import { useGameTime, useGameStore } from '../../stores/useGameStore';
+import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { formatTime } from '../../utils/format';
 
 export const GameTimer: React.FC = () => {
-  const time = useGameTime();
+  const gameMode = useGameStore((state) => state.gameMode);
+  const singlePlayerTime = useGameTime();
+  const gameState = useMultiplayerStore((state) => state.gameState);
+
+  // 멀티플레이어 모드에서는 서버 상태의 시간 사용
+  const time = gameMode === 'multiplayer' && gameState
+    ? gameState.maxTime - gameState.time // 남은 시간
+    : singlePlayerTime;
+
   const isLowTime = time < 60; // 1분 미만
 
   return (

@@ -1,5 +1,6 @@
 import React from 'react';
-import { useResources } from '../../stores/useGameStore';
+import { useResources, useGameStore } from '../../stores/useGameStore';
+import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 
 const RESOURCE_CONFIG = [
   { key: 'gold', icon: '💰', label: 'GOLD', color: 'from-yellow-500 to-amber-600', glow: 'shadow-[0_0_10px_rgba(251,191,36,0.3)]' },
@@ -10,7 +11,15 @@ const RESOURCE_CONFIG = [
 ] as const;
 
 export const ResourceBar: React.FC = () => {
-  const resources = useResources();
+  const gameMode = useGameStore((state) => state.gameMode);
+  const singlePlayerResources = useResources();
+  const gameState = useMultiplayerStore((state) => state.gameState);
+  const mySide = useMultiplayerStore((state) => state.mySide);
+
+  // 멀티플레이어 모드에서는 서버 상태의 자원 사용
+  const resources = gameMode === 'multiplayer' && gameState && mySide
+    ? (mySide === 'left' ? gameState.leftPlayer.resources : gameState.rightPlayer.resources)
+    : singlePlayerResources;
 
   return (
     <div className="absolute top-4 left-4 flex gap-2">

@@ -1,33 +1,61 @@
 import React from 'react';
 import { useGameStore } from '../../stores/useGameStore';
+import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
 
 export const GameOverScreen: React.FC = () => {
+  const gameMode = useGameStore((state) => state.gameMode);
   const playerBase = useGameStore((state) => state.playerBase);
   const enemyBase = useGameStore((state) => state.enemyBase);
   const time = useGameStore((state) => state.time);
   const initGame = useGameStore((state) => state.initGame);
   const startGame = useGameStore((state) => state.startGame);
   const setScreen = useUIStore((state) => state.setScreen);
+  const multiplayerResult = useMultiplayerStore((state) => state.gameResult);
+  const resetMultiplayer = useMultiplayerStore((state) => state.reset);
 
   // 승리 조건 확인
   let victory = false;
-  if (enemyBase.hp <= 0) {
-    victory = true;
-  } else if (playerBase.hp <= 0) {
-    victory = false;
-  } else if (time <= 0) {
-    victory = playerBase.hp > enemyBase.hp;
+  let isDraw = false;
+  let resultMessage = '';
+
+  if (gameMode === 'multiplayer' && multiplayerResult) {
+    // 멀티플레이어 결과
+    victory = multiplayerResult.result === 'win';
+    isDraw = multiplayerResult.result === 'draw';
+    resultMessage = multiplayerResult.reason;
+  } else {
+    // 싱글플레이어 결과
+    if (enemyBase.hp <= 0) {
+      victory = true;
+      resultMessage = '적 본진을 파괴했습니다!';
+    } else if (playerBase.hp <= 0) {
+      victory = false;
+      resultMessage = '본진이 파괴되었습니다...';
+    } else if (time <= 0) {
+      victory = playerBase.hp > enemyBase.hp;
+      resultMessage = victory ? '시간 종료 - HP 우위!' : '시간 종료 - HP 열세...';
+    }
   }
 
   const handleBackToMenu = () => {
+    if (gameMode === 'multiplayer') {
+      resetMultiplayer();
+    }
     setScreen('menu');
   };
 
   const handleRestartGame = () => {
-    initGame();
-    startGame();
-    setScreen('game');
+    if (gameMode === 'multiplayer') {
+      // 멀티플레이어에서는 로비로 돌아가기
+      resetMultiplayer();
+      setScreen('lobby');
+    } else {
+      // 싱글플레이어에서는 바로 재시작
+      initGame();
+      startGame();
+      setScreen('game');
+    }
   };
 
   return (
@@ -41,7 +69,7 @@ export const GameOverScreen: React.FC = () => {
       <div className="relative z-10 flex flex-col items-center">
         {/* 아이콘 */}
         <div className={`text-8xl mb-6 ${victory ? 'animate-float' : ''}`}>
-          {victory ? '🏆' : '💀'}
+          {isDraw ? '🤝' : victory ? '🏆' : '💀'}
         </div>
 
         <div style={{ height: '30px' }} />
@@ -49,16 +77,18 @@ export const GameOverScreen: React.FC = () => {
         {/* 메인 텍스트 */}
         <h1 className={`
           font-game text-6xl md:text-7xl font-bold mb-4
-          ${victory
-            ? 'text-transparent bg-clip-text bg-gradient-to-b from-neon-cyan to-neon-blue text-glow-cyan'
-            : 'text-transparent bg-clip-text bg-gradient-to-b from-neon-red to-orange-500 text-glow-red'
+          ${isDraw
+            ? 'text-transparent bg-clip-text bg-gradient-to-b from-yellow-400 to-orange-500'
+            : victory
+              ? 'text-transparent bg-clip-text bg-gradient-to-b from-neon-cyan to-neon-blue text-glow-cyan'
+              : 'text-transparent bg-clip-text bg-gradient-to-b from-neon-red to-orange-500 text-glow-red'
           }
         `}>
-          {victory ? 'VICTORY' : 'DEFEAT'}
+          {isDraw ? 'DRAW' : victory ? 'VICTORY' : 'DEFEAT'}
         </h1>
 
         <p className="text-gray-400 text-lg mb-8">
-          {victory ? '적 본진을 파괴했습니다!' : '본진이 파괴되었습니다...'}
+          {resultMessage || (victory ? '적 본진을 파괴했습니다!' : '본진이 파괴되었습니다...')}
         </p>
         
         <div style={{ height: '30px' }} />
@@ -86,10 +116,10 @@ export const GameOverScreen: React.FC = () => {
               transition-all duration-300 hover:scale-105 active:scale-95
             `}
           >
-            <div className={`absolute inset-0 ${victory ? 'bg-neon-cyan/20' : 'bg-neon-red/20'}`} />
-            <div className={`absolute inset-0 border rounded-lg ${victory ? 'border-neon-cyan/50 group-hover:border-neon-cyan group-hover:shadow-neon-cyan' : 'border-neon-red/50 group-hover:border-neon-red group-hover:shadow-neon-red'} transition-all duration-300`} />
-            <span className={`relative font-game text-lg tracking-wider ${victory ? 'text-neon-cyan' : 'text-neon-red'}`}>
-              다시 시작
+            <div className={`absolute inset-0 ${victory || isDraw ? 'bg-neon-cyan/20' : 'bg-neon-red/20'}`} />
+            <div className={`absolute inset-0 border rounded-lg ${victory || isDraw ? 'border-neon-cyan/50 group-hover:border-neon-cyan group-hover:shadow-neon-cyan' : 'border-neon-red/50 group-hover:border-neon-red group-hover:shadow-neon-red'} transition-all duration-300`} />
+            <span className={`relative font-game text-lg tracking-wider ${victory || isDraw ? 'text-neon-cyan' : 'text-neon-red'}`}>
+              {gameMode === 'multiplayer' ? '로비로' : '다시 시작'}
             </span>
           </button>
 

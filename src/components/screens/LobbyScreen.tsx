@@ -22,6 +22,8 @@ export const LobbyScreen: React.FC = () => {
   } = useMultiplayerStore();
 
   const initGame = useGameStore((state) => state.initGame);
+  const setCameraPosition = useGameStore((state) => state.setCameraPosition);
+  const mySide = useMultiplayerStore((state) => state.mySide);
   const [inputName, setInputName] = useState(playerName || '');
   const [isConnecting, setIsConnecting] = useState(false);
   const [showJoinInput, setShowJoinInput] = useState(false);
@@ -31,9 +33,21 @@ export const LobbyScreen: React.FC = () => {
   useEffect(() => {
     if (connectionState === 'in_game') {
       initGame('multiplayer');
+
+      // 진영에 따라 카메라 초기 위치 설정
+      // 왼쪽 진영: 왼쪽에서 시작 (x=0)
+      // 오른쪽 진영: 오른쪽에서 시작 (x=맵 너비 - 화면 너비)
+      if (mySide === 'right') {
+        // 오른쪽 진영: 맵 오른쪽에서 시작
+        setCameraPosition(3000 - window.innerWidth, 1000 - window.innerHeight / 2);
+      } else {
+        // 왼쪽 진영: 기본 위치 (왼쪽에서 시작)
+        setCameraPosition(0, 1000 - window.innerHeight / 2);
+      }
+
       setScreen('game');
     }
-  }, [connectionState, initGame, setScreen]);
+  }, [connectionState, initGame, setScreen, mySide, setCameraPosition]);
 
   // 에러 발생 시 3초 후 자동 클리어
   useEffect(() => {

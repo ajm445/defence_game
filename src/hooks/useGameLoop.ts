@@ -13,6 +13,7 @@ export const useGameLoop = () => {
   const aiTimerRef = useRef<number>(0);
 
   const running = useGameStore((state) => state.running);
+  const gameMode = useGameStore((state) => state.gameMode);
   const difficulty = useUIStore((state) => state.selectedDifficulty);
   const updateTime = useGameStore((state) => state.updateTime);
   const addGold = useGameStore((state) => state.addGold);
@@ -31,6 +32,13 @@ export const useGameLoop = () => {
     (timestamp: number) => {
       const state = useGameStore.getState();
       if (!state.running) return;
+
+      // 멀티플레이어 모드에서는 로컬 게임 루프를 실행하지 않음
+      // 서버에서 게임 상태를 받아서 렌더링만 함
+      if (state.gameMode === 'multiplayer') {
+        animationIdRef.current = requestAnimationFrame(tick);
+        return;
+      }
 
       const deltaTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1);
       lastTimeRef.current = timestamp;

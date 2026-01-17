@@ -1,9 +1,24 @@
 import React from 'react';
-import { usePlayerBase, useEnemyBase } from '../../stores/useGameStore';
+import { usePlayerBase, useEnemyBase, useGameStore } from '../../stores/useGameStore';
+import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 
 export const HPStatusPanel: React.FC = () => {
-  const playerBase = usePlayerBase();
-  const enemyBase = useEnemyBase();
+  const gameMode = useGameStore((state) => state.gameMode);
+  const singlePlayerBase = usePlayerBase();
+  const singleEnemyBase = useEnemyBase();
+  const gameState = useMultiplayerStore((state) => state.gameState);
+  const mySide = useMultiplayerStore((state) => state.mySide);
+
+  // 멀티플레이어 모드에서는 서버 상태 사용
+  let playerBase = singlePlayerBase;
+  let enemyBase = singleEnemyBase;
+
+  if (gameMode === 'multiplayer' && gameState && mySide) {
+    const myPlayer = mySide === 'left' ? gameState.leftPlayer : gameState.rightPlayer;
+    const enemyPlayer = mySide === 'left' ? gameState.rightPlayer : gameState.leftPlayer;
+    playerBase = { x: 0, y: 0, hp: myPlayer.baseHp, maxHp: myPlayer.maxBaseHp };
+    enemyBase = { x: 0, y: 0, hp: enemyPlayer.baseHp, maxHp: enemyPlayer.maxBaseHp };
+  }
 
   const playerPercent = Math.max(0, (playerBase.hp / playerBase.maxHp) * 100);
   const enemyPercent = Math.max(0, (enemyBase.hp / enemyBase.maxHp) * 100);

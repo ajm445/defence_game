@@ -1,4 +1,5 @@
-import { GameState } from '../types';
+import { GameState, Camera } from '../types';
+import type { NetworkGameState, PlayerSide } from '@shared/types/game';
 import { CONFIG } from '../constants/config';
 
 const NODE_COLORS: Record<string, string> = {
@@ -6,6 +7,7 @@ const NODE_COLORS: Record<string, string> = {
   rock: '#6b7280',
   herb: '#86efac',
   crystal: '#a855f7',
+  goldmine: '#fbbf24',
 };
 
 export function drawMinimap(
@@ -108,6 +110,100 @@ export function drawMinimap(
   ctx.strokeRect(
     state.camera.x * scaleX,
     state.camera.y * scaleY,
+    viewportWidth * scaleX,
+    viewportHeight * scaleY
+  );
+}
+
+// 멀티플레이어용 미니맵 그리기
+export function drawMinimapMultiplayer(
+  ctx: CanvasRenderingContext2D,
+  gameState: NetworkGameState,
+  mySide: PlayerSide,
+  camera: Camera,
+  minimapWidth: number,
+  minimapHeight: number,
+  viewportWidth: number,
+  viewportHeight: number
+) {
+  const scaleX = minimapWidth / CONFIG.MAP_WIDTH;
+  const scaleY = minimapHeight / CONFIG.MAP_HEIGHT;
+
+  // 배경
+  const gradient = ctx.createLinearGradient(0, 0, 0, minimapHeight);
+  gradient.addColorStop(0, '#12121a');
+  gradient.addColorStop(1, '#0a0a0f');
+  ctx.fillStyle = gradient;
+  ctx.fillRect(0, 0, minimapWidth, minimapHeight);
+
+  // 그리드
+  ctx.strokeStyle = 'rgba(0, 245, 255, 0.1)';
+  ctx.lineWidth = 0.5;
+  const gridSpacing = 20;
+  for (let x = 0; x < minimapWidth; x += gridSpacing) {
+    ctx.beginPath();
+    ctx.moveTo(x, 0);
+    ctx.lineTo(x, minimapHeight);
+    ctx.stroke();
+  }
+  for (let y = 0; y < minimapHeight; y += gridSpacing) {
+    ctx.beginPath();
+    ctx.moveTo(0, y);
+    ctx.lineTo(minimapWidth, y);
+    ctx.stroke();
+  }
+
+  // 자원 노드
+  for (const node of gameState.resourceNodes) {
+    if (node.amount > 0) {
+      const color = NODE_COLORS[node.type] || '#666';
+      const alpha = 0.3 + (node.amount / node.maxAmount) * 0.7;
+      ctx.fillStyle = color;
+      ctx.globalAlpha = alpha;
+      ctx.fillRect(node.x * scaleX - 1, node.y * scaleY - 1, 3, 3);
+      ctx.globalAlpha = 1;
+    }
+  }
+
+  // 벽
+  for (const wall of gameState.walls) {
+    ctx.fillStyle = wall.side === mySide ? '#00f5ff' : '#ef4444';
+    ctx.fillRect(wall.x * scaleX - 2, wall.y * scaleY - 2, 4, 4);
+  }
+
+  // 본진
+  const myBaseX = mySide === 'left' ? 200 : 2800;
+  const enemyBaseX = mySide === 'left' ? 2800 : 200;
+
+  // 내 본진
+  ctx.fillStyle = '#00f5ff';
+  ctx.shadowColor = '#00f5ff';
+  ctx.shadowBlur = 5;
+  ctx.beginPath();
+  ctx.arc(myBaseX * scaleX, 1000 * scaleY, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 적 본진
+  ctx.fillStyle = '#ef4444';
+  ctx.shadowColor = '#ef4444';
+  ctx.beginPath();
+  ctx.arc(enemyBaseX * scaleX, 1000 * scaleY, 5, 0, Math.PI * 2);
+  ctx.fill();
+
+  ctx.shadowBlur = 0;
+
+  // 유닛
+  for (const unit of gameState.units) {
+    ctx.fillStyle = unit.side === mySide ? '#00f5ff' : '#ef4444';
+    ctx.fillRect(unit.x * scaleX - 1, unit.y * scaleY - 1, 2, 2);
+  }
+
+  // 카메라 영역
+  ctx.strokeStyle = '#00f5ff';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(
+    camera.x * scaleX,
+    camera.y * scaleY,
     viewportWidth * scaleX,
     viewportHeight * scaleY
   );

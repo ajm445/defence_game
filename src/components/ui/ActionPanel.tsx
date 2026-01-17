@@ -1,7 +1,9 @@
 import React from 'react';
 import { useGameStore, useResources } from '../../stores/useGameStore';
+import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { CONFIG } from '../../constants/config';
+import { wsClient } from '../../services/WebSocketClient';
 
 interface ActionButtonProps {
   icon: string;
@@ -54,12 +56,20 @@ const ActionButton: React.FC<ActionButtonProps> = ({
 );
 
 export const ActionPanel: React.FC = () => {
+  const gameMode = useGameStore((state) => state.gameMode);
   const upgradePlayerBase = useGameStore((state) => state.upgradePlayerBase);
   const sellHerb = useGameStore((state) => state.sellHerb);
   const showNotification = useUIStore((state) => state.showNotification);
   const setPlacementMode = useUIStore((state) => state.setPlacementMode);
   const placementMode = useUIStore((state) => state.placementMode);
-  const resources = useResources();
+  const singlePlayerResources = useResources();
+  const gameState = useMultiplayerStore((state) => state.gameState);
+  const mySide = useMultiplayerStore((state) => state.mySide);
+
+  // 멀티플레이어 모드에서는 서버 상태의 자원 사용
+  const resources = gameMode === 'multiplayer' && gameState && mySide
+    ? (mySide === 'left' ? gameState.leftPlayer.resources : gameState.rightPlayer.resources)
+    : singlePlayerResources;
 
   const canBuildWall = resources.wood >= CONFIG.WALL_COST.wood && resources.stone >= CONFIG.WALL_COST.stone;
   const canUpgrade = resources.gold >= CONFIG.BASE_UPGRADE_COST.gold && resources.stone >= CONFIG.BASE_UPGRADE_COST.stone;
@@ -78,18 +88,32 @@ export const ActionPanel: React.FC = () => {
   };
 
   const handleUpgradeBase = () => {
-    if (upgradePlayerBase()) {
-      showNotification('본진 강화! (+200 HP)');
+    if (gameMode === 'multiplayer') {
+      // 멀티플레이어: 서버로 요청 전송
+      wsClient.upgradeBase();
+      showNotification('본진 강화 요청!');
     } else {
-      showNotification('자원이 부족합니다!');
+      // 싱글플레이어: 로컬에서 처리
+      if (upgradePlayerBase()) {
+        showNotification('본진 강화! (+200 HP)');
+      } else {
+        showNotification('자원이 부족합니다!');
+      }
     }
   };
 
   const handleSellHerb = () => {
-    if (sellHerb()) {
-      showNotification(`약초 판매! (+${CONFIG.HERB_SELL_GOLD} 골드)`);
+    if (gameMode === 'multiplayer') {
+      // 멀티플레이어: 서버로 요청 전송
+      wsClient.sellHerb();
+      showNotification(`약초 판매 요청!`);
     } else {
-      showNotification('약초가 부족합니다!');
+      // 싱글플레이어: 로컬에서 처리
+      if (sellHerb()) {
+        showNotification(`약초 판매! (+${CONFIG.HERB_SELL_GOLD} 골드)`);
+      } else {
+        showNotification('약초가 부족합니다!');
+      }
     }
   };
 
