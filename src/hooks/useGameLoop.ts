@@ -25,6 +25,7 @@ export const useGameLoop = () => {
   const respawnResourceNodes = useGameStore((state) => state.respawnResourceNodes);
   const damageBase = useGameStore((state) => state.damageBase);
   const damageWall = useGameStore((state) => state.damageWall);
+  const removeExpiredWalls = useGameStore((state) => state.removeExpiredWalls);
   const spawnUnit = useGameStore((state) => state.spawnUnit);
   const aiSellHerb = useGameStore((state) => state.aiSellHerb);
   const checkGameEnd = useGameStore((state) => state.checkGameEnd);
@@ -48,6 +49,9 @@ export const useGameLoop = () => {
 
       // 시간 업데이트
       updateTime(deltaTime);
+
+      // 만료된 벽 제거
+      removeExpiredWalls();
 
       // 골드 자동 획득 (플레이어는 업그레이드 레벨에 따라, AI는 난이도별 골드 수입)
       const difficultyConfig = AI_DIFFICULTY_CONFIG[difficulty];
@@ -355,6 +359,7 @@ export const useGameLoop = () => {
       respawnResourceNodes,
       damageBase,
       damageWall,
+      removeExpiredWalls,
       spawnUnit,
       aiSellHerb,
       checkGameEnd,

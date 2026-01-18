@@ -42,6 +42,7 @@ export interface NetworkWall {
   hp: number;
   maxHp: number;
   side: PlayerSide;
+  createdAt: number; // 생성 시간 (게임 시간 기준)
 }
 
 // 네트워크 전송용 자원 노드

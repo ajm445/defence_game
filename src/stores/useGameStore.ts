@@ -39,6 +39,7 @@ interface GameActions {
   buildWall: (x: number, y: number) => boolean;
   canBuildWall: () => boolean;
   damageWall: (wallId: string, damage: number) => void;
+  removeExpiredWalls: () => void;
 
   // 자원 노드
   updateResourceNode: (nodeId: string, amount: number) => void;
@@ -477,6 +478,7 @@ export const useGameStore = create<GameStore>()(
           y,
           hp: CONFIG.WALL_HP,
           maxHp: CONFIG.WALL_HP,
+          createdAt: state.time,
         };
 
         set({
@@ -505,6 +507,13 @@ export const useGameStore = create<GameStore>()(
             wall.id === wallId ? { ...wall, hp: wall.hp - damage } : wall
           )
           .filter((wall) => wall.hp > 0),
+      })),
+
+    removeExpiredWalls: () =>
+      set((state) => ({
+        walls: state.walls.filter(
+          (wall) => state.time - wall.createdAt < CONFIG.WALL_DURATION
+        ),
       })),
 
     updateResourceNode: (nodeId, amount) =>

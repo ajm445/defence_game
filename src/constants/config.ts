@@ -126,6 +126,7 @@ export const CONFIG = {
   // 건설 비용
   WALL_COST: { wood: 20, stone: 10 },
   WALL_HP: 200,
+  WALL_DURATION: 30, // 벽 지속 시간 (초)
   BASE_UPGRADE: {
     BASE_COST: { gold: 100, stone: 50 }, // 기본 비용 (레벨 1)
     COST_MULTIPLIER: 1.5, // 레벨당 비용 증가 배율

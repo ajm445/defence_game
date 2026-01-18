@@ -45,6 +45,7 @@ function convertNetworkWall(nw: NetworkWall): Wall {
     y: nw.y,
     hp: nw.hp,
     maxHp: nw.maxHp,
+    createdAt: (nw as NetworkWall & { createdAt?: number }).createdAt ?? 0,
   };
 }
 

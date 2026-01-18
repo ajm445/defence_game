@@ -20,6 +20,7 @@ export interface Wall extends Position {
   id: string;
   hp: number;
   maxHp: number;
+  createdAt: number; // 생성 시간 (게임 시간 기준)
 }
 
 export interface GameState {

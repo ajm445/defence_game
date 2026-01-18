@@ -122,6 +122,7 @@ const CONFIG = {
 
   WALL_COST: { wood: 20, stone: 10 },
   WALL_HP: 200,
+  WALL_DURATION: 30, // 벽 지속 시간 (초)
   BASE_UPGRADE: {
     BASE_COST: { gold: 100, stone: 50 }, // 기본 비용 (레벨 1)
     COST_MULTIPLIER: 1.5, // 레벨당 비용 증가 배율
@@ -373,6 +374,9 @@ export class GameRoom {
     // 유닛 업데이트
     this.updateUnits(deltaTime);
 
+    // 만료된 벽 제거
+    this.removeExpiredWalls();
+
     // 자원 노드 재생성 확인
     this.respawnResourceNodes();
 
@@ -476,8 +480,39 @@ export class GameRoom {
     const enemyBaseX = unit.side === 'left' ? CONFIG.RIGHT_BASE_X : CONFIG.LEFT_BASE_X;
     const distToBase = this.getDistance(unit.x, unit.y, enemyBaseX, CONFIG.BASE_Y);
 
-    // 1. 가장 가까운 적 유닛 찾기
     const enemies = this.units.filter(u => u.side !== unit.side && u.hp > 0);
+
+    // 0. 반격 대상 확인 (공격받은 경우 우선 반격)
+    let attacker: ServerUnit | null = null;
+    if (unit.attackerId) {
+      attacker = enemies.find(e => e.id === unit.attackerId) || null;
+    }
+
+    if (attacker) {
+      const attackerDist = this.getDistance(unit.x, unit.y, attacker.x, attacker.y);
+      if (attackerDist <= unit.range) {
+        // 사거리 내: 반격
+        if (unit.attackCooldown <= 0) {
+          attacker.hp -= unit.attack;
+          attacker.attackerId = unit.id;
+          unit.attackCooldown = 1;
+          unit.state = 'attacking';
+          this.broadcastEvent({
+            event: 'UNIT_ATTACKED',
+            attackerId: unit.id,
+            targetId: attacker.id,
+            damage: unit.attack,
+          });
+        }
+      } else {
+        // 사거리 밖: 반격 대상에게 이동
+        unit.state = 'moving';
+        this.moveTowards(unit, attacker.x, attacker.y, deltaTime);
+      }
+      return;
+    }
+
+    // 1. 가장 가까운 적 유닛 찾기
     let nearestEnemy: ServerUnit | null = null;
     let minEnemyDist = Infinity;
     for (const enemy of enemies) {
@@ -488,20 +523,28 @@ export class GameRoom {
       }
     }
 
-    // 2. 가장 가까운 벽 찾기
+    // 2. 경로상에 있는 벽 찾기 (본진 방향에 있고 본진보다 가까운 벽)
     const enemyWalls = this.walls.filter(w => w.side !== unit.side && w.hp > 0);
     let targetWall: ServerWall | null = null;
     let minWallDist = Infinity;
     for (const wall of enemyWalls) {
-      const dist = this.getDistance(unit.x, unit.y, wall.x, wall.y);
-      if (dist < minWallDist) {
-        minWallDist = dist;
-        targetWall = wall;
+      const wallDist = this.getDistance(unit.x, unit.y, wall.x, wall.y);
+      // 벽이 본진보다 가깝고, 본진 방향에 있는지 확인
+      if (wallDist < distToBase) {
+        const toWallX = wall.x - unit.x;
+        const toBaseX = enemyBaseX - unit.x;
+        // 같은 방향인지 확인 (부호가 같은지)
+        if ((toWallX > 0 && toBaseX > 0) || (toWallX < 0 && toBaseX < 0)) {
+          if (wallDist < minWallDist) {
+            minWallDist = wallDist;
+            targetWall = wall;
+          }
+        }
       }
     }
 
-    // 우선순위: 가장 가까운 적 유닛 > 벽 > 본진
-    const wallOrBaseDist = targetWall && minWallDist < distToBase ? minWallDist : distToBase;
+    // 우선순위: 가장 가까운 적 유닛 > 경로상 벽 > 본진
+    const wallOrBaseDist = targetWall ? minWallDist : distToBase;
 
     // 1순위: 가장 가까운 적 유닛 (벽/본진보다 가까운 경우)
     if (nearestEnemy && minEnemyDist <= wallOrBaseDist) {
@@ -684,8 +727,33 @@ export class GameRoom {
     const enemyBaseX = unit.side === 'left' ? CONFIG.RIGHT_BASE_X : CONFIG.LEFT_BASE_X;
     const distToBase = this.getDistance(unit.x, unit.y, enemyBaseX, CONFIG.BASE_Y);
 
-    // 1. 가장 가까운 적 유닛 찾기
+    // 0. 반격 대상 확인 (공격받은 경우 우선 반격)
     const enemies = this.units.filter(u => u.side !== unit.side && u.hp > 0);
+
+    if (unit.attackerId) {
+      const attacker = enemies.find(e => e.id === unit.attackerId && e.hp > 0);
+      if (attacker) {
+        const attackerDist = this.getDistance(unit.x, unit.y, attacker.x, attacker.y);
+        if (attackerDist <= range) {
+          // 사거리 내: AOE 반격
+          if (unit.attackCooldown <= 0) {
+            this.performMageAoeAttack(unit, attacker, enemies, attack, aoeRadius);
+            unit.attackCooldown = cooldownTime;
+            unit.state = 'attacking';
+          }
+        } else {
+          // 사거리 밖: 반격 대상에게 이동
+          unit.state = 'moving';
+          this.moveTowards(unit, attacker.x, attacker.y, deltaTime);
+        }
+        return;
+      } else {
+        // 공격자가 죽었으면 attackerId 초기화
+        unit.attackerId = undefined;
+      }
+    }
+
+    // 1. 가장 가까운 적 유닛 찾기
     let nearestEnemy: ServerUnit | null = null;
     let minEnemyDist = Infinity;
     for (const enemy of enemies) {
@@ -696,43 +764,35 @@ export class GameRoom {
       }
     }
 
-    // 2. 가장 가까운 벽 찾기
+    // 2. 경로상에 있는 벽 찾기 (본진 방향에 있고 본진보다 가까운 벽)
     const enemyWalls = this.walls.filter(w => w.side !== unit.side && w.hp > 0);
     let targetWall: ServerWall | null = null;
     let minWallDist = Infinity;
     for (const wall of enemyWalls) {
-      const dist = this.getDistance(unit.x, unit.y, wall.x, wall.y);
-      if (dist < minWallDist) {
-        minWallDist = dist;
-        targetWall = wall;
+      const wallDist = this.getDistance(unit.x, unit.y, wall.x, wall.y);
+      // 벽이 본진보다 가깝고, 본진 방향에 있는지 확인
+      if (wallDist < distToBase) {
+        const toWallX = wall.x - unit.x;
+        const toBaseX = enemyBaseX - unit.x;
+        // 같은 방향인지 확인 (부호가 같은지)
+        if ((toWallX > 0 && toBaseX > 0) || (toWallX < 0 && toBaseX < 0)) {
+          if (wallDist < minWallDist) {
+            minWallDist = wallDist;
+            targetWall = wall;
+          }
+        }
       }
     }
 
-    // 우선순위: 가장 가까운 적 유닛 > 벽 > 본진
-    const wallOrBaseDist = targetWall && minWallDist < distToBase ? minWallDist : distToBase;
+    // 우선순위: 가장 가까운 적 유닛 > 경로상 벽 > 본진
+    const wallOrBaseDist = targetWall ? minWallDist : distToBase;
 
     // 1순위: 가장 가까운 적 유닛 (벽/본진보다 가까운 경우, AOE 공격)
     if (nearestEnemy && minEnemyDist <= wallOrBaseDist) {
       if (minEnemyDist <= range) {
         // 사거리 내: AOE 공격
         if (unit.attackCooldown <= 0) {
-          // AOE 데미지 계산: 타겟 중심으로 범위 내 모든 적에게 피해
-          for (const enemy of enemies) {
-            const distFromTarget = this.getDistance(nearestEnemy.x, nearestEnemy.y, enemy.x, enemy.y);
-            if (distFromTarget <= aoeRadius) {
-              // 중심에서 가장자리로 갈수록 데미지 감소 (100% → 50%)
-              const damageMultiplier = 1 - (distFromTarget / aoeRadius) * 0.5;
-              const damage = Math.floor(attack * damageMultiplier);
-              enemy.hp -= damage;
-              enemy.attackerId = unit.id;
-              this.broadcastEvent({
-                event: 'UNIT_ATTACKED',
-                attackerId: unit.id,
-                targetId: enemy.id,
-                damage,
-              });
-            }
-          }
+          this.performMageAoeAttack(unit, nearestEnemy, enemies, attack, aoeRadius);
           unit.attackCooldown = cooldownTime;
           unit.state = 'attacking';
         }
@@ -801,6 +861,32 @@ export class GameRoom {
     }
   }
 
+  // 마법사 AOE 공격 수행
+  private performMageAoeAttack(
+    unit: ServerUnit,
+    target: ServerUnit,
+    enemies: ServerUnit[],
+    attack: number,
+    aoeRadius: number
+  ): void {
+    for (const enemy of enemies) {
+      const distFromTarget = this.getDistance(target.x, target.y, enemy.x, enemy.y);
+      if (distFromTarget <= aoeRadius) {
+        // 중심에서 가장자리로 갈수록 데미지 감소 (100% → 50%)
+        const damageMultiplier = 1 - (distFromTarget / aoeRadius) * 0.5;
+        const damage = Math.floor(attack * damageMultiplier);
+        enemy.hp -= damage;
+        enemy.attackerId = unit.id;
+        this.broadcastEvent({
+          event: 'UNIT_ATTACKED',
+          attackerId: unit.id,
+          targetId: enemy.id,
+          damage,
+        });
+      }
+    }
+  }
+
   private findNearestEnemy(unit: ServerUnit): ServerUnit | null {
     const enemies = this.units.filter(u => u.side !== unit.side);
     if (enemies.length === 0) return null;
@@ -835,6 +921,22 @@ export class GameRoom {
     }
 
     return nearest;
+  }
+
+  private removeExpiredWalls(): void {
+    const expiredWalls = this.walls.filter(
+      wall => this.gameTime - wall.createdAt >= CONFIG.WALL_DURATION
+    );
+
+    if (expiredWalls.length > 0) {
+      this.walls = this.walls.filter(
+        wall => this.gameTime - wall.createdAt < CONFIG.WALL_DURATION
+      );
+
+      for (const wall of expiredWalls) {
+        this.broadcastEvent({ event: 'WALL_DESTROYED', wallId: wall.id });
+      }
+    }
   }
 
   private respawnResourceNodes(): void {
@@ -1058,6 +1160,7 @@ export class GameRoom {
       hp: CONFIG.WALL_HP,
       maxHp: CONFIG.WALL_HP,
       side,
+      createdAt: this.gameTime,
     };
 
     this.walls.push(wall);
