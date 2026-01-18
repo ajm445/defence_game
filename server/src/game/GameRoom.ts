@@ -501,20 +501,28 @@ export class GameRoom {
     }
 
     // 우선순위: 가장 가까운 적 유닛 > 벽 > 본진
+    const wallOrBaseDist = targetWall && minWallDist < distToBase ? minWallDist : distToBase;
 
-    // 1순위: 가장 가까운 적 유닛 (사거리 내)
-    if (nearestEnemy && minEnemyDist <= unit.range) {
-      if (unit.attackCooldown <= 0) {
-        nearestEnemy.hp -= unit.attack;
-        nearestEnemy.attackerId = unit.id;
-        unit.attackCooldown = 1;
-        unit.state = 'attacking';
-        this.broadcastEvent({
-          event: 'UNIT_ATTACKED',
-          attackerId: unit.id,
-          targetId: nearestEnemy.id,
-          damage: unit.attack,
-        });
+    // 1순위: 가장 가까운 적 유닛 (벽/본진보다 가까운 경우)
+    if (nearestEnemy && minEnemyDist <= wallOrBaseDist) {
+      if (minEnemyDist <= unit.range) {
+        // 사거리 내: 공격
+        if (unit.attackCooldown <= 0) {
+          nearestEnemy.hp -= unit.attack;
+          nearestEnemy.attackerId = unit.id;
+          unit.attackCooldown = 1;
+          unit.state = 'attacking';
+          this.broadcastEvent({
+            event: 'UNIT_ATTACKED',
+            attackerId: unit.id,
+            targetId: nearestEnemy.id,
+            damage: unit.attack,
+          });
+        }
+      } else {
+        // 사거리 밖: 적에게 이동
+        unit.state = 'moving';
+        this.moveTowards(unit, nearestEnemy.x, nearestEnemy.y, deltaTime);
       }
       return;
     }
@@ -701,29 +709,37 @@ export class GameRoom {
     }
 
     // 우선순위: 가장 가까운 적 유닛 > 벽 > 본진
+    const wallOrBaseDist = targetWall && minWallDist < distToBase ? minWallDist : distToBase;
 
-    // 1순위: 가장 가까운 적 유닛 (사거리 내, AOE 공격)
-    if (nearestEnemy && minEnemyDist <= range) {
-      if (unit.attackCooldown <= 0) {
-        // AOE 데미지 계산: 타겟 중심으로 범위 내 모든 적에게 피해
-        for (const enemy of enemies) {
-          const distFromTarget = this.getDistance(nearestEnemy.x, nearestEnemy.y, enemy.x, enemy.y);
-          if (distFromTarget <= aoeRadius) {
-            // 중심에서 가장자리로 갈수록 데미지 감소 (100% → 50%)
-            const damageMultiplier = 1 - (distFromTarget / aoeRadius) * 0.5;
-            const damage = Math.floor(attack * damageMultiplier);
-            enemy.hp -= damage;
-            enemy.attackerId = unit.id;
-            this.broadcastEvent({
-              event: 'UNIT_ATTACKED',
-              attackerId: unit.id,
-              targetId: enemy.id,
-              damage,
-            });
+    // 1순위: 가장 가까운 적 유닛 (벽/본진보다 가까운 경우, AOE 공격)
+    if (nearestEnemy && minEnemyDist <= wallOrBaseDist) {
+      if (minEnemyDist <= range) {
+        // 사거리 내: AOE 공격
+        if (unit.attackCooldown <= 0) {
+          // AOE 데미지 계산: 타겟 중심으로 범위 내 모든 적에게 피해
+          for (const enemy of enemies) {
+            const distFromTarget = this.getDistance(nearestEnemy.x, nearestEnemy.y, enemy.x, enemy.y);
+            if (distFromTarget <= aoeRadius) {
+              // 중심에서 가장자리로 갈수록 데미지 감소 (100% → 50%)
+              const damageMultiplier = 1 - (distFromTarget / aoeRadius) * 0.5;
+              const damage = Math.floor(attack * damageMultiplier);
+              enemy.hp -= damage;
+              enemy.attackerId = unit.id;
+              this.broadcastEvent({
+                event: 'UNIT_ATTACKED',
+                attackerId: unit.id,
+                targetId: enemy.id,
+                damage,
+              });
+            }
           }
+          unit.attackCooldown = cooldownTime;
+          unit.state = 'attacking';
         }
-        unit.attackCooldown = cooldownTime;
-        unit.state = 'attacking';
+      } else {
+        // 사거리 밖: 적에게 이동
+        unit.state = 'moving';
+        this.moveTowards(unit, nearestEnemy.x, nearestEnemy.y, deltaTime);
       }
       return;
     }

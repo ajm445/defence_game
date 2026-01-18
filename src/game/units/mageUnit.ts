@@ -62,13 +62,23 @@ export function updateMageUnit(
   const distToBase = distance(unit.x, unit.y, enemyBase.x, enemyBase.y);
 
   // 우선순위: 가장 가까운 적 유닛 > 벽 > 본진
+  const wallOrBaseDist = targetWall && minWallDist < distToBase ? minWallDist : distToBase;
 
-  // 1순위: 가장 가까운 적 유닛 (사거리 내, AOE 공격)
-  if (nearestEnemy && minEnemyDist <= range) {
-    if (updatedUnit.attackCooldown <= 0) {
-      aoeDamage = calculateAoeDamage(unit, nearestEnemy, enemies, attack, aoeRadius);
-      updatedUnit.attackCooldown = cooldownTime;
-      updatedUnit.state = 'attacking';
+  // 1순위: 가장 가까운 적 유닛 (벽/본진보다 가까운 경우, AOE 공격)
+  if (nearestEnemy && minEnemyDist <= wallOrBaseDist) {
+    if (minEnemyDist <= range) {
+      // 사거리 내: AOE 공격
+      if (updatedUnit.attackCooldown <= 0) {
+        aoeDamage = calculateAoeDamage(unit, nearestEnemy, enemies, attack, aoeRadius);
+        updatedUnit.attackCooldown = cooldownTime;
+        updatedUnit.state = 'attacking';
+      }
+    } else {
+      // 사거리 밖: 적에게 이동
+      const angle = Math.atan2(nearestEnemy.y - unit.y, nearestEnemy.x - unit.x);
+      updatedUnit.x += Math.cos(angle) * config.speed;
+      updatedUnit.y += Math.sin(angle) * config.speed;
+      updatedUnit.state = 'moving';
     }
     return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
   }
