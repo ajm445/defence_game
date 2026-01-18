@@ -1,8 +1,8 @@
 import { Resources } from './resource';
 
-export type UnitType = 'melee' | 'ranged' | 'knight' | 'woodcutter' | 'miner' | 'gatherer' | 'goldminer';
+export type UnitType = 'melee' | 'ranged' | 'knight' | 'woodcutter' | 'miner' | 'gatherer' | 'goldminer' | 'healer' | 'mage';
 export type UnitRole = 'combat' | 'support';
-export type UnitState = 'idle' | 'moving' | 'attacking' | 'gathering';
+export type UnitState = 'idle' | 'moving' | 'attacking' | 'gathering' | 'healing';
 export type Team = 'player' | 'enemy';
 
 export interface UnitConfig {
@@ -15,6 +15,9 @@ export interface UnitConfig {
   type: UnitRole;
   gatherRate?: number;
   resource?: string;
+  healRate?: number;      // 힐러: 초당 회복량
+  healRange?: number;     // 힐러: 회복 사거리
+  aoeRadius?: number;     // 마법사: 범위 공격 반경
 }
 
 export interface Unit {

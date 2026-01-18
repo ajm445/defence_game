@@ -69,8 +69,8 @@ const initialResources: Resources = {
 function generateResourceNodes(): ResourceNode[] {
   const nodes: ResourceNode[] = [];
 
-  // 나무 (플레이어 쪽)
-  for (let i = 0; i < 8; i++) {
+  // 나무 (플레이어 쪽) - 10개
+  for (let i = 0; i < 10; i++) {
     nodes.push({
       id: generateId(),
       type: 'tree',
@@ -81,8 +81,8 @@ function generateResourceNodes(): ResourceNode[] {
     });
   }
 
-  // 나무 (적 쪽)
-  for (let i = 0; i < 8; i++) {
+  // 나무 (적 쪽) - 10개
+  for (let i = 0; i < 10; i++) {
     nodes.push({
       id: generateId(),
       type: 'tree',
@@ -93,8 +93,8 @@ function generateResourceNodes(): ResourceNode[] {
     });
   }
 
-  // 돌 (중앙 지역)
-  for (let i = 0; i < 10; i++) {
+  // 돌 (중앙 지역) - 14개
+  for (let i = 0; i < 14; i++) {
     nodes.push({
       id: generateId(),
       type: 'rock',
@@ -105,8 +105,8 @@ function generateResourceNodes(): ResourceNode[] {
     });
   }
 
-  // 약초 (전체적으로 분포)
-  for (let i = 0; i < 15; i++) {
+  // 약초 (전체적으로 분포) - 20개
+  for (let i = 0; i < 20; i++) {
     nodes.push({
       id: generateId(),
       type: 'herb',
@@ -129,8 +129,8 @@ function generateResourceNodes(): ResourceNode[] {
     });
   }
 
-  // 광산 (플레이어 쪽 4개)
-  for (let i = 0; i < 4; i++) {
+  // 광산 (플레이어 쪽 5개)
+  for (let i = 0; i < 5; i++) {
     nodes.push({
       id: generateId(),
       type: 'goldmine',
@@ -141,8 +141,8 @@ function generateResourceNodes(): ResourceNode[] {
     });
   }
 
-  // 광산 (적 쪽 4개)
-  for (let i = 0; i < 4; i++) {
+  // 광산 (적 쪽 5개)
+  for (let i = 0; i < 5; i++) {
     nodes.push({
       id: generateId(),
       type: 'goldmine',

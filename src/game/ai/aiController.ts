@@ -27,6 +27,8 @@ export function makeAIDecision(
   const supportCount = enemyUnits.filter((u) => u.config.type === 'support').length;
   const combatCount = enemyUnits.filter((u) => u.config.type === 'combat').length;
   const goldminerCount = enemyUnits.filter((u) => u.type === 'goldminer').length;
+  const healerCount = enemyUnits.filter((u) => u.type === 'healer').length;
+  const mageCount = enemyUnits.filter((u) => u.type === 'mage').length;
 
   // 초반: 지원 유닛이 최소 수보다 적으면 지원 유닛 생산
   if (supportCount < difficultyConfig.minSupportUnits && aiResources.gold >= 30) {
@@ -51,6 +53,16 @@ export function makeAIDecision(
 
   if (Math.random() < combatPriority) {
     // 전투 유닛 생산 시도
+
+    // 마법사: 수정이 10개 이상이면 마법사 생산 시도
+    if (
+      aiResources.gold >= 150 &&
+      aiResources.crystal >= 10 &&
+      Math.random() < difficultyConfig.mageChance
+    ) {
+      decision.spawnUnit = 'mage';
+      return decision;
+    }
 
     // 돌이 충분하면 기사 생산 시도
     if (
@@ -90,6 +102,18 @@ export function makeAIDecision(
     Math.random() < difficultyConfig.goldminerChance * 0.5
   ) {
     decision.spawnUnit = 'goldminer';
+    return decision;
+  }
+
+  // 힐러: 전투 유닛이 3명 이상이고 힐러가 2명 미만이면 힐러 생산
+  if (
+    combatCount >= 3 &&
+    healerCount < 2 &&
+    aiResources.gold >= 70 &&
+    aiResources.herb >= 15 &&
+    Math.random() < difficultyConfig.healerChance
+  ) {
+    decision.spawnUnit = 'healer';
     return decision;
   }
 

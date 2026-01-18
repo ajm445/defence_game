@@ -6,7 +6,7 @@ import { UnitButton } from './UnitButton';
 import { UnitType } from '../../types';
 import { wsClient } from '../../services/WebSocketClient';
 
-const UNIT_TYPES: UnitType[] = ['melee', 'ranged', 'knight', 'woodcutter', 'miner', 'gatherer', 'goldminer'];
+const UNIT_TYPES: UnitType[] = ['melee', 'ranged', 'knight', 'woodcutter', 'miner', 'gatherer', 'goldminer', 'healer', 'mage'];
 
 export const UnitPanel: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);
@@ -22,7 +22,7 @@ export const UnitPanel: React.FC = () => {
     : singlePlayerResources;
 
   const handleSpawn = (type: UnitType) => {
-    const config: Record<UnitType, string> = { melee: '검병', ranged: '궁수', knight: '기사', woodcutter: '나무꾼', miner: '광부', gatherer: '채집꾼', goldminer: '금광부' };
+    const config: Record<UnitType, string> = { melee: '검병', ranged: '궁수', knight: '기사', woodcutter: '나무꾼', miner: '광부', gatherer: '채집꾼', goldminer: '금광부', healer: '힐러', mage: '마법사' };
 
     if (gameMode === 'multiplayer') {
       // 멀티플레이어: 서버로 유닛 소환 요청 전송

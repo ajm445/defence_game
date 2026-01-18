@@ -12,9 +12,9 @@ export interface Resources {
 
 export type ResourceNodeType = 'tree' | 'rock' | 'herb' | 'crystal' | 'goldmine';
 
-export type UnitType = 'melee' | 'ranged' | 'knight' | 'woodcutter' | 'miner' | 'gatherer' | 'goldminer';
+export type UnitType = 'melee' | 'ranged' | 'knight' | 'woodcutter' | 'miner' | 'gatherer' | 'goldminer' | 'healer' | 'mage';
 export type UnitRole = 'combat' | 'support';
-export type UnitState = 'idle' | 'moving' | 'attacking' | 'gathering';
+export type UnitState = 'idle' | 'moving' | 'attacking' | 'gathering' | 'healing';
 export type PlayerSide = 'left' | 'right';
 
 export interface Position {

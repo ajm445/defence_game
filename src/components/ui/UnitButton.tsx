@@ -16,6 +16,8 @@ const UNIT_CONFIG: Record<UnitType, { icon: string; name: string; color: string 
   miner: { icon: '⛏️', name: '광부', color: 'from-gray-400 to-gray-600' },
   gatherer: { icon: '🧺', name: '채집꾼', color: 'from-emerald-400 to-emerald-600' },
   goldminer: { icon: '💰', name: '금광부', color: 'from-yellow-400 to-yellow-600' },
+  healer: { icon: '💚', name: '힐러', color: 'from-pink-400 to-pink-600' },
+  mage: { icon: '🔮', name: '마법사', color: 'from-purple-500 to-purple-700' },
 };
 
 export const UnitButton: React.FC<UnitButtonProps> = ({
@@ -37,6 +39,8 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
       gold: '💰',
       wood: '🪵',
       stone: '🪨',
+      herb: '🌿',
+      crystal: '💎',
     };
     return { icon: icons[resource] || '', amount };
   });

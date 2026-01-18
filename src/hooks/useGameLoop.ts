@@ -4,6 +4,8 @@ import { useUIStore } from '../stores/useUIStore';
 import { CONFIG, AI_DIFFICULTY_CONFIG } from '../constants/config';
 import { updateCombatUnit } from '../game/units/combatUnit';
 import { updateSupportUnit } from '../game/units/supportUnit';
+import { updateHealerUnit } from '../game/units/healerUnit';
+import { updateMageUnit } from '../game/units/mageUnit';
 import { makeAIDecision } from '../game/ai/aiController';
 import { Unit } from '../types';
 
@@ -60,6 +62,10 @@ export const useGameLoop = () => {
       const damageToEnemyUnits: Map<string, { damage: number; attackerId: string }> = new Map();
       const damageToPlayerUnits: Map<string, { damage: number; attackerId: string }> = new Map();
 
+      // 회복량 기록 (나중에 적용)
+      const healToPlayerUnits: Map<string, number> = new Map();
+      const healToEnemyUnits: Map<string, number> = new Map();
+
       // 자원 채집량 누적 (여러 유닛이 같은 노드에서 채집할 때)
       const nodeGatheredAmounts: Map<string, number> = new Map();
 
@@ -71,7 +77,56 @@ export const useGameLoop = () => {
       for (const unit of playerUnitsCopy) {
         if (unit.hp <= 0) continue;
 
-        if (unit.config.type === 'combat') {
+        // 힐러 유닛 처리
+        if (unit.type === 'healer') {
+          const result = updateHealerUnit(
+            unit,
+            deltaTime,
+            playerUnitsCopy,
+            enemyUnitsCopy,
+            state.playerBase
+          );
+          updatedPlayerUnits.push(result.unit);
+
+          if (result.healTarget) {
+            const prevHeal = healToPlayerUnits.get(result.healTarget.targetId) || 0;
+            healToPlayerUnits.set(result.healTarget.targetId, prevHeal + result.healTarget.healAmount);
+          }
+          if (result.unitDamage) {
+            const prev = damageToEnemyUnits.get(result.unitDamage.targetId);
+            const newDamage = (prev?.damage || 0) + result.unitDamage.damage;
+            damageToEnemyUnits.set(result.unitDamage.targetId, {
+              damage: newDamage,
+              attackerId: result.unitDamage.attackerId
+            });
+          }
+        }
+        // 마법사 유닛 처리
+        else if (unit.type === 'mage') {
+          const result = updateMageUnit(
+            unit,
+            deltaTime,
+            state.enemyBase,
+            enemyUnitsCopy
+          );
+          updatedPlayerUnits.push(result.unit);
+
+          if (result.baseDamage) {
+            damageBase(result.baseDamage.team, result.baseDamage.damage);
+          }
+          if (result.aoeDamage) {
+            for (const dmg of result.aoeDamage) {
+              const prev = damageToEnemyUnits.get(dmg.targetId);
+              const newDamage = (prev?.damage || 0) + dmg.damage;
+              damageToEnemyUnits.set(dmg.targetId, {
+                damage: newDamage,
+                attackerId: dmg.attackerId
+              });
+            }
+          }
+        }
+        // 일반 전투 유닛 처리
+        else if (unit.config.type === 'combat') {
           const result = updateCombatUnit(
             unit,
             deltaTime,
@@ -119,7 +174,60 @@ export const useGameLoop = () => {
       for (const unit of enemyUnitsCopy) {
         if (unit.hp <= 0) continue;
 
-        if (unit.config.type === 'combat') {
+        // 힐러 유닛 처리
+        if (unit.type === 'healer') {
+          const result = updateHealerUnit(
+            unit,
+            deltaTime,
+            enemyUnitsCopy,
+            playerUnitsCopy,
+            state.enemyBase
+          );
+          updatedEnemyUnits.push(result.unit);
+
+          if (result.healTarget) {
+            const prevHeal = healToEnemyUnits.get(result.healTarget.targetId) || 0;
+            healToEnemyUnits.set(result.healTarget.targetId, prevHeal + result.healTarget.healAmount);
+          }
+          if (result.unitDamage) {
+            const prev = damageToPlayerUnits.get(result.unitDamage.targetId);
+            const newDamage = (prev?.damage || 0) + result.unitDamage.damage;
+            damageToPlayerUnits.set(result.unitDamage.targetId, {
+              damage: newDamage,
+              attackerId: result.unitDamage.attackerId
+            });
+          }
+        }
+        // 마법사 유닛 처리
+        else if (unit.type === 'mage') {
+          const result = updateMageUnit(
+            unit,
+            deltaTime,
+            state.playerBase,
+            playerUnitsCopy,
+            state.walls
+          );
+          updatedEnemyUnits.push(result.unit);
+
+          if (result.baseDamage) {
+            damageBase(result.baseDamage.team, result.baseDamage.damage);
+          }
+          if (result.aoeDamage) {
+            for (const dmg of result.aoeDamage) {
+              const prev = damageToPlayerUnits.get(dmg.targetId);
+              const newDamage = (prev?.damage || 0) + dmg.damage;
+              damageToPlayerUnits.set(dmg.targetId, {
+                damage: newDamage,
+                attackerId: dmg.attackerId
+              });
+            }
+          }
+          if (result.wallDamage) {
+            damageWall(result.wallDamage.wallId, result.wallDamage.damage);
+          }
+        }
+        // 일반 전투 유닛 처리
+        else if (unit.config.type === 'combat') {
           const result = updateCombatUnit(
             unit,
             deltaTime,
@@ -164,12 +272,17 @@ export const useGameLoop = () => {
         }
       }
 
-      // 데미지 적용 (damage와 attackerId 함께)
+      // 데미지 및 회복 적용 (damage와 attackerId 함께)
       for (const unit of updatedPlayerUnits) {
         const damageInfo = damageToPlayerUnits.get(unit.id);
         if (damageInfo) {
           unit.hp -= damageInfo.damage;
           unit.attackerId = damageInfo.attackerId;
+        }
+        // 회복량 적용
+        const healAmount = healToPlayerUnits.get(unit.id);
+        if (healAmount) {
+          unit.hp = Math.min(unit.maxHp, unit.hp + healAmount);
         }
       }
       for (const unit of updatedEnemyUnits) {
@@ -177,6 +290,11 @@ export const useGameLoop = () => {
         if (damageInfo) {
           unit.hp -= damageInfo.damage;
           unit.attackerId = damageInfo.attackerId;
+        }
+        // 회복량 적용
+        const healAmount = healToEnemyUnits.get(unit.id);
+        if (healAmount) {
+          unit.hp = Math.min(unit.maxHp, unit.hp + healAmount);
         }
       }
 

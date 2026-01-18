@@ -55,6 +55,8 @@ export interface AIDifficultyConfig {
   archerChance: number;
   gathererChance: number;
   minerChance: number;
+  healerChance: number;
+  mageChance: number;
   initialGold: number;
   enemyBaseHp: number;
 }

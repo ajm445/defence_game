@@ -9,6 +9,8 @@ const EMOJI_MAP: Record<string, string> = {
   miner: '⛏️',
   gatherer: '🧺',
   goldminer: '💰',
+  healer: '💚',
+  mage: '🔮',
 };
 
 export function drawUnit(
@@ -94,6 +96,11 @@ export function drawUnit(
     ctx.fill();
   } else if (unit.state === 'gathering') {
     ctx.fillStyle = '#10b981';
+    ctx.beginPath();
+    ctx.arc(screenX + 12, screenY - 12, 3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (unit.state === 'healing') {
+    ctx.fillStyle = '#ec4899'; // 핑크색
     ctx.beginPath();
     ctx.arc(screenX + 12, screenY - 12, 3, 0, Math.PI * 2);
     ctx.fill();
@@ -184,6 +191,11 @@ export function drawNetworkUnit(
     ctx.fill();
   } else if (unit.state === 'gathering') {
     ctx.fillStyle = '#10b981';
+    ctx.beginPath();
+    ctx.arc(screenX + 12, screenY - 12, 3, 0, Math.PI * 2);
+    ctx.fill();
+  } else if (unit.state === 'healing') {
+    ctx.fillStyle = '#ec4899'; // 핑크색
     ctx.beginPath();
     ctx.arc(screenX + 12, screenY - 12, 3, 0, Math.PI * 2);
     ctx.fill();
