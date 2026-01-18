@@ -413,6 +413,12 @@ export const useGameStore = create<GameStore>()(
     upgradePlayerBase: () => {
       const state = get();
       const currentLevel = state.playerBase.upgradeLevel ?? 0;
+
+      // 최대 레벨 체크
+      if (currentLevel >= CONFIG.BASE_UPGRADE.MAX_LEVEL) {
+        return false;
+      }
+
       const cost = getUpgradeCost(currentLevel);
 
       if (
@@ -450,6 +456,12 @@ export const useGameStore = create<GameStore>()(
     canUpgradeBase: () => {
       const state = get();
       const currentLevel = state.playerBase.upgradeLevel ?? 0;
+
+      // 최대 레벨이면 업그레이드 불가
+      if (currentLevel >= CONFIG.BASE_UPGRADE.MAX_LEVEL) {
+        return false;
+      }
+
       const cost = getUpgradeCost(currentLevel);
       return state.resources.gold >= cost.gold && state.resources.stone >= cost.stone;
     },

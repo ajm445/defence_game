@@ -131,6 +131,7 @@ export const CONFIG = {
     COST_MULTIPLIER: 1.5, // 레벨당 비용 증가 배율
     HP_BONUS: 200, // 업그레이드당 HP 증가량
     GOLD_BONUS: 1, // 업그레이드당 골드 수입 증가량
+    MAX_LEVEL: 5, // 최대 업그레이드 레벨
   },
 
   // 약초 판매

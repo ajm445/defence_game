@@ -75,8 +75,9 @@ export const ActionPanel: React.FC = () => {
     : singlePlayerResources;
 
   const upgradeCost = getNextUpgradeCost();
+  const isMaxLevel = (playerBaseLevel ?? 0) >= CONFIG.BASE_UPGRADE.MAX_LEVEL;
   const canBuildWall = resources.wood >= CONFIG.WALL_COST.wood && resources.stone >= CONFIG.WALL_COST.stone;
-  const canUpgrade = resources.gold >= upgradeCost.gold && resources.stone >= upgradeCost.stone;
+  const canUpgrade = !isMaxLevel && resources.gold >= upgradeCost.gold && resources.stone >= upgradeCost.stone;
   const canSellHerb = resources.herb >= CONFIG.HERB_SELL_COST;
 
   const handleBuildWall = () => {
@@ -139,8 +140,8 @@ export const ActionPanel: React.FC = () => {
         />
         <ActionButton
           icon="🏰"
-          label={`강화 Lv${(playerBaseLevel ?? 0) + 1}`}
-          cost={`${upgradeCost.gold}💰 ${upgradeCost.stone}🪨`}
+          label={isMaxLevel ? '강화 MAX' : `강화 Lv${(playerBaseLevel ?? 0) + 1}`}
+          cost={isMaxLevel ? '최대 레벨' : `${upgradeCost.gold}💰 ${upgradeCost.stone}🪨`}
           onClick={handleUpgradeBase}
           disabled={!canUpgrade}
           hoverColor="border-neon-green"

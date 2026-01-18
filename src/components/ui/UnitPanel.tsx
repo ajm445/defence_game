@@ -6,7 +6,7 @@ import { UnitButton } from './UnitButton';
 import { UnitType } from '../../types';
 import { wsClient } from '../../services/WebSocketClient';
 
-const UNIT_TYPES: UnitType[] = ['melee', 'ranged', 'knight', 'woodcutter', 'miner', 'gatherer', 'goldminer', 'healer', 'mage'];
+const UNIT_TYPES: UnitType[] = ['melee', 'ranged', 'knight', 'mage', 'woodcutter', 'miner', 'gatherer', 'goldminer', 'healer'];
 
 export const UnitPanel: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);

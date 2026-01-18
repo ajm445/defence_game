@@ -127,6 +127,7 @@ const CONFIG = {
     COST_MULTIPLIER: 1.5, // 레벨당 비용 증가 배율
     HP_BONUS: 200, // 업그레이드당 HP 증가량
     GOLD_BONUS: 1, // 업그레이드당 골드 수입 증가량
+    MAX_LEVEL: 5, // 최대 업그레이드 레벨
   },
   HERB_SELL_COST: 10,
   HERB_SELL_GOLD: 30,
@@ -1055,6 +1056,12 @@ export class GameRoom {
 
     const resources = side === 'left' ? this.leftResources : this.rightResources;
     const currentLevel = side === 'left' ? this.leftUpgradeLevel : this.rightUpgradeLevel;
+
+    // 최대 레벨 체크
+    if (currentLevel >= CONFIG.BASE_UPGRADE.MAX_LEVEL) {
+      return;
+    }
+
     const cost = getUpgradeCost(currentLevel);
 
     if (!this.canAfford(resources, cost)) {
