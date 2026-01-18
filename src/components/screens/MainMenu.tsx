@@ -172,14 +172,14 @@ export const MainMenu: React.FC = () => {
                     <span className="text-2xl">🌿</span>
                     <div>
                       <span className="text-green-300 font-bold">약초</span>
-                      <span className="text-gray-200 ml-2">- 채집꾼이 채집, 10개당 30골드로 판매</span>
+                      <span className="text-gray-200 ml-2">- 채집꾼이 채집, 힐러 생산/판매에 사용</span>
                     </div>
                   </div>
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">💎</span>
                     <div>
                       <span className="text-purple-300 font-bold">수정</span>
-                      <span className="text-gray-200 ml-2">- 맵 중앙에서 획득 가능한 희귀 자원</span>
+                      <span className="text-gray-200 ml-2">- 맵 중앙의 희귀 자원, 마법사 생산에 필요</span>
                     </div>
                   </div>
                 </div>
@@ -204,7 +204,12 @@ export const MainMenu: React.FC = () => {
                   <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
                     <div className="text-white font-bold text-lg mb-1">🛡️ 기사</div>
                     <div className="text-yellow-300">비용: 120골드 + 20나무 + 30돌</div>
-                    <div className="text-gray-200">HP 250 | 공격력 30 | 근접 탱커</div>
+                    <div className="text-gray-200">HP 250 | 공격력 10 | 근접 탱커</div>
+                  </div>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">🔮 마법사</div>
+                    <div className="text-yellow-300">비용: 150골드 + 10수정</div>
+                    <div className="text-gray-200">HP 40 | 공격력 50 | 범위 공격</div>
                   </div>
                 </div>
               </section>
@@ -212,7 +217,7 @@ export const MainMenu: React.FC = () => {
               {/* 지원 유닛 */}
               <section className="mb-8">
                 <h3 className="text-neon-cyan font-bold text-lg mb-3 flex items-center gap-2">
-                  <span>👷</span> 지원 유닛 (자동 채집)
+                  <span>👷</span> 지원 유닛
                 </h3>
                 <div className="space-y-3">
                   <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
@@ -235,6 +240,11 @@ export const MainMenu: React.FC = () => {
                     <div className="text-yellow-300">비용: 100골드 + 20나무</div>
                     <div className="text-gray-200">골드 채집 (1.5/초) - 광산 필요</div>
                   </div>
+                  <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+                    <div className="text-white font-bold text-lg mb-1">💚 힐러</div>
+                    <div className="text-yellow-300">비용: 70골드 + 15약초</div>
+                    <div className="text-gray-200">아군 HP 회복 (10HP/초, 범위 100px)</div>
+                  </div>
                 </div>
               </section>
 
@@ -251,8 +261,8 @@ export const MainMenu: React.FC = () => {
                   </div>
                   <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
                     <div className="text-white font-bold text-lg mb-1">🏰 기지 업그레이드</div>
-                    <div className="text-yellow-300">비용: 100골드 + 50돌</div>
-                    <div className="text-gray-200">본진 HP +200 증가</div>
+                    <div className="text-yellow-300">비용: 100골드 + 50돌 (레벨당 1.5배)</div>
+                    <div className="text-gray-200">본진 HP +200, 골드 수입 +1/초 (최대 5레벨)</div>
                   </div>
                   <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
                     <div className="text-white font-bold text-lg mb-1">🌿 약초 판매</div>
@@ -307,11 +317,15 @@ export const MainMenu: React.FC = () => {
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-yellow-300">•</span>
-                    <span>궁수는 비싸지만 원거리 공격으로 효율적입니다</span>
+                    <span>기사는 HP가 높아 전선 유지에 좋습니다</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-yellow-300">•</span>
-                    <span>기사는 HP가 높아 전선 유지에 좋습니다</span>
+                    <span>마법사는 범위 공격으로 다수의 적을 처리합니다</span>
+                  </li>
+                  <li className="flex items-start gap-2">
+                    <span className="text-yellow-300">•</span>
+                    <span>힐러로 아군 유닛의 생존력을 높이세요</span>
                   </li>
                   <li className="flex items-start gap-2">
                     <span className="text-yellow-300">•</span>
