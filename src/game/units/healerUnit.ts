@@ -29,7 +29,44 @@ export function updateHealerUnit(
     updatedUnit.attackCooldown -= deltaTime;
   }
 
-  // 공격받은 경우 반격 (attackerId가 있으면)
+  // 우선순위: 회복 > 반격 > 본진 대기
+
+  // 1순위: HP 비율이 가장 낮은 아군 찾기 (HP가 max가 아닌 아군만)
+  let lowestHpAlly: Unit | null = null;
+  let lowestHpRatio = 1;
+
+  for (const ally of allies) {
+    if (ally.id === unit.id) continue; // 자기 자신 제외
+    if (ally.hp <= 0) continue; // 죽은 유닛 제외
+    if (ally.hp >= ally.maxHp) continue; // 풀피 유닛 제외
+
+    const hpRatio = ally.hp / ally.maxHp;
+    if (hpRatio < lowestHpRatio) {
+      lowestHpRatio = hpRatio;
+      lowestHpAlly = ally;
+    }
+  }
+
+  // 회복 대상이 있으면 회복 우선
+  if (lowestHpAlly) {
+    const distToAlly = distance(unit.x, unit.y, lowestHpAlly.x, lowestHpAlly.y);
+
+    if (distToAlly > healRange) {
+      // 아군에게 이동
+      const angle = Math.atan2(lowestHpAlly.y - unit.y, lowestHpAlly.x - unit.x);
+      updatedUnit.x += Math.cos(angle) * config.speed;
+      updatedUnit.y += Math.sin(angle) * config.speed;
+      updatedUnit.state = 'moving';
+    } else {
+      // 회복
+      updatedUnit.state = 'healing';
+      const healAmount = healRate * deltaTime;
+      healTarget = { targetId: lowestHpAlly.id, healAmount };
+    }
+    return { unit: updatedUnit, healTarget, unitDamage };
+  }
+
+  // 2순위: 회복 대상 없으면 반격 (attackerId가 있으면)
   if (unit.attackerId) {
     const attacker = enemies.find((e) => e.id === unit.attackerId && e.hp > 0);
 
@@ -50,7 +87,6 @@ export function updateHealerUnit(
           updatedUnit.state = 'attacking';
         }
       }
-
       return { unit: updatedUnit, healTarget, unitDamage };
     } else {
       // 공격자가 죽었으면 attackerId 초기화
@@ -58,50 +94,17 @@ export function updateHealerUnit(
     }
   }
 
-  // HP 비율이 가장 낮은 아군 찾기 (HP가 max가 아닌 아군만)
-  let lowestHpAlly: Unit | null = null;
-  let lowestHpRatio = 1;
+  // 3순위: 본진 근처로 대기
+  const distToBase = distance(unit.x, unit.y, allyBase.x, allyBase.y);
 
-  for (const ally of allies) {
-    if (ally.id === unit.id) continue; // 자기 자신 제외
-    if (ally.hp <= 0) continue; // 죽은 유닛 제외
-    if (ally.hp >= ally.maxHp) continue; // 풀피 유닛 제외
-
-    const hpRatio = ally.hp / ally.maxHp;
-    if (hpRatio < lowestHpRatio) {
-      lowestHpRatio = hpRatio;
-      lowestHpAlly = ally;
-    }
-  }
-
-  if (lowestHpAlly) {
-    const distToAlly = distance(unit.x, unit.y, lowestHpAlly.x, lowestHpAlly.y);
-
-    if (distToAlly > healRange) {
-      // 아군에게 이동
-      const angle = Math.atan2(lowestHpAlly.y - unit.y, lowestHpAlly.x - unit.x);
-      updatedUnit.x += Math.cos(angle) * config.speed;
-      updatedUnit.y += Math.sin(angle) * config.speed;
-      updatedUnit.state = 'moving';
-    } else {
-      // 회복
-      updatedUnit.state = 'healing';
-      const healAmount = healRate * deltaTime;
-      healTarget = { targetId: lowestHpAlly.id, healAmount };
-    }
+  if (distToBase > 150) {
+    // 본진으로 이동
+    const angle = Math.atan2(allyBase.y - unit.y, allyBase.x - unit.x);
+    updatedUnit.x += Math.cos(angle) * config.speed;
+    updatedUnit.y += Math.sin(angle) * config.speed;
+    updatedUnit.state = 'moving';
   } else {
-    // 치료할 아군이 없으면 본진 근처로 대기
-    const distToBase = distance(unit.x, unit.y, allyBase.x, allyBase.y);
-
-    if (distToBase > 150) {
-      // 본진으로 이동
-      const angle = Math.atan2(allyBase.y - unit.y, allyBase.x - unit.x);
-      updatedUnit.x += Math.cos(angle) * config.speed;
-      updatedUnit.y += Math.sin(angle) * config.speed;
-      updatedUnit.state = 'moving';
-    } else {
-      updatedUnit.state = 'idle';
-    }
+    updatedUnit.state = 'idle';
   }
 
   return { unit: updatedUnit, healTarget, unitDamage };

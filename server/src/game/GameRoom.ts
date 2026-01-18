@@ -97,6 +97,27 @@ const CONFIG = {
       type: 'support',
       resource: 'gold',
     },
+    healer: {
+      name: '힐러',
+      cost: { gold: 70, herb: 15 },
+      hp: 60,
+      attack: 3,
+      speed: 1.4,
+      range: 25,
+      type: 'support',
+      healRate: 10,
+      healRange: 100,
+    },
+    mage: {
+      name: '마법사',
+      cost: { gold: 150, crystal: 10 },
+      hp: 40,
+      attack: 35,
+      speed: 1.2,
+      range: 180,
+      type: 'combat',
+      aoeRadius: 50,
+    },
   } as Record<string, any>,
 
   WALL_COST: { wood: 20, stone: 10 },
@@ -141,6 +162,9 @@ interface ServerUnit extends NetworkUnit {
   gatherRate?: number;
   resourceType?: string;
   unitType: string;
+  healRate?: number; // 힐러: 초당 회복량
+  healRange?: number; // 힐러: 회복 사거리
+  aoeRadius?: number; // 마법사: 범위 공격 반경
 }
 
 interface ServerWall extends NetworkWall {}
@@ -185,16 +209,16 @@ export class GameRoom {
   }
 
   private initializeResourceNodes(): void {
-    // 나무 노드 (각 진영 8개씩)
+    // 나무 노드 (각 진영 10개씩, 총 20개)
     const treePositions = [
-      // 왼쪽 (플레이어 측)
-      { x: 400, y: 350 }, { x: 450, y: 700 }, { x: 400, y: 1050 },
-      { x: 450, y: 1400 }, { x: 400, y: 1750 }, { x: 450, y: 2050 },
-      { x: 650, y: 500 }, { x: 650, y: 1900 },
-      // 오른쪽 (적 측)
-      { x: 3600, y: 350 }, { x: 3550, y: 700 }, { x: 3600, y: 1050 },
-      { x: 3550, y: 1400 }, { x: 3600, y: 1750 }, { x: 3550, y: 2050 },
-      { x: 3350, y: 500 }, { x: 3350, y: 1900 },
+      // 왼쪽 (플레이어 측) - 10개
+      { x: 400, y: 250 }, { x: 450, y: 500 }, { x: 400, y: 750 },
+      { x: 450, y: 1000 }, { x: 400, y: 1250 }, { x: 450, y: 1500 },
+      { x: 400, y: 1750 }, { x: 450, y: 2000 }, { x: 650, y: 400 }, { x: 650, y: 2000 },
+      // 오른쪽 (적 측) - 10개
+      { x: 3600, y: 250 }, { x: 3550, y: 500 }, { x: 3600, y: 750 },
+      { x: 3550, y: 1000 }, { x: 3600, y: 1250 }, { x: 3550, y: 1500 },
+      { x: 3600, y: 1750 }, { x: 3550, y: 2000 }, { x: 3350, y: 400 }, { x: 3350, y: 2000 },
     ];
 
     treePositions.forEach((pos, i) => {
@@ -208,12 +232,13 @@ export class GameRoom {
       });
     });
 
-    // 바위 노드 (맵 중앙 10개)
+    // 바위 노드 (맵 중앙 14개)
     const rockPositions = [
-      { x: 1600, y: 500 }, { x: 1850, y: 750 }, { x: 2150, y: 500 },
-      { x: 2400, y: 750 }, { x: 2000, y: 1200 },
-      { x: 1600, y: 1700 }, { x: 1850, y: 1950 }, { x: 2150, y: 1700 },
-      { x: 2400, y: 1950 }, { x: 2000, y: 1450 },
+      { x: 1500, y: 400 }, { x: 1700, y: 600 }, { x: 1900, y: 400 },
+      { x: 2100, y: 600 }, { x: 2300, y: 400 }, { x: 2500, y: 600 },
+      { x: 2000, y: 1000 }, { x: 2000, y: 1400 },
+      { x: 1500, y: 1800 }, { x: 1700, y: 2000 }, { x: 1900, y: 1800 },
+      { x: 2100, y: 2000 }, { x: 2300, y: 1800 }, { x: 2500, y: 2000 },
     ];
 
     rockPositions.forEach((pos, i) => {
@@ -227,13 +252,17 @@ export class GameRoom {
       });
     });
 
-    // 약초 노드 (15개)
+    // 약초 노드 (20개)
     const herbPositions = [
-      { x: 550, y: 250 }, { x: 800, y: 600 }, { x: 550, y: 950 },
-      { x: 800, y: 1300 }, { x: 550, y: 1650 }, { x: 800, y: 2150 },
-      { x: 1400, y: 400 }, { x: 2000, y: 600 }, { x: 2600, y: 400 },
-      { x: 3450, y: 250 }, { x: 3200, y: 600 }, { x: 3450, y: 950 },
-      { x: 3200, y: 1300 }, { x: 3450, y: 1650 }, { x: 3200, y: 2150 },
+      // 왼쪽 - 7개
+      { x: 550, y: 200 }, { x: 750, y: 450 }, { x: 550, y: 700 },
+      { x: 750, y: 950 }, { x: 550, y: 1200 }, { x: 750, y: 1700 }, { x: 550, y: 2150 },
+      // 중앙 - 6개
+      { x: 1300, y: 300 }, { x: 1600, y: 1200 }, { x: 2000, y: 800 },
+      { x: 2400, y: 1200 }, { x: 2700, y: 300 }, { x: 2000, y: 1600 },
+      // 오른쪽 - 7개
+      { x: 3450, y: 200 }, { x: 3250, y: 450 }, { x: 3450, y: 700 },
+      { x: 3250, y: 950 }, { x: 3450, y: 1200 }, { x: 3250, y: 1700 }, { x: 3450, y: 2150 },
     ];
 
     herbPositions.forEach((pos, i) => {
@@ -247,7 +276,7 @@ export class GameRoom {
       });
     });
 
-    // 수정 노드 (맵 중앙 3개)
+    // 수정 노드 (맵 중앙 3개 - 유지)
     const crystalPositions = [
       { x: 2000, y: 1000 }, { x: 1900, y: 1200 }, { x: 2100, y: 1200 },
     ];
@@ -263,12 +292,14 @@ export class GameRoom {
       });
     });
 
-    // 광산 노드 (각 진영 4개씩)
+    // 광산 노드 (각 진영 5개씩, 총 10개)
     const goldminePositions = [
-      // 왼쪽
-      { x: 350, y: 500 }, { x: 350, y: 950 }, { x: 350, y: 1450 }, { x: 350, y: 1900 },
-      // 오른쪽
-      { x: 3650, y: 500 }, { x: 3650, y: 950 }, { x: 3650, y: 1450 }, { x: 3650, y: 1900 },
+      // 왼쪽 - 5개
+      { x: 350, y: 400 }, { x: 350, y: 750 }, { x: 350, y: 1100 },
+      { x: 350, y: 1500 }, { x: 350, y: 1900 },
+      // 오른쪽 - 5개
+      { x: 3650, y: 400 }, { x: 3650, y: 750 }, { x: 3650, y: 1100 },
+      { x: 3650, y: 1500 }, { x: 3650, y: 1900 },
     ];
 
     goldminePositions.forEach((pos, i) => {
@@ -357,6 +388,9 @@ export class GameRoom {
   private updateUnits(deltaTime: number): void {
     const unitsToRemove: string[] = [];
 
+    // 회복량 저장 (힐러 처리용)
+    const healAmounts: Map<string, number> = new Map();
+
     for (const unit of this.units) {
       // 쿨다운 감소
       if (unit.attackCooldown > 0) {
@@ -364,10 +398,16 @@ export class GameRoom {
       }
 
       const config = CONFIG.UNITS[unit.unitType];
-      const isSupport = config?.type === 'support';
 
-      if (isSupport) {
-        // 지원 유닛: 자원 채집 또는 이동
+      // 유닛 타입별 처리
+      if (unit.unitType === 'healer') {
+        // 힐러 유닛
+        this.updateHealerUnit(unit, deltaTime, healAmounts);
+      } else if (unit.unitType === 'mage') {
+        // 마법사 유닛 (AOE)
+        this.updateMageUnit(unit, deltaTime);
+      } else if (config?.type === 'support') {
+        // 일반 지원 유닛: 자원 채집 또는 이동
         this.updateSupportUnit(unit, deltaTime);
       } else {
         // 전투 유닛: 적 찾아 공격 또는 기지로 이동
@@ -377,6 +417,14 @@ export class GameRoom {
       // 사망 체크
       if (unit.hp <= 0) {
         unitsToRemove.push(unit.id);
+      }
+    }
+
+    // 회복량 적용
+    for (const [unitId, amount] of healAmounts) {
+      const targetUnit = this.units.find(u => u.id === unitId);
+      if (targetUnit && targetUnit.hp > 0) {
+        targetUnit.hp = Math.min(targetUnit.maxHp, targetUnit.hp + amount);
       }
     }
 
@@ -427,40 +475,7 @@ export class GameRoom {
     const enemyBaseX = unit.side === 'left' ? CONFIG.RIGHT_BASE_X : CONFIG.LEFT_BASE_X;
     const distToBase = this.getDistance(unit.x, unit.y, enemyBaseX, CONFIG.BASE_Y);
 
-    // 1. 공격받은 적 찾기 (반격 대상)
-    let attacker: ServerUnit | null = null;
-    if (unit.attackerId) {
-      attacker = this.units.find(u => u.id === unit.attackerId && u.hp > 0) || null;
-      // 공격자가 죽었으면 attackerId 초기화
-      if (!attacker) {
-        unit.attackerId = undefined;
-      }
-    }
-
-    // 2. 현재 타겟 벽 확인 (이미 공격 중인 벽이 있으면 그 벽 유지)
-    const enemyWalls = this.walls.filter(w => w.side !== unit.side && w.hp > 0);
-    let targetWall: ServerWall | null = null;
-    if (unit.targetWallId) {
-      targetWall = enemyWalls.find(w => w.id === unit.targetWallId) || null;
-      // 타겟 벽이 파괴되었으면 targetWallId 초기화
-      if (!targetWall) {
-        unit.targetWallId = undefined;
-      }
-    }
-
-    // 타겟 벽이 없으면 가장 가까운 벽 찾기
-    let minWallDist = targetWall ? this.getDistance(unit.x, unit.y, targetWall.x, targetWall.y) : Infinity;
-    if (!targetWall) {
-      for (const wall of enemyWalls) {
-        const dist = this.getDistance(unit.x, unit.y, wall.x, wall.y);
-        if (dist < minWallDist) {
-          minWallDist = dist;
-          targetWall = wall;
-        }
-      }
-    }
-
-    // 3. 가장 가까운 적 유닛 찾기
+    // 1. 가장 가까운 적 유닛 찾기
     const enemies = this.units.filter(u => u.side !== unit.side && u.hp > 0);
     let nearestEnemy: ServerUnit | null = null;
     let minEnemyDist = Infinity;
@@ -472,41 +487,39 @@ export class GameRoom {
       }
     }
 
-    // 우선순위: 반격 대상 > 벽(공격중 또는 경로상) > 범위 내 적 > 본진
-
-    // 1순위: 반격 대상 (공격받은 경우)
-    if (attacker) {
-      const attackerDist = this.getDistance(unit.x, unit.y, attacker.x, attacker.y);
-      if (attackerDist <= unit.range) {
-        if (unit.attackCooldown <= 0) {
-          attacker.hp -= unit.attack;
-          attacker.attackerId = unit.id; // 공격자 기록 (반격 체인)
-          unit.attackCooldown = 1;
-          unit.state = 'attacking';
-          this.broadcastEvent({
-            event: 'UNIT_ATTACKED',
-            attackerId: unit.id,
-            targetId: attacker.id,
-            damage: unit.attack,
-          });
-        }
-      } else {
-        // 공격자에게 이동
-        unit.state = 'moving';
-        this.moveTowards(unit, attacker.x, attacker.y, deltaTime);
+    // 2. 가장 가까운 벽 찾기
+    const enemyWalls = this.walls.filter(w => w.side !== unit.side && w.hp > 0);
+    let targetWall: ServerWall | null = null;
+    let minWallDist = Infinity;
+    for (const wall of enemyWalls) {
+      const dist = this.getDistance(unit.x, unit.y, wall.x, wall.y);
+      if (dist < minWallDist) {
+        minWallDist = dist;
+        targetWall = wall;
       }
-      // 반격 중에도 targetWallId는 유지 (공격자 처리 후 벽으로 복귀)
+    }
+
+    // 우선순위: 가장 가까운 적 유닛 > 벽 > 본진
+
+    // 1순위: 가장 가까운 적 유닛 (사거리 내)
+    if (nearestEnemy && minEnemyDist <= unit.range) {
+      if (unit.attackCooldown <= 0) {
+        nearestEnemy.hp -= unit.attack;
+        nearestEnemy.attackerId = unit.id;
+        unit.attackCooldown = 1;
+        unit.state = 'attacking';
+        this.broadcastEvent({
+          event: 'UNIT_ATTACKED',
+          attackerId: unit.id,
+          targetId: nearestEnemy.id,
+          damage: unit.attack,
+        });
+      }
       return;
     }
 
-    // 2순위: 벽 (이미 공격 중이거나 본진보다 가까운 경우)
-    const hasTargetWall = unit.targetWallId && targetWall;
-    const shouldAttackWall = targetWall && (hasTargetWall || minWallDist < distToBase);
-
-    if (shouldAttackWall && targetWall) {
-      // 벽 타겟 고정
-      unit.targetWallId = targetWall.id;
-
+    // 2순위: 벽 (본진보다 가까운 경우)
+    if (targetWall && minWallDist < distToBase) {
       if (minWallDist <= unit.range) {
         if (unit.attackCooldown <= 0) {
           targetWall.hp -= unit.attack;
@@ -514,7 +527,6 @@ export class GameRoom {
           unit.state = 'attacking';
 
           if (targetWall.hp <= 0) {
-            unit.targetWallId = undefined; // 벽 파괴 시 타겟 초기화
             this.walls = this.walls.filter(w => w.id !== targetWall!.id);
             this.broadcastEvent({ event: 'WALL_DESTROYED', wallId: targetWall.id });
           } else {
@@ -534,24 +546,7 @@ export class GameRoom {
       return;
     }
 
-    // 3순위: 범위 내 적 유닛
-    if (nearestEnemy && minEnemyDist <= unit.range) {
-      if (unit.attackCooldown <= 0) {
-        nearestEnemy.hp -= unit.attack;
-        nearestEnemy.attackerId = unit.id; // 공격자 기록
-        unit.attackCooldown = 1;
-        unit.state = 'attacking';
-        this.broadcastEvent({
-          event: 'UNIT_ATTACKED',
-          attackerId: unit.id,
-          targetId: nearestEnemy.id,
-          damage: unit.attack,
-        });
-      }
-      return;
-    }
-
-    // 4순위: 본진으로 이동/공격
+    // 3순위: 본진으로 이동/공격
     if (distToBase > unit.range) {
       unit.state = 'moving';
       this.moveTowards(unit, enemyBaseX, CONFIG.BASE_Y, deltaTime);
@@ -575,6 +570,215 @@ export class GameRoom {
           });
         }
         unit.attackCooldown = 1;
+        unit.state = 'attacking';
+      }
+    }
+  }
+
+  private updateHealerUnit(unit: ServerUnit, deltaTime: number, healAmounts: Map<string, number>): void {
+    const config = CONFIG.UNITS.healer;
+    const healRate = config.healRate || 10;
+    const healRange = config.healRange || 100;
+    const attack = config.attack || 3;
+    const range = config.range || 25;
+
+    // 아군 본진 위치
+    const allyBaseX = unit.side === 'left' ? CONFIG.LEFT_BASE_X : CONFIG.RIGHT_BASE_X;
+
+    // 우선순위: 회복 > 반격 > 본진 대기
+
+    // 1순위: HP 비율이 가장 낮은 아군 찾기 (HP가 max가 아닌 아군만)
+    const allies = this.units.filter(u => u.side === unit.side && u.hp > 0 && u.id !== unit.id);
+    let lowestHpAlly: ServerUnit | null = null;
+    let lowestHpRatio = 1;
+
+    for (const ally of allies) {
+      if (ally.hp >= ally.maxHp) continue; // 풀피 유닛 제외
+      const hpRatio = ally.hp / ally.maxHp;
+      if (hpRatio < lowestHpRatio) {
+        lowestHpRatio = hpRatio;
+        lowestHpAlly = ally;
+      }
+    }
+
+    // 회복 대상이 있으면 회복 우선
+    if (lowestHpAlly) {
+      const distToAlly = this.getDistance(unit.x, unit.y, lowestHpAlly.x, lowestHpAlly.y);
+
+      if (distToAlly > healRange) {
+        // 아군에게 이동
+        unit.state = 'moving';
+        this.moveTowards(unit, lowestHpAlly.x, lowestHpAlly.y, deltaTime);
+      } else {
+        // 회복
+        unit.state = 'healing';
+        const healAmount = healRate * deltaTime;
+        const currentHeal = healAmounts.get(lowestHpAlly.id) || 0;
+        healAmounts.set(lowestHpAlly.id, currentHeal + healAmount);
+      }
+      return;
+    }
+
+    // 2순위: 회복 대상 없으면 반격 (attackerId가 있으면)
+    if (unit.attackerId) {
+      const attacker = this.units.find(u => u.id === unit.attackerId && u.hp > 0);
+
+      if (attacker) {
+        const distToAttacker = this.getDistance(unit.x, unit.y, attacker.x, attacker.y);
+
+        if (distToAttacker > range) {
+          // 공격자에게 이동
+          unit.state = 'moving';
+          this.moveTowards(unit, attacker.x, attacker.y, deltaTime);
+        } else {
+          // 반격
+          if (unit.attackCooldown <= 0) {
+            attacker.hp -= attack;
+            attacker.attackerId = unit.id;
+            unit.attackCooldown = 1;
+            unit.state = 'attacking';
+            this.broadcastEvent({
+              event: 'UNIT_ATTACKED',
+              attackerId: unit.id,
+              targetId: attacker.id,
+              damage: attack,
+            });
+          }
+        }
+        return;
+      } else {
+        // 공격자가 죽었으면 attackerId 초기화
+        unit.attackerId = undefined;
+      }
+    }
+
+    // 3순위: 본진 근처로 대기
+    const distToBase = this.getDistance(unit.x, unit.y, allyBaseX, CONFIG.BASE_Y);
+
+    if (distToBase > 150) {
+      // 본진으로 이동
+      unit.state = 'moving';
+      this.moveTowards(unit, allyBaseX, CONFIG.BASE_Y, deltaTime);
+    } else {
+      unit.state = 'idle';
+    }
+  }
+
+  private updateMageUnit(unit: ServerUnit, deltaTime: number): void {
+    const config = CONFIG.UNITS.mage;
+    const range = config.range || 180;
+    const attack = config.attack || 35;
+    const aoeRadius = config.aoeRadius || 50;
+    const cooldownTime = 2; // 2초 쿨다운
+
+    // 적 기지 위치
+    const enemyBaseX = unit.side === 'left' ? CONFIG.RIGHT_BASE_X : CONFIG.LEFT_BASE_X;
+    const distToBase = this.getDistance(unit.x, unit.y, enemyBaseX, CONFIG.BASE_Y);
+
+    // 1. 가장 가까운 적 유닛 찾기
+    const enemies = this.units.filter(u => u.side !== unit.side && u.hp > 0);
+    let nearestEnemy: ServerUnit | null = null;
+    let minEnemyDist = Infinity;
+    for (const enemy of enemies) {
+      const dist = this.getDistance(unit.x, unit.y, enemy.x, enemy.y);
+      if (dist < minEnemyDist) {
+        minEnemyDist = dist;
+        nearestEnemy = enemy;
+      }
+    }
+
+    // 2. 가장 가까운 벽 찾기
+    const enemyWalls = this.walls.filter(w => w.side !== unit.side && w.hp > 0);
+    let targetWall: ServerWall | null = null;
+    let minWallDist = Infinity;
+    for (const wall of enemyWalls) {
+      const dist = this.getDistance(unit.x, unit.y, wall.x, wall.y);
+      if (dist < minWallDist) {
+        minWallDist = dist;
+        targetWall = wall;
+      }
+    }
+
+    // 우선순위: 가장 가까운 적 유닛 > 벽 > 본진
+
+    // 1순위: 가장 가까운 적 유닛 (사거리 내, AOE 공격)
+    if (nearestEnemy && minEnemyDist <= range) {
+      if (unit.attackCooldown <= 0) {
+        // AOE 데미지 계산: 타겟 중심으로 범위 내 모든 적에게 피해
+        for (const enemy of enemies) {
+          const distFromTarget = this.getDistance(nearestEnemy.x, nearestEnemy.y, enemy.x, enemy.y);
+          if (distFromTarget <= aoeRadius) {
+            // 중심에서 가장자리로 갈수록 데미지 감소 (100% → 50%)
+            const damageMultiplier = 1 - (distFromTarget / aoeRadius) * 0.5;
+            const damage = Math.floor(attack * damageMultiplier);
+            enemy.hp -= damage;
+            enemy.attackerId = unit.id;
+            this.broadcastEvent({
+              event: 'UNIT_ATTACKED',
+              attackerId: unit.id,
+              targetId: enemy.id,
+              damage,
+            });
+          }
+        }
+        unit.attackCooldown = cooldownTime;
+        unit.state = 'attacking';
+      }
+      return;
+    }
+
+    // 2순위: 벽 (본진보다 가까운 경우, 단일 타겟)
+    if (targetWall && minWallDist < distToBase) {
+      if (minWallDist <= range) {
+        if (unit.attackCooldown <= 0) {
+          targetWall.hp -= attack;
+          unit.attackCooldown = cooldownTime;
+          unit.state = 'attacking';
+
+          if (targetWall.hp <= 0) {
+            this.walls = this.walls.filter(w => w.id !== targetWall!.id);
+            this.broadcastEvent({ event: 'WALL_DESTROYED', wallId: targetWall.id });
+          } else {
+            this.broadcastEvent({
+              event: 'WALL_DAMAGED',
+              wallId: targetWall.id,
+              damage: attack,
+              hp: targetWall.hp,
+            });
+          }
+        }
+      } else {
+        // 벽으로 이동
+        unit.state = 'moving';
+        this.moveTowards(unit, targetWall.x, targetWall.y, deltaTime);
+      }
+      return;
+    }
+
+    // 3순위: 본진으로 이동/공격 (단일 타겟)
+    if (distToBase > range) {
+      unit.state = 'moving';
+      this.moveTowards(unit, enemyBaseX, CONFIG.BASE_Y, deltaTime);
+    } else {
+      if (unit.attackCooldown <= 0) {
+        if (unit.side === 'left') {
+          this.rightBaseHp -= attack;
+          this.broadcastEvent({
+            event: 'BASE_DAMAGED',
+            side: 'right',
+            damage: attack,
+            hp: this.rightBaseHp,
+          });
+        } else {
+          this.leftBaseHp -= attack;
+          this.broadcastEvent({
+            event: 'BASE_DAMAGED',
+            side: 'left',
+            damage: attack,
+            hp: this.leftBaseHp,
+          });
+        }
+        unit.attackCooldown = cooldownTime;
         unit.state = 'attacking';
       }
     }
@@ -799,6 +1003,9 @@ export class GameRoom {
       attackCooldown: 0,
       gatherRate: config.gatherRate,
       resourceType: config.resource,
+      healRate: config.healRate,
+      healRange: config.healRange,
+      aoeRadius: config.aoeRadius,
     };
 
     this.units.push(unit);

@@ -31,39 +31,7 @@ export function updateMageUnit(
     updatedUnit.attackCooldown -= deltaTime;
   }
 
-  // 1. 공격받은 적 찾기 (반격 대상)
-  let attacker: Unit | null = null;
-  if (unit.attackerId) {
-    attacker = enemies.find(e => e.id === unit.attackerId && e.hp > 0) || null;
-    if (!attacker) {
-      updatedUnit.attackerId = undefined;
-    }
-  }
-
-  // 2. 현재 타겟 벽 확인
-  let targetWall: Wall | null = null;
-  if (unit.targetWallId) {
-    targetWall = enemyWalls.find(w => w.id === unit.targetWallId && w.hp > 0) || null;
-    if (!targetWall) {
-      updatedUnit.targetWallId = undefined;
-    }
-  }
-
-  // 타겟 벽이 없으면 가장 가까운 벽 찾기
-  let minWallDist = targetWall ? distance(unit.x, unit.y, targetWall.x, targetWall.y) : Infinity;
-  if (!targetWall) {
-    for (const wall of enemyWalls) {
-      if (wall.hp > 0) {
-        const dist = distance(unit.x, unit.y, wall.x, wall.y);
-        if (dist < minWallDist) {
-          minWallDist = dist;
-          targetWall = wall;
-        }
-      }
-    }
-  }
-
-  // 3. 가장 가까운 적 유닛 찾기
+  // 1. 가장 가까운 적 유닛 찾기
   let nearestEnemy: Unit | null = null;
   let minEnemyDist = Infinity;
 
@@ -77,35 +45,36 @@ export function updateMageUnit(
     }
   }
 
+  // 2. 가장 가까운 벽 찾기
+  let targetWall: Wall | null = null;
+  let minWallDist = Infinity;
+
+  for (const wall of enemyWalls) {
+    if (wall.hp > 0) {
+      const dist = distance(unit.x, unit.y, wall.x, wall.y);
+      if (dist < minWallDist) {
+        minWallDist = dist;
+        targetWall = wall;
+      }
+    }
+  }
+
   const distToBase = distance(unit.x, unit.y, enemyBase.x, enemyBase.y);
 
-  // 1순위: 반격 대상 (공격받은 경우)
-  if (attacker) {
-    const attackerDist = distance(unit.x, unit.y, attacker.x, attacker.y);
-    if (attackerDist <= range) {
-      if (updatedUnit.attackCooldown <= 0) {
-        // AOE 공격
-        aoeDamage = calculateAoeDamage(unit, attacker, enemies, attack, aoeRadius);
-        updatedUnit.attackCooldown = cooldownTime;
-        updatedUnit.state = 'attacking';
-      }
-    } else {
-      // 공격자에게 이동
-      const angle = Math.atan2(attacker.y - unit.y, attacker.x - unit.x);
-      updatedUnit.x += Math.cos(angle) * config.speed;
-      updatedUnit.y += Math.sin(angle) * config.speed;
-      updatedUnit.state = 'moving';
+  // 우선순위: 가장 가까운 적 유닛 > 벽 > 본진
+
+  // 1순위: 가장 가까운 적 유닛 (사거리 내, AOE 공격)
+  if (nearestEnemy && minEnemyDist <= range) {
+    if (updatedUnit.attackCooldown <= 0) {
+      aoeDamage = calculateAoeDamage(unit, nearestEnemy, enemies, attack, aoeRadius);
+      updatedUnit.attackCooldown = cooldownTime;
+      updatedUnit.state = 'attacking';
     }
     return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
   }
 
-  // 2순위: 벽 (벽/본진은 AOE가 아닌 단일 타겟 공격)
-  const hasTargetWall = unit.targetWallId && targetWall;
-  const shouldAttackWall = targetWall && (hasTargetWall || minWallDist < distToBase);
-
-  if (shouldAttackWall && targetWall) {
-    updatedUnit.targetWallId = targetWall.id;
-
+  // 2순위: 벽 (본진보다 가까운 경우, 단일 타겟)
+  if (targetWall && minWallDist < distToBase) {
     if (minWallDist <= range) {
       if (updatedUnit.attackCooldown <= 0) {
         wallDamage = { wallId: targetWall.id, damage: attack };
@@ -121,17 +90,7 @@ export function updateMageUnit(
     return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
   }
 
-  // 3순위: 범위 내 적 유닛 (AOE 공격)
-  if (nearestEnemy && minEnemyDist <= range) {
-    if (updatedUnit.attackCooldown <= 0) {
-      aoeDamage = calculateAoeDamage(unit, nearestEnemy, enemies, attack, aoeRadius);
-      updatedUnit.attackCooldown = cooldownTime;
-      updatedUnit.state = 'attacking';
-    }
-    return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
-  }
-
-  // 4순위: 본진으로 이동/공격 (단일 타겟)
+  // 3순위: 본진으로 이동/공격 (단일 타겟)
   if (distToBase > range) {
     const angle = Math.atan2(enemyBase.y - unit.y, enemyBase.x - unit.x);
     updatedUnit.x += Math.cos(angle) * config.speed;

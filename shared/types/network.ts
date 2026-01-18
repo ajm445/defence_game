@@ -64,7 +64,7 @@ export type GameEvent =
   | { event: 'RESOURCE_UPDATED'; side: PlayerSide; resources: Resources }
   | { event: 'NODE_DEPLETED'; nodeId: string }
   | { event: 'NODE_REGENERATED'; nodeId: string; amount: number }
-  | { event: 'BASE_UPGRADED'; side: PlayerSide; newMaxHp: number };
+  | { event: 'BASE_UPGRADED'; side: PlayerSide; newMaxHp: number; upgradeLevel: number; goldPerSecond: number };
 
 export type GameResult = 'win' | 'lose' | 'draw';
 
