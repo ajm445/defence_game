@@ -125,7 +125,7 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     spread: Math.PI * 2,
   },
 
-  // 힐 - 초록색 파티클 + 하트 이모지 상승
+  // 힐 - 초록색 십자가 상승
   heal: {
     count: 10,
     colors: ['#00ff00', '#33ff33', '#66ff66', '#00cc00'],
@@ -136,9 +136,8 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     lifeMin: 0.8,
     lifeMax: 1.2,
     gravity: -50,
-    shape: 'emoji',
+    shape: 'cross',
     spread: Math.PI / 2,
     direction: -Math.PI / 2,
-    emoji: '➕',
   },
 };

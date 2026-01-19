@@ -113,6 +113,8 @@ export function preloadGameEmojis(): Promise<void> {
     '🏰', '🧱',
     // 자원 아이콘 (UI용)
     '🪵',
+    // 이펙트용
+    '➕',
     // 기타
     '❓',
   ];

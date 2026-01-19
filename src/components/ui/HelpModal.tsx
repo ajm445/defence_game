@@ -154,7 +154,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="gatherer" fallbackEmoji="🧺" size={24} /> 채집꾼</div>
-            <div className="text-yellow-300">비용: 35골드</div>
+            <div className="text-yellow-300">비용: 65골드</div>
             <div className="text-gray-200">약초 채집 (1.2/초)</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
@@ -178,12 +178,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         <div className="space-y-4">
           <div className="bg-dark-700/70 p-4 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🧱" size={20} /> 벽 건설</div>
-            <div className="text-yellow-300">비용: 20나무 + 10돌</div>
+            <div className="text-yellow-300">비용: 35나무 + 20돌</div>
             <div className="text-gray-200">HP 200 방어벽 생성 (30초 후 소멸)</div>
           </div>
           <div className="bg-dark-700/70 p-4 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🏰" size={20} /> 기지 업그레이드</div>
-            <div className="text-yellow-300">비용: 100골드 + 50돌 (레벨당 1.5배)</div>
+            <div className="text-yellow-300">비용: 100골드 + 50나무 + 50돌 (레벨당 1.5배)</div>
             <div className="text-gray-200">본진 HP +200, 골드 수입 +1/초 (최대 5레벨)</div>
           </div>
           <div className="bg-dark-700/70 p-4 rounded-lg border border-dark-500">

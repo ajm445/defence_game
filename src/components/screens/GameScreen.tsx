@@ -10,6 +10,7 @@ import { UnitPanel } from '../ui/UnitPanel';
 import { ActionPanel } from '../ui/ActionPanel';
 import { SelectionInfo } from '../ui/SelectionInfo';
 import { Notification } from '../ui/Notification';
+import { MassSpawnAlert } from '../ui/MassSpawnAlert';
 import { CONFIG } from '../../constants/config';
 import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
@@ -48,6 +49,9 @@ export const GameScreen: React.FC = () => {
 
       {/* 알림 */}
       <Notification />
+
+      {/* 대량 발생 경고 */}
+      <MassSpawnAlert />
 
       {/* 하단 UI 패널 */}
       <div

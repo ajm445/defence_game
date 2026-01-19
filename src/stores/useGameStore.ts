@@ -19,7 +19,7 @@ interface GameActions {
   spendResources: (cost: Partial<Resources>, team: Team) => boolean;
 
   // 유닛 관리
-  spawnUnit: (type: UnitType, team: Team) => boolean;
+  spawnUnit: (type: UnitType, team: Team, forceSpawn?: boolean) => boolean;
   updateUnits: (playerUnits: Unit[], enemyUnits: Unit[]) => void;
   selectUnit: (unit: Unit | null) => void;
 
@@ -282,7 +282,7 @@ export const useGameStore = create<GameStore>()(
       return true;
     },
 
-    spawnUnit: (type, team) => {
+    spawnUnit: (type, team, forceSpawn = false) => {
       const state = get();
       const unitConfig = CONFIG.UNITS[type];
       const resources = team === 'player' ? state.resources : state.aiResources;
@@ -296,16 +296,19 @@ export const useGameStore = create<GameStore>()(
         }
       }
 
-      // 비용 확인
-      for (const [resource, amount] of Object.entries(unitConfig.cost)) {
-        if ((resources[resource as keyof Resources] || 0) < (amount || 0)) {
+      // forceSpawn이 아닐 때만 비용 확인 및 차감
+      if (!forceSpawn) {
+        // 비용 확인
+        for (const [resource, amount] of Object.entries(unitConfig.cost)) {
+          if ((resources[resource as keyof Resources] || 0) < (amount || 0)) {
+            return false;
+          }
+        }
+
+        // 비용 차감
+        if (!get().spendResources(unitConfig.cost, team)) {
           return false;
         }
-      }
-
-      // 비용 차감
-      if (!get().spendResources(unitConfig.cost, team)) {
-        return false;
       }
 
       const unit: Unit = {

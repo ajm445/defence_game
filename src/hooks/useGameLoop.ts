@@ -15,6 +15,7 @@ export const useGameLoop = () => {
   const lastTimeRef = useRef<number>(0);
   const animationIdRef = useRef<number>(0);
   const aiTimerRef = useRef<number>(0);
+  const lastMassSpawnTimeRef = useRef<number>(-1); // 마지막 대량 발생 시간 (-1: 아직 없음)
 
   const running = useGameStore((state) => state.running);
   const gameMode = useGameStore((state) => state.gameMode);
@@ -413,6 +414,50 @@ export const useGameLoop = () => {
       // 자원 노드 재생성 확인
       respawnResourceNodes();
 
+      // 대량 발생 이벤트 체크
+      if (difficultyConfig.massSpawnEnabled) {
+        const elapsedTime = CONFIG.GAME_TIME - state.time; // 경과 시간 (초)
+        const startTime = difficultyConfig.massSpawnStartTime;
+        const interval = difficultyConfig.massSpawnInterval;
+
+        // 첫 대량 발생 체크
+        if (elapsedTime >= startTime) {
+          let shouldSpawn = false;
+
+          if (interval === 0) {
+            // 1회성 대량 발생
+            if (lastMassSpawnTimeRef.current < startTime) {
+              shouldSpawn = true;
+              lastMassSpawnTimeRef.current = startTime;
+            }
+          } else {
+            // 반복 대량 발생 (2분마다)
+            const expectedSpawnCount = Math.floor((elapsedTime - startTime) / interval) + 1;
+            const actualSpawnCount = lastMassSpawnTimeRef.current < startTime
+              ? 0
+              : Math.floor((lastMassSpawnTimeRef.current - startTime) / interval) + 1;
+
+            if (expectedSpawnCount > actualSpawnCount) {
+              shouldSpawn = true;
+              lastMassSpawnTimeRef.current = startTime + (expectedSpawnCount - 1) * interval;
+            }
+          }
+
+          if (shouldSpawn) {
+            // 대량 발생 알림 표시
+            const showMassSpawnAlert = useUIStore.getState().showMassSpawnAlert;
+            const hideMassSpawnAlert = useUIStore.getState().hideMassSpawnAlert;
+            showMassSpawnAlert();
+            setTimeout(() => hideMassSpawnAlert(), 3000); // 3초 후 알림 숨김
+
+            // 대량 발생 유닛 소환 (자원과 무관하게 강제 소환)
+            for (const unitType of difficultyConfig.massSpawnUnits) {
+              spawnUnit(unitType, 'enemy', true); // forceSpawn = true
+            }
+          }
+        }
+      }
+
       // AI 업데이트 (난이도별 행동 주기)
       aiTimerRef.current += deltaTime;
       if (aiTimerRef.current >= difficultyConfig.actionInterval) {
@@ -429,8 +474,9 @@ export const useGameLoop = () => {
           aiSellHerb();
         }
 
-        if (decision.spawnUnit) {
-          spawnUnit(decision.spawnUnit, 'enemy');
+        // 다중 유닛 소환 지원
+        for (const unitType of decision.spawnUnits) {
+          spawnUnit(unitType, 'enemy');
         }
       }
 
@@ -466,6 +512,7 @@ export const useGameLoop = () => {
     if (running) {
       lastTimeRef.current = performance.now();
       aiTimerRef.current = 0;
+      lastMassSpawnTimeRef.current = -1; // 대량 발생 타이머 리셋
       animationIdRef.current = requestAnimationFrame(tick);
     }
 

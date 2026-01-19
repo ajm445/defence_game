@@ -183,6 +183,10 @@ class EffectManager {
               drawEmoji(ctx, particle.emoji, screenX, screenY, particle.size);
             }
             break;
+
+          case 'cross':
+            this.drawCross(ctx, screenX, screenY, particle.size);
+            break;
         }
 
         ctx.restore();
@@ -237,6 +241,19 @@ class EffectManager {
       }
     }
     ctx.closePath();
+    ctx.fill();
+  }
+
+  private drawCross(ctx: CanvasRenderingContext2D, x: number, y: number, size: number): void {
+    const thickness = size * 0.35; // 십자가 두께
+    const halfSize = size / 2;
+    const halfThick = thickness / 2;
+
+    ctx.beginPath();
+    // 세로 막대
+    ctx.rect(x - halfThick, y - halfSize, thickness, size);
+    // 가로 막대
+    ctx.rect(x - halfSize, y - halfThick, size, thickness);
     ctx.fill();
   }
 

@@ -71,7 +71,7 @@ export const CONFIG = {
     },
     gatherer: {
       name: '채집꾼',
-      cost: { gold: 35 },
+      cost: { gold: 65 },
       hp: 50,
       attack: 3,
       range: 20,
@@ -122,7 +122,7 @@ export const CONFIG = {
 
   RESOURCE_NODES: {
     tree: { resource: 'wood', amount: 100, respawn: 40 },
-    rock: { resource: 'stone', amount: 80, respawn: 90 },
+    rock: { resource: 'stone', amount: 80, respawn: 60 },
     herb: { resource: 'herb', amount: 50, respawn: 30 },
     crystal: { resource: 'crystal', amount: 30, respawn: 180 },
     goldmine: { resource: 'gold', amount: 80, respawn: 40 },
@@ -138,11 +138,11 @@ export const CONFIG = {
   DIRECT_GATHER_AMOUNT: 5,  // 클릭당 채집량
 
   // 건설 비용
-  WALL_COST: { wood: 20, stone: 10 },
+  WALL_COST: { wood: 35, stone: 20 },
   WALL_HP: 200,
   WALL_DURATION: 30, // 벽 지속 시간 (초)
   BASE_UPGRADE: {
-    BASE_COST: { gold: 100, stone: 50 }, // 기본 비용 (레벨 1)
+    BASE_COST: { gold: 100, wood: 50, stone: 50 }, // 기본 비용 (레벨 1)
     COST_MULTIPLIER: 1.5, // 레벨당 비용 증가 배율
     HP_BONUS: 200, // 업그레이드당 HP 증가량
     GOLD_BONUS: 1, // 업그레이드당 골드 수입 증가량
@@ -172,27 +172,16 @@ export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
     mageChance: 0.1,
     initialGold: 100,
     enemyBaseHp: 1000,
+    // 쉬움: 다중 소환 없음, 대량 발생 없음
+    maxUnitsPerAction: 1,
+    massSpawnEnabled: false,
+    massSpawnStartTime: 0,
+    massSpawnInterval: 0,
+    massSpawnUnits: [],
   },
   normal: {
     name: '중간',
-    description: '균형 잡힌 난이도입니다. AI가 적극적으로 유닛을 생산하고 기지 체력이 증가합니다.',
-    goldPerSecond: 4,
-    actionInterval: 3,
-    actionChance: 0.8,
-    minSupportUnits: 4,
-    goldminerChance: 0.4,
-    knightChance: 0.45,
-    archerChance: 0.5,
-    gathererChance: 0.35,
-    minerChance: 0.35,
-    healerChance: 0.25,
-    mageChance: 0.2,
-    initialGold: 120,
-    enemyBaseHp: 1200,
-  },
-  hard: {
-    name: '어려움',
-    description: '숙련자를 위한 도전입니다. AI가 빠르고 공격적이며 기지 체력이 크게 증가합니다.',
+    description: '2분에 대량 발생! AI가 적극적으로 유닛을 생산합니다.',
     goldPerSecond: 4,
     actionInterval: 2.5,
     actionChance: 0.85,
@@ -205,7 +194,36 @@ export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
     healerChance: 0.35,
     mageChance: 0.3,
     initialGold: 120,
+    enemyBaseHp: 1200,
+    // 중간: 다중 소환 없음, 2분에 1회 대량 발생 (검병+궁수+기사+힐러)
+    maxUnitsPerAction: 1,
+    massSpawnEnabled: true,
+    massSpawnStartTime: 120,
+    massSpawnInterval: 0, // 1회만
+    massSpawnUnits: ['melee', 'ranged', 'knight', 'healer'],
+  },
+  hard: {
+    name: '어려움',
+    description: '2분마다 대량 발생! AI가 다중 소환하며 매우 공격적입니다.',
+    goldPerSecond: 5,
+    actionInterval: 2,
+    actionChance: 0.95,
+    minSupportUnits: 5,
+    goldminerChance: 0.6,
+    knightChance: 0.65,
+    archerChance: 0.7,
+    gathererChance: 0.5,
+    minerChance: 0.5,
+    healerChance: 0.45,
+    mageChance: 0.4,
+    initialGold: 150,
     enemyBaseHp: 1500,
+    // 어려움: 다중 소환 가능, 2분마다 대량 발생 (풀 조합)
+    maxUnitsPerAction: 3,
+    massSpawnEnabled: true,
+    massSpawnStartTime: 120,
+    massSpawnInterval: 120, // 2분마다 반복
+    massSpawnUnits: ['melee', 'ranged', 'knight', 'mage', 'healer'],
   },
 };
 

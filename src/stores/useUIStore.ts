@@ -9,6 +9,7 @@ interface UIState {
   notificationKey: number;
   placementMode: PlacementMode;
   selectedDifficulty: AIDifficulty;
+  massSpawnAlert: boolean; // 대량 발생 경고 표시 여부
 }
 
 interface UIActions {
@@ -16,6 +17,8 @@ interface UIActions {
   showNotification: (message: string) => void;
   setPlacementMode: (mode: PlacementMode) => void;
   setSelectedDifficulty: (difficulty: AIDifficulty) => void;
+  showMassSpawnAlert: () => void;
+  hideMassSpawnAlert: () => void;
 }
 
 interface UIStore extends UIState, UIActions {}
@@ -26,6 +29,7 @@ export const useUIStore = create<UIStore>((set) => ({
   notificationKey: 0,
   placementMode: 'none',
   selectedDifficulty: 'easy',
+  massSpawnAlert: false,
 
   setScreen: (screen) => set({ currentScreen: screen }),
 
@@ -38,4 +42,8 @@ export const useUIStore = create<UIStore>((set) => ({
   setPlacementMode: (mode) => set({ placementMode: mode }),
 
   setSelectedDifficulty: (difficulty) => set({ selectedDifficulty: difficulty }),
+
+  showMassSpawnAlert: () => set({ massSpawnAlert: true }),
+
+  hideMassSpawnAlert: () => set({ massSpawnAlert: false }),
 }));

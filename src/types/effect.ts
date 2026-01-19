@@ -8,7 +8,7 @@ export type EffectType =
   | 'gather_gold'
   | 'heal';
 
-export type ParticleShape = 'circle' | 'square' | 'star' | 'emoji';
+export type ParticleShape = 'circle' | 'square' | 'star' | 'emoji' | 'cross';
 
 export interface Particle {
   x: number;

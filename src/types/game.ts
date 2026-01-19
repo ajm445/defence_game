@@ -61,6 +61,13 @@ export interface AIDifficultyConfig {
   mageChance: number;
   initialGold: number;
   enemyBaseHp: number;
+  // 다중 유닛 소환 설정 (어려움 난이도)
+  maxUnitsPerAction: number; // 한 번에 소환 가능한 최대 유닛 수
+  // 대량 발생 이벤트 설정
+  massSpawnEnabled: boolean;
+  massSpawnStartTime: number; // 첫 대량 발생 시간 (초, 게임 시작 후)
+  massSpawnInterval: number; // 대량 발생 주기 (초, 0이면 1회만)
+  massSpawnUnits: UnitType[]; // 대량 발생 시 소환할 유닛 목록
 }
 
 export interface GameResult {
