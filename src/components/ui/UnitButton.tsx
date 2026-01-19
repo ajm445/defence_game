@@ -2,6 +2,7 @@ import React from 'react';
 import { UnitType, Resources } from '../../types';
 import { CONFIG } from '../../constants/config';
 import { Emoji } from '../common/Emoji';
+import { getUnitImageUrl } from '../../utils/unitImages';
 
 interface UnitButtonProps {
   type: UnitType;
@@ -20,6 +21,29 @@ const UNIT_CONFIG: Record<UnitType, { icon: string; name: string; color: string 
   goldminer: { icon: '💰', name: '금광부', color: 'from-yellow-400 to-yellow-600' },
   healer: { icon: '💚', name: '힐러', color: 'from-pink-400 to-pink-600' },
   mage: { icon: '🔮', name: '마법사', color: 'from-purple-500 to-purple-700' },
+};
+
+// 유닛 이미지 컴포넌트 (이미지 로드 실패 시 이모지 폴백)
+const UnitIcon: React.FC<{ type: UnitType; size: number; className?: string }> = ({ type, size, className = '' }) => {
+  const [imageError, setImageError] = React.useState(false);
+  const imageUrl = getUnitImageUrl(type);
+  const fallbackEmoji = UNIT_CONFIG[type]?.icon || '❓';
+
+  if (!imageUrl || imageError) {
+    return <Emoji emoji={fallbackEmoji} size={size} className={className} />;
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={UNIT_CONFIG[type]?.name || type}
+      width={size}
+      height={size}
+      className={className}
+      onError={() => setImageError(true)}
+      style={{ objectFit: 'contain' }}
+    />
+  );
 };
 
 export const UnitButton: React.FC<UnitButtonProps> = ({
@@ -109,7 +133,7 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
           ${canSpawn ? 'group-hover:scale-110' : ''}
           ${isOnCooldown ? 'opacity-50' : ''}
         `}>
-          <Emoji emoji={unitInfo.icon} size={32} />
+          <UnitIcon type={type} size={40} />
         </div>
 
         {/* 이름 또는 쿨타임 */}

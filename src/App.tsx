@@ -8,13 +8,15 @@ import { GameScreen } from './components/screens/GameScreen';
 import { GameOverScreen } from './components/screens/GameOverScreen';
 import { PauseScreen } from './components/screens/PauseScreen';
 import { preloadGameEmojis } from './utils/canvasEmoji';
+import { preloadAllUnitImages } from './utils/unitImages';
 
 function App() {
   const currentScreen = useUIStore((state) => state.currentScreen);
 
-  // 앱 시작 시 게임에서 사용하는 이모지 미리 로드
+  // 앱 시작 시 게임에서 사용하는 이모지 및 유닛 이미지 미리 로드
   useEffect(() => {
     preloadGameEmojis();
+    preloadAllUnitImages();
   }, []);
 
   return (

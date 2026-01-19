@@ -1,5 +1,28 @@
 import React, { useState } from 'react';
 import { Emoji } from '../common/Emoji';
+import { UnitType } from '../../types';
+import { getUnitImageUrl } from '../../utils/unitImages';
+
+// 유닛 이미지 컴포넌트 (이미지 로드 실패 시 이모지 폴백)
+const UnitImage: React.FC<{ type: UnitType; fallbackEmoji: string; size: number }> = ({ type, fallbackEmoji, size }) => {
+  const [imageError, setImageError] = React.useState(false);
+  const imageUrl = getUnitImageUrl(type);
+
+  if (!imageUrl || imageError) {
+    return <Emoji emoji={fallbackEmoji} size={size} />;
+  }
+
+  return (
+    <img
+      src={imageUrl}
+      alt={type}
+      width={size}
+      height={size}
+      onError={() => setImageError(true)}
+      style={{ objectFit: 'contain' }}
+    />
+  );
+};
 
 interface HelpModalProps {
   onClose: () => void;
@@ -92,22 +115,22 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       content: (
         <div className="space-y-3">
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🗡️" size={20} /> 검병</div>
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="melee" fallbackEmoji="🗡️" size={24} /> 검병</div>
             <div className="text-yellow-300">비용: 50골드</div>
             <div className="text-gray-200">HP 100 | 공격력 15 | 근접</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🏹" size={20} /> 궁수</div>
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="ranged" fallbackEmoji="🏹" size={24} /> 궁수</div>
             <div className="text-yellow-300">비용: 80골드 + 10나무</div>
             <div className="text-gray-200">HP 50 | 공격력 25 | 원거리</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🛡️" size={20} /> 기사</div>
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="knight" fallbackEmoji="🛡️" size={24} /> 기사</div>
             <div className="text-yellow-300">비용: 120골드 + 20나무 + 30돌</div>
             <div className="text-gray-200">HP 250 | 공격력 10 | 근접 탱커</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🔮" size={20} /> 마법사</div>
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="mage" fallbackEmoji="🔮" size={24} /> 마법사</div>
             <div className="text-yellow-300">비용: 150골드 + 10수정</div>
             <div className="text-gray-200">HP 40 | 공격력 50 | 범위 공격</div>
           </div>
@@ -120,27 +143,27 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       content: (
         <div className="space-y-3">
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🪓" size={20} /> 나무꾼</div>
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="woodcutter" fallbackEmoji="🪓" size={24} /> 나무꾼</div>
             <div className="text-yellow-300">비용: 30골드</div>
             <div className="text-gray-200">나무 채집 (1.0/초)</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="⛏️" size={20} /> 광부</div>
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="miner" fallbackEmoji="⛏️" size={24} /> 광부</div>
             <div className="text-yellow-300">비용: 40골드 + 5나무</div>
             <div className="text-gray-200">돌 채집 (0.8/초)</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🧺" size={20} /> 채집꾼</div>
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="gatherer" fallbackEmoji="🧺" size={24} /> 채집꾼</div>
             <div className="text-yellow-300">비용: 35골드</div>
             <div className="text-gray-200">약초 채집 (1.2/초)</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="⚒️" size={20} /> 금광부</div>
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="goldminer" fallbackEmoji="⚒️" size={24} /> 금광부</div>
             <div className="text-yellow-300">비용: 100골드 + 20나무</div>
             <div className="text-gray-200">골드 채집 (1.5/초) - 광산 필요</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="💚" size={20} /> 힐러</div>
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="healer" fallbackEmoji="💚" size={24} /> 힐러</div>
             <div className="text-yellow-300">비용: 70골드 + 15약초</div>
             <div className="text-gray-200">전투 유닛 광역 회복 (10HP/초, 범위 100px)</div>
             <div className="text-gray-400 text-sm mt-1">전투 유닛만 회복하며 따라다님, 전투 유닛 전멸 시 공격</div>
