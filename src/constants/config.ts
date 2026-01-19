@@ -118,6 +118,18 @@ export const CONFIG = {
       aoeRadius: 50,
       spawnCooldown: 5,
     },
+    boss: {
+      name: '보스',
+      cost: { gold: 0 }, // 무료 소환 (페이즈 2에서 자동 생성)
+      hp: 2000,
+      attack: 100,
+      attackSpeed: 3,
+      speed: 0.5, // 느린 이동 속도
+      range: 50,
+      type: 'combat',
+      aoeRadius: 80, // 넓은 범위 공격
+      spawnCooldown: 0,
+    },
   } as Record<UnitType, UnitConfig>,
 
   RESOURCE_NODES: {
@@ -224,6 +236,52 @@ export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
     massSpawnStartTime: 90,
     massSpawnInterval: 90, // 1분 30초마다 반복
     massSpawnUnits: ['melee', 'ranged', 'knight', 'mage', 'healer'],
+  },
+  nightmare: {
+    name: '극악',
+    description: '본진 파괴 시 보스 출현! 보스를 처치하기 전에 본진이 파괴되면 패배합니다.',
+    goldPerSecond: 6,
+    actionInterval: 1.5,
+    actionChance: 0.98,
+    minSupportUnits: 6,
+    goldminerChance: 0.7,
+    knightChance: 0.75,
+    archerChance: 0.8,
+    gathererChance: 0.6,
+    minerChance: 0.6,
+    healerChance: 0.55,
+    mageChance: 0.5,
+    initialGold: 200,
+    enemyBaseHp: 2000,
+    // 극악: 다중 소환 가능, 1분마다 대량 발생 (풀 조합)
+    maxUnitsPerAction: 4,
+    massSpawnEnabled: true,
+    massSpawnStartTime: 60,
+    massSpawnInterval: 60, // 1분마다 반복
+    massSpawnUnits: ['melee', 'ranged', 'knight', 'mage', 'healer'],
+  },
+  bosstest: {
+    name: '보스 테스트',
+    description: '[테스트용] 보스가 즉시 출현합니다. 보스 스탯 테스트용입니다.',
+    goldPerSecond: 10,
+    actionInterval: 10,
+    actionChance: 0.1,
+    minSupportUnits: 0,
+    goldminerChance: 0,
+    knightChance: 0,
+    archerChance: 0,
+    gathererChance: 0,
+    minerChance: 0,
+    healerChance: 0,
+    mageChance: 0,
+    initialGold: 1000,
+    enemyBaseHp: 1, // 1로 설정하여 즉시 페이즈 2 전환
+    // 테스트: AI 행동 거의 없음
+    maxUnitsPerAction: 0,
+    massSpawnEnabled: false,
+    massSpawnStartTime: 0,
+    massSpawnInterval: 0,
+    massSpawnUnits: [],
   },
 };
 

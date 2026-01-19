@@ -21,6 +21,7 @@ const UNIT_CONFIG: Record<UnitType, { icon: string; name: string; color: string 
   goldminer: { icon: '💰', name: '금광부', color: 'from-yellow-400 to-yellow-600' },
   healer: { icon: '💚', name: '힐러', color: 'from-pink-400 to-pink-600' },
   mage: { icon: '🔮', name: '마법사', color: 'from-purple-500 to-purple-700' },
+  boss: { icon: '👹', name: '보스', color: 'from-red-700 to-red-900' },
 };
 
 // 유닛 이미지 컴포넌트 (이미지 로드 실패 시 이모지 폴백)

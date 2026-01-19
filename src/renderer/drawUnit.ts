@@ -14,6 +14,7 @@ const EMOJI_MAP: Record<string, string> = {
   goldminer: '💰',
   healer: '💚',
   mage: '🔮',
+  boss: '👹',
 };
 
 export function drawUnit(
@@ -40,28 +41,40 @@ export function drawUnit(
 
   ctx.save();
 
+  // 보스 유닛은 더 크게 렌더링
+  const isBoss = unit.type === 'boss';
+  const unitScale = isBoss ? 2.5 : 1;
+  const baseRadius = isBoss ? 44 : 22;
+  const mainRadius = isBoss ? 34 : 17;
+
   // 선택된 유닛 글로우
   if (isSelected) {
     ctx.shadowColor = '#00f5ff';
     ctx.shadowBlur = 15;
   }
 
+  // 보스 유닛 특별 글로우 효과
+  if (isBoss) {
+    ctx.shadowColor = '#ff0000';
+    ctx.shadowBlur = 30;
+  }
+
   // 유닛 베이스 (외부 원)
-  const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 22);
-  gradient.addColorStop(0, teamColor + '40');
+  const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, baseRadius);
+  gradient.addColorStop(0, (isBoss ? '#ff0000' : teamColor) + '40');
   gradient.addColorStop(1, 'transparent');
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.arc(screenX, screenY, 22, 0, Math.PI * 2);
+  ctx.arc(screenX, screenY, baseRadius, 0, Math.PI * 2);
   ctx.fill();
 
   // 메인 원
-  ctx.fillStyle = '#1a1a25';
-  ctx.strokeStyle = isSelected ? '#00f5ff' : teamColor;
-  ctx.lineWidth = isSelected ? 3 : 2;
+  ctx.fillStyle = isBoss ? '#2a0a0a' : '#1a1a25';
+  ctx.strokeStyle = isSelected ? '#00f5ff' : (isBoss ? '#ff0000' : teamColor);
+  ctx.lineWidth = isSelected ? 3 : (isBoss ? 4 : 2);
 
   ctx.beginPath();
-  ctx.arc(screenX, screenY, 17, 0, Math.PI * 2);
+  ctx.arc(screenX, screenY, mainRadius, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
@@ -71,27 +84,39 @@ export function drawUnit(
   // 플레이어 유닛은 오른쪽을 바라보도록 이미지 반전
   const unitType = unit.type as UnitType;
   const flipImage = unit.team === 'player';
-  const imageDrawn = drawUnitImage(ctx, unitType, screenX, screenY, 30, flipImage, 40);
+  const iconSize = isBoss ? 60 : 30;
+  const iconHeight = isBoss ? 80 : 40;
+  const emojiSize = isBoss ? 40 : 20;
+  const imageDrawn = drawUnitImage(ctx, unitType, screenX, screenY, iconSize, flipImage, iconHeight);
   if (!imageDrawn) {
     const emoji = EMOJI_MAP[unit.type] || '❓';
-    drawEmoji(ctx, emoji, screenX, screenY, 20);
+    drawEmoji(ctx, emoji, screenX, screenY, emojiSize);
   }
 
   // 체력바 배경
-  const hpBarWidth = 26;
-  const hpBarHeight = 4;
+  const hpBarWidth = isBoss ? 80 : 26;
+  const hpBarHeight = isBoss ? 8 : 4;
+  const hpBarY = isBoss ? -60 : -35;
   const hpPercent = unit.hp / unit.maxHp;
 
   ctx.fillStyle = '#1a1a25';
   ctx.beginPath();
-  ctx.roundRect(screenX - hpBarWidth/2, screenY - 35, hpBarWidth, hpBarHeight, 2);
+  ctx.roundRect(screenX - hpBarWidth/2, screenY + hpBarY, hpBarWidth, hpBarHeight, 2);
   ctx.fill();
 
   // 체력바
   ctx.fillStyle = hpPercent > 0.5 ? '#10b981' : '#ef4444';
   ctx.beginPath();
-  ctx.roundRect(screenX - hpBarWidth/2 + 1, screenY - 34, (hpBarWidth - 2) * hpPercent, hpBarHeight - 2, 1);
+  ctx.roundRect(screenX - hpBarWidth/2 + 1, screenY + hpBarY + 1, (hpBarWidth - 2) * hpPercent, hpBarHeight - 2, 1);
   ctx.fill();
+
+  // 보스 체력 텍스트
+  if (isBoss) {
+    ctx.font = 'bold 12px Arial';
+    ctx.fillStyle = '#ffffff';
+    ctx.textAlign = 'center';
+    ctx.fillText(`${Math.floor(unit.hp)} / ${unit.maxHp}`, screenX, screenY + hpBarY - 5);
+  }
 
   // 상태 인디케이터
   if (unit.state === 'attacking') {

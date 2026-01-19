@@ -37,13 +37,17 @@ export interface GameState {
   selectedUnit: Unit | null;
   aiResources: Resources;
   spawnCooldowns: Partial<Record<UnitType, number>>; // 유닛별 소환 쿨타임 (남은 시간)
+  phase: GamePhase; // 현재 게임 페이즈 (극악 난이도용)
+  bossSpawned: boolean; // 보스 소환 여부
 }
 
 export type GameScreen = 'menu' | 'modeSelect' | 'difficultySelect' | 'lobby' | 'game' | 'gameover' | 'paused';
 
 export type GameMode = 'ai' | 'multiplayer';
 
-export type AIDifficulty = 'easy' | 'normal' | 'hard';
+export type AIDifficulty = 'easy' | 'normal' | 'hard' | 'nightmare' | 'bosstest';
+
+export type GamePhase = 1 | 2; // 1: 일반, 2: 보스 페이즈
 
 export interface AIDifficultyConfig {
   name: string;

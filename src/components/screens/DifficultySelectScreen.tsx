@@ -4,18 +4,22 @@ import { useGameStore } from '../../stores/useGameStore';
 import { AI_DIFFICULTY_CONFIG } from '../../constants/config';
 import { AIDifficulty } from '../../types';
 
-const difficulties: AIDifficulty[] = ['easy', 'normal', 'hard'];
+const difficulties: AIDifficulty[] = ['easy', 'normal', 'hard', 'nightmare', 'bosstest'];
 
 const difficultyStars: Record<AIDifficulty, string> = {
   easy: '★☆☆☆☆',
   normal: '★★★☆☆',
   hard: '★★★★★',
+  nightmare: '💀',
+  bosstest: '🧪',
 };
 
 const difficultyColors: Record<AIDifficulty, string> = {
   easy: 'from-green-500/20 to-green-600/20 border-green-500',
   normal: 'from-yellow-500/20 to-yellow-600/20 border-yellow-500',
   hard: 'from-red-500/20 to-red-600/20 border-red-500',
+  nightmare: 'from-purple-500/20 to-purple-900/20 border-purple-500',
+  bosstest: 'from-cyan-500/20 to-cyan-600/20 border-cyan-500',
 };
 
 export const DifficultySelectScreen: React.FC = () => {
@@ -52,7 +56,7 @@ export const DifficultySelectScreen: React.FC = () => {
         <div style={{ height: '30px' }} />
 
         {/* 난이도 버튼들 */}
-        <div className="flex gap-6 mb-8">
+        <div className="flex gap-4 mb-8">
           {difficulties.map((difficulty) => {
             const config = AI_DIFFICULTY_CONFIG[difficulty];
             const colors = difficultyColors[difficulty];
@@ -63,7 +67,7 @@ export const DifficultySelectScreen: React.FC = () => {
                 key={difficulty}
                 onClick={() => handleSelectDifficulty(difficulty)}
                 onMouseEnter={() => setHoveredDifficulty(difficulty)}
-                className={`group relative w-40 h-48 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer`}
+                className={`group relative w-36 h-48 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer`}
               >
                 <div className={`absolute inset-0 bg-gradient-to-b ${colors.split(' ')[0]} ${colors.split(' ')[1]} group-hover:opacity-80 transition-all duration-300`} />
                 <div className={`absolute inset-0 border-2 ${colors.split(' ')[2]} rounded-lg group-hover:shadow-lg transition-all duration-300`} />

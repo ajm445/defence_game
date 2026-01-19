@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { GameState, Base, Camera, Wall, Resources, ResourceNode, Unit, UnitType, Team, AIDifficulty, GameMode } from '../types';
+import { GameState, Base, Camera, Wall, Resources, ResourceNode, Unit, UnitType, Team, AIDifficulty, GameMode, GamePhase } from '../types';
 import { CONFIG, AI_DIFFICULTY_CONFIG, getUpgradeCost } from '../constants/config';
 import { generateId, clamp } from '../utils/math';
 
@@ -57,11 +57,17 @@ interface GameActions {
 
   // 게임 종료
   checkGameEnd: () => 'victory' | 'defeat' | null;
+
+  // 페이즈 시스템 (극악 난이도)
+  startPhase2: () => void;
+  spawnBoss: () => void;
+  isBossAlive: () => boolean;
 }
 
 interface GameStore extends GameState, GameActions {
   gameMode: GameMode;
   playerGoldPerSecond: number;
+  difficulty: AIDifficulty;
 }
 
 const initialResources: Resources = {
@@ -189,12 +195,15 @@ const createInitialState = (): GameState & { playerGoldPerSecond: number } => ({
   aiResources: { ...initialResources },
   playerGoldPerSecond: CONFIG.GOLD_PER_SECOND, // 초기 골드 수입
   spawnCooldowns: {}, // 소환 쿨타임 (초기값 없음)
+  phase: 1, // 초기 페이즈
+  bossSpawned: false, // 보스 소환 여부
 });
 
 export const useGameStore = create<GameStore>()(
   subscribeWithSelector((set, get) => ({
     ...createInitialState(),
     gameMode: 'ai' as GameMode,
+    difficulty: 'easy' as AIDifficulty,
 
     initGame: (mode: GameMode = 'ai', difficulty: AIDifficulty = 'easy') => {
       const state = createInitialState();
@@ -208,7 +217,7 @@ export const useGameStore = create<GameStore>()(
       // 멀티플레이어 모드에서는 서버에서 상태를 받아옴
       // 기본 상태만 설정
 
-      set({ ...state, gameMode: mode });
+      set({ ...state, gameMode: mode, difficulty });
     },
 
     startGame: () => set({ running: true }),
@@ -650,13 +659,71 @@ export const useGameStore = create<GameStore>()(
       if (state.playerBase.hp <= 0) {
         return 'defeat';
       }
-      if (state.enemyBase.hp <= 0) {
-        return 'victory';
+
+      // 극악/보스테스트 난이도: 페이즈 2에서 보스를 처치해야 승리
+      if (state.difficulty === 'nightmare' || state.difficulty === 'bosstest') {
+        if (state.phase === 2) {
+          // 보스가 죽으면 승리
+          const bossAlive = state.enemyUnits.some(u => u.type === 'boss' && u.hp > 0);
+          if (!bossAlive && state.bossSpawned) {
+            return 'victory';
+          }
+        }
+        // 페이즈 1에서 적 본진 파괴 시 페이즈 2로 전환 (checkGameEnd에서는 null 반환)
+        // 페이즈 전환은 useGameLoop에서 처리
+        if (state.phase === 1 && state.enemyBase.hp <= 0) {
+          return null; // 아직 게임 종료 아님
+        }
+      } else {
+        // 일반 난이도: 적 본진 파괴 시 승리
+        if (state.enemyBase.hp <= 0) {
+          return 'victory';
+        }
       }
+
       if (state.time <= 0) {
+        // 극악/보스테스트 난이도 페이즈 2에서 시간 종료 시 보스가 살아있으면 패배
+        if ((state.difficulty === 'nightmare' || state.difficulty === 'bosstest') && state.phase === 2) {
+          const bossAlive = state.enemyUnits.some(u => u.type === 'boss' && u.hp > 0);
+          return bossAlive ? 'defeat' : 'victory';
+        }
         return state.playerBase.hp > state.enemyBase.hp ? 'victory' : 'defeat';
       }
       return null;
+    },
+
+    // 페이즈 시스템 (극악 난이도)
+    startPhase2: () => {
+      set({ phase: 2 });
+    },
+
+    spawnBoss: () => {
+      const state = get();
+      if (state.bossSpawned) return;
+
+      const bossConfig = CONFIG.UNITS.boss;
+      const boss: Unit = {
+        id: generateId(),
+        type: 'boss',
+        config: bossConfig,
+        x: state.enemyBase.x,
+        y: state.enemyBase.y,
+        hp: bossConfig.hp,
+        maxHp: bossConfig.hp,
+        state: 'idle',
+        attackCooldown: 0,
+        team: 'enemy',
+      };
+
+      set({
+        enemyUnits: [...state.enemyUnits, boss],
+        bossSpawned: true,
+      });
+    },
+
+    isBossAlive: () => {
+      const state = get();
+      return state.enemyUnits.some(u => u.type === 'boss' && u.hp > 0);
     },
   }))
 );
@@ -671,3 +738,6 @@ export const useIsRunning = () => useGameStore((state) => state.running);
 export const useCamera = () => useGameStore((state) => state.camera);
 export const useZoom = () => useGameStore((state) => state.camera.zoom);
 export const useGameMode = () => useGameStore((state) => state.gameMode);
+export const useDifficulty = () => useGameStore((state) => state.difficulty);
+export const usePhase = () => useGameStore((state) => state.phase);
+export const useBossSpawned = () => useGameStore((state) => state.bossSpawned);

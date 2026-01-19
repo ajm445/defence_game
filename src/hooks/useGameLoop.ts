@@ -35,6 +35,8 @@ export const useGameLoop = () => {
   const checkGameEnd = useGameStore((state) => state.checkGameEnd);
   const stopGame = useGameStore((state) => state.stopGame);
   const setScreen = useUIStore((state) => state.setScreen);
+  const startPhase2 = useGameStore((state) => state.startPhase2);
+  const spawnBoss = useGameStore((state) => state.spawnBoss);
 
   const tick = useCallback(
     (timestamp: number) => {
@@ -293,6 +295,39 @@ export const useGameLoop = () => {
             damageWall(result.wallDamage.wallId, result.wallDamage.damage);
           }
         }
+        // 보스 유닛 처리 (AOE 공격 + 일반 전투)
+        else if (unit.type === 'boss') {
+          const result = updateMageUnit(
+            unit,
+            deltaTime,
+            state.playerBase,
+            playerUnitsCopy,
+            state.walls
+          );
+          updatedEnemyUnits.push(result.unit);
+
+          if (result.baseDamage) {
+            damageBase(result.baseDamage.team, result.baseDamage.damage);
+            effectsToCreate.push({ type: 'attack_mage', x: state.playerBase.x, y: state.playerBase.y });
+          }
+          if (result.aoeDamage && result.aoeDamage.length > 0) {
+            const firstTarget = playerUnitsCopy.find(u => u.id === result.aoeDamage![0].targetId);
+            if (firstTarget) {
+              effectsToCreate.push({ type: 'attack_mage', x: firstTarget.x, y: firstTarget.y });
+            }
+            for (const dmg of result.aoeDamage) {
+              const prev = damageToPlayerUnits.get(dmg.targetId);
+              const newDamage = (prev?.damage || 0) + dmg.damage;
+              damageToPlayerUnits.set(dmg.targetId, {
+                damage: newDamage,
+                attackerId: dmg.attackerId
+              });
+            }
+          }
+          if (result.wallDamage) {
+            damageWall(result.wallDamage.wallId, result.wallDamage.damage);
+          }
+        }
         // 일반 전투 유닛 처리
         else if (unit.config.type === 'combat') {
           const result = updateCombatUnit(
@@ -486,6 +521,20 @@ export const useGameLoop = () => {
         }
       }
 
+      // 극악/보스테스트 난이도: 페이즈 2 전환 체크
+      const currentState = useGameStore.getState();
+      if ((difficulty === 'nightmare' || difficulty === 'bosstest') && currentState.phase === 1 && currentState.enemyBase.hp <= 0) {
+        // 페이즈 2 시작 및 보스 소환
+        startPhase2();
+        spawnBoss();
+
+        // 페이즈 2 알림 표시
+        const showMassSpawnAlert = useUIStore.getState().showMassSpawnAlert;
+        const hideMassSpawnAlert = useUIStore.getState().hideMassSpawnAlert;
+        showMassSpawnAlert();
+        setTimeout(() => hideMassSpawnAlert(), 3000);
+      }
+
       // 게임 종료 확인
       const gameEnd = checkGameEnd();
       if (gameEnd) {
@@ -511,6 +560,8 @@ export const useGameLoop = () => {
       checkGameEnd,
       stopGame,
       setScreen,
+      startPhase2,
+      spawnBoss,
     ]
   );
 

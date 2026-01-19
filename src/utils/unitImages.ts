@@ -11,6 +11,7 @@ const UNIT_IMAGE_PATHS: Record<UnitType, string> = {
   gatherer: '/img/units/gatherer.png',
   goldminer: '/img/units/goldminer.png',
   healer: '/img/units/healer.png',
+  boss: '/img/units/boss.png', // 보스 이미지 (없으면 이모지 폴백)
 };
 
 // 이미지 캐시
