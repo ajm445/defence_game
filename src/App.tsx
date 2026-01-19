@@ -26,8 +26,8 @@ function App() {
       {currentScreen === 'modeSelect' && <ModeSelectScreen />}
       {currentScreen === 'difficultySelect' && <DifficultySelectScreen />}
       {currentScreen === 'lobby' && <LobbyScreen />}
+      {(currentScreen === 'countdown' || currentScreen === 'game') && <GameScreen />}
       {currentScreen === 'countdown' && <CountdownScreen />}
-      {currentScreen === 'game' && <GameScreen />}
       {currentScreen === 'gameover' && <GameOverScreen />}
       {currentScreen === 'paused' && <PauseScreen />}
     </div>

@@ -21,7 +21,7 @@ export const CountdownScreen: React.FC = () => {
   }, [count, startGame, setScreen]);
 
   return (
-    <div className="fixed inset-0 bg-dark-900 flex items-center justify-center z-50">
+    <div className="fixed inset-0 bg-dark-900/70 flex items-center justify-center z-50">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-3xl bg-neon-cyan/10 animate-pulse" />
