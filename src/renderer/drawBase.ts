@@ -1,4 +1,5 @@
 import { Base, Camera } from '../types';
+import { drawEmoji } from '../utils/canvasEmoji';
 
 export function drawBase(
   ctx: CanvasRenderingContext2D,
@@ -90,7 +91,6 @@ export function drawBase(
   ctx.textAlign = 'center';
   ctx.fillText(label, screenX, screenY - 95);
 
-  // 본진 아이콘
-  ctx.font = '36px Arial';
-  ctx.fillText('🏰', screenX, screenY + 12);
+  // 본진 아이콘 (Twemoji 사용)
+  drawEmoji(ctx, '🏰', screenX, screenY + 5, 40);
 }

@@ -1,6 +1,7 @@
 import React from 'react';
 import { useResources, useGameStore } from '../../stores/useGameStore';
 import { useSmoothResources } from '../../hooks/useSmoothResources';
+import { Emoji } from '../common/Emoji';
 
 const RESOURCE_CONFIG = [
   { key: 'gold', icon: '💰', label: 'GOLD', color: 'from-yellow-500 to-amber-600', glow: 'shadow-[0_0_10px_rgba(251,191,36,0.3)]', useSmooth: true },
@@ -40,8 +41,8 @@ export const ResourceBar: React.FC = () => {
             ${glow}
           `}
         >
-          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center text-lg shadow-lg`}>
-            {icon}
+          <div className={`w-8 h-8 rounded-lg bg-gradient-to-br ${color} flex items-center justify-center shadow-lg`}>
+            <Emoji emoji={icon} size={20} />
           </div>
           <div className="flex flex-col">
             <span className="text-[10px] text-gray-500 tracking-wider">{label}</span>

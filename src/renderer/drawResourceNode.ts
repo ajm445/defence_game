@@ -1,4 +1,5 @@
 import { ResourceNode, Camera } from '../types';
+import { drawEmoji } from '../utils/canvasEmoji';
 
 const EMOJI_MAP: Record<string, string> = {
   tree: '🌲',
@@ -46,14 +47,10 @@ export function drawResourceNode(
     ctx.shadowBlur = 10 * alpha;
   }
 
-  // 이모지 렌더링
-  ctx.font = '28px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
+  // 이모지 렌더링 (Twemoji 사용)
   const emoji = EMOJI_MAP[node.type] || '❓';
   ctx.globalAlpha = 0.3 + alpha * 0.7;
-  ctx.fillText(emoji, screenX, screenY);
+  drawEmoji(ctx, emoji, screenX, screenY, 32);
   ctx.globalAlpha = 1;
 
   if (node.amount > 0) {

@@ -36,10 +36,14 @@ export const PauseScreen: React.FC = () => {
           ⏸️
         </div>
 
+        <div style={{ height: '30px' }} />
+
         {/* 메인 텍스트 */}
         <h1 className="font-game text-5xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-b from-gray-200 to-gray-400">
           일시정지
         </h1>
+
+        <div style={{ height: '30px' }} />
 
         {/* 버튼들 */}
         <div className="flex flex-col gap-4 min-w-[250px]">
@@ -76,10 +80,6 @@ export const PauseScreen: React.FC = () => {
             </span>
           </button>
         </div>
-
-        <p className="mt-8 text-gray-500 text-sm">
-          ESC 키를 눌러 계속하기
-        </p>
       </div>
     </div>
   );

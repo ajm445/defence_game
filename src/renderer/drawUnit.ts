@@ -1,5 +1,6 @@
 import { Unit, Camera } from '../types';
 import type { NetworkUnit } from '@shared/types/game';
+import { drawEmoji } from '../utils/canvasEmoji';
 
 const EMOJI_MAP: Record<string, string> = {
   melee: '⚔️',
@@ -64,13 +65,9 @@ export function drawUnit(
 
   ctx.restore();
 
-  // 유닛 아이콘
-  ctx.font = '14px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
+  // 유닛 아이콘 (Twemoji 사용)
   const emoji = EMOJI_MAP[unit.type] || '❓';
-  ctx.fillText(emoji, screenX, screenY);
+  drawEmoji(ctx, emoji, screenX, screenY, 18);
 
   // 체력바 배경
   const hpBarWidth = 24;
@@ -159,13 +156,9 @@ export function drawNetworkUnit(
 
   ctx.restore();
 
-  // 유닛 아이콘
-  ctx.font = '14px Arial';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-
+  // 유닛 아이콘 (Twemoji 사용)
   const emoji = EMOJI_MAP[unit.type] || '❓';
-  ctx.fillText(emoji, screenX, screenY);
+  drawEmoji(ctx, emoji, screenX, screenY, 18);
 
   // 체력바 배경
   const hpBarWidth = 24;

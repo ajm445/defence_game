@@ -1,6 +1,7 @@
 import React from 'react';
 import { UnitType, Resources } from '../../types';
 import { CONFIG } from '../../constants/config';
+import { Emoji } from '../common/Emoji';
 
 interface UnitButtonProps {
   type: UnitType;
@@ -104,11 +105,11 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
       <div className="relative h-full flex flex-col items-center justify-center p-2">
         {/* 아이콘 */}
         <div className={`
-          text-3xl mb-1 transition-transform duration-200
+          mb-1 transition-transform duration-200
           ${canSpawn ? 'group-hover:scale-110' : ''}
           ${isOnCooldown ? 'opacity-50' : ''}
         `}>
-          {unitInfo.icon}
+          <Emoji emoji={unitInfo.icon} size={32} />
         </div>
 
         {/* 이름 또는 쿨타임 */}
@@ -125,7 +126,7 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
           <div className="flex gap-1">
             {costItems.map((item, i) => (
               <div key={i} className="flex items-center text-[10px]">
-                <span>{item.icon}</span>
+                <Emoji emoji={item.icon} size={12} />
                 <span className="text-gray-300">{item.amount}</span>
               </div>
             ))}

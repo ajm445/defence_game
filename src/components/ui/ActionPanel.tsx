@@ -4,6 +4,7 @@ import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { CONFIG } from '../../constants/config';
 import { wsClient } from '../../services/WebSocketClient';
+import { Emoji } from '../common/Emoji';
 
 interface ActionButtonProps {
   icon: string;
@@ -49,7 +50,7 @@ const ActionButton: React.FC<ActionButtonProps> = ({
       }
     `} />
     <div className="relative flex flex-col items-center gap-0.5">
-      <span className="text-xl">{icon}</span>
+      <Emoji emoji={icon} size={20} />
       <span className="text-[9px] text-gray-400 whitespace-nowrap">{label}</span>
     </div>
   </button>
