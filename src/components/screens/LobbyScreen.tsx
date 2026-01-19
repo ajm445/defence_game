@@ -22,6 +22,7 @@ export const LobbyScreen: React.FC = () => {
   } = useMultiplayerStore();
 
   const initGame = useGameStore((state) => state.initGame);
+  const startGame = useGameStore((state) => state.startGame);
   const setCameraPosition = useGameStore((state) => state.setCameraPosition);
   const mySide = useMultiplayerStore((state) => state.mySide);
   const [inputName, setInputName] = useState(playerName || '');
@@ -33,6 +34,7 @@ export const LobbyScreen: React.FC = () => {
   useEffect(() => {
     if (connectionState === 'in_game') {
       initGame('multiplayer');
+      startGame(); // 게임 루프 시작 (이펙트 업데이트를 위해 필요)
 
       // 진영에 따라 카메라 초기 위치 설정
       // 왼쪽 진영: 왼쪽에서 시작 (x=0)
@@ -47,7 +49,7 @@ export const LobbyScreen: React.FC = () => {
 
       setScreen('game');
     }
-  }, [connectionState, initGame, setScreen, mySide, setCameraPosition]);
+  }, [connectionState, initGame, startGame, setScreen, mySide, setCameraPosition]);
 
   // 에러 발생 시 3초 후 자동 클리어
   useEffect(() => {
@@ -341,11 +343,15 @@ export const LobbyScreen: React.FC = () => {
           1vs1 대전
         </h1>
 
+        <div style={{ height: '30px' }} />
+
         {/* 연결 상태에 따른 UI */}
         <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-8 min-w-[400px] min-h-[300px] flex flex-col items-center justify-center">
           {renderContent()}
         </div>
 
+        <div style={{ height: '30px' }} />
+        
         {/* 뒤로 가기 */}
         <button
           onClick={handleBack}
