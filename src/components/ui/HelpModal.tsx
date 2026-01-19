@@ -127,12 +127,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="knight" fallbackEmoji="🛡️" size={24} /> 기사</div>
             <div className="text-yellow-300">비용: 120골드 + 20나무 + 30돌</div>
-            <div className="text-gray-200">HP 250 | 공격력 10 | 근접 탱커</div>
+            <div className="text-gray-200">HP 300 | 공격력 10 | 근접 탱커</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="mage" fallbackEmoji="🔮" size={24} /> 마법사</div>
             <div className="text-yellow-300">비용: 150골드 + 10수정</div>
-            <div className="text-gray-200">HP 40 | 공격력 50 | 범위 공격</div>
+            <div className="text-gray-200">HP 40 | 공격력 50 | 사거리 200 | 범위 공격</div>
           </div>
         </div>
       ),
@@ -150,12 +150,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="miner" fallbackEmoji="⛏️" size={24} /> 광부</div>
             <div className="text-yellow-300">비용: 40골드 + 5나무</div>
-            <div className="text-gray-200">돌 채집 (1.0/초)</div>
+            <div className="text-gray-200">돌 채집 (1.5/초)</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="gatherer" fallbackEmoji="🧺" size={24} /> 채집꾼</div>
             <div className="text-yellow-300">비용: 50골드</div>
-            <div className="text-gray-200">약초 채집 (2.0/초)</div>
+            <div className="text-gray-200">약초 채집 (1.5/초)</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="goldminer" fallbackEmoji="⚒️" size={24} /> 금광부</div>

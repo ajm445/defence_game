@@ -451,7 +451,13 @@ export const useGameLoop = () => {
             setTimeout(() => hideMassSpawnAlert(), 3000); // 3초 후 알림 숨김
 
             // 대량 발생 유닛 소환 (자원과 무관하게 강제 소환)
-            for (const unitType of difficultyConfig.massSpawnUnits) {
+            // 첫 번째 대량 발생에서는 마법사 제외 (어려움 난이도)
+            const isFirstSpawn = interval > 0 && elapsedTime < startTime + interval;
+            const unitsToSpawn = isFirstSpawn
+              ? difficultyConfig.massSpawnUnits.filter(u => u !== 'mage')
+              : difficultyConfig.massSpawnUnits;
+
+            for (const unitType of unitsToSpawn) {
               spawnUnit(unitType, 'enemy', true); // forceSpawn = true
             }
           }

@@ -51,7 +51,7 @@ const CONFIG = {
     knight: {
       name: '기사',
       cost: { gold: 120, wood: 20, stone: 30 },
-      hp: 250,
+      hp: 300,
       attack: 10,
       attackSpeed: 1,
       speed: 1.3,
@@ -77,7 +77,7 @@ const CONFIG = {
       hp: 70,
       attack: 6,
       range: 25,
-      gatherRate: 0.8,
+      gatherRate: 1.5,
       speed: 1.5,
       type: 'support',
       resource: 'stone',
@@ -85,11 +85,11 @@ const CONFIG = {
     },
     gatherer: {
       name: '채집꾼',
-      cost: { gold: 35 },
+      cost: { gold: 50 },
       hp: 50,
       attack: 3,
       range: 20,
-      gatherRate: 1.2,
+      gatherRate: 1.5,
       speed: 1.5,
       type: 'support',
       resource: 'herb',
@@ -126,26 +126,26 @@ const CONFIG = {
       hp: 40,
       attack: 50,
       attackSpeed: 2.5,
-      speed: 1.2,
-      range: 180,
+      speed: 1.7,
+      range: 200,
       type: 'combat',
       aoeRadius: 50,
       spawnCooldown: 5,
     },
   } as Record<string, any>,
 
-  WALL_COST: { wood: 20, stone: 10 },
-  WALL_HP: 200,
+  WALL_COST: { wood: 40, stone: 20 },
+  WALL_HP: 150,
   WALL_DURATION: 30, // 벽 지속 시간 (초)
   BASE_UPGRADE: {
-    BASE_COST: { gold: 100, stone: 50 }, // 기본 비용 (레벨 1)
+    BASE_COST: { gold: 100, wood: 50, stone: 50 }, // 기본 비용 (레벨 1 이상)
     COST_MULTIPLIER: 1.5, // 레벨당 비용 증가 배율
     HP_BONUS: 200, // 업그레이드당 HP 증가량
     GOLD_BONUS: 1, // 업그레이드당 골드 수입 증가량
     MAX_LEVEL: 5, // 최대 업그레이드 레벨
   },
-  HERB_SELL_COST: 10,
-  HERB_SELL_GOLD: 30,
+  HERB_SELL_COST: 30,
+  HERB_SELL_GOLD: 70,
 
   // 자원 재생성 시간 (초)
   RESOURCE_RESPAWN: {
@@ -158,11 +158,20 @@ const CONFIG = {
 };
 
 // 업그레이드 레벨에 따른 비용 계산
-function getUpgradeCost(level: number): { gold: number; stone: number } {
+// 레벨 0→1: 골드만 필요 (150)
+// 레벨 1→2 이상: 골드 + 나무 + 돌 필요
+function getUpgradeCost(level: number): { gold: number; wood?: number; stone?: number } {
+  if (level === 0) {
+    // 첫 번째 업그레이드: 골드만 150
+    return { gold: 150 };
+  }
+
+  // 두 번째 업그레이드부터: 복합 자원 필요
   const base = CONFIG.BASE_UPGRADE.BASE_COST;
-  const multiplier = Math.pow(CONFIG.BASE_UPGRADE.COST_MULTIPLIER, level);
+  const multiplier = Math.pow(CONFIG.BASE_UPGRADE.COST_MULTIPLIER, level - 1);
   return {
     gold: Math.floor(base.gold * multiplier),
+    wood: Math.floor(base.wood * multiplier),
     stone: Math.floor(base.stone * multiplier),
   };
 }
