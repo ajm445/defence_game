@@ -63,6 +63,8 @@ export interface PlayerState {
   resources: Resources;
   baseHp: number;
   maxBaseHp: number;
+  upgradeLevel: number;
+  goldPerSecond: number;
 }
 
 // 네트워크 게임 상태 (전체 동기화용)

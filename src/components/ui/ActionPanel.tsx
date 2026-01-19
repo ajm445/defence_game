@@ -69,13 +69,17 @@ export const ActionPanel: React.FC = () => {
   const gameState = useMultiplayerStore((state) => state.gameState);
   const mySide = useMultiplayerStore((state) => state.mySide);
 
-  // 멀티플레이어 모드에서는 서버 상태의 자원 사용
-  const resources = gameMode === 'multiplayer' && gameState && mySide
-    ? (mySide === 'left' ? gameState.leftPlayer.resources : gameState.rightPlayer.resources)
-    : singlePlayerResources;
+  // 멀티플레이어 모드에서는 서버 상태의 자원 및 레벨 사용
+  const myPlayerState = gameMode === 'multiplayer' && gameState && mySide
+    ? (mySide === 'left' ? gameState.leftPlayer : gameState.rightPlayer)
+    : null;
+  const resources = myPlayerState ? myPlayerState.resources : singlePlayerResources;
+
+  // 멀티플레이어 모드에서는 서버 상태의 레벨 사용
+  const currentBaseLevel = myPlayerState ? myPlayerState.upgradeLevel : (playerBaseLevel ?? 0);
 
   const upgradeCost = getNextUpgradeCost();
-  const isMaxLevel = (playerBaseLevel ?? 0) >= CONFIG.BASE_UPGRADE.MAX_LEVEL;
+  const isMaxLevel = currentBaseLevel >= CONFIG.BASE_UPGRADE.MAX_LEVEL;
   const canBuildWall = resources.wood >= CONFIG.WALL_COST.wood && resources.stone >= CONFIG.WALL_COST.stone;
   const canUpgrade = !isMaxLevel && resources.gold >= upgradeCost.gold && resources.stone >= upgradeCost.stone;
   const canSellHerb = resources.herb >= CONFIG.HERB_SELL_COST;
@@ -140,7 +144,7 @@ export const ActionPanel: React.FC = () => {
         />
         <ActionButton
           icon="🏰"
-          label={isMaxLevel ? '강화 MAX' : `강화 Lv${(playerBaseLevel ?? 0) + 1}`}
+          label={isMaxLevel ? '강화 MAX' : `강화 Lv${currentBaseLevel + 1}`}
           cost={isMaxLevel ? '최대 레벨' : `${upgradeCost.gold}💰 ${upgradeCost.stone}🪨`}
           onClick={handleUpgradeBase}
           disabled={!canUpgrade}

@@ -22,7 +22,10 @@ export const Minimap: React.FC = () => {
 
     const animate = () => {
       const state = useGameStore.getState();
-      const viewportHeight = window.innerHeight - CONFIG.UI_PANEL_HEIGHT;
+      const zoom = state.camera.zoom;
+      // 줌 비율을 적용한 실제 보이는 영역 크기
+      const viewportWidth = window.innerWidth / zoom;
+      const viewportHeight = (window.innerHeight - CONFIG.UI_PANEL_HEIGHT) / zoom;
 
       if (state.gameMode === 'multiplayer') {
         // 멀티플레이어 모드
@@ -35,7 +38,7 @@ export const Minimap: React.FC = () => {
             state.camera,
             CONFIG.MINIMAP_WIDTH,
             CONFIG.MINIMAP_HEIGHT,
-            window.innerWidth,
+            viewportWidth,
             viewportHeight
           );
         }
@@ -46,7 +49,7 @@ export const Minimap: React.FC = () => {
           state,
           CONFIG.MINIMAP_WIDTH,
           CONFIG.MINIMAP_HEIGHT,
-          window.innerWidth,
+          viewportWidth,
           viewportHeight
         );
       }
@@ -75,10 +78,13 @@ export const Minimap: React.FC = () => {
       const mapX = (clickX / CONFIG.MINIMAP_WIDTH) * CONFIG.MAP_WIDTH;
       const mapY = (clickY / CONFIG.MINIMAP_HEIGHT) * CONFIG.MAP_HEIGHT;
 
-      const viewportHeight = window.innerHeight - CONFIG.UI_PANEL_HEIGHT;
+      const zoom = useGameStore.getState().camera.zoom;
+      // 줌 비율을 적용한 실제 보이는 영역 크기
+      const viewportWidth = window.innerWidth / zoom;
+      const viewportHeight = (window.innerHeight - CONFIG.UI_PANEL_HEIGHT) / zoom;
 
       setCameraPosition(
-        mapX - window.innerWidth / 2,
+        mapX - viewportWidth / 2,
         mapY - viewportHeight / 2
       );
     },

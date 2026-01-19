@@ -33,7 +33,7 @@ export function updateMageUnit(
 
   const distToBase = distance(unit.x, unit.y, enemyBase.x, enemyBase.y);
 
-  // 0. 반격 대상 확인 (공격받은 경우 우선 반격)
+  // 0. 반격 대상 확인 (공격받은 경우, 사거리 내에 있을 때만 반격)
   let attacker: Unit | null = null;
   if (unit.attackerId) {
     attacker = enemies.find(e => e.id === unit.attackerId && e.hp > 0) || null;
@@ -48,14 +48,9 @@ export function updateMageUnit(
         updatedUnit.attackCooldown = cooldownTime;
         updatedUnit.state = 'attacking';
       }
-    } else {
-      // 사거리 밖: 반격 대상에게 이동
-      const angle = Math.atan2(attacker.y - unit.y, attacker.x - unit.x);
-      updatedUnit.x += Math.cos(angle) * config.speed;
-      updatedUnit.y += Math.sin(angle) * config.speed;
-      updatedUnit.state = 'moving';
+      return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
     }
-    return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
+    // 사거리 밖이면 반격하지 않고 아래 로직으로 진행 (가장 가까운 적 우선)
   }
 
   // 1. 가장 가까운 적 유닛 찾기

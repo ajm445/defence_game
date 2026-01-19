@@ -23,6 +23,10 @@ interface InterpolatedState {
   rightBaseHp: number;
   leftMaxBaseHp: number;
   rightMaxBaseHp: number;
+  leftUpgradeLevel: number;
+  rightUpgradeLevel: number;
+  leftGoldPerSecond: number;
+  rightGoldPerSecond: number;
   time: number;
   maxTime: number;
   serverTime: number;
@@ -82,6 +86,10 @@ export function initInterpolatedState(serverState: NetworkGameState): void {
     rightBaseHp: serverState.rightPlayer.baseHp,
     leftMaxBaseHp: serverState.leftPlayer.maxBaseHp,
     rightMaxBaseHp: serverState.rightPlayer.maxBaseHp,
+    leftUpgradeLevel: serverState.leftPlayer.upgradeLevel,
+    rightUpgradeLevel: serverState.rightPlayer.upgradeLevel,
+    leftGoldPerSecond: serverState.leftPlayer.goldPerSecond,
+    rightGoldPerSecond: serverState.rightPlayer.goldPerSecond,
     time: serverState.time,
     maxTime: serverState.maxTime,
     serverTime: serverState.time,
@@ -174,6 +182,12 @@ export function updateFromServer(serverState: NetworkGameState): void {
   state.leftMaxBaseHp = serverState.leftPlayer.maxBaseHp;
   state.rightMaxBaseHp = serverState.rightPlayer.maxBaseHp;
 
+  // 업그레이드 레벨 및 골드 수입 업데이트
+  state.leftUpgradeLevel = serverState.leftPlayer.upgradeLevel;
+  state.rightUpgradeLevel = serverState.rightPlayer.upgradeLevel;
+  state.leftGoldPerSecond = serverState.leftPlayer.goldPerSecond;
+  state.rightGoldPerSecond = serverState.rightPlayer.goldPerSecond;
+
   // 시간 업데이트
   state.serverTime = serverState.time;
   state.maxTime = serverState.maxTime;
@@ -237,6 +251,8 @@ export function interpolateFrame(): NetworkGameState | null {
       },
       baseHp: state.leftBaseHp,
       maxBaseHp: state.leftMaxBaseHp,
+      upgradeLevel: state.leftUpgradeLevel,
+      goldPerSecond: state.leftGoldPerSecond,
     },
     rightPlayer: {
       id: '',
@@ -250,6 +266,8 @@ export function interpolateFrame(): NetworkGameState | null {
       },
       baseHp: state.rightBaseHp,
       maxBaseHp: state.rightMaxBaseHp,
+      upgradeLevel: state.rightUpgradeLevel,
+      goldPerSecond: state.rightGoldPerSecond,
     },
     units: interpolatedUnits,
     walls: Array.from(state.walls.values()),

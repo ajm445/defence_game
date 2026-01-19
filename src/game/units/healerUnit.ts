@@ -66,28 +66,23 @@ export function updateHealerUnit(
     return { unit: updatedUnit, healTarget, unitDamage };
   }
 
-  // 2순위: 회복 대상 없으면 반격 (attackerId가 있으면)
+  // 2순위: 회복 대상 없으면 반격 (attackerId가 있고 사거리 내일 때만)
   if (unit.attackerId) {
     const attacker = enemies.find((e) => e.id === unit.attackerId && e.hp > 0);
 
     if (attacker) {
       const distToAttacker = distance(unit.x, unit.y, attacker.x, attacker.y);
 
-      if (distToAttacker > range) {
-        // 공격자에게 이동
-        const angle = Math.atan2(attacker.y - unit.y, attacker.x - unit.x);
-        updatedUnit.x += Math.cos(angle) * config.speed;
-        updatedUnit.y += Math.sin(angle) * config.speed;
-        updatedUnit.state = 'moving';
-      } else {
-        // 반격
+      if (distToAttacker <= range) {
+        // 사거리 내: 반격
         if (updatedUnit.attackCooldown <= 0) {
           unitDamage = { targetId: attacker.id, damage: attack, attackerId: unit.id };
           updatedUnit.attackCooldown = 1;
           updatedUnit.state = 'attacking';
         }
+        return { unit: updatedUnit, healTarget, unitDamage };
       }
-      return { unit: updatedUnit, healTarget, unitDamage };
+      // 사거리 밖이면 반격하지 않고 아래 로직으로 진행 (본진 대기)
     } else {
       // 공격자가 죽었으면 attackerId 초기화
       updatedUnit.attackerId = undefined;

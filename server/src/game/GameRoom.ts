@@ -482,7 +482,7 @@ export class GameRoom {
 
     const enemies = this.units.filter(u => u.side !== unit.side && u.hp > 0);
 
-    // 0. 반격 대상 확인 (공격받은 경우 우선 반격)
+    // 0. 반격 대상 확인 (공격받은 경우, 사거리 내에 있을 때만 반격)
     let attacker: ServerUnit | null = null;
     if (unit.attackerId) {
       attacker = enemies.find(e => e.id === unit.attackerId) || null;
@@ -504,12 +504,9 @@ export class GameRoom {
             damage: unit.attack,
           });
         }
-      } else {
-        // 사거리 밖: 반격 대상에게 이동
-        unit.state = 'moving';
-        this.moveTowards(unit, attacker.x, attacker.y, deltaTime);
+        return;
       }
-      return;
+      // 사거리 밖이면 반격하지 않고 아래 로직으로 진행 (가장 가까운 적 우선)
     }
 
     // 1. 가장 가까운 적 유닛 찾기
@@ -671,19 +668,15 @@ export class GameRoom {
       return;
     }
 
-    // 2순위: 회복 대상 없으면 반격 (attackerId가 있으면)
+    // 2순위: 회복 대상 없으면 반격 (attackerId가 있고 사거리 내일 때만)
     if (unit.attackerId) {
       const attacker = this.units.find(u => u.id === unit.attackerId && u.hp > 0);
 
       if (attacker) {
         const distToAttacker = this.getDistance(unit.x, unit.y, attacker.x, attacker.y);
 
-        if (distToAttacker > range) {
-          // 공격자에게 이동
-          unit.state = 'moving';
-          this.moveTowards(unit, attacker.x, attacker.y, deltaTime);
-        } else {
-          // 반격
+        if (distToAttacker <= range) {
+          // 사거리 내: 반격
           if (unit.attackCooldown <= 0) {
             attacker.hp -= attack;
             attacker.attackerId = unit.id;
@@ -696,8 +689,9 @@ export class GameRoom {
               damage: attack,
             });
           }
+          return;
         }
-        return;
+        // 사거리 밖이면 반격하지 않고 아래 로직으로 진행 (본진 대기)
       } else {
         // 공격자가 죽었으면 attackerId 초기화
         unit.attackerId = undefined;
@@ -727,7 +721,7 @@ export class GameRoom {
     const enemyBaseX = unit.side === 'left' ? CONFIG.RIGHT_BASE_X : CONFIG.LEFT_BASE_X;
     const distToBase = this.getDistance(unit.x, unit.y, enemyBaseX, CONFIG.BASE_Y);
 
-    // 0. 반격 대상 확인 (공격받은 경우 우선 반격)
+    // 0. 반격 대상 확인 (공격받은 경우, 사거리 내에 있을 때만 반격)
     const enemies = this.units.filter(u => u.side !== unit.side && u.hp > 0);
 
     if (unit.attackerId) {
@@ -741,12 +735,9 @@ export class GameRoom {
             unit.attackCooldown = cooldownTime;
             unit.state = 'attacking';
           }
-        } else {
-          // 사거리 밖: 반격 대상에게 이동
-          unit.state = 'moving';
-          this.moveTowards(unit, attacker.x, attacker.y, deltaTime);
+          return;
         }
-        return;
+        // 사거리 밖이면 반격하지 않고 아래 로직으로 진행 (가장 가까운 적 우선)
       } else {
         // 공격자가 죽었으면 attackerId 초기화
         unit.attackerId = undefined;
@@ -1305,6 +1296,8 @@ export class GameRoom {
         resources: { ...this.leftResources },
         baseHp: this.leftBaseHp,
         maxBaseHp: this.leftMaxBaseHp,
+        upgradeLevel: this.leftUpgradeLevel,
+        goldPerSecond: this.leftGoldPerSecond,
       },
       rightPlayer: {
         id: this.rightPlayerId,
@@ -1312,6 +1305,8 @@ export class GameRoom {
         resources: { ...this.rightResources },
         baseHp: this.rightBaseHp,
         maxBaseHp: this.rightMaxBaseHp,
+        upgradeLevel: this.rightUpgradeLevel,
+        goldPerSecond: this.rightGoldPerSecond,
       },
       units: this.units.map(u => this.toNetworkUnit(u)),
       walls: [...this.walls],
