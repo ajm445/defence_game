@@ -18,6 +18,7 @@ export interface UnitConfig {
   healRate?: number;      // 힐러: 초당 회복량
   healRange?: number;     // 힐러: 회복 사거리
   aoeRadius?: number;     // 마법사: 범위 공격 반경
+  spawnCooldown?: number; // 소환 쿨타임 (초)
 }
 
 export interface Unit {

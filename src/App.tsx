@@ -5,6 +5,7 @@ import { DifficultySelectScreen } from './components/screens/DifficultySelectScr
 import { LobbyScreen } from './components/screens/LobbyScreen';
 import { GameScreen } from './components/screens/GameScreen';
 import { GameOverScreen } from './components/screens/GameOverScreen';
+import { PauseScreen } from './components/screens/PauseScreen';
 
 function App() {
   const currentScreen = useUIStore((state) => state.currentScreen);
@@ -17,6 +18,7 @@ function App() {
       {currentScreen === 'lobby' && <LobbyScreen />}
       {currentScreen === 'game' && <GameScreen />}
       {currentScreen === 'gameover' && <GameOverScreen />}
+      {currentScreen === 'paused' && <PauseScreen />}
     </div>
   );
 }

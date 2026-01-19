@@ -65,6 +65,7 @@ export interface PlayerState {
   maxBaseHp: number;
   upgradeLevel: number;
   goldPerSecond: number;
+  spawnCooldowns?: Partial<Record<UnitType, number>>; // 유닛별 소환 쿨타임
 }
 
 // 네트워크 게임 상태 (전체 동기화용)

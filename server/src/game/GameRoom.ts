@@ -34,6 +34,7 @@ const CONFIG = {
       speed: 1.5,
       range: 30,
       type: 'combat',
+      spawnCooldown: 1.5,
     },
     ranged: {
       name: '궁수',
@@ -43,6 +44,7 @@ const CONFIG = {
       speed: 1.6,
       range: 150,
       type: 'combat',
+      spawnCooldown: 3,
     },
     knight: {
       name: '기사',
@@ -52,6 +54,7 @@ const CONFIG = {
       speed: 1.3,
       range: 35,
       type: 'combat',
+      spawnCooldown: 5,
     },
     woodcutter: {
       name: '나무꾼',
@@ -63,6 +66,7 @@ const CONFIG = {
       speed: 1.5,
       type: 'support',
       resource: 'wood',
+      spawnCooldown: 1,
     },
     miner: {
       name: '광부',
@@ -74,6 +78,7 @@ const CONFIG = {
       speed: 1.5,
       type: 'support',
       resource: 'stone',
+      spawnCooldown: 1,
     },
     gatherer: {
       name: '채집꾼',
@@ -85,6 +90,7 @@ const CONFIG = {
       speed: 1.5,
       type: 'support',
       resource: 'herb',
+      spawnCooldown: 1,
     },
     goldminer: {
       name: '금광부',
@@ -96,6 +102,7 @@ const CONFIG = {
       speed: 1.5,
       type: 'support',
       resource: 'gold',
+      spawnCooldown: 2,
     },
     healer: {
       name: '힐러',
@@ -107,6 +114,7 @@ const CONFIG = {
       type: 'support',
       healRate: 10,
       healRange: 100,
+      spawnCooldown: 5,
     },
     mage: {
       name: '마법사',
@@ -117,6 +125,7 @@ const CONFIG = {
       range: 180,
       type: 'combat',
       aoeRadius: 50,
+      spawnCooldown: 5,
     },
   } as Record<string, any>,
 
@@ -194,6 +203,9 @@ export class GameRoom {
   private rightUpgradeLevel: number = 0;
   private leftGoldPerSecond: number = CONFIG.GOLD_PER_SECOND;
   private rightGoldPerSecond: number = CONFIG.GOLD_PER_SECOND;
+
+  private leftSpawnCooldowns: Partial<Record<UnitType, number>> = {};
+  private rightSpawnCooldowns: Partial<Record<UnitType, number>> = {};
 
   private units: ServerUnit[] = [];
   private walls: ServerWall[] = [];
@@ -364,6 +376,9 @@ export class GameRoom {
 
     this.gameTime += deltaTime;
 
+    // 소환 쿨타임 감소
+    this.updateSpawnCooldowns(deltaTime);
+
     // 골드 자동 획득 (1초마다, 업그레이드 레벨에 따라)
     if (Math.floor(this.gameTime) > this.lastGoldTick) {
       this.lastGoldTick = Math.floor(this.gameTime);
@@ -387,6 +402,28 @@ export class GameRoom {
     if (this.gameTime - this.lastFullSync >= 0.05) {
       this.lastFullSync = this.gameTime;
       this.broadcastState();
+    }
+  }
+
+  private updateSpawnCooldowns(deltaTime: number): void {
+    // 왼쪽 플레이어 쿨타임 감소
+    for (const type of Object.keys(this.leftSpawnCooldowns) as UnitType[]) {
+      const remaining = (this.leftSpawnCooldowns[type] || 0) - deltaTime;
+      if (remaining > 0) {
+        this.leftSpawnCooldowns[type] = remaining;
+      } else {
+        delete this.leftSpawnCooldowns[type];
+      }
+    }
+
+    // 오른쪽 플레이어 쿨타임 감소
+    for (const type of Object.keys(this.rightSpawnCooldowns) as UnitType[]) {
+      const remaining = (this.rightSpawnCooldowns[type] || 0) - deltaTime;
+      if (remaining > 0) {
+        this.rightSpawnCooldowns[type] = remaining;
+      } else {
+        delete this.rightSpawnCooldowns[type];
+      }
     }
   }
 
@@ -631,44 +668,128 @@ export class GameRoom {
     const attack = config.attack || 3;
     const range = config.range || 25;
 
+    // 전투 유닛 타입 목록
+    const COMBAT_UNIT_TYPES = ['melee', 'ranged', 'knight', 'mage'];
+
     // 아군 본진 위치
     const allyBaseX = unit.side === 'left' ? CONFIG.LEFT_BASE_X : CONFIG.RIGHT_BASE_X;
 
-    // 우선순위: 회복 > 반격 > 본진 대기
-
-    // 1순위: HP 비율이 가장 낮은 아군 찾기 (HP가 max가 아닌 아군만)
+    // 아군/적군 유닛 목록
     const allies = this.units.filter(u => u.side === unit.side && u.hp > 0 && u.id !== unit.id);
-    let lowestHpAlly: ServerUnit | null = null;
+    const enemies = this.units.filter(u => u.side !== unit.side && u.hp > 0);
+
+    // 아군 전투 유닛 목록
+    const allyCombatUnits = allies.filter(a => COMBAT_UNIT_TYPES.includes(a.unitType));
+
+    // 적 전투 유닛 목록
+    const enemyCombatUnits = enemies.filter(e => COMBAT_UNIT_TYPES.includes(e.unitType));
+
+    // 우선순위: 전투유닛 회복 > 아군 전투유닛 따라가기 > 적 공격 > 반격 > 본진 대기
+    // (지원 유닛이 피해를 입어도 전투 유닛만 회복하고 따라다님)
+
+    // 피해를 입은 아군 전투 유닛 찾기 (HP 비율이 가장 낮은 전투 유닛)
+    let lowestHpCombatUnit: ServerUnit | null = null;
     let lowestHpRatio = 1;
 
-    for (const ally of allies) {
-      if (ally.hp >= ally.maxHp) continue; // 풀피 유닛 제외
-      const hpRatio = ally.hp / ally.maxHp;
+    for (const combatUnit of allyCombatUnits) {
+      if (combatUnit.hp >= combatUnit.maxHp) continue; // 풀피 유닛 제외
+      const hpRatio = combatUnit.hp / combatUnit.maxHp;
       if (hpRatio < lowestHpRatio) {
         lowestHpRatio = hpRatio;
-        lowestHpAlly = ally;
+        lowestHpCombatUnit = combatUnit;
       }
     }
 
-    // 회복 대상이 있으면 회복 우선
-    if (lowestHpAlly) {
-      const distToAlly = this.getDistance(unit.x, unit.y, lowestHpAlly.x, lowestHpAlly.y);
+    // 1순위: 피해를 입은 전투 유닛이 있으면 회복 우선
+    if (lowestHpCombatUnit) {
+      const distToAlly = this.getDistance(unit.x, unit.y, lowestHpCombatUnit.x, lowestHpCombatUnit.y);
 
       if (distToAlly > healRange) {
-        // 아군에게 이동
+        // 전투 유닛에게 이동
         unit.state = 'moving';
-        this.moveTowards(unit, lowestHpAlly.x, lowestHpAlly.y, deltaTime);
+        this.moveTowards(unit, lowestHpCombatUnit.x, lowestHpCombatUnit.y, deltaTime);
       } else {
-        // 회복
+        // 광역 회복: 힐러 범위 내의 모든 피해 입은 전투 유닛 회복
         unit.state = 'healing';
         const healAmount = healRate * deltaTime;
-        const currentHeal = healAmounts.get(lowestHpAlly.id) || 0;
-        healAmounts.set(lowestHpAlly.id, currentHeal + healAmount);
+
+        for (const combatUnit of allyCombatUnits) {
+          if (combatUnit.hp >= combatUnit.maxHp) continue; // 풀피 유닛 제외
+          const distToTarget = this.getDistance(unit.x, unit.y, combatUnit.x, combatUnit.y);
+          if (distToTarget <= healRange) {
+            const currentHeal = healAmounts.get(combatUnit.id) || 0;
+            healAmounts.set(combatUnit.id, currentHeal + healAmount);
+          }
+        }
       }
       return;
     }
 
-    // 2순위: 회복 대상 없으면 반격 (attackerId가 있고 사거리 내일 때만)
+    // 2순위: 아군 전투 유닛이 있으면 가장 가까운 전투 유닛 따라가기 (피해 입은 전투유닛 없어도)
+    if (allyCombatUnits.length > 0) {
+      let nearestCombatUnit: ServerUnit | null = null;
+      let nearestDist = Infinity;
+
+      for (const combatUnit of allyCombatUnits) {
+        const dist = this.getDistance(unit.x, unit.y, combatUnit.x, combatUnit.y);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestCombatUnit = combatUnit;
+        }
+      }
+
+      if (nearestCombatUnit) {
+        // 전투 유닛 근처에 있으면 대기, 멀면 따라가기
+        const followDistance = healRange * 0.8;
+
+        if (nearestDist > followDistance) {
+          unit.state = 'moving';
+          this.moveTowards(unit, nearestCombatUnit.x, nearestCombatUnit.y, deltaTime);
+        } else {
+          unit.state = 'idle';
+        }
+      }
+      return;
+    }
+
+    // 3순위: 아군 전투 유닛이 없고 적 전투 유닛이 있으면 공격
+    if (enemyCombatUnits.length > 0) {
+      let nearestEnemy: ServerUnit | null = null;
+      let nearestDist = Infinity;
+
+      for (const enemy of enemyCombatUnits) {
+        const dist = this.getDistance(unit.x, unit.y, enemy.x, enemy.y);
+        if (dist < nearestDist) {
+          nearestDist = dist;
+          nearestEnemy = enemy;
+        }
+      }
+
+      if (nearestEnemy) {
+        if (nearestDist > range) {
+          // 적에게 이동
+          unit.state = 'moving';
+          this.moveTowards(unit, nearestEnemy.x, nearestEnemy.y, deltaTime);
+        } else {
+          // 공격
+          if (unit.attackCooldown <= 0) {
+            nearestEnemy.hp -= attack;
+            nearestEnemy.attackerId = unit.id;
+            unit.attackCooldown = 1;
+            unit.state = 'attacking';
+            this.broadcastEvent({
+              event: 'UNIT_ATTACKED',
+              attackerId: unit.id,
+              targetId: nearestEnemy.id,
+              damage: attack,
+            });
+          }
+        }
+      }
+      return;
+    }
+
+    // 4순위: 반격 (attackerId가 있고 사거리 내일 때만)
     if (unit.attackerId) {
       const attacker = this.units.find(u => u.id === unit.attackerId && u.hp > 0);
 
@@ -698,7 +819,7 @@ export class GameRoom {
       }
     }
 
-    // 3순위: 본진 근처로 대기
+    // 5순위: 본진 근처로 대기
     const distToBase = this.getDistance(unit.x, unit.y, allyBaseX, CONFIG.BASE_Y);
 
     if (distToBase > 150) {
@@ -1083,6 +1204,13 @@ export class GameRoom {
     if (!config) return;
 
     const resources = side === 'left' ? this.leftResources : this.rightResources;
+    const cooldowns = side === 'left' ? this.leftSpawnCooldowns : this.rightSpawnCooldowns;
+
+    // 쿨타임 체크
+    const currentCooldown = cooldowns[unitType] || 0;
+    if (currentCooldown > 0) {
+      return;
+    }
 
     // 비용 체크
     const cost = config.cost as Partial<Resources>;
@@ -1092,6 +1220,10 @@ export class GameRoom {
 
     // 비용 차감
     this.deductCost(resources, cost);
+
+    // 쿨타임 설정
+    const spawnCooldown = config.spawnCooldown || 1;
+    cooldowns[unitType] = spawnCooldown;
 
     // 유닛 생성
     const spawnX = side === 'left' ? CONFIG.LEFT_BASE_X + 50 : CONFIG.RIGHT_BASE_X - 50;
@@ -1298,6 +1430,7 @@ export class GameRoom {
         maxBaseHp: this.leftMaxBaseHp,
         upgradeLevel: this.leftUpgradeLevel,
         goldPerSecond: this.leftGoldPerSecond,
+        spawnCooldowns: { ...this.leftSpawnCooldowns },
       },
       rightPlayer: {
         id: this.rightPlayerId,
@@ -1307,6 +1440,7 @@ export class GameRoom {
         maxBaseHp: this.rightMaxBaseHp,
         upgradeLevel: this.rightUpgradeLevel,
         goldPerSecond: this.rightGoldPerSecond,
+        spawnCooldowns: { ...this.rightSpawnCooldowns },
       },
       units: this.units.map(u => this.toNetworkUnit(u)),
       walls: [...this.walls],

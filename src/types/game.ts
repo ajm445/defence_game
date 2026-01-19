@@ -1,5 +1,5 @@
 import { Resources, ResourceNode } from './resource';
-import { Unit } from './unit';
+import { Unit, UnitType } from './unit';
 
 export interface Position {
   x: number;
@@ -36,9 +36,10 @@ export interface GameState {
   walls: Wall[];
   selectedUnit: Unit | null;
   aiResources: Resources;
+  spawnCooldowns: Partial<Record<UnitType, number>>; // 유닛별 소환 쿨타임 (남은 시간)
 }
 
-export type GameScreen = 'menu' | 'modeSelect' | 'difficultySelect' | 'lobby' | 'game' | 'gameover';
+export type GameScreen = 'menu' | 'modeSelect' | 'difficultySelect' | 'lobby' | 'game' | 'gameover' | 'paused';
 
 export type GameMode = 'ai' | 'multiplayer';
 

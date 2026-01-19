@@ -11,6 +11,7 @@ export const GameOverScreen: React.FC = () => {
   const initGame = useGameStore((state) => state.initGame);
   const startGame = useGameStore((state) => state.startGame);
   const setScreen = useUIStore((state) => state.setScreen);
+  const selectedDifficulty = useUIStore((state) => state.selectedDifficulty);
   const multiplayerResult = useMultiplayerStore((state) => state.gameResult);
   const resetMultiplayer = useMultiplayerStore((state) => state.reset);
 
@@ -58,8 +59,8 @@ export const GameOverScreen: React.FC = () => {
       resetMultiplayer();
       setScreen('lobby');
     } else {
-      // 싱글플레이어에서는 바로 재시작
-      initGame();
+      // 싱글플레이어에서는 동일한 난이도로 재시작
+      initGame('ai', selectedDifficulty);
       startGame();
       setScreen('game');
     }

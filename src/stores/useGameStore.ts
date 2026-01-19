@@ -23,6 +23,11 @@ interface GameActions {
   updateUnits: (playerUnits: Unit[], enemyUnits: Unit[]) => void;
   selectUnit: (unit: Unit | null) => void;
 
+  // 소환 쿨타임
+  updateSpawnCooldowns: (deltaTime: number) => void;
+  getSpawnCooldown: (type: UnitType) => number;
+  isOnSpawnCooldown: (type: UnitType) => boolean;
+
   // 카메라
   moveCamera: (dx: number, dy: number) => void;
   setCameraPosition: (x: number, y: number) => void;
@@ -183,6 +188,7 @@ const createInitialState = (): GameState & { playerGoldPerSecond: number } => ({
   selectedUnit: null,
   aiResources: { ...initialResources },
   playerGoldPerSecond: CONFIG.GOLD_PER_SECOND, // 초기 골드 수입
+  spawnCooldowns: {}, // 소환 쿨타임 (초기값 없음)
 });
 
 export const useGameStore = create<GameStore>()(
@@ -282,6 +288,14 @@ export const useGameStore = create<GameStore>()(
       const resources = team === 'player' ? state.resources : state.aiResources;
       const base = team === 'player' ? state.playerBase : state.enemyBase;
 
+      // 플레이어만 쿨타임 확인 (AI는 쿨타임 무시)
+      if (team === 'player') {
+        const cooldown = state.spawnCooldowns[type] || 0;
+        if (cooldown > 0) {
+          return false;
+        }
+      }
+
       // 비용 확인
       for (const [resource, amount] of Object.entries(unitConfig.cost)) {
         if ((resources[resource as keyof Resources] || 0) < (amount || 0)) {
@@ -308,7 +322,12 @@ export const useGameStore = create<GameStore>()(
       };
 
       if (team === 'player') {
-        set((state) => ({ units: [...state.units, unit] }));
+        // 유닛 추가 및 쿨타임 설정
+        const spawnCooldown = unitConfig.spawnCooldown || 1;
+        set((state) => ({
+          units: [...state.units, unit],
+          spawnCooldowns: { ...state.spawnCooldowns, [type]: spawnCooldown },
+        }));
       } else {
         set((state) => ({ enemyUnits: [...state.enemyUnits, unit] }));
       }
@@ -323,6 +342,29 @@ export const useGameStore = create<GameStore>()(
       }),
 
     selectUnit: (unit) => set({ selectedUnit: unit }),
+
+    // 소환 쿨타임 관련
+    updateSpawnCooldowns: (deltaTime) =>
+      set((state) => {
+        const newCooldowns: Partial<Record<UnitType, number>> = {};
+        for (const [type, cooldown] of Object.entries(state.spawnCooldowns)) {
+          const remaining = (cooldown as number) - deltaTime;
+          if (remaining > 0) {
+            newCooldowns[type as UnitType] = remaining;
+          }
+        }
+        return { spawnCooldowns: newCooldowns };
+      }),
+
+    getSpawnCooldown: (type) => {
+      const state = get();
+      return state.spawnCooldowns[type] || 0;
+    },
+
+    isOnSpawnCooldown: (type) => {
+      const state = get();
+      return (state.spawnCooldowns[type] || 0) > 0;
+    },
 
     moveCamera: (dx, dy) =>
       set((state) => {
@@ -511,8 +553,9 @@ export const useGameStore = create<GameStore>()(
 
     removeExpiredWalls: () =>
       set((state) => ({
+        // 게임 시간은 감소하므로 (600→0), createdAt - time >= WALL_DURATION이면 만료
         walls: state.walls.filter(
-          (wall) => state.time - wall.createdAt < CONFIG.WALL_DURATION
+          (wall) => wall.createdAt - state.time < CONFIG.WALL_DURATION
         ),
       })),
 

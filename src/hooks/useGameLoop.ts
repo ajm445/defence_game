@@ -28,6 +28,7 @@ export const useGameLoop = () => {
   const removeExpiredWalls = useGameStore((state) => state.removeExpiredWalls);
   const spawnUnit = useGameStore((state) => state.spawnUnit);
   const aiSellHerb = useGameStore((state) => state.aiSellHerb);
+  const updateSpawnCooldowns = useGameStore((state) => state.updateSpawnCooldowns);
   const checkGameEnd = useGameStore((state) => state.checkGameEnd);
   const stopGame = useGameStore((state) => state.stopGame);
   const setScreen = useUIStore((state) => state.setScreen);
@@ -49,6 +50,9 @@ export const useGameLoop = () => {
 
       // 시간 업데이트
       updateTime(deltaTime);
+
+      // 소환 쿨타임 업데이트
+      updateSpawnCooldowns(deltaTime);
 
       // 만료된 벽 제거
       removeExpiredWalls();
@@ -92,9 +96,11 @@ export const useGameLoop = () => {
           );
           updatedPlayerUnits.push(result.unit);
 
-          if (result.healTarget) {
-            const prevHeal = healToPlayerUnits.get(result.healTarget.targetId) || 0;
-            healToPlayerUnits.set(result.healTarget.targetId, prevHeal + result.healTarget.healAmount);
+          if (result.healTargets) {
+            for (const heal of result.healTargets) {
+              const prevHeal = healToPlayerUnits.get(heal.targetId) || 0;
+              healToPlayerUnits.set(heal.targetId, prevHeal + heal.healAmount);
+            }
           }
           if (result.unitDamage) {
             const prev = damageToEnemyUnits.get(result.unitDamage.targetId);
@@ -189,9 +195,11 @@ export const useGameLoop = () => {
           );
           updatedEnemyUnits.push(result.unit);
 
-          if (result.healTarget) {
-            const prevHeal = healToEnemyUnits.get(result.healTarget.targetId) || 0;
-            healToEnemyUnits.set(result.healTarget.targetId, prevHeal + result.healTarget.healAmount);
+          if (result.healTargets) {
+            for (const heal of result.healTargets) {
+              const prevHeal = healToEnemyUnits.get(heal.targetId) || 0;
+              healToEnemyUnits.set(heal.targetId, prevHeal + heal.healAmount);
+            }
           }
           if (result.unitDamage) {
             const prev = damageToPlayerUnits.get(result.unitDamage.targetId);

@@ -12,6 +12,7 @@ export const UnitPanel: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);
   const spawnUnit = useGameStore((state) => state.spawnUnit);
   const singlePlayerResources = useResources();
+  const spawnCooldowns = useGameStore((state) => state.spawnCooldowns);
   const gameState = useMultiplayerStore((state) => state.gameState);
   const mySide = useMultiplayerStore((state) => state.mySide);
   const showNotification = useUIStore((state) => state.showNotification);
@@ -20,6 +21,11 @@ export const UnitPanel: React.FC = () => {
   const resources = gameMode === 'multiplayer' && gameState && mySide
     ? (mySide === 'left' ? gameState.leftPlayer.resources : gameState.rightPlayer.resources)
     : singlePlayerResources;
+
+  // 멀티플레이어 모드에서는 서버 상태의 쿨타임 사용, 싱글에서는 로컬 쿨타임
+  const cooldowns = gameMode === 'multiplayer' && gameState && mySide
+    ? (mySide === 'left' ? gameState.leftPlayer.spawnCooldowns : gameState.rightPlayer.spawnCooldowns) || {}
+    : spawnCooldowns;
 
   const handleSpawn = (type: UnitType) => {
     const config: Record<UnitType, string> = { melee: '검병', ranged: '궁수', knight: '기사', woodcutter: '나무꾼', miner: '광부', gatherer: '채집꾼', goldminer: '금광부', healer: '힐러', mage: '마법사' };
@@ -47,6 +53,7 @@ export const UnitPanel: React.FC = () => {
           type={type}
           resources={resources}
           onSpawn={() => handleSpawn(type)}
+          cooldown={cooldowns[type] || 0}
         />
       ))}
     </div>

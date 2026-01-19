@@ -20,6 +20,7 @@ export const CONFIG = {
       speed: 1.5,
       range: 30,
       type: 'combat',
+      spawnCooldown: 1.5,
     },
     ranged: {
       name: '궁수',
@@ -29,6 +30,7 @@ export const CONFIG = {
       speed: 1.6,
       range: 150,
       type: 'combat',
+      spawnCooldown: 3,
     },
     knight: {
       name: '기사',
@@ -38,6 +40,7 @@ export const CONFIG = {
       speed: 1.3,
       range: 35,
       type: 'combat',
+      spawnCooldown: 5,
     },
     woodcutter: {
       name: '나무꾼',
@@ -49,6 +52,7 @@ export const CONFIG = {
       speed: 1.5,
       type: 'support',
       resource: 'wood',
+      spawnCooldown: 1,
     },
     miner: {
       name: '광부',
@@ -60,6 +64,7 @@ export const CONFIG = {
       speed: 1.5,
       type: 'support',
       resource: 'stone',
+      spawnCooldown: 1,
     },
     gatherer: {
       name: '채집꾼',
@@ -71,6 +76,7 @@ export const CONFIG = {
       speed: 1.5,
       type: 'support',
       resource: 'herb',
+      spawnCooldown: 1,
     },
     goldminer: {
       name: '금광부',
@@ -82,6 +88,7 @@ export const CONFIG = {
       speed: 1.5,
       type: 'support',
       resource: 'gold',
+      spawnCooldown: 2,
     },
     healer: {
       name: '힐러',
@@ -93,6 +100,7 @@ export const CONFIG = {
       type: 'support',
       healRate: 10,
       healRange: 100,
+      spawnCooldown: 5,
     },
     mage: {
       name: '마법사',
@@ -103,6 +111,7 @@ export const CONFIG = {
       range: 180,
       type: 'combat',
       aoeRadius: 50,
+      spawnCooldown: 5,
     },
   } as Record<UnitType, UnitConfig>,
 
