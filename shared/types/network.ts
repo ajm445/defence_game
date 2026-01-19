@@ -56,6 +56,8 @@ export type GameEvent =
   | { event: 'UNIT_DIED'; unitId: string }
   | { event: 'UNIT_MOVED'; unitId: string; x: number; y: number }
   | { event: 'UNIT_ATTACKED'; attackerId: string; targetId: string; damage: number }
+  | { event: 'UNIT_HEALED'; healerId: string; targetId: string; x: number; y: number }
+  | { event: 'RESOURCE_GATHERED'; unitId: string; unitType: string; x: number; y: number }
   | { event: 'UNIT_STATE_CHANGED'; unitId: string; state: string }
   | { event: 'BASE_DAMAGED'; side: PlayerSide; damage: number; hp: number }
   | { event: 'WALL_BUILT'; wall: NetworkWall }

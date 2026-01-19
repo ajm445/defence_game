@@ -182,6 +182,7 @@ interface ServerUnit extends NetworkUnit {
   healRate?: number; // 힐러: 초당 회복량
   healRange?: number; // 힐러: 회복 사거리
   aoeRadius?: number; // 마법사: 범위 공격 반경
+  lastEffectTime?: number; // 마지막 이펙트 이벤트 전송 시간 (쿨타임용)
 }
 
 interface ServerWall extends NetworkWall {}
@@ -509,6 +510,19 @@ export class GameRoom {
           const resources = unit.side === 'left' ? this.leftResources : this.rightResources;
           const resourceKey = config.resource as keyof Resources;
           resources[resourceKey] += gathered;
+
+          // 채집 이펙트 이벤트 (0.3초 쿨타임)
+          const effectCooldown = 0.3;
+          if (!unit.lastEffectTime || this.gameTime - unit.lastEffectTime >= effectCooldown) {
+            unit.lastEffectTime = this.gameTime;
+            this.broadcastEvent({
+              event: 'RESOURCE_GATHERED',
+              unitId: unit.id,
+              unitType: unit.unitType,
+              x: unit.x,
+              y: unit.y,
+            });
+          }
         }
       } else {
         // 노드로 이동
@@ -720,13 +734,32 @@ export class GameRoom {
         unit.state = 'healing';
         const healAmount = healRate * deltaTime;
 
+        // 힐 이펙트 이벤트 (0.5초 쿨타임)
+        const effectCooldown = 0.5;
+        const shouldSendEffect = !unit.lastEffectTime || this.gameTime - unit.lastEffectTime >= effectCooldown;
+
         for (const combatUnit of allyCombatUnits) {
           if (combatUnit.hp >= combatUnit.maxHp) continue; // 풀피 유닛 제외
           const distToTarget = this.getDistance(unit.x, unit.y, combatUnit.x, combatUnit.y);
           if (distToTarget <= healRange) {
             const currentHeal = healAmounts.get(combatUnit.id) || 0;
             healAmounts.set(combatUnit.id, currentHeal + healAmount);
+
+            // 힐 이펙트 이벤트 전송
+            if (shouldSendEffect) {
+              this.broadcastEvent({
+                event: 'UNIT_HEALED',
+                healerId: unit.id,
+                targetId: combatUnit.id,
+                x: combatUnit.x,
+                y: combatUnit.y,
+              });
+            }
           }
+        }
+
+        if (shouldSendEffect) {
+          unit.lastEffectTime = this.gameTime;
         }
       }
       return;

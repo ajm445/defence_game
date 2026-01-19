@@ -12,6 +12,9 @@ import type {
   Resources,
 } from '@shared/types/game';
 import { wsClient } from '../services/WebSocketClient';
+import { effectManager } from '../effects';
+import { EffectType } from '../types/effect';
+import { CONFIG } from '../constants/config';
 
 interface MultiplayerState {
   // 연결 상태
@@ -235,13 +238,41 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => {
   };
 });
 
+// 유닛 타입에 따른 공격 이펙트 결정
+function getAttackEffectType(unitType: string): EffectType {
+  switch (unitType) {
+    case 'ranged':
+      return 'attack_ranged';
+    case 'mage':
+      return 'attack_mage';
+    default:
+      return 'attack_melee';
+  }
+}
+
+// 유닛 타입에 따른 채집 이펙트 결정
+function getGatherEffectType(unitType: string): EffectType {
+  switch (unitType) {
+    case 'woodcutter':
+      return 'gather_wood';
+    case 'miner':
+      return 'gather_stone';
+    case 'gatherer':
+      return 'gather_herb';
+    case 'goldminer':
+      return 'gather_gold';
+    default:
+      return 'gather_wood';
+  }
+}
+
 // 게임 이벤트 처리 헬퍼
 function handleGameEvent(
   event: GameEvent,
   set: (state: Partial<MultiplayerState>) => void,
   get: () => MultiplayerState
 ) {
-  const { gameState } = get();
+  const { gameState, mySide } = get();
   if (!gameState) return;
 
   switch (event.event) {
@@ -274,7 +305,49 @@ function handleGameEvent(
       });
       break;
 
-    case 'BASE_DAMAGED':
+    case 'UNIT_ATTACKED': {
+      // 공격 이펙트 생성
+      const attacker = gameState.units.find((u) => u.id === event.attackerId);
+      const target = gameState.units.find((u) => u.id === event.targetId);
+
+      if (attacker && target) {
+        const effectType = getAttackEffectType(attacker.type);
+        effectManager.createEffect(effectType, target.x, target.y, target.x, target.y);
+      }
+
+      // HP 업데이트
+      set({
+        gameState: {
+          ...gameState,
+          units: gameState.units.map((u) =>
+            u.id === event.targetId
+              ? { ...u, hp: Math.max(0, u.hp - event.damage) }
+              : u
+          ),
+        },
+      });
+      break;
+    }
+
+    case 'UNIT_HEALED': {
+      // 힐 이펙트 생성
+      effectManager.createEffect('heal', event.x, event.y);
+      break;
+    }
+
+    case 'RESOURCE_GATHERED': {
+      // 채집 이펙트 생성
+      const effectType = getGatherEffectType(event.unitType);
+      effectManager.createGatherEffect(effectType, event.x, event.y, event.unitId);
+      break;
+    }
+
+    case 'BASE_DAMAGED': {
+      // 본진 공격 이펙트 생성
+      const baseX = event.side === 'left' ? 200 : CONFIG.MAP_WIDTH - 200;
+      const baseY = CONFIG.MAP_HEIGHT / 2;
+      effectManager.createEffect('attack_melee', baseX, baseY);
+
       if (event.side === 'left') {
         set({
           gameState: {
@@ -291,6 +364,7 @@ function handleGameEvent(
         });
       }
       break;
+    }
 
     case 'WALL_BUILT':
       set({
@@ -300,6 +374,24 @@ function handleGameEvent(
         },
       });
       break;
+
+    case 'WALL_DAMAGED': {
+      // 벽 피격 이펙트
+      const wall = gameState.walls.find((w) => w.id === event.wallId);
+      if (wall) {
+        effectManager.createEffect('attack_melee', wall.x, wall.y);
+      }
+
+      set({
+        gameState: {
+          ...gameState,
+          walls: gameState.walls.map((w) =>
+            w.id === event.wallId ? { ...w, hp: event.hp } : w
+          ),
+        },
+      });
+      break;
+    }
 
     case 'WALL_DESTROYED':
       set({

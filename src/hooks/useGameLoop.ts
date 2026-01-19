@@ -40,9 +40,15 @@ export const useGameLoop = () => {
       const state = useGameStore.getState();
       if (!state.running) return;
 
-      // 멀티플레이어 모드에서는 로컬 게임 루프를 실행하지 않음
-      // 서버에서 게임 상태를 받아서 렌더링만 함
+      // 멀티플레이어 모드에서는 서버에서 게임 상태를 받아서 렌더링만 함
+      // 단, 이펙트는 클라이언트에서 업데이트해야 함
       if (state.gameMode === 'multiplayer') {
+        const deltaTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1);
+        lastTimeRef.current = timestamp;
+
+        // 이펙트 업데이트 (파티클 애니메이션)
+        effectManager.update(deltaTime);
+
         animationIdRef.current = requestAnimationFrame(tick);
         return;
       }
