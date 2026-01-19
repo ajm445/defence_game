@@ -19,7 +19,7 @@ export function updateMageUnit(
   const range = config.range || 180;
   const attack = config.attack || 35;
   const aoeRadius = config.aoeRadius || 50;
-  const cooldownTime = 2; // 2초 쿨다운
+  const attackSpeed = config.attackSpeed || 2.5;
 
   let updatedUnit = { ...unit };
   let baseDamage: { team: 'player' | 'enemy'; damage: number } | undefined;
@@ -45,7 +45,7 @@ export function updateMageUnit(
       // 사거리 내: AOE 반격
       if (updatedUnit.attackCooldown <= 0) {
         aoeDamage = calculateAoeDamage(unit, attacker, enemies, attack, aoeRadius);
-        updatedUnit.attackCooldown = cooldownTime;
+        updatedUnit.attackCooldown = attackSpeed;
         updatedUnit.state = 'attacking';
       }
       return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
@@ -98,7 +98,7 @@ export function updateMageUnit(
       // 사거리 내: AOE 공격
       if (updatedUnit.attackCooldown <= 0) {
         aoeDamage = calculateAoeDamage(unit, nearestEnemy, enemies, attack, aoeRadius);
-        updatedUnit.attackCooldown = cooldownTime;
+        updatedUnit.attackCooldown = attackSpeed;
         updatedUnit.state = 'attacking';
       }
     } else {
@@ -116,7 +116,7 @@ export function updateMageUnit(
     if (minWallDist <= range) {
       if (updatedUnit.attackCooldown <= 0) {
         wallDamage = { wallId: targetWall.id, damage: attack };
-        updatedUnit.attackCooldown = cooldownTime;
+        updatedUnit.attackCooldown = attackSpeed;
         updatedUnit.state = 'attacking';
       }
     } else {
@@ -140,7 +140,7 @@ export function updateMageUnit(
         team: unit.team === 'player' ? 'enemy' : 'player',
         damage: attack,
       };
-      updatedUnit.attackCooldown = cooldownTime;
+      updatedUnit.attackCooldown = attackSpeed;
       updatedUnit.state = 'attacking';
     }
   }

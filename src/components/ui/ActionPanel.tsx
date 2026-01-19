@@ -6,10 +6,16 @@ import { CONFIG } from '../../constants/config';
 import { wsClient } from '../../services/WebSocketClient';
 import { Emoji } from '../common/Emoji';
 
+interface CostItem {
+  amount: number | string;
+  icon: string;
+}
+
 interface ActionButtonProps {
   icon: string;
   label: string;
-  cost: string;
+  costItems: CostItem[];
+  costLabel?: string; // 추가 텍스트 (예: "→", "최대 레벨")
   onClick: () => void;
   disabled: boolean;
   active?: boolean;
@@ -19,7 +25,8 @@ interface ActionButtonProps {
 const ActionButton: React.FC<ActionButtonProps> = ({
   icon,
   label,
-  cost,
+  costItems,
+  costLabel,
   onClick,
   disabled,
   active = false,
@@ -28,7 +35,6 @@ const ActionButton: React.FC<ActionButtonProps> = ({
   <button
     onClick={onClick}
     disabled={disabled && !active}
-    title={`${label} (${cost})`}
     className={`
       group relative p-2 rounded-lg
       transition-all duration-200
@@ -52,6 +58,24 @@ const ActionButton: React.FC<ActionButtonProps> = ({
     <div className="relative flex flex-col items-center gap-0.5">
       <Emoji emoji={icon} size={20} />
       <span className="text-[9px] text-gray-400 whitespace-nowrap">{label}</span>
+    </div>
+    {/* 커스텀 호버 툴팁 */}
+    <div className="
+      absolute bottom-full left-1/2 -translate-x-1/2 mb-2
+      px-2 py-1 rounded bg-dark-800/95 border border-dark-500
+      opacity-0 group-hover:opacity-100 transition-opacity duration-200
+      pointer-events-none z-50 whitespace-nowrap
+    ">
+      <div className="flex items-center gap-1 text-[10px] text-gray-300">
+        {costLabel && <span>{costLabel}</span>}
+        {costItems.map((item, idx) => (
+          <span key={idx} className="flex items-center gap-0.5">
+            {idx > 0 && !costLabel && <span className="mx-0.5"></span>}
+            <span>{item.amount}</span>
+            <Emoji emoji={item.icon} size={12} />
+          </span>
+        ))}
+      </div>
     </div>
   </button>
 );
@@ -137,7 +161,10 @@ export const ActionPanel: React.FC = () => {
         <ActionButton
           icon="🧱"
           label={placementMode === 'wall' ? '취소' : '벽'}
-          cost="20🪵 10🪨"
+          costItems={[
+            { amount: 20, icon: '🪵' },
+            { amount: 10, icon: '🪨' },
+          ]}
           onClick={handleBuildWall}
           disabled={!canBuildWall}
           active={placementMode === 'wall'}
@@ -146,7 +173,11 @@ export const ActionPanel: React.FC = () => {
         <ActionButton
           icon="🏰"
           label={isMaxLevel ? '강화 MAX' : `강화 Lv${currentBaseLevel + 1}`}
-          cost={isMaxLevel ? '최대 레벨' : `${upgradeCost.gold}💰 ${upgradeCost.stone}🪨`}
+          costItems={isMaxLevel ? [] : [
+            { amount: upgradeCost.gold, icon: '💰' },
+            { amount: upgradeCost.stone, icon: '🪨' },
+          ]}
+          costLabel={isMaxLevel ? '최대 레벨' : undefined}
           onClick={handleUpgradeBase}
           disabled={!canUpgrade}
           hoverColor="border-neon-green"
@@ -154,7 +185,10 @@ export const ActionPanel: React.FC = () => {
         <ActionButton
           icon="🌿"
           label="판매"
-          cost="10🌿 → 30💰"
+          costItems={[
+            { amount: 10, icon: '🌿' },
+            { amount: '→ 30', icon: '💰' },
+          ]}
           onClick={handleSellHerb}
           disabled={!canSellHerb}
           hoverColor="border-yellow-500"

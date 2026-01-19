@@ -31,6 +31,7 @@ const CONFIG = {
       cost: { gold: 50 },
       hp: 100,
       attack: 15,
+      attackSpeed: 1,
       speed: 1.5,
       range: 30,
       type: 'combat',
@@ -41,6 +42,7 @@ const CONFIG = {
       cost: { gold: 80, wood: 10 },
       hp: 50,
       attack: 25,
+      attackSpeed: 2,
       speed: 1.6,
       range: 150,
       type: 'combat',
@@ -51,6 +53,7 @@ const CONFIG = {
       cost: { gold: 120, wood: 20, stone: 30 },
       hp: 250,
       attack: 10,
+      attackSpeed: 1,
       speed: 1.3,
       range: 35,
       type: 'combat',
@@ -109,6 +112,7 @@ const CONFIG = {
       cost: { gold: 70, herb: 15 },
       hp: 60,
       attack: 3,
+      attackSpeed: 1,
       speed: 1.4,
       range: 25,
       type: 'support',
@@ -121,6 +125,7 @@ const CONFIG = {
       cost: { gold: 150, crystal: 10 },
       hp: 40,
       attack: 50,
+      attackSpeed: 2.5,
       speed: 1.2,
       range: 180,
       type: 'combat',
@@ -164,6 +169,7 @@ function getUpgradeCost(level: number): { gold: number; stone: number } {
 
 interface ServerUnit extends NetworkUnit {
   attack: number;
+  attackSpeed: number; // 공격속도 (초)
   speed: number;
   range: number;
   attackCooldown: number;
@@ -532,7 +538,7 @@ export class GameRoom {
         if (unit.attackCooldown <= 0) {
           attacker.hp -= unit.attack;
           attacker.attackerId = unit.id;
-          unit.attackCooldown = 1;
+          unit.attackCooldown = unit.attackSpeed;
           unit.state = 'attacking';
           this.broadcastEvent({
             event: 'UNIT_ATTACKED',
@@ -587,7 +593,7 @@ export class GameRoom {
         if (unit.attackCooldown <= 0) {
           nearestEnemy.hp -= unit.attack;
           nearestEnemy.attackerId = unit.id;
-          unit.attackCooldown = 1;
+          unit.attackCooldown = unit.attackSpeed;
           unit.state = 'attacking';
           this.broadcastEvent({
             event: 'UNIT_ATTACKED',
@@ -609,7 +615,7 @@ export class GameRoom {
       if (minWallDist <= unit.range) {
         if (unit.attackCooldown <= 0) {
           targetWall.hp -= unit.attack;
-          unit.attackCooldown = 1;
+          unit.attackCooldown = unit.attackSpeed;
           unit.state = 'attacking';
 
           if (targetWall.hp <= 0) {
@@ -655,7 +661,7 @@ export class GameRoom {
             hp: this.leftBaseHp,
           });
         }
-        unit.attackCooldown = 1;
+        unit.attackCooldown = unit.attackSpeed;
         unit.state = 'attacking';
       }
     }
@@ -666,6 +672,7 @@ export class GameRoom {
     const healRate = config.healRate || 10;
     const healRange = config.healRange || 100;
     const attack = config.attack || 3;
+    const attackSpeed = config.attackSpeed || 1;
     const range = config.range || 25;
 
     // 전투 유닛 타입 목록
@@ -775,7 +782,7 @@ export class GameRoom {
           if (unit.attackCooldown <= 0) {
             nearestEnemy.hp -= attack;
             nearestEnemy.attackerId = unit.id;
-            unit.attackCooldown = 1;
+            unit.attackCooldown = attackSpeed;
             unit.state = 'attacking';
             this.broadcastEvent({
               event: 'UNIT_ATTACKED',
@@ -801,7 +808,7 @@ export class GameRoom {
           if (unit.attackCooldown <= 0) {
             attacker.hp -= attack;
             attacker.attackerId = unit.id;
-            unit.attackCooldown = 1;
+            unit.attackCooldown = attackSpeed;
             unit.state = 'attacking';
             this.broadcastEvent({
               event: 'UNIT_ATTACKED',
@@ -836,7 +843,7 @@ export class GameRoom {
     const range = config.range || 180;
     const attack = config.attack || 35;
     const aoeRadius = config.aoeRadius || 50;
-    const cooldownTime = 2; // 2초 쿨다운
+    const attackSpeed = config.attackSpeed || 2.5; // 공격속도 (초)
 
     // 적 기지 위치
     const enemyBaseX = unit.side === 'left' ? CONFIG.RIGHT_BASE_X : CONFIG.LEFT_BASE_X;
@@ -853,7 +860,7 @@ export class GameRoom {
           // 사거리 내: AOE 반격
           if (unit.attackCooldown <= 0) {
             this.performMageAoeAttack(unit, attacker, enemies, attack, aoeRadius);
-            unit.attackCooldown = cooldownTime;
+            unit.attackCooldown = attackSpeed;
             unit.state = 'attacking';
           }
           return;
@@ -905,7 +912,7 @@ export class GameRoom {
         // 사거리 내: AOE 공격
         if (unit.attackCooldown <= 0) {
           this.performMageAoeAttack(unit, nearestEnemy, enemies, attack, aoeRadius);
-          unit.attackCooldown = cooldownTime;
+          unit.attackCooldown = attackSpeed;
           unit.state = 'attacking';
         }
       } else {
@@ -921,7 +928,7 @@ export class GameRoom {
       if (minWallDist <= range) {
         if (unit.attackCooldown <= 0) {
           targetWall.hp -= attack;
-          unit.attackCooldown = cooldownTime;
+          unit.attackCooldown = attackSpeed;
           unit.state = 'attacking';
 
           if (targetWall.hp <= 0) {
@@ -967,7 +974,7 @@ export class GameRoom {
             hp: this.leftBaseHp,
           });
         }
-        unit.attackCooldown = cooldownTime;
+        unit.attackCooldown = attackSpeed;
         unit.state = 'attacking';
       }
     }
@@ -1240,6 +1247,7 @@ export class GameRoom {
       state: 'idle',
       side,
       attack: config.attack || 0,
+      attackSpeed: config.attackSpeed || 1,
       speed: config.speed,
       range: config.range || 30,
       attackCooldown: 0,

@@ -10,6 +10,7 @@ export interface UnitConfig {
   cost: Partial<Resources>;
   hp: number;
   attack?: number;
+  attackSpeed?: number;   // 공격속도 (초, 낮을수록 빠름)
   speed: number;
   range?: number;
   type: UnitRole;

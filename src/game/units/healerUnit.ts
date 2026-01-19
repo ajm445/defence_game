@@ -21,6 +21,7 @@ export function updateHealerUnit(
   const healRate = config.healRate || 10;
   const healRange = config.healRange || 100;
   const attack = config.attack || 3;
+  const attackSpeed = config.attackSpeed || 1;
   const range = config.range || 25;
 
   let updatedUnit = { ...unit };
@@ -141,7 +142,7 @@ export function updateHealerUnit(
         // 공격
         if (updatedUnit.attackCooldown <= 0) {
           unitDamage = { targetId: nearestEnemy.id, damage: attack, attackerId: unit.id };
-          updatedUnit.attackCooldown = 1;
+          updatedUnit.attackCooldown = attackSpeed;
           updatedUnit.state = 'attacking';
         }
       }
@@ -160,7 +161,7 @@ export function updateHealerUnit(
         // 사거리 내: 반격
         if (updatedUnit.attackCooldown <= 0) {
           unitDamage = { targetId: attacker.id, damage: attack, attackerId: unit.id };
-          updatedUnit.attackCooldown = 1;
+          updatedUnit.attackCooldown = attackSpeed;
           updatedUnit.state = 'attacking';
         }
         return { unit: updatedUnit, healTargets, unitDamage };

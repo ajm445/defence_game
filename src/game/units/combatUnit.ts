@@ -18,6 +18,7 @@ export function updateCombatUnit(
   const config = unit.config;
   const range = config.range || 30;
   const attack = config.attack || 0;
+  const attackSpeed = config.attackSpeed || 1;
 
   let updatedUnit = { ...unit };
   let baseDamage: { team: 'player' | 'enemy'; damage: number } | undefined;
@@ -43,7 +44,7 @@ export function updateCombatUnit(
       // 사거리 내: 반격
       if (updatedUnit.attackCooldown <= 0) {
         unitDamage = { targetId: attacker.id, damage: attack, attackerId: unit.id };
-        updatedUnit.attackCooldown = 1;
+        updatedUnit.attackCooldown = attackSpeed;
         updatedUnit.state = 'attacking';
       }
       return { unit: updatedUnit, baseDamage, unitDamage, wallDamage };
@@ -97,7 +98,7 @@ export function updateCombatUnit(
       // 사거리 내: 공격
       if (updatedUnit.attackCooldown <= 0) {
         unitDamage = { targetId: nearestEnemy.id, damage: attack, attackerId: unit.id };
-        updatedUnit.attackCooldown = 1;
+        updatedUnit.attackCooldown = attackSpeed;
         updatedUnit.state = 'attacking';
       }
     } else {
@@ -115,7 +116,7 @@ export function updateCombatUnit(
     if (minWallDist <= range) {
       if (updatedUnit.attackCooldown <= 0) {
         wallDamage = { wallId: targetWall.id, damage: attack };
-        updatedUnit.attackCooldown = 1;
+        updatedUnit.attackCooldown = attackSpeed;
         updatedUnit.state = 'attacking';
       }
     } else {
@@ -140,7 +141,7 @@ export function updateCombatUnit(
         team: unit.team === 'player' ? 'enemy' : 'player',
         damage: attack,
       };
-      updatedUnit.attackCooldown = 1;
+      updatedUnit.attackCooldown = attackSpeed;
       updatedUnit.state = 'attacking';
     }
   }
