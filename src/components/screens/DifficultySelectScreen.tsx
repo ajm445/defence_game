@@ -30,11 +30,14 @@ export const DifficultySelectScreen: React.FC = () => {
 
   const [hoveredDifficulty, setHoveredDifficulty] = useState<AIDifficulty>('easy');
 
+  const resetGameUI = useUIStore((state) => state.resetGameUI);
+
   const handleSelectDifficulty = (difficulty: AIDifficulty) => {
     setSelectedDifficulty(difficulty);
+    resetGameUI(); // UI 상태 초기화
     initGame('ai', difficulty);
-    startGame();
-    setScreen('game');
+    // 카운트다운 화면으로 이동 (게임은 카운트다운 후 시작)
+    setScreen('countdown');
   };
 
   return (

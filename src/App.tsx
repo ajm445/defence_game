@@ -4,6 +4,7 @@ import { MainMenu } from './components/screens/MainMenu';
 import { ModeSelectScreen } from './components/screens/ModeSelectScreen';
 import { DifficultySelectScreen } from './components/screens/DifficultySelectScreen';
 import { LobbyScreen } from './components/screens/LobbyScreen';
+import { CountdownScreen } from './components/screens/CountdownScreen';
 import { GameScreen } from './components/screens/GameScreen';
 import { GameOverScreen } from './components/screens/GameOverScreen';
 import { PauseScreen } from './components/screens/PauseScreen';
@@ -25,6 +26,7 @@ function App() {
       {currentScreen === 'modeSelect' && <ModeSelectScreen />}
       {currentScreen === 'difficultySelect' && <DifficultySelectScreen />}
       {currentScreen === 'lobby' && <LobbyScreen />}
+      {currentScreen === 'countdown' && <CountdownScreen />}
       {currentScreen === 'game' && <GameScreen />}
       {currentScreen === 'gameover' && <GameOverScreen />}
       {currentScreen === 'paused' && <PauseScreen />}

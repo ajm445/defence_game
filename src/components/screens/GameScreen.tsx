@@ -55,21 +55,18 @@ export const GameScreen: React.FC = () => {
 
       {/* 하단 UI 패널 */}
       <div
-        className="absolute bottom-0 left-0 flex p-3 gap-3
+        className="absolute bottom-0 left-0 flex items-start p-3 gap-3
                    glass-dark border-t border-dark-500/50"
         style={{
-          right: CONFIG.MINIMAP_WIDTH + 40,
+          right: CONFIG.MINIMAP_WIDTH + 50,
           height: CONFIG.UI_PANEL_HEIGHT,
         }}
       >
         {/* 유닛 섹션 */}
-        <div className="flex-1">
-          <div className="text-[10px] text-gray-500 uppercase tracking-wider mb-2 px-1">Units</div>
-          <UnitPanel />
-        </div>
+        <UnitPanel />
 
         {/* 구분선 */}
-        <div className="w-px bg-dark-500" />
+        <div className="w-px bg-dark-500 self-stretch" />
 
         {/* 액션 섹션 */}
         <ActionPanel />

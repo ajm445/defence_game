@@ -6,7 +6,9 @@ import { UnitButton } from './UnitButton';
 import { UnitType } from '../../types';
 import { wsClient } from '../../services/WebSocketClient';
 
-const UNIT_TYPES: UnitType[] = ['melee', 'ranged', 'knight', 'mage', 'woodcutter', 'miner', 'gatherer', 'goldminer', 'healer'];
+// 공격 유닛과 지원 유닛 분리
+const COMBAT_UNITS: UnitType[] = ['melee', 'ranged', 'knight', 'mage'];
+const SUPPORT_UNITS: UnitType[] = ['woodcutter', 'miner', 'gatherer', 'goldminer', 'healer'];
 
 export const UnitPanel: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);
@@ -46,16 +48,41 @@ export const UnitPanel: React.FC = () => {
   };
 
   return (
-    <div className="flex gap-2 flex-1">
-      {UNIT_TYPES.map((type) => (
-        <UnitButton
-          key={type}
-          type={type}
-          resources={resources}
-          onSpawn={() => handleSpawn(type)}
-          cooldown={cooldowns[type] || 0}
-        />
-      ))}
+    <div className="flex gap-4 flex-1">
+      {/* 공격 유닛 */}
+      <div className="flex flex-col gap-1">
+        <div className="text-[9px] text-red-400/70 uppercase tracking-wider px-1">공격 유닛</div>
+        <div className="flex gap-1.5">
+          {COMBAT_UNITS.map((type) => (
+            <UnitButton
+              key={type}
+              type={type}
+              resources={resources}
+              onSpawn={() => handleSpawn(type)}
+              cooldown={cooldowns[type] || 0}
+            />
+          ))}
+        </div>
+      </div>
+
+      {/* 구분선 */}
+      <div className="w-px bg-dark-500/50 self-stretch" />
+
+      {/* 지원 유닛 */}
+      <div className="flex flex-col gap-1">
+        <div className="text-[9px] text-neon-cyan/70 uppercase tracking-wider px-1">지원 유닛</div>
+        <div className="flex gap-1.5">
+          {SUPPORT_UNITS.map((type) => (
+            <UnitButton
+              key={type}
+              type={type}
+              resources={resources}
+              onSpawn={() => handleSpawn(type)}
+              cooldown={cooldowns[type] || 0}
+            />
+          ))}
+        </div>
+      </div>
     </div>
   );
 };

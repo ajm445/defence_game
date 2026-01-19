@@ -5,6 +5,7 @@ import { useGameStore } from '../../stores/useGameStore';
 
 export const LobbyScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
+  const resetGameUI = useUIStore((state) => state.resetGameUI);
   const {
     connectionState,
     roomInfo,
@@ -33,6 +34,7 @@ export const LobbyScreen: React.FC = () => {
   // 매칭 성공 후 게임 시작
   useEffect(() => {
     if (connectionState === 'in_game') {
+      resetGameUI(); // UI 상태 초기화
       initGame('multiplayer');
       startGame(); // 게임 루프 시작 (이펙트 업데이트를 위해 필요)
 
@@ -49,7 +51,7 @@ export const LobbyScreen: React.FC = () => {
 
       setScreen('game');
     }
-  }, [connectionState, initGame, startGame, setScreen, mySide, setCameraPosition]);
+  }, [connectionState, initGame, startGame, setScreen, mySide, setCameraPosition, resetGameUI]);
 
   // 에러 발생 시 3초 후 자동 클리어
   useEffect(() => {

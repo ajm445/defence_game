@@ -7,75 +7,77 @@ import { wsClient } from '../../services/WebSocketClient';
 import { Emoji } from '../common/Emoji';
 
 interface CostItem {
-  amount: number | string;
+  amount: number;
   icon: string;
+  hasEnough: boolean;
 }
 
 interface ActionButtonProps {
   icon: string;
   label: string;
-  costItems: CostItem[];
-  costLabel?: string; // 추가 텍스트 (예: "→", "최대 레벨")
+  shortcut: string;
+  costs: CostItem[];
   onClick: () => void;
   disabled: boolean;
   active?: boolean;
-  hoverColor?: string;
 }
 
 const ActionButton: React.FC<ActionButtonProps> = ({
   icon,
   label,
-  costItems,
-  costLabel,
+  shortcut,
+  costs,
   onClick,
   disabled,
   active = false,
-  hoverColor = 'border-neon-cyan',
 }) => (
   <button
     onClick={onClick}
     disabled={disabled && !active}
     className={`
-      group relative p-2 rounded-lg
-      transition-all duration-200
+      group relative p-2 rounded-lg flex flex-col items-center gap-1
+      transition-all duration-200 min-w-[60px]
       ${active
-        ? 'bg-neon-purple/20'
+        ? 'bg-neon-purple/20 ring-1 ring-neon-purple'
         : disabled
-          ? 'bg-dark-700/30 opacity-50 cursor-not-allowed'
+          ? 'bg-dark-700/30 opacity-60 cursor-not-allowed'
           : 'bg-dark-600/50 hover:bg-dark-500/50 cursor-pointer'
       }
     `}
   >
+    {/* 단축키 배지 */}
     <div className={`
-      absolute inset-0 border rounded-lg transition-all duration-200
-      ${active
-        ? 'border-neon-purple animate-pulse'
-        : disabled
-          ? 'border-dark-600'
-          : `border-dark-400 group-hover:${hoverColor}`
-      }
-    `} />
-    <div className="relative flex flex-col items-center gap-0.5">
-      <Emoji emoji={icon} size={20} />
-      <span className="text-[9px] text-gray-400 whitespace-nowrap">{label}</span>
+      absolute -top-1 -right-1 w-4 h-4 flex items-center justify-center
+      rounded text-[9px] font-bold z-10
+      ${disabled ? 'bg-dark-600 text-gray-600' : 'bg-dark-400 text-gray-200'}
+    `}>
+      {shortcut}
     </div>
-    {/* 커스텀 호버 툴팁 */}
-    <div className="
-      absolute bottom-full left-1/2 -translate-x-1/2 mb-2
-      px-2 py-1 rounded bg-dark-800/95 border border-dark-500
-      opacity-0 group-hover:opacity-100 transition-opacity duration-200
-      pointer-events-none z-50 whitespace-nowrap
-    ">
-      <div className="flex items-center gap-1 text-[10px] text-gray-300">
-        {costLabel && <span>{costLabel}</span>}
-        {costItems.map((item, idx) => (
-          <span key={idx} className="flex items-center gap-0.5">
-            {idx > 0 && !costLabel && <span className="mx-0.5"></span>}
-            <span>{item.amount}</span>
-            <Emoji emoji={item.icon} size={12} />
-          </span>
-        ))}
-      </div>
+
+    {/* 아이콘 */}
+    <div className={`
+      p-1 rounded
+      ${active ? 'bg-neon-purple/30' : 'bg-dark-500/50'}
+    `}>
+      <Emoji emoji={icon} size={18} />
+    </div>
+
+    {/* 이름 */}
+    <div className="text-[10px] font-medium text-gray-300 text-center leading-tight">
+      {label}
+    </div>
+
+    {/* 비용 (이모지로 표시) */}
+    <div className="flex items-center gap-1">
+      {costs.map((cost, idx) => (
+        <span
+          key={idx}
+          className={`flex items-center text-[9px] ${cost.hasEnough ? 'text-gray-400' : 'text-red-400'}`}
+        >
+          <Emoji emoji={cost.icon} size={12} />
+          <span>{cost.amount}</span>
+        </span>
+      ))}
     </div>
   </button>
 );
@@ -84,7 +86,6 @@ export const ActionPanel: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);
   const upgradePlayerBase = useGameStore((state) => state.upgradePlayerBase);
   const getNextUpgradeCost = useGameStore((state) => state.getNextUpgradeCost);
-  const playerGoldPerSecond = useGameStore((state) => state.playerGoldPerSecond);
   const playerBaseLevel = useGameStore((state) => state.playerBase.upgradeLevel);
   const sellHerb = useGameStore((state) => state.sellHerb);
   const showNotification = useUIStore((state) => state.showNotification);
@@ -94,13 +95,10 @@ export const ActionPanel: React.FC = () => {
   const gameState = useMultiplayerStore((state) => state.gameState);
   const mySide = useMultiplayerStore((state) => state.mySide);
 
-  // 멀티플레이어 모드에서는 서버 상태의 자원 및 레벨 사용
   const myPlayerState = gameMode === 'multiplayer' && gameState && mySide
     ? (mySide === 'left' ? gameState.leftPlayer : gameState.rightPlayer)
     : null;
   const resources = myPlayerState ? myPlayerState.resources : singlePlayerResources;
-
-  // 멀티플레이어 모드에서는 서버 상태의 레벨 사용
   const currentBaseLevel = myPlayerState ? myPlayerState.upgradeLevel : (playerBaseLevel ?? 0);
 
   const upgradeCost = getNextUpgradeCost();
@@ -111,21 +109,6 @@ export const ActionPanel: React.FC = () => {
     (!upgradeCost.wood || resources.wood >= upgradeCost.wood) &&
     (!upgradeCost.stone || resources.stone >= upgradeCost.stone);
   const canSellHerb = resources.herb >= CONFIG.HERB_SELL_COST;
-
-  // 업그레이드 비용 아이템 생성 (레벨에 따라 다름)
-  const getUpgradeCostItems = () => {
-    if (isMaxLevel) return [];
-    const items: { amount: number; icon: string }[] = [
-      { amount: upgradeCost.gold, icon: '💰' },
-    ];
-    if (upgradeCost.wood) {
-      items.push({ amount: upgradeCost.wood, icon: '🪵' });
-    }
-    if (upgradeCost.stone) {
-      items.push({ amount: upgradeCost.stone, icon: '🪨' });
-    }
-    return items;
-  };
 
   const handleBuildWall = () => {
     if (placementMode === 'wall') {
@@ -141,11 +124,9 @@ export const ActionPanel: React.FC = () => {
 
   const handleUpgradeBase = () => {
     if (gameMode === 'multiplayer') {
-      // 멀티플레이어: 서버로 요청 전송
       wsClient.upgradeBase();
       showNotification('본진 강화 요청!');
     } else {
-      // 싱글플레이어: 로컬에서 처리
       if (upgradePlayerBase()) {
         const newLevel = (playerBaseLevel ?? 0) + 1;
         const newGoldPerSec = CONFIG.GOLD_PER_SECOND + (newLevel * CONFIG.BASE_UPGRADE.GOLD_BONUS);
@@ -158,11 +139,9 @@ export const ActionPanel: React.FC = () => {
 
   const handleSellHerb = () => {
     if (gameMode === 'multiplayer') {
-      // 멀티플레이어: 서버로 요청 전송
       wsClient.sellHerb();
       showNotification(`약초 판매 요청!`);
     } else {
-      // 싱글플레이어: 로컬에서 처리
       if (sellHerb()) {
         showNotification(`약초 판매! (+${CONFIG.HERB_SELL_GOLD} 골드)`);
       } else {
@@ -171,42 +150,57 @@ export const ActionPanel: React.FC = () => {
     }
   };
 
-  return (
-    <div className="flex flex-col gap-1 p-2 glass-light rounded-xl border border-dark-500/50">
-      <div className="text-[10px] text-gray-500 uppercase tracking-wider px-1">Actions</div>
+  // 업그레이드 비용 생성
+  const getUpgradeCosts = (): CostItem[] => {
+    if (isMaxLevel) return [];
+    const costs: CostItem[] = [
+      { amount: upgradeCost.gold, icon: '💰', hasEnough: resources.gold >= upgradeCost.gold },
+    ];
+    if (upgradeCost.wood) {
+      costs.push({ amount: upgradeCost.wood, icon: '🪵', hasEnough: resources.wood >= upgradeCost.wood });
+    }
+    if (upgradeCost.stone) {
+      costs.push({ amount: upgradeCost.stone, icon: '🪨', hasEnough: resources.stone >= upgradeCost.stone });
+    }
+    return costs;
+  };
 
-      <div className="grid grid-cols-3 gap-1">
+  return (
+    <div className="flex flex-col gap-1 mr-4">
+      <div className="text-[10px] text-gray-500 tracking-wider px-1">액션</div>
+
+      <div className="flex gap-2">
         <ActionButton
           icon="🧱"
           label={placementMode === 'wall' ? '취소' : '벽'}
-          costItems={[
-            { amount: CONFIG.WALL_COST.wood, icon: '🪵' },
-            { amount: CONFIG.WALL_COST.stone, icon: '🪨' },
+          shortcut="Q"
+          costs={[
+            { amount: CONFIG.WALL_COST.wood, icon: '🪵', hasEnough: resources.wood >= CONFIG.WALL_COST.wood },
+            { amount: CONFIG.WALL_COST.stone, icon: '🪨', hasEnough: resources.stone >= CONFIG.WALL_COST.stone },
           ]}
           onClick={handleBuildWall}
           disabled={!canBuildWall}
           active={placementMode === 'wall'}
-          hoverColor="border-neon-purple"
         />
+
         <ActionButton
           icon="🏰"
-          label={isMaxLevel ? '강화 MAX' : `강화 Lv${currentBaseLevel + 1}`}
-          costItems={getUpgradeCostItems()}
-          costLabel={isMaxLevel ? '최대 레벨' : undefined}
+          label={isMaxLevel ? 'MAX' : `Lv${currentBaseLevel + 1}`}
+          shortcut="W"
+          costs={isMaxLevel ? [] : getUpgradeCosts()}
           onClick={handleUpgradeBase}
           disabled={!canUpgrade}
-          hoverColor="border-neon-green"
         />
+
         <ActionButton
           icon="🌿"
           label="판매"
-          costItems={[
-            { amount: CONFIG.HERB_SELL_COST, icon: '🌿' },
-            { amount: `→ ${CONFIG.HERB_SELL_GOLD}`, icon: '💰' },
+          shortcut="E"
+          costs={[
+            { amount: CONFIG.HERB_SELL_COST, icon: '🌿', hasEnough: resources.herb >= CONFIG.HERB_SELL_COST },
           ]}
           onClick={handleSellHerb}
           disabled={!canSellHerb}
-          hoverColor="border-yellow-500"
         />
       </div>
     </div>

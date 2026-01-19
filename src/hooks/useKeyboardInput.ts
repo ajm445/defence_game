@@ -1,6 +1,8 @@
 import { useEffect, useCallback } from 'react';
 import { useGameStore } from '../stores/useGameStore';
 import { useUIStore } from '../stores/useUIStore';
+import { wsClient } from '../services/WebSocketClient';
+import { CONFIG } from '../constants/config';
 
 export const useKeyboardInput = () => {
   const moveCamera = useGameStore((state) => state.moveCamera);
@@ -10,8 +12,17 @@ export const useKeyboardInput = () => {
   const gameMode = useGameStore((state) => state.gameMode);
   const stopGame = useGameStore((state) => state.stopGame);
   const startGame = useGameStore((state) => state.startGame);
+  const resources = useGameStore((state) => state.resources);
+  const upgradePlayerBase = useGameStore((state) => state.upgradePlayerBase);
+  const sellHerb = useGameStore((state) => state.sellHerb);
+  const canBuildWall = useGameStore((state) => state.canBuildWall);
+  const canUpgradeBase = useGameStore((state) => state.canUpgradeBase);
+  const canSellHerb = useGameStore((state) => state.canSellHerb);
   const setScreen = useUIStore((state) => state.setScreen);
   const currentScreen = useUIStore((state) => state.currentScreen);
+  const placementMode = useUIStore((state) => state.placementMode);
+  const setPlacementMode = useUIStore((state) => state.setPlacementMode);
+  const showNotification = useUIStore((state) => state.showNotification);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -38,19 +49,15 @@ export const useKeyboardInput = () => {
 
       switch (e.key.toLowerCase()) {
         case 'arrowleft':
-        case 'a':
           moveCamera(-speed, 0);
           break;
         case 'arrowright':
-        case 'd':
           moveCamera(speed, 0);
           break;
         case 'arrowup':
-        case 'w':
           moveCamera(0, -speed);
           break;
         case 'arrowdown':
-        case 's':
           moveCamera(0, speed);
           break;
         case ' ':
@@ -61,9 +68,54 @@ export const useKeyboardInput = () => {
             playerBase.y - (window.innerHeight - 120) / 2
           );
           break;
+        // Q: 벽 배치 모드 토글
+        case 'q':
+          if (placementMode === 'wall') {
+            setPlacementMode('none');
+            showNotification('벽 배치 취소');
+          } else if (canBuildWall()) {
+            setPlacementMode('wall');
+            showNotification('벽을 배치할 위치를 클릭하세요!');
+          } else {
+            showNotification('자원이 부족합니다!');
+          }
+          break;
+        // W: 본진 강화
+        case 'w':
+          if (gameMode === 'multiplayer') {
+            wsClient.upgradeBase();
+            showNotification('본진 강화 요청!');
+          } else {
+            if (canUpgradeBase()) {
+              const currentLevel = playerBase.upgradeLevel ?? 0;
+              if (upgradePlayerBase()) {
+                const newLevel = currentLevel + 1;
+                const newGoldPerSec = CONFIG.GOLD_PER_SECOND + (newLevel * CONFIG.BASE_UPGRADE.GOLD_BONUS);
+                showNotification(`본진 강화! (+${CONFIG.BASE_UPGRADE.HP_BONUS} HP, 골드 수입 ${newGoldPerSec}/초)`);
+              }
+            } else {
+              showNotification('자원이 부족하거나 최대 레벨입니다!');
+            }
+          }
+          break;
+        // E: 약초 판매
+        case 'e':
+          if (gameMode === 'multiplayer') {
+            wsClient.sellHerb();
+            showNotification('약초 판매 요청!');
+          } else {
+            if (canSellHerb()) {
+              if (sellHerb()) {
+                showNotification(`약초 판매! (+${CONFIG.HERB_SELL_GOLD} 골드)`);
+              }
+            } else {
+              showNotification('약초가 부족합니다!');
+            }
+          }
+          break;
       }
     },
-    [running, gameMode, currentScreen, moveCamera, setCameraPosition, playerBase, stopGame, startGame, setScreen]
+    [running, gameMode, currentScreen, moveCamera, setCameraPosition, playerBase, stopGame, startGame, setScreen, placementMode, setPlacementMode, showNotification, canBuildWall, canUpgradeBase, canSellHerb, upgradePlayerBase, sellHerb, resources]
   );
 
   useEffect(() => {

@@ -22,12 +22,13 @@ export const Emoji: React.FC<EmojiProps> = memo(({ emoji, size = 24, className =
   const sizeValue = typeof size === 'number' ? `${size}px` : size;
   const styledHtml = parsed.replace(
     /<img /g,
-    `<img style="width: ${sizeValue}; height: ${sizeValue}; display: inline-block; vertical-align: middle;" `
+    `<img style="width: ${sizeValue}; height: ${sizeValue}; display: block; vertical-align: middle;" `
   );
 
   return (
     <span
-      className={className}
+      className={`inline-flex items-center justify-center leading-none ${className}`}
+      style={{ lineHeight: 0 }}
       dangerouslySetInnerHTML={{ __html: styledHtml }}
     />
   );

@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect, useCallback } from 'react';
 import { useGameStore } from '../../stores/useGameStore';
 import { useUIStore } from '../../stores/useUIStore';
 
@@ -7,19 +7,33 @@ export const PauseScreen: React.FC = () => {
   const initGame = useGameStore((state) => state.initGame);
   const setScreen = useUIStore((state) => state.setScreen);
   const selectedDifficulty = useUIStore((state) => state.selectedDifficulty);
+  const resetGameUI = useUIStore((state) => state.resetGameUI);
 
-  const handleResume = () => {
+  const handleResume = useCallback(() => {
     startGame();
     setScreen('game');
-  };
+  }, [startGame, setScreen]);
+
+  // ESC 키로 게임 재개
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        handleResume();
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleResume]);
 
   const handleRestart = () => {
+    resetGameUI(); // UI 상태 초기화
     initGame('ai', selectedDifficulty);
-    startGame();
-    setScreen('game');
+    // 카운트다운 화면으로 이동
+    setScreen('countdown');
   };
 
   const handleMainMenu = () => {
+    resetGameUI(); // UI 상태 초기화
     setScreen('menu');
   };
 

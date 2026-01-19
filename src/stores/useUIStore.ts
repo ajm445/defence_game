@@ -15,10 +15,12 @@ interface UIState {
 interface UIActions {
   setScreen: (screen: GameScreen) => void;
   showNotification: (message: string) => void;
+  clearNotification: () => void;
   setPlacementMode: (mode: PlacementMode) => void;
   setSelectedDifficulty: (difficulty: AIDifficulty) => void;
   showMassSpawnAlert: () => void;
   hideMassSpawnAlert: () => void;
+  resetGameUI: () => void;
 }
 
 interface UIStore extends UIState, UIActions {}
@@ -39,6 +41,8 @@ export const useUIStore = create<UIStore>((set) => ({
       notificationKey: state.notificationKey + 1,
     })),
 
+  clearNotification: () => set({ notification: null }),
+
   setPlacementMode: (mode) => set({ placementMode: mode }),
 
   setSelectedDifficulty: (difficulty) => set({ selectedDifficulty: difficulty }),
@@ -46,4 +50,10 @@ export const useUIStore = create<UIStore>((set) => ({
   showMassSpawnAlert: () => set({ massSpawnAlert: true }),
 
   hideMassSpawnAlert: () => set({ massSpawnAlert: false }),
+
+  resetGameUI: () => set({
+    notification: null,
+    placementMode: 'none',
+    massSpawnAlert: false,
+  }),
 }));
