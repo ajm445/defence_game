@@ -47,12 +47,12 @@ export function drawUnit(
   }
 
   // 유닛 베이스 (외부 원)
-  const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 20);
+  const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 22);
   gradient.addColorStop(0, teamColor + '40');
   gradient.addColorStop(1, 'transparent');
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.arc(screenX, screenY, 20, 0, Math.PI * 2);
+  ctx.arc(screenX, screenY, 22, 0, Math.PI * 2);
   ctx.fill();
 
   // 메인 원
@@ -61,7 +61,7 @@ export function drawUnit(
   ctx.lineWidth = isSelected ? 3 : 2;
 
   ctx.beginPath();
-  ctx.arc(screenX, screenY, 15, 0, Math.PI * 2);
+  ctx.arc(screenX, screenY, 17, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
@@ -71,43 +71,43 @@ export function drawUnit(
   // 플레이어 유닛은 오른쪽을 바라보도록 이미지 반전
   const unitType = unit.type as UnitType;
   const flipImage = unit.team === 'player';
-  const imageDrawn = drawUnitImage(ctx, unitType, screenX, screenY, 28, flipImage, 34);
+  const imageDrawn = drawUnitImage(ctx, unitType, screenX, screenY, 30, flipImage, 40);
   if (!imageDrawn) {
     const emoji = EMOJI_MAP[unit.type] || '❓';
-    drawEmoji(ctx, emoji, screenX, screenY, 18);
+    drawEmoji(ctx, emoji, screenX, screenY, 20);
   }
 
   // 체력바 배경
-  const hpBarWidth = 24;
+  const hpBarWidth = 26;
   const hpBarHeight = 4;
   const hpPercent = unit.hp / unit.maxHp;
 
   ctx.fillStyle = '#1a1a25';
   ctx.beginPath();
-  ctx.roundRect(screenX - hpBarWidth/2, screenY - 31, hpBarWidth, hpBarHeight, 2);
+  ctx.roundRect(screenX - hpBarWidth/2, screenY - 35, hpBarWidth, hpBarHeight, 2);
   ctx.fill();
 
   // 체력바
   ctx.fillStyle = hpPercent > 0.5 ? '#10b981' : '#ef4444';
   ctx.beginPath();
-  ctx.roundRect(screenX - hpBarWidth/2 + 1, screenY - 30, (hpBarWidth - 2) * hpPercent, hpBarHeight - 2, 1);
+  ctx.roundRect(screenX - hpBarWidth/2 + 1, screenY - 34, (hpBarWidth - 2) * hpPercent, hpBarHeight - 2, 1);
   ctx.fill();
 
   // 상태 인디케이터
   if (unit.state === 'attacking') {
     ctx.fillStyle = '#ef4444';
     ctx.beginPath();
-    ctx.arc(screenX + 14, screenY - 14, 3, 0, Math.PI * 2);
+    ctx.arc(screenX + 16, screenY - 16, 3, 0, Math.PI * 2);
     ctx.fill();
   } else if (unit.state === 'gathering') {
     ctx.fillStyle = '#10b981';
     ctx.beginPath();
-    ctx.arc(screenX + 14, screenY - 14, 3, 0, Math.PI * 2);
+    ctx.arc(screenX + 16, screenY - 16, 3, 0, Math.PI * 2);
     ctx.fill();
   } else if (unit.state === 'healing') {
     ctx.fillStyle = '#ec4899'; // 핑크색
     ctx.beginPath();
-    ctx.arc(screenX + 14, screenY - 14, 3, 0, Math.PI * 2);
+    ctx.arc(screenX + 16, screenY - 16, 3, 0, Math.PI * 2);
     ctx.fill();
   }
 }
@@ -144,12 +144,12 @@ export function drawNetworkUnit(
   }
 
   // 유닛 베이스 (외부 원)
-  const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 20);
+  const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 22);
   gradient.addColorStop(0, teamColor + '40');
   gradient.addColorStop(1, 'transparent');
   ctx.fillStyle = gradient;
   ctx.beginPath();
-  ctx.arc(screenX, screenY, 20, 0, Math.PI * 2);
+  ctx.arc(screenX, screenY, 22, 0, Math.PI * 2);
   ctx.fill();
 
   // 메인 원
@@ -158,7 +158,7 @@ export function drawNetworkUnit(
   ctx.lineWidth = isSelected ? 3 : 2;
 
   ctx.beginPath();
-  ctx.arc(screenX, screenY, 15, 0, Math.PI * 2);
+  ctx.arc(screenX, screenY, 17, 0, Math.PI * 2);
   ctx.fill();
   ctx.stroke();
 
@@ -168,43 +168,43 @@ export function drawNetworkUnit(
   // 왼쪽 진영 유닛은 오른쪽을 바라보도록 이미지 반전
   const unitType = unit.type as UnitType;
   const flipImage = unit.side === 'left';
-  const imageDrawn = drawUnitImage(ctx, unitType, screenX, screenY, 28, flipImage, 34);
+  const imageDrawn = drawUnitImage(ctx, unitType, screenX, screenY, 30, flipImage, 40);
   if (!imageDrawn) {
     const emoji = EMOJI_MAP[unit.type] || '❓';
-    drawEmoji(ctx, emoji, screenX, screenY, 18);
+    drawEmoji(ctx, emoji, screenX, screenY, 20);
   }
 
   // 체력바 배경
-  const hpBarWidth = 24;
+  const hpBarWidth = 26;
   const hpBarHeight = 4;
   const hpPercent = unit.hp / unit.maxHp;
 
   ctx.fillStyle = '#1a1a25';
   ctx.beginPath();
-  ctx.roundRect(screenX - hpBarWidth/2, screenY - 31, hpBarWidth, hpBarHeight, 2);
+  ctx.roundRect(screenX - hpBarWidth/2, screenY - 35, hpBarWidth, hpBarHeight, 2);
   ctx.fill();
 
   // 체력바
   ctx.fillStyle = hpPercent > 0.5 ? '#10b981' : '#ef4444';
   ctx.beginPath();
-  ctx.roundRect(screenX - hpBarWidth/2 + 1, screenY - 30, (hpBarWidth - 2) * hpPercent, hpBarHeight - 2, 1);
+  ctx.roundRect(screenX - hpBarWidth/2 + 1, screenY - 34, (hpBarWidth - 2) * hpPercent, hpBarHeight - 2, 1);
   ctx.fill();
 
   // 상태 인디케이터
   if (unit.state === 'attacking') {
     ctx.fillStyle = '#ef4444';
     ctx.beginPath();
-    ctx.arc(screenX + 14, screenY - 14, 3, 0, Math.PI * 2);
+    ctx.arc(screenX + 16, screenY - 16, 3, 0, Math.PI * 2);
     ctx.fill();
   } else if (unit.state === 'gathering') {
     ctx.fillStyle = '#10b981';
     ctx.beginPath();
-    ctx.arc(screenX + 14, screenY - 14, 3, 0, Math.PI * 2);
+    ctx.arc(screenX + 16, screenY - 16, 3, 0, Math.PI * 2);
     ctx.fill();
   } else if (unit.state === 'healing') {
     ctx.fillStyle = '#ec4899'; // 핑크색
     ctx.beginPath();
-    ctx.arc(screenX + 14, screenY - 14, 3, 0, Math.PI * 2);
+    ctx.arc(screenX + 16, screenY - 16, 3, 0, Math.PI * 2);
     ctx.fill();
   }
 }

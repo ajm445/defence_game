@@ -8,6 +8,8 @@ import { updateHealerUnit } from '../game/units/healerUnit';
 import { updateMageUnit } from '../game/units/mageUnit';
 import { makeAIDecision } from '../game/ai/aiController';
 import { Unit } from '../types';
+import { EffectType } from '../types/effect';
+import { effectManager } from '../effects';
 
 export const useGameLoop = () => {
   const lastTimeRef = useRef<number>(0);
@@ -77,6 +79,9 @@ export const useGameLoop = () => {
       // 자원 채집량 누적 (여러 유닛이 같은 노드에서 채집할 때)
       const nodeGatheredAmounts: Map<string, number> = new Map();
 
+      // 이펙트 정보 기록 (나중에 생성)
+      const effectsToCreate: { type: EffectType; x: number; y: number; targetX?: number; targetY?: number; unitId?: string }[] = [];
+
       // 복사본 생성 (상호 참조 문제 방지)
       const playerUnitsCopy = [...state.units];
       const enemyUnitsCopy = [...state.enemyUnits];
@@ -100,6 +105,11 @@ export const useGameLoop = () => {
             for (const heal of result.healTargets) {
               const prevHeal = healToPlayerUnits.get(heal.targetId) || 0;
               healToPlayerUnits.set(heal.targetId, prevHeal + heal.healAmount);
+              // 힐 이펙트 위치 기록
+              const healTarget = playerUnitsCopy.find(u => u.id === heal.targetId);
+              if (healTarget) {
+                effectsToCreate.push({ type: 'heal', x: healTarget.x, y: healTarget.y });
+              }
             }
           }
           if (result.unitDamage) {
@@ -123,8 +133,15 @@ export const useGameLoop = () => {
 
           if (result.baseDamage) {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
+            // 마법 공격 이펙트 (본진 공격)
+            effectsToCreate.push({ type: 'attack_mage', x: state.enemyBase.x, y: state.enemyBase.y });
           }
-          if (result.aoeDamage) {
+          if (result.aoeDamage && result.aoeDamage.length > 0) {
+            // 첫 번째 타겟 위치에 AOE 마법 이펙트
+            const firstTarget = enemyUnitsCopy.find(u => u.id === result.aoeDamage![0].targetId);
+            if (firstTarget) {
+              effectsToCreate.push({ type: 'attack_mage', x: firstTarget.x, y: firstTarget.y });
+            }
             for (const dmg of result.aoeDamage) {
               const prev = damageToEnemyUnits.get(dmg.targetId);
               const newDamage = (prev?.damage || 0) + dmg.damage;
@@ -147,6 +164,9 @@ export const useGameLoop = () => {
 
           if (result.baseDamage) {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
+            // 근접/원거리 공격 이펙트 (본진 공격)
+            const effectType: EffectType = unit.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+            effectsToCreate.push({ type: effectType, x: state.enemyBase.x, y: state.enemyBase.y, targetX: state.enemyBase.x, targetY: state.enemyBase.y });
           }
           if (result.unitDamage) {
             const prev = damageToEnemyUnits.get(result.unitDamage.targetId);
@@ -155,6 +175,12 @@ export const useGameLoop = () => {
               damage: newDamage,
               attackerId: result.unitDamage.attackerId
             });
+            // 근접/원거리 공격 이펙트
+            const target = enemyUnitsCopy.find(u => u.id === result.unitDamage!.targetId);
+            if (target) {
+              const effectType: EffectType = unit.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+              effectsToCreate.push({ type: effectType, x: target.x, y: target.y, targetX: target.x, targetY: target.y });
+            }
           }
         } else {
           const result = updateSupportUnit(unit, deltaTime, state.resourceNodes, enemyUnitsCopy);
@@ -165,6 +191,16 @@ export const useGameLoop = () => {
             // 채집량 누적
             const prevAmount = nodeGatheredAmounts.get(result.resourceGathered.nodeId) || 0;
             nodeGatheredAmounts.set(result.resourceGathered.nodeId, prevAmount + result.resourceGathered.amount);
+            // 채집 이펙트 (유닛 타입에 따라)
+            let gatherEffectType: EffectType;
+            switch (unit.type) {
+              case 'woodcutter': gatherEffectType = 'gather_wood'; break;
+              case 'miner': gatherEffectType = 'gather_stone'; break;
+              case 'gatherer': gatherEffectType = 'gather_herb'; break;
+              case 'goldminer': gatherEffectType = 'gather_gold'; break;
+              default: gatherEffectType = 'gather_wood';
+            }
+            effectsToCreate.push({ type: gatherEffectType, x: unit.x, y: unit.y, unitId: unit.id });
           }
           if (result.crystalFound) {
             addResource('crystal', 1, 'player');
@@ -199,6 +235,11 @@ export const useGameLoop = () => {
             for (const heal of result.healTargets) {
               const prevHeal = healToEnemyUnits.get(heal.targetId) || 0;
               healToEnemyUnits.set(heal.targetId, prevHeal + heal.healAmount);
+              // 힐 이펙트 위치 기록
+              const healTarget = enemyUnitsCopy.find(u => u.id === heal.targetId);
+              if (healTarget) {
+                effectsToCreate.push({ type: 'heal', x: healTarget.x, y: healTarget.y });
+              }
             }
           }
           if (result.unitDamage) {
@@ -223,8 +264,15 @@ export const useGameLoop = () => {
 
           if (result.baseDamage) {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
+            // 마법 공격 이펙트 (본진 공격)
+            effectsToCreate.push({ type: 'attack_mage', x: state.playerBase.x, y: state.playerBase.y });
           }
-          if (result.aoeDamage) {
+          if (result.aoeDamage && result.aoeDamage.length > 0) {
+            // 첫 번째 타겟 위치에 AOE 마법 이펙트
+            const firstTarget = playerUnitsCopy.find(u => u.id === result.aoeDamage![0].targetId);
+            if (firstTarget) {
+              effectsToCreate.push({ type: 'attack_mage', x: firstTarget.x, y: firstTarget.y });
+            }
             for (const dmg of result.aoeDamage) {
               const prev = damageToPlayerUnits.get(dmg.targetId);
               const newDamage = (prev?.damage || 0) + dmg.damage;
@@ -251,6 +299,9 @@ export const useGameLoop = () => {
 
           if (result.baseDamage) {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
+            // 근접/원거리 공격 이펙트 (본진 공격)
+            const effectType: EffectType = unit.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+            effectsToCreate.push({ type: effectType, x: state.playerBase.x, y: state.playerBase.y, targetX: state.playerBase.x, targetY: state.playerBase.y });
           }
           if (result.unitDamage) {
             const prev = damageToPlayerUnits.get(result.unitDamage.targetId);
@@ -259,6 +310,12 @@ export const useGameLoop = () => {
               damage: newDamage,
               attackerId: result.unitDamage.attackerId
             });
+            // 근접/원거리 공격 이펙트
+            const target = playerUnitsCopy.find(u => u.id === result.unitDamage!.targetId);
+            if (target) {
+              const effectType: EffectType = unit.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+              effectsToCreate.push({ type: effectType, x: target.x, y: target.y, targetX: target.x, targetY: target.y });
+            }
           }
           if (result.wallDamage) {
             damageWall(result.wallDamage.wallId, result.wallDamage.damage);
@@ -272,6 +329,16 @@ export const useGameLoop = () => {
             // 채집량 누적
             const prevAmount = nodeGatheredAmounts.get(result.resourceGathered.nodeId) || 0;
             nodeGatheredAmounts.set(result.resourceGathered.nodeId, prevAmount + result.resourceGathered.amount);
+            // 채집 이펙트 (유닛 타입에 따라)
+            let gatherEffectType: EffectType;
+            switch (unit.type) {
+              case 'woodcutter': gatherEffectType = 'gather_wood'; break;
+              case 'miner': gatherEffectType = 'gather_stone'; break;
+              case 'gatherer': gatherEffectType = 'gather_herb'; break;
+              case 'goldminer': gatherEffectType = 'gather_gold'; break;
+              default: gatherEffectType = 'gather_wood';
+            }
+            effectsToCreate.push({ type: gatherEffectType, x: unit.x, y: unit.y, unitId: unit.id });
           }
           if (result.unitDamage) {
             const prev = damageToPlayerUnits.get(result.unitDamage.targetId);
@@ -309,6 +376,19 @@ export const useGameLoop = () => {
           unit.hp = Math.min(unit.maxHp, unit.hp + healAmount);
         }
       }
+
+      // 이펙트 생성
+      for (const effect of effectsToCreate) {
+        if (effect.unitId) {
+          // 채집 이펙트는 쿨타임 적용
+          effectManager.createGatherEffect(effect.type, effect.x, effect.y, effect.unitId);
+        } else {
+          effectManager.createEffect(effect.type, effect.x, effect.y, effect.targetX, effect.targetY);
+        }
+      }
+
+      // 이펙트 업데이트
+      effectManager.update(deltaTime);
 
       // 죽은 유닛 제거
       const alivePlayerUnits = updatedPlayerUnits.filter((u) => u.hp > 0);

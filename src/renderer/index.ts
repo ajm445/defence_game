@@ -6,6 +6,7 @@ import { drawResourceNode } from './drawResourceNode';
 import { drawBase } from './drawBase';
 import { drawUnit, drawNetworkUnit } from './drawUnit';
 import { drawWall, drawNetworkWall } from './drawWall';
+import { effectManager } from '../effects';
 
 export function render(
   ctx: CanvasRenderingContext2D,
@@ -86,6 +87,9 @@ export function render(
     );
   }
 
+  // 이펙트 렌더링
+  effectManager.render(ctx, state.camera.x, state.camera.y, scaledWidth, scaledHeight);
+
   // 줌 변환 복원
   ctx.restore();
 }
@@ -163,6 +167,9 @@ export function renderMultiplayer(
     const color = unit.side === mySide ? '#00f5ff' : '#ef4444';
     drawNetworkUnit(ctx, unit, camera, color, false, scaledWidth, scaledHeight);
   }
+
+  // 이펙트 렌더링
+  effectManager.render(ctx, camera.x, camera.y, scaledWidth, scaledHeight);
 
   // 줌 변환 복원
   ctx.restore();
