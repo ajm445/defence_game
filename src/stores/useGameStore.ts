@@ -37,7 +37,7 @@ interface GameActions {
   // 기지
   damageBase: (team: Team, damage: number) => void;
   upgradePlayerBase: () => boolean;
-  getNextUpgradeCost: () => { gold: number; stone: number };
+  getNextUpgradeCost: () => { gold: number; wood?: number; stone?: number };
   canUpgradeBase: () => boolean;
 
   // 벽
@@ -467,10 +467,12 @@ export const useGameStore = create<GameStore>()(
 
       const cost = getUpgradeCost(currentLevel);
 
-      if (
-        state.resources.gold >= cost.gold &&
-        state.resources.stone >= cost.stone
-      ) {
+      // 자원 체크 (wood, stone은 선택적)
+      const hasGold = state.resources.gold >= cost.gold;
+      const hasWood = !cost.wood || state.resources.wood >= cost.wood;
+      const hasStone = !cost.stone || state.resources.stone >= cost.stone;
+
+      if (hasGold && hasWood && hasStone) {
         const newUpgradeLevel = currentLevel + 1;
         const newGoldPerSecond = CONFIG.GOLD_PER_SECOND + (newUpgradeLevel * CONFIG.BASE_UPGRADE.GOLD_BONUS);
 
@@ -478,7 +480,8 @@ export const useGameStore = create<GameStore>()(
           resources: {
             ...state.resources,
             gold: state.resources.gold - cost.gold,
-            stone: state.resources.stone - cost.stone,
+            wood: state.resources.wood - (cost.wood ?? 0),
+            stone: state.resources.stone - (cost.stone ?? 0),
           },
           playerBase: {
             ...state.playerBase,
@@ -509,7 +512,10 @@ export const useGameStore = create<GameStore>()(
       }
 
       const cost = getUpgradeCost(currentLevel);
-      return state.resources.gold >= cost.gold && state.resources.stone >= cost.stone;
+      const hasGold = state.resources.gold >= cost.gold;
+      const hasWood = !cost.wood || state.resources.wood >= cost.wood;
+      const hasStone = !cost.stone || state.resources.stone >= cost.stone;
+      return hasGold && hasWood && hasStone;
     },
 
     buildWall: (x: number, y: number) => {

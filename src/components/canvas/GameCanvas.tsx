@@ -3,6 +3,7 @@ import { useCanvas } from '../../hooks/useCanvas';
 import { useMouseInput } from '../../hooks/useMouseInput';
 import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
+import { useUIStore } from '../../stores/useUIStore';
 import { render, renderMultiplayer } from '../../renderer';
 import {
   initInterpolatedState,
@@ -32,6 +33,8 @@ export const GameCanvas: React.FC = () => {
     }
 
     const animate = () => {
+      const placementMode = useUIStore.getState().placementMode;
+
       if (gameMode === 'multiplayer') {
         // 멀티플레이어: 보간된 상태 렌더링
         const mpState = useMultiplayerStore.getState();
@@ -63,15 +66,15 @@ export const GameCanvas: React.FC = () => {
                 name: mpState.gameState.rightPlayer.name,
               },
             };
-            renderMultiplayer(ctx, stateToRender, mpState.mySide, camera, dimensions.width, dimensions.height);
+            renderMultiplayer(ctx, stateToRender, mpState.mySide, camera, dimensions.width, dimensions.height, placementMode);
           } else {
-            renderMultiplayer(ctx, mpState.gameState, mpState.mySide, camera, dimensions.width, dimensions.height);
+            renderMultiplayer(ctx, mpState.gameState, mpState.mySide, camera, dimensions.width, dimensions.height, placementMode);
           }
         }
       } else {
         // 싱글플레이어: 로컬 상태 렌더링
         const state = useGameStore.getState();
-        render(ctx, state, dimensions.width, dimensions.height);
+        render(ctx, state, dimensions.width, dimensions.height, placementMode);
       }
       animationRef.current = requestAnimationFrame(animate);
     };

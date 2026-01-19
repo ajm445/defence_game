@@ -63,7 +63,7 @@ export const CONFIG = {
       hp: 70,
       attack: 6,
       range: 25,
-      gatherRate: 0.8,
+      gatherRate: 1,
       speed: 1.5,
       type: 'support',
       resource: 'stone',
@@ -71,11 +71,11 @@ export const CONFIG = {
     },
     gatherer: {
       name: '채집꾼',
-      cost: { gold: 65 },
+      cost: { gold: 50 },
       hp: 50,
       attack: 3,
       range: 20,
-      gatherRate: 1.2,
+      gatherRate: 2,
       speed: 1.5,
       type: 'support',
       resource: 'herb',
@@ -138,8 +138,8 @@ export const CONFIG = {
   DIRECT_GATHER_AMOUNT: 5,  // 클릭당 채집량
 
   // 건설 비용
-  WALL_COST: { wood: 35, stone: 20 },
-  WALL_HP: 200,
+  WALL_COST: { wood: 40, stone: 20 },
+  WALL_HP: 150,
   WALL_DURATION: 30, // 벽 지속 시간 (초)
   BASE_UPGRADE: {
     BASE_COST: { gold: 100, wood: 50, stone: 50 }, // 기본 비용 (레벨 1)
@@ -150,8 +150,8 @@ export const CONFIG = {
   },
 
   // 약초 판매
-  HERB_SELL_COST: 10,   // 필요 약초 수
-  HERB_SELL_GOLD: 30,   // 획득 골드
+  HERB_SELL_COST: 30,   // 필요 약초 수
+  HERB_SELL_GOLD: 70,   // 획득 골드
 } as const;
 
 // AI 난이도별 설정
@@ -204,7 +204,7 @@ export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
   },
   hard: {
     name: '어려움',
-    description: '2분마다 대량 발생! AI가 다중 소환하며 매우 공격적입니다.',
+    description: '1분 30초마다 대량 발생! AI가 다중 소환하며 매우 공격적입니다.',
     goldPerSecond: 5,
     actionInterval: 2,
     actionChance: 0.95,
@@ -218,11 +218,11 @@ export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
     mageChance: 0.4,
     initialGold: 150,
     enemyBaseHp: 1500,
-    // 어려움: 다중 소환 가능, 2분마다 대량 발생 (풀 조합)
+    // 어려움: 다중 소환 가능, 1분 30초마다 대량 발생 (풀 조합)
     maxUnitsPerAction: 3,
     massSpawnEnabled: true,
-    massSpawnStartTime: 120,
-    massSpawnInterval: 120, // 2분마다 반복
+    massSpawnStartTime: 90,
+    massSpawnInterval: 90, // 1분 30초마다 반복
     massSpawnUnits: ['melee', 'ranged', 'knight', 'mage', 'healer'],
   },
 };
@@ -230,11 +230,20 @@ export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
 export type Config = typeof CONFIG;
 
 // 업그레이드 레벨에 따른 비용 계산
-export function getUpgradeCost(level: number): { gold: number; stone: number } {
+// 레벨 0→1: 골드만 필요 (150)
+// 레벨 1→2 이상: 골드 + 나무 + 돌 필요
+export function getUpgradeCost(level: number): { gold: number; wood?: number; stone?: number } {
+  if (level === 0) {
+    // 첫 번째 업그레이드: 골드만 150
+    return { gold: 150 };
+  }
+
+  // 두 번째 업그레이드부터: 복합 자원 필요
   const base = CONFIG.BASE_UPGRADE.BASE_COST;
-  const multiplier = Math.pow(CONFIG.BASE_UPGRADE.COST_MULTIPLIER, level);
+  const multiplier = Math.pow(CONFIG.BASE_UPGRADE.COST_MULTIPLIER, level - 1);
   return {
     gold: Math.floor(base.gold * multiplier),
+    wood: Math.floor(base.wood * multiplier),
     stone: Math.floor(base.stone * multiplier),
   };
 }

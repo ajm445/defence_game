@@ -125,17 +125,17 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     spread: Math.PI * 2,
   },
 
-  // 힐 - 초록색 십자가 상승
+  // 힐 - 초록색 십자가 상승 (투명하게 표시)
   heal: {
-    count: 10,
-    colors: ['#00ff00', '#33ff33', '#66ff66', '#00cc00'],
-    sizeMin: 10,
-    sizeMax: 16,
-    speedMin: 30,
-    speedMax: 60,
-    lifeMin: 0.8,
-    lifeMax: 1.2,
-    gravity: -50,
+    count: 6,
+    colors: ['rgba(0, 255, 0, 0.4)', 'rgba(51, 255, 51, 0.4)', 'rgba(102, 255, 102, 0.4)', 'rgba(0, 204, 0, 0.4)'],
+    sizeMin: 8,
+    sizeMax: 12,
+    speedMin: 25,
+    speedMax: 45,
+    lifeMin: 0.6,
+    lifeMax: 0.9,
+    gravity: -40,
     shape: 'cross',
     spread: Math.PI / 2,
     direction: -Math.PI / 2,

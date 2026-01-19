@@ -106,8 +106,26 @@ export const ActionPanel: React.FC = () => {
   const upgradeCost = getNextUpgradeCost();
   const isMaxLevel = currentBaseLevel >= CONFIG.BASE_UPGRADE.MAX_LEVEL;
   const canBuildWall = resources.wood >= CONFIG.WALL_COST.wood && resources.stone >= CONFIG.WALL_COST.stone;
-  const canUpgrade = !isMaxLevel && resources.gold >= upgradeCost.gold && resources.stone >= upgradeCost.stone;
+  const canUpgrade = !isMaxLevel &&
+    resources.gold >= upgradeCost.gold &&
+    (!upgradeCost.wood || resources.wood >= upgradeCost.wood) &&
+    (!upgradeCost.stone || resources.stone >= upgradeCost.stone);
   const canSellHerb = resources.herb >= CONFIG.HERB_SELL_COST;
+
+  // 업그레이드 비용 아이템 생성 (레벨에 따라 다름)
+  const getUpgradeCostItems = () => {
+    if (isMaxLevel) return [];
+    const items: { amount: number; icon: string }[] = [
+      { amount: upgradeCost.gold, icon: '💰' },
+    ];
+    if (upgradeCost.wood) {
+      items.push({ amount: upgradeCost.wood, icon: '🪵' });
+    }
+    if (upgradeCost.stone) {
+      items.push({ amount: upgradeCost.stone, icon: '🪨' });
+    }
+    return items;
+  };
 
   const handleBuildWall = () => {
     if (placementMode === 'wall') {
@@ -162,8 +180,8 @@ export const ActionPanel: React.FC = () => {
           icon="🧱"
           label={placementMode === 'wall' ? '취소' : '벽'}
           costItems={[
-            { amount: 20, icon: '🪵' },
-            { amount: 10, icon: '🪨' },
+            { amount: CONFIG.WALL_COST.wood, icon: '🪵' },
+            { amount: CONFIG.WALL_COST.stone, icon: '🪨' },
           ]}
           onClick={handleBuildWall}
           disabled={!canBuildWall}
@@ -173,10 +191,7 @@ export const ActionPanel: React.FC = () => {
         <ActionButton
           icon="🏰"
           label={isMaxLevel ? '강화 MAX' : `강화 Lv${currentBaseLevel + 1}`}
-          costItems={isMaxLevel ? [] : [
-            { amount: upgradeCost.gold, icon: '💰' },
-            { amount: upgradeCost.stone, icon: '🪨' },
-          ]}
+          costItems={getUpgradeCostItems()}
           costLabel={isMaxLevel ? '최대 레벨' : undefined}
           onClick={handleUpgradeBase}
           disabled={!canUpgrade}
@@ -186,8 +201,8 @@ export const ActionPanel: React.FC = () => {
           icon="🌿"
           label="판매"
           costItems={[
-            { amount: 10, icon: '🌿' },
-            { amount: '→ 30', icon: '💰' },
+            { amount: CONFIG.HERB_SELL_COST, icon: '🌿' },
+            { amount: `→ ${CONFIG.HERB_SELL_GOLD}`, icon: '💰' },
           ]}
           onClick={handleSellHerb}
           disabled={!canSellHerb}

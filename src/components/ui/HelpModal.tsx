@@ -150,12 +150,12 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="miner" fallbackEmoji="⛏️" size={24} /> 광부</div>
             <div className="text-yellow-300">비용: 40골드 + 5나무</div>
-            <div className="text-gray-200">돌 채집 (0.8/초)</div>
+            <div className="text-gray-200">돌 채집 (1.0/초)</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="gatherer" fallbackEmoji="🧺" size={24} /> 채집꾼</div>
-            <div className="text-yellow-300">비용: 65골드</div>
-            <div className="text-gray-200">약초 채집 (1.2/초)</div>
+            <div className="text-yellow-300">비용: 50골드</div>
+            <div className="text-gray-200">약초 채집 (2.0/초)</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="goldminer" fallbackEmoji="⚒️" size={24} /> 금광부</div>
@@ -178,18 +178,19 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         <div className="space-y-4">
           <div className="bg-dark-700/70 p-4 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🧱" size={20} /> 벽 건설</div>
-            <div className="text-yellow-300">비용: 35나무 + 20돌</div>
-            <div className="text-gray-200">HP 200 방어벽 생성 (30초 후 소멸)</div>
+            <div className="text-yellow-300">비용: 40나무 + 20돌</div>
+            <div className="text-gray-200">HP 150 방어벽 생성 (30초 후 소멸)</div>
+            <div className="text-gray-400 text-sm mt-1">내 진영에만 설치 가능 (설치 가능 영역이 표시됨)</div>
           </div>
           <div className="bg-dark-700/70 p-4 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🏰" size={20} /> 기지 업그레이드</div>
-            <div className="text-yellow-300">비용: 100골드 + 50나무 + 50돌 (레벨당 1.5배)</div>
+            <div className="text-yellow-300">비용: 1레벨 150골드 / 2레벨+ 골드+나무+돌 (레벨당 1.5배)</div>
             <div className="text-gray-200">본진 HP +200, 골드 수입 +1/초 (최대 5레벨)</div>
           </div>
           <div className="bg-dark-700/70 p-4 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🌿" size={20} /> 약초 판매</div>
-            <div className="text-yellow-300">필요: 약초 10개</div>
-            <div className="text-gray-200">30골드 획득</div>
+            <div className="text-yellow-300">필요: 약초 30개</div>
+            <div className="text-gray-200">70골드 획득</div>
           </div>
         </div>
       ),

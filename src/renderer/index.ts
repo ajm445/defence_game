@@ -8,11 +8,52 @@ import { drawUnit, drawNetworkUnit } from './drawUnit';
 import { drawWall, drawNetworkWall } from './drawWall';
 import { effectManager } from '../effects';
 
+// 벽 설치 가능 영역 표시
+function drawWallPlacementZone(
+  ctx: CanvasRenderingContext2D,
+  camera: Camera,
+  scaledWidth: number,
+  scaledHeight: number,
+  isLeftSide: boolean
+) {
+  const zoneStartX = isLeftSide ? 0 : CONFIG.MAP_WIDTH / 2;
+  const zoneEndX = isLeftSide ? CONFIG.MAP_WIDTH / 2 : CONFIG.MAP_WIDTH;
+
+  // 화면에 보이는 영역만 계산
+  const screenStartX = Math.max(zoneStartX - camera.x, 0);
+  const screenEndX = Math.min(zoneEndX - camera.x, scaledWidth);
+  const screenStartY = Math.max(0 - camera.y, 0);
+  const screenEndY = Math.min(CONFIG.MAP_HEIGHT - camera.y, scaledHeight);
+
+  if (screenEndX > screenStartX && screenEndY > screenStartY) {
+    // 설치 가능 영역 - 연한 초록색 오버레이
+    ctx.fillStyle = 'rgba(0, 255, 100, 0.08)';
+    ctx.fillRect(screenStartX, screenStartY, screenEndX - screenStartX, screenEndY - screenStartY);
+
+    // 경계선 - 점선
+    ctx.strokeStyle = 'rgba(0, 255, 100, 0.4)';
+    ctx.lineWidth = 2;
+    ctx.setLineDash([10, 10]);
+
+    // 중앙선 (설치 영역 경계)
+    const centerX = CONFIG.MAP_WIDTH / 2 - camera.x;
+    if (centerX >= 0 && centerX <= scaledWidth) {
+      ctx.beginPath();
+      ctx.moveTo(centerX, screenStartY);
+      ctx.lineTo(centerX, screenEndY);
+      ctx.stroke();
+    }
+
+    ctx.setLineDash([]);
+  }
+}
+
 export function render(
   ctx: CanvasRenderingContext2D,
   state: GameState,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  placementMode?: string
 ) {
   const zoom = state.camera.zoom;
 
@@ -32,6 +73,11 @@ export function render(
   const scaledWidth = canvasWidth / zoom;
   const scaledHeight = canvasHeight / zoom;
   drawGrid(ctx, state.camera, scaledWidth, scaledHeight);
+
+  // 벽 설치 가능 영역 표시 (싱글플레이어: 왼쪽 절반만)
+  if (placementMode === 'wall') {
+    drawWallPlacementZone(ctx, state.camera, scaledWidth, scaledHeight, true);
+  }
 
   // 자원 노드 그리기
   for (const node of state.resourceNodes) {
@@ -101,7 +147,8 @@ export function renderMultiplayer(
   mySide: PlayerSide,
   camera: Camera,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  placementMode?: string
 ) {
   const zoom = camera.zoom;
 
@@ -122,6 +169,11 @@ export function renderMultiplayer(
 
   // 배경 그리드
   drawGrid(ctx, camera, scaledWidth, scaledHeight);
+
+  // 벽 설치 가능 영역 표시 (내 진영만)
+  if (placementMode === 'wall') {
+    drawWallPlacementZone(ctx, camera, scaledWidth, scaledHeight, mySide === 'left');
+  }
 
   // 자원 노드 그리기
   for (const node of gameState.resourceNodes) {
