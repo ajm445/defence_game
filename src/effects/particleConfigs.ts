@@ -13,6 +13,7 @@ export interface ParticleConfig {
   shape: ParticleShape;
   spread: number; // 방사 각도 (라디안)
   direction?: number; // 기본 방향 (라디안)
+  emoji?: string; // 이모지 모양일 때 사용할 이모지
 }
 
 export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
@@ -124,19 +125,20 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     spread: Math.PI * 2,
   },
 
-  // 힐 - 핑크색 파티클 상승
+  // 힐 - 초록색 파티클 + 하트 이모지 상승
   heal: {
-    count: 12,
-    colors: ['#ff69b4', '#ff85c1', '#ffa0d0', '#ff50a0'],
-    sizeMin: 3,
-    sizeMax: 5,
+    count: 10,
+    colors: ['#00ff00', '#33ff33', '#66ff66', '#00cc00'],
+    sizeMin: 10,
+    sizeMax: 16,
     speedMin: 30,
     speedMax: 60,
-    lifeMin: 0.6,
-    lifeMax: 1.0,
-    gravity: -60,
-    shape: 'circle',
+    lifeMin: 0.8,
+    lifeMax: 1.2,
+    gravity: -50,
+    shape: 'emoji',
     spread: Math.PI / 2,
     direction: -Math.PI / 2,
+    emoji: '➕',
   },
 };

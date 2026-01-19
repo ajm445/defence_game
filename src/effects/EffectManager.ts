@@ -1,5 +1,6 @@
 import { Effect, EffectType, Particle } from '../types/effect';
 import { PARTICLE_CONFIGS, ParticleConfig } from './particleConfigs';
+import { drawEmoji } from '../utils/canvasEmoji';
 
 const MAX_EFFECTS = 200;
 const MAX_PARTICLES_PER_EFFECT = 30;
@@ -91,6 +92,7 @@ class EffectManager {
         gravity: config.gravity,
         shape: config.shape,
         alpha: 1,
+        emoji: config.emoji,
       });
     }
 
@@ -174,6 +176,12 @@ class EffectManager {
 
           case 'star':
             this.drawStar(ctx, screenX, screenY, particle.size);
+            break;
+
+          case 'emoji':
+            if (particle.emoji) {
+              drawEmoji(ctx, particle.emoji, screenX, screenY, particle.size);
+            }
             break;
         }
 
