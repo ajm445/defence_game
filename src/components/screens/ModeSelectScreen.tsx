@@ -33,6 +33,7 @@ export const ModeSelectScreen: React.FC = () => {
 
             <div className="relative h-full flex flex-col items-center justify-center p-6">
               <div className="text-6xl mb-4">🤖</div>
+              <br></br>
               <h2 className="font-game text-xl text-white mb-2">AI 대전</h2>
               <p className="text-gray-400 text-sm text-center">
                 AI와 대결하세요
@@ -53,6 +54,7 @@ export const ModeSelectScreen: React.FC = () => {
 
             <div className="relative h-full flex flex-col items-center justify-center p-6">
               <div className="text-6xl mb-4">⚔️</div>
+              <br></br>
               <h2 className="font-game text-xl text-white mb-2">1vs1 대전</h2>
               <p className="text-gray-400 text-sm text-center">
                 다른 플레이어와 대결
@@ -70,6 +72,7 @@ export const ModeSelectScreen: React.FC = () => {
         <button
           onClick={() => setScreen('menu')}
           className="mt-12 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+          style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
         >
           뒤로 가기
         </button>

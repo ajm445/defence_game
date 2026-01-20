@@ -41,6 +41,8 @@ export const MainMenu: React.FC = () => {
           </div>
         </div>
 
+        <div style={{ height: '10px' }} />
+
         {/* 구분선 */}
         <div className="w-64 h-px bg-gradient-to-r from-transparent via-neon-cyan/50 to-transparent my-8" />
 
@@ -50,7 +52,8 @@ export const MainMenu: React.FC = () => {
         <div className="flex flex-col gap-4 mt-4">
           <button
             onClick={handleStartGame}
-            className="group relative px-12 py-4 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            className="group relative py-4 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            style={{ paddingLeft: '25px', paddingRight: '25px', paddingTop: '10px', paddingBottom: '10px' }}
           >
             {/* 버튼 배경 */}
             <div className="absolute inset-0 bg-gradient-to-r from-neon-cyan/20 to-neon-blue/20 group-hover:from-neon-cyan/30 group-hover:to-neon-blue/30 transition-all duration-300 pointer-events-none" />
@@ -68,6 +71,7 @@ export const MainMenu: React.FC = () => {
           <button
             onClick={() => setShowHelp(true)}
             className="group relative px-12 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            style={{ paddingLeft: '25px', paddingRight: '25px', paddingTop: '10px', paddingBottom: '10px' }}
           >
             <div className="absolute inset-0 bg-dark-700/50 group-hover:bg-dark-600/50 transition-all duration-300 pointer-events-none" />
             <div className="absolute inset-0 border border-dark-400 rounded-lg group-hover:border-gray-500 transition-all duration-300 pointer-events-none" />

@@ -63,7 +63,8 @@ export const PauseScreen: React.FC = () => {
         <div className="flex flex-col gap-4 min-w-[250px]">
           <button
             onClick={handleResume}
-            className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95"
+            className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
+            style={{ paddingTop: '5px', paddingBottom: '5px' }}
           >
             <div className="absolute inset-0 bg-neon-cyan/20" />
             <div className="absolute inset-0 border rounded-lg border-neon-cyan/50 group-hover:border-neon-cyan group-hover:shadow-neon-cyan transition-all duration-300" />
@@ -74,7 +75,8 @@ export const PauseScreen: React.FC = () => {
 
           <button
             onClick={handleRestart}
-            className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95"
+            className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
+            style={{ paddingTop: '5px', paddingBottom: '5px' }}
           >
             <div className="absolute inset-0 bg-neon-purple/20" />
             <div className="absolute inset-0 border rounded-lg border-neon-purple/50 group-hover:border-neon-purple group-hover:shadow-neon-purple transition-all duration-300" />
@@ -85,7 +87,8 @@ export const PauseScreen: React.FC = () => {
 
           <button
             onClick={handleMainMenu}
-            className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95"
+            className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
+            style={{ paddingTop: '5px', paddingBottom: '5px' }}
           >
             <div className="absolute inset-0 bg-dark-600/50" />
             <div className="absolute inset-0 border border-dark-400 rounded-lg group-hover:border-gray-500 transition-all duration-300" />

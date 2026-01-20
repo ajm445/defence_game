@@ -92,14 +92,21 @@ export const DifficultySelectScreen: React.FC = () => {
         <div style={{ height: '30px' }} />
 
         {/* 선택된 난이도 설명 */}
-        <div className="w-full max-w-lg bg-dark-800/80 border border-neon-cyan/20 rounded-lg p-6 mb-8">
+        <div className="w-full max-w-lg bg-dark-800/80 border border-neon-cyan/20 rounded-lg p-6 mb-8"
+        style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+        >
           <h3 className="font-game text-lg text-neon-cyan mb-2">
             {AI_DIFFICULTY_CONFIG[hoveredDifficulty].name}
           </h3>
+
+          <div style={{ height: '10px' }} />
+
           <p className="text-gray-300 text-sm mb-4">
             {AI_DIFFICULTY_CONFIG[hoveredDifficulty].description}
           </p>
 
+          <div style={{ height: '10px' }} />
+          
           <div className="grid grid-cols-2 gap-4 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-400">AI 골드 수입</span>
@@ -130,6 +137,7 @@ export const DifficultySelectScreen: React.FC = () => {
         <button
           onClick={() => setScreen('modeSelect')}
           className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+          style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
         >
           뒤로 가기
         </button>
