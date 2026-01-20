@@ -34,6 +34,7 @@ interface TutorialState {
   completedSteps: string[];
   showOverlay: boolean;
   herbSold: boolean; // 약초 판매 여부 추적
+  tutorialSkipped: boolean; // 건너뛰기 눌렀는지 여부
 }
 
 interface TutorialActions {
@@ -197,6 +198,7 @@ export const useTutorialStore = create<TutorialState & TutorialActions>((set, ge
   completedSteps: [],
   showOverlay: true,
   herbSold: false,
+  tutorialSkipped: false,
 
   startTutorial: () => {
     set({
@@ -205,6 +207,7 @@ export const useTutorialStore = create<TutorialState & TutorialActions>((set, ge
       completedSteps: [],
       showOverlay: true,
       herbSold: false,
+      tutorialSkipped: false,
     });
   },
 
@@ -215,6 +218,7 @@ export const useTutorialStore = create<TutorialState & TutorialActions>((set, ge
       completedSteps: [],
       showOverlay: false,
       herbSold: false,
+      tutorialSkipped: true, // 건너뛰기 표시
     });
   },
 

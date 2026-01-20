@@ -437,11 +437,14 @@ AI는 다음 우선순위로 행동합니다:
 
 **버그 수정**
 - 볼륨 슬라이더 호버 시 마우스 이동 중 패널이 사라지는 문제 수정
+- 튜토리얼 건너뛰기 후 적 본진 파괴 시 게임이 종료되지 않던 문제 수정
 
 **기술적 변경**
 - `useGameLoop.ts`: `isPlayer` 플래그로 플레이어 이펙트 구분
 - `useMultiplayerStore.ts`: `mySide` 체크로 플레이어 이벤트 필터링
 - `SoundControl.tsx`: 슬라이더 위치 및 호버 영역 개선
+- `useTutorialStore.ts`: `tutorialSkipped` 상태 추가
+- `useGameStore.ts`: 튜토리얼 건너뛰기 조건 추가
 
 ---
 

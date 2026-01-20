@@ -672,7 +672,7 @@ export const useGameStore = create<GameStore>()(
         return 'defeat';
       }
 
-      // 튜토리얼 모드: 마지막 단계(적 본진 파괴)에서만 승리 처리
+      // 튜토리얼 모드: 마지막 단계(적 본진 파괴) 또는 건너뛰기 후 본진 파괴 시 승리
       if (state.gameMode === 'tutorial') {
         const tutorialState = useTutorialStore.getState();
         const isLastStep = tutorialState.currentStepIndex === TUTORIAL_STEPS.length - 1;
@@ -682,8 +682,16 @@ export const useGameStore = create<GameStore>()(
           tutorialState.endTutorial();
           return 'victory';
         }
-        // 튜토리얼 중에는 적 본진이 파괴되어도 마지막 단계가 아니면 게임 종료하지 않음
-        return null;
+
+        // 건너뛰기 후 적 본진 파괴 시 승리
+        if (tutorialState.tutorialSkipped && state.enemyBase.hp <= 0) {
+          return 'victory';
+        }
+
+        // 튜토리얼 진행 중에는 적 본진이 파괴되어도 게임 종료하지 않음
+        if (tutorialState.isActive) {
+          return null;
+        }
       }
 
       // 극악/보스테스트 난이도: 페이즈 2에서 보스를 처치해야 승리
