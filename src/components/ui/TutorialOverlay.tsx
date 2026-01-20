@@ -94,7 +94,7 @@ export const TutorialOverlay: React.FC = () => {
     return (
       <button
         onClick={() => setShowOverlay(true)}
-        className="fixed top-4 left-4 z-50 bg-dark-800/90 border border-neon-cyan/50 rounded-lg px-3 py-2 text-neon-cyan text-sm hover:bg-dark-700 transition-colors"
+        className="fixed top-20 left-4 z-50 bg-dark-800/90 border border-neon-cyan/50 rounded-lg px-3 py-2 text-neon-cyan text-sm hover:bg-dark-700 transition-colors"
       >
         <span className="mr-2">📖</span>
         튜토리얼 ({currentStepIndex + 1}/{TUTORIAL_STEPS.length})
@@ -103,7 +103,7 @@ export const TutorialOverlay: React.FC = () => {
   }
 
   return (
-    <div className="fixed top-4 left-4 z-40 pointer-events-auto">
+    <div className="fixed top-20 left-4 z-40 pointer-events-auto">
       {/* 튜토리얼 패널 - 좌측 상단 고정 */}
       <div className="bg-dark-800/95 border-2 border-neon-cyan rounded-xl p-4 w-80 shadow-lg shadow-neon-cyan/20">
         {/* 헤더 */}

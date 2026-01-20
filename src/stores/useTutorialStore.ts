@@ -74,21 +74,21 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'spawn_melee',
     title: '전투 유닛 - 검병 ⚔️',
-    description: '검병을 소환하세요!\n\n• 비용: 골드 30\n• 근접 공격 유닛\n• 기본적인 전투력을 가진 유닛입니다.',
+    description: '검병을 소환하세요!\n\n• 비용: 💰50\n• HP 100, 공격력 15\n• 근접 공격 유닛입니다.',
     highlight: 'unit-melee',
     conditionType: 'has_melee',
   },
   {
     id: 'spawn_ranged',
     title: '전투 유닛 - 궁수 🏹',
-    description: '궁수를 소환하세요!\n\n• 비용: 골드 50\n• 원거리 공격 유닛\n• 멀리서 적을 공격할 수 있습니다.',
+    description: '궁수를 소환하세요!\n\n• 비용: 💰80 + 🪵10\n• HP 50, 공격력 25\n• 원거리 공격 유닛입니다.',
     highlight: 'unit-ranged',
     conditionType: 'has_ranged',
   },
   {
     id: 'spawn_knight',
     title: '전투 유닛 - 기사 🛡️',
-    description: '기사를 소환하세요!\n\n• 비용: 골드 80\n• 높은 체력과 공격력\n• 탱커 역할을 합니다.',
+    description: '기사를 소환하세요!\n\n• 비용: 💰120 + 🪵20 + 🪨30\n• HP 300, 공격력 10\n• 탱커 역할을 합니다.',
     highlight: 'unit-knight',
     conditionType: 'has_knight',
   },
@@ -97,7 +97,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'spawn_woodcutter',
     title: '자원 유닛 - 나무꾼 🪓',
-    description: '나무꾼을 소환하세요!\n\n• 비용: 골드 40\n• 나무를 채집합니다\n• 나무는 벽 건설과 업그레이드에 필요합니다.',
+    description: '나무꾼을 소환하세요!\n\n• 비용: 💰30\n• 나무를 채집합니다\n• 나무는 벽 건설과 업그레이드에 필요합니다.',
     highlight: 'unit-woodcutter',
     conditionType: 'has_woodcutter',
   },
@@ -110,7 +110,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'spawn_miner',
     title: '자원 유닛 - 광부 ⛏️',
-    description: '광부를 소환하세요!\n\n• 비용: 골드 40\n• 돌을 채집합니다\n• 돌은 벽 건설과 업그레이드에 필요합니다.',
+    description: '광부를 소환하세요!\n\n• 비용: 💰40 + 🪵5\n• 돌을 채집합니다\n• 돌은 벽 건설과 업그레이드에 필요합니다.',
     highlight: 'unit-miner',
     conditionType: 'has_miner',
   },
@@ -123,7 +123,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'spawn_gatherer',
     title: '자원 유닛 - 채집꾼 🧺',
-    description: '채집꾼을 소환하세요!\n\n• 비용: 골드 35\n• 약초를 채집합니다\n• 약초는 판매하여 골드를 얻을 수 있습니다.',
+    description: '채집꾼을 소환하세요!\n\n• 비용: 💰50\n• 약초를 채집합니다\n• 약초는 판매하여 골드를 얻을 수 있습니다.',
     highlight: 'unit-gatherer',
     conditionType: 'has_gatherer',
   },
@@ -136,7 +136,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'spawn_goldminer',
     title: '자원 유닛 - 금광부 💰',
-    description: '금광부를 소환하세요!\n\n• 비용: 골드 60\n• 금광에서 골드를 채굴합니다\n• 골드 수입을 늘릴 수 있습니다.',
+    description: '금광부를 소환하세요!\n\n• 비용: 💰100 + 🪵20\n• 금광에서 골드를 채굴합니다\n• 골드 수입을 늘릴 수 있습니다.',
     highlight: 'unit-goldminer',
     conditionType: 'has_goldminer',
   },
@@ -145,7 +145,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'spawn_healer',
     title: '지원 유닛 - 힐러 💚',
-    description: '힐러를 소환하세요!\n\n• 비용: 골드 70, 약초 3\n• 아군 유닛을 치료합니다\n• 전투 지속력을 높여줍니다.',
+    description: '힐러를 소환하세요!\n\n• 비용: 💰70 + 🌿15\n• 범위 내 아군 유닛 치료 (5HP/초)\n• 전투 지속력을 높여줍니다.',
     highlight: 'unit-healer',
     conditionType: 'has_healer',
   },
@@ -154,30 +154,30 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'build_wall',
     title: '액션 - 벽 건설 🧱',
-    description: '벽 건설 버튼을 클릭한 후 맵에서 위치를 클릭하세요!\n\n• 비용: 나무 20, 돌 10\n• 적의 진행을 막아줍니다\n• 일정 시간 후 사라집니다.',
+    description: '벽 건설 버튼(Q)을 클릭한 후 맵에서 위치를 클릭하세요!\n\n• 비용: 🪵40 + 🪨20\n• HP 150, 적의 진행을 막아줍니다\n• 30초 후 사라집니다.',
     highlight: 'wall-button',
     conditionType: 'has_wall',
   },
   {
     id: 'sell_herb',
     title: '액션 - 약초 판매 💵',
-    description: '약초 판매 버튼을 클릭하세요!\n\n• 약초 5개 → 골드 30\n• 골드가 부족할 때 유용합니다.',
+    description: '약초 판매 버튼(E)을 클릭하세요!\n\n• 🌿30 → 💰70\n• 골드가 부족할 때 유용합니다.',
     highlight: 'sell-herb-button',
     conditionType: 'sold_herb',
   },
   {
     id: 'upgrade_base',
     title: '액션 - 기지 업그레이드 🏰',
-    description: '기지 업그레이드 버튼을 클릭하세요!\n\n• 기지 체력 증가\n• 골드 수입 증가\n• 최대 5단계까지 가능',
+    description: '기지 업그레이드 버튼(W)을 클릭하세요!\n\n• 1레벨: 💰150\n• 2레벨+: 💰 + 🪵 + 🪨\n• HP +200, 골드 수입 +1/초\n• 최대 5단계',
     highlight: 'upgrade-button',
     conditionType: 'has_upgrade',
   },
 
-  // === 마법사 (수정 필요) ===
+  // === 마법사 ===
   {
     id: 'spawn_mage',
     title: '특수 유닛 - 마법사 🔮',
-    description: '마법사를 소환하세요!\n\n• 비용: 골드 120, 나무 50, 수정 1\n• 강력한 범위 공격\n• 수정은 맵 중앙에서 획득 가능',
+    description: '마법사를 소환하세요!\n\n• 비용: 💰150 + 🪵50 + 💎10\n• HP 40, 공격력 50 (범위 공격)\n• 수정은 맵 중앙에서 획득 가능',
     highlight: 'unit-mage',
     conditionType: 'has_mage',
   },
