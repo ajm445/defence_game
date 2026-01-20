@@ -90,7 +90,7 @@ export const useGameLoop = () => {
       const nodeGatheredAmounts: Map<string, number> = new Map();
 
       // 이펙트 정보 기록 (나중에 생성)
-      const effectsToCreate: { type: EffectType; x: number; y: number; targetX?: number; targetY?: number; unitId?: string }[] = [];
+      const effectsToCreate: { type: EffectType; x: number; y: number; targetX?: number; targetY?: number; unitId?: string; isPlayer?: boolean }[] = [];
 
       // 복사본 생성 (상호 참조 문제 방지)
       const playerUnitsCopy = [...state.units];
@@ -118,7 +118,7 @@ export const useGameLoop = () => {
               // 힐 이펙트 위치 기록
               const healTarget = playerUnitsCopy.find(u => u.id === heal.targetId);
               if (healTarget) {
-                effectsToCreate.push({ type: 'heal', x: healTarget.x, y: healTarget.y });
+                effectsToCreate.push({ type: 'heal', x: healTarget.x, y: healTarget.y, isPlayer: true });
               }
             }
           }
@@ -144,13 +144,13 @@ export const useGameLoop = () => {
           if (result.baseDamage) {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
             // 마법 공격 이펙트 (본진 공격)
-            effectsToCreate.push({ type: 'attack_mage', x: state.enemyBase.x, y: state.enemyBase.y });
+            effectsToCreate.push({ type: 'attack_mage', x: state.enemyBase.x, y: state.enemyBase.y, isPlayer: true });
           }
           if (result.aoeDamage && result.aoeDamage.length > 0) {
             // 첫 번째 타겟 위치에 AOE 마법 이펙트
             const firstTarget = enemyUnitsCopy.find(u => u.id === result.aoeDamage![0].targetId);
             if (firstTarget) {
-              effectsToCreate.push({ type: 'attack_mage', x: firstTarget.x, y: firstTarget.y });
+              effectsToCreate.push({ type: 'attack_mage', x: firstTarget.x, y: firstTarget.y, isPlayer: true });
             }
             for (const dmg of result.aoeDamage) {
               const prev = damageToEnemyUnits.get(dmg.targetId);
@@ -176,7 +176,7 @@ export const useGameLoop = () => {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
             // 근접/원거리 공격 이펙트 (본진 공격)
             const effectType: EffectType = unit.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
-            effectsToCreate.push({ type: effectType, x: state.enemyBase.x, y: state.enemyBase.y, targetX: state.enemyBase.x, targetY: state.enemyBase.y });
+            effectsToCreate.push({ type: effectType, x: state.enemyBase.x, y: state.enemyBase.y, targetX: state.enemyBase.x, targetY: state.enemyBase.y, isPlayer: true });
           }
           if (result.unitDamage) {
             const prev = damageToEnemyUnits.get(result.unitDamage.targetId);
@@ -189,7 +189,7 @@ export const useGameLoop = () => {
             const target = enemyUnitsCopy.find(u => u.id === result.unitDamage!.targetId);
             if (target) {
               const effectType: EffectType = unit.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
-              effectsToCreate.push({ type: effectType, x: target.x, y: target.y, targetX: target.x, targetY: target.y });
+              effectsToCreate.push({ type: effectType, x: target.x, y: target.y, targetX: target.x, targetY: target.y, isPlayer: true });
             }
           }
         } else {
@@ -210,7 +210,7 @@ export const useGameLoop = () => {
               case 'goldminer': gatherEffectType = 'gather_gold'; break;
               default: gatherEffectType = 'gather_wood';
             }
-            effectsToCreate.push({ type: gatherEffectType, x: unit.x, y: unit.y, unitId: unit.id });
+            effectsToCreate.push({ type: gatherEffectType, x: unit.x, y: unit.y, unitId: unit.id, isPlayer: true });
           }
           if (result.crystalFound) {
             addResource('crystal', 1, 'player');
@@ -420,25 +420,27 @@ export const useGameLoop = () => {
         }
       }
 
-      // 이펙트 생성 및 사운드 재생
+      // 이펙트 생성 및 사운드 재생 (플레이어 이펙트만 사운드 재생)
       for (const effect of effectsToCreate) {
         if (effect.unitId) {
           // 채집 이펙트는 쿨타임 적용
           const created = effectManager.createGatherEffect(effect.type, effect.x, effect.y, effect.unitId);
-          if (created) {
+          if (created && effect.isPlayer) {
             soundManager.play('resource_collect');
           }
         } else {
           effectManager.createEffect(effect.type, effect.x, effect.y, effect.targetX, effect.targetY);
-          // 이펙트 타입에 따른 사운드 매핑
-          if (effect.type === 'attack_melee') {
-            soundManager.play('attack_melee');
-          } else if (effect.type === 'attack_ranged') {
-            soundManager.play('attack_ranged');
-          } else if (effect.type === 'attack_mage') {
-            soundManager.play('attack_mage');
-          } else if (effect.type === 'heal') {
-            soundManager.play('heal');
+          // 이펙트 타입에 따른 사운드 매핑 (플레이어만)
+          if (effect.isPlayer) {
+            if (effect.type === 'attack_melee') {
+              soundManager.play('attack_melee');
+            } else if (effect.type === 'attack_ranged') {
+              soundManager.play('attack_ranged');
+            } else if (effect.type === 'attack_mage') {
+              soundManager.play('attack_mage');
+            } else if (effect.type === 'heal') {
+              soundManager.play('heal');
+            }
           }
         }
       }

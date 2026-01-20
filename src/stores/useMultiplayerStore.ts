@@ -280,7 +280,10 @@ function handleGameEvent(
 
   switch (event.event) {
     case 'UNIT_SPAWNED':
-      soundManager.play('unit_spawn');
+      // 내 유닛이 생성될 때만 사운드 재생
+      if (event.unit.side === mySide) {
+        soundManager.play('unit_spawn');
+      }
       set({
         gameState: {
           ...gameState,
@@ -289,8 +292,12 @@ function handleGameEvent(
       });
       break;
 
-    case 'UNIT_DIED':
-      soundManager.play('unit_death');
+    case 'UNIT_DIED': {
+      // 내 유닛이 죽을 때만 사운드 재생
+      const deadUnit = gameState.units.find((u) => u.id === event.unitId);
+      if (deadUnit && deadUnit.side === mySide) {
+        soundManager.play('unit_death');
+      }
       set({
         gameState: {
           ...gameState,
@@ -298,6 +305,7 @@ function handleGameEvent(
         },
       });
       break;
+    }
 
     case 'UNIT_MOVED':
       set({
@@ -318,13 +326,15 @@ function handleGameEvent(
       if (attacker && target) {
         const effectType = getAttackEffectType(attacker.type);
         effectManager.createEffect(effectType, target.x, target.y, target.x, target.y);
-        // 공격 사운드
-        if (effectType === 'attack_melee') {
-          soundManager.play('attack_melee');
-        } else if (effectType === 'attack_ranged') {
-          soundManager.play('attack_ranged');
-        } else if (effectType === 'attack_mage') {
-          soundManager.play('attack_mage');
+        // 내 유닛이 공격할 때만 사운드 재생
+        if (attacker.side === mySide) {
+          if (effectType === 'attack_melee') {
+            soundManager.play('attack_melee');
+          } else if (effectType === 'attack_ranged') {
+            soundManager.play('attack_ranged');
+          } else if (effectType === 'attack_mage') {
+            soundManager.play('attack_mage');
+          }
         }
       }
 
@@ -345,7 +355,11 @@ function handleGameEvent(
     case 'UNIT_HEALED': {
       // 힐 이펙트 생성
       effectManager.createEffect('heal', event.x, event.y);
-      soundManager.play('heal');
+      // 내 힐러가 힐할 때만 사운드 재생
+      const healer = gameState.units.find((u) => u.id === event.healerId);
+      if (healer && healer.side === mySide) {
+        soundManager.play('heal');
+      }
       break;
     }
 
@@ -353,7 +367,9 @@ function handleGameEvent(
       // 채집 이펙트 생성
       const effectType = getGatherEffectType(event.unitType);
       const created = effectManager.createGatherEffect(effectType, event.x, event.y, event.unitId);
-      if (created) {
+      // 내 유닛이 채집할 때만 사운드 재생
+      const gatherer = gameState.units.find((u) => u.id === event.unitId);
+      if (created && gatherer && gatherer.side === mySide) {
         soundManager.play('resource_collect');
       }
       break;
@@ -384,7 +400,10 @@ function handleGameEvent(
     }
 
     case 'WALL_BUILT':
-      soundManager.play('build_wall');
+      // 내 벽을 지을 때만 사운드 재생
+      if (event.wall.side === mySide) {
+        soundManager.play('build_wall');
+      }
       set({
         gameState: {
           ...gameState,
