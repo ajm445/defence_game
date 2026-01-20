@@ -95,28 +95,14 @@ export const GameOverScreen: React.FC = () => {
           {isDraw ? 'DRAW' : victory ? 'VICTORY' : 'DEFEAT'}
         </h1>
 
+        <div style={{ height: '30px' }} />
+
         {(resultMessage || gameMode !== 'multiplayer') && (
           <p className="text-gray-400 text-lg mb-8">
             {resultMessage || (victory ? '적 본진을 파괴했습니다!' : '본진이 파괴되었습니다...')}
           </p>
         )}
         
-        {/* 통계 - AI 대전에서만 표시 */}
-        {gameMode !== 'multiplayer' && (
-          <>
-            <div style={{ height: '30px' }} />
-            <div className="glass-dark rounded-xl p-6 mb-8 min-w-[300px] border border-dark-500/50">
-              <div className="flex justify-between mb-3">
-                <span className="text-gray-400">내 본진 HP</span>
-                <span className="text-white font-bold tabular-nums">{Math.floor(playerBase.hp)}</span>
-              </div>
-              <div className="flex justify-between">
-                <span className="text-gray-400">적 본진 HP</span>
-                <span className="text-white font-bold tabular-nums">{Math.floor(enemyBase.hp)}</span>
-              </div>
-            </div>
-          </>
-        )}
 
         <div style={{ height: '30px' }} />
         
@@ -128,6 +114,7 @@ export const GameOverScreen: React.FC = () => {
               group relative px-8 py-3 rounded-lg overflow-hidden
               transition-all duration-300 hover:scale-105 active:scale-95
             `}
+            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
           >
             <div className={`absolute inset-0 ${victory || isDraw ? 'bg-neon-cyan/20' : 'bg-neon-red/20'}`} />
             <div className={`absolute inset-0 border rounded-lg ${victory || isDraw ? 'border-neon-cyan/50 group-hover:border-neon-cyan group-hover:shadow-neon-cyan' : 'border-neon-red/50 group-hover:border-neon-red group-hover:shadow-neon-red'} transition-all duration-300`} />
@@ -139,6 +126,7 @@ export const GameOverScreen: React.FC = () => {
           <button
             onClick={handleBackToMenu}
             className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95"
+            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
           >
             <div className="absolute inset-0 bg-dark-600/50" />
             <div className="absolute inset-0 border border-dark-400 rounded-lg group-hover:border-gray-500 transition-all duration-300" />

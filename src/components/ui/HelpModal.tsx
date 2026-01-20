@@ -131,7 +131,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="mage" fallbackEmoji="🔮" size={24} /> 마법사</div>
-            <div className="text-yellow-300">비용: 150골드 + 10수정</div>
+            <div className="text-yellow-300">비용: 150골드 + 50나무 + 10수정</div>
             <div className="text-gray-200">HP 40 | 공격력 50 | 사거리 200 | 범위 공격</div>
           </div>
         </div>
@@ -165,7 +165,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><UnitImage type="healer" fallbackEmoji="💚" size={24} /> 힐러</div>
             <div className="text-yellow-300">비용: 70골드 + 15약초</div>
-            <div className="text-gray-200">전투 유닛 광역 회복 (10HP/초, 범위 100px)</div>
+            <div className="text-gray-200">전투 유닛 광역 회복 (5HP/초, 범위 130px)</div>
             <div className="text-gray-400 text-sm mt-1">전투 유닛만 회복하며 따라다님, 전투 유닛 전멸 시 공격</div>
           </div>
         </div>
