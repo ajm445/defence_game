@@ -56,34 +56,34 @@ export const SoundControl: React.FC = () => {
         {soundMuted ? '🔇' : soundVolume > 0.5 ? '🔊' : soundVolume > 0 ? '🔉' : '🔈'}
       </button>
 
-      {/* 볼륨 슬라이더 */}
+      {/* 볼륨 슬라이더 (버튼과 연결되도록 패딩 추가) */}
       {showSlider && !soundMuted && (
-        <div
-          className="absolute left-0 -bottom-12 w-32 p-2 rounded-lg glass-dark border border-dark-500/50 z-20"
-        >
-          <input
-            type="range"
-            min="0"
-            max="1"
-            step="0.1"
-            value={soundVolume}
-            onChange={handleVolumeChange}
-            className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer
-                       [&::-webkit-slider-thumb]:appearance-none
-                       [&::-webkit-slider-thumb]:w-4
-                       [&::-webkit-slider-thumb]:h-4
-                       [&::-webkit-slider-thumb]:rounded-full
-                       [&::-webkit-slider-thumb]:bg-neon-cyan
-                       [&::-webkit-slider-thumb]:cursor-pointer
-                       [&::-moz-range-thumb]:w-4
-                       [&::-moz-range-thumb]:h-4
-                       [&::-moz-range-thumb]:rounded-full
-                       [&::-moz-range-thumb]:bg-neon-cyan
-                       [&::-moz-range-thumb]:cursor-pointer
-                       [&::-moz-range-thumb]:border-0"
-          />
-          <div className="text-[10px] text-center text-gray-400 mt-1">
-            {Math.round(soundVolume * 100)}%
+        <div className="absolute left-0 top-full pt-1 z-20">
+          <div className="w-32 p-2 rounded-lg glass-dark border border-dark-500/50">
+            <input
+              type="range"
+              min="0"
+              max="1"
+              step="0.1"
+              value={soundVolume}
+              onChange={handleVolumeChange}
+              className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer
+                         [&::-webkit-slider-thumb]:appearance-none
+                         [&::-webkit-slider-thumb]:w-4
+                         [&::-webkit-slider-thumb]:h-4
+                         [&::-webkit-slider-thumb]:rounded-full
+                         [&::-webkit-slider-thumb]:bg-neon-cyan
+                         [&::-webkit-slider-thumb]:cursor-pointer
+                         [&::-moz-range-thumb]:w-4
+                         [&::-moz-range-thumb]:h-4
+                         [&::-moz-range-thumb]:rounded-full
+                         [&::-moz-range-thumb]:bg-neon-cyan
+                         [&::-moz-range-thumb]:cursor-pointer
+                         [&::-moz-range-thumb]:border-0"
+            />
+            <div className="text-[10px] text-center text-gray-400 mt-1">
+              {Math.round(soundVolume * 100)}%
+            </div>
           </div>
         </div>
       )}
