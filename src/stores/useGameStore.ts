@@ -208,7 +208,18 @@ export const useGameStore = create<GameStore>()(
     initGame: (mode: GameMode = 'ai', difficulty: AIDifficulty = 'easy') => {
       const state = createInitialState();
 
-      if (mode === 'ai') {
+      if (mode === 'tutorial') {
+        // 튜토리얼 모드: 넉넉한 자원과 약한 적
+        state.resources.gold = 500;
+        state.resources.wood = 50;
+        state.resources.stone = 30;
+        state.resources.herb = 10;
+        state.resources.crystal = 2; // 마법사 소환 가능하도록
+        state.aiResources.gold = 30;
+        state.enemyBase.hp = 300;
+        state.enemyBase.maxHp = 300;
+        state.time = CONFIG.GAME_TIME * 3; // 시간 3배 (30분)
+      } else if (mode === 'ai') {
         const difficultyConfig = AI_DIFFICULTY_CONFIG[difficulty];
         state.aiResources.gold = difficultyConfig.initialGold;
         state.enemyBase.hp = difficultyConfig.enemyBaseHp;

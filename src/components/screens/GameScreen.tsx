@@ -1,6 +1,7 @@
 import React, { useEffect } from 'react';
 import { useGameLoop } from '../../hooks/useGameLoop';
 import { useKeyboardInput } from '../../hooks/useKeyboardInput';
+import { useEdgeScroll } from '../../hooks/useEdgeScroll';
 import { GameCanvas } from '../canvas/GameCanvas';
 import { Minimap } from '../canvas/Minimap';
 import { ResourceBar } from '../ui/ResourceBar';
@@ -11,6 +12,7 @@ import { ActionPanel } from '../ui/ActionPanel';
 import { SelectionInfo } from '../ui/SelectionInfo';
 import { Notification } from '../ui/Notification';
 import { MassSpawnAlert } from '../ui/MassSpawnAlert';
+import { TutorialOverlay } from '../ui/TutorialOverlay';
 import { CONFIG } from '../../constants/config';
 import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
@@ -20,6 +22,7 @@ export const GameScreen: React.FC = () => {
   // 게임 루프 시작
   useGameLoop();
   useKeyboardInput();
+  useEdgeScroll();
 
   const gameMode = useGameStore((state) => state.gameMode);
   const stopGame = useGameStore((state) => state.stopGame);
@@ -52,6 +55,9 @@ export const GameScreen: React.FC = () => {
 
       {/* 대량 발생 경고 */}
       <MassSpawnAlert />
+
+      {/* 튜토리얼 오버레이 */}
+      {gameMode === 'tutorial' && <TutorialOverlay />}
 
       {/* 하단 UI 패널 */}
       <div

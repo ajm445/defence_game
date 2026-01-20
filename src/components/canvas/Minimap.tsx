@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useCallback } from 'react';
 import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
+import { useUIStore } from '../../stores/useUIStore';
 import { drawMinimap, drawMinimapMultiplayer } from '../../renderer';
 import { CONFIG } from '../../constants/config';
 
@@ -9,6 +10,8 @@ export const Minimap: React.FC = () => {
   const animationRef = useRef<number>(0);
   const setCameraPosition = useGameStore((state) => state.setCameraPosition);
   const gameMode = useGameStore((state) => state.gameMode);
+  const edgeScrollEnabled = useUIStore((state) => state.edgeScrollEnabled);
+  const toggleEdgeScroll = useUIStore((state) => state.toggleEdgeScroll);
 
   useEffect(() => {
     const canvas = canvasRef.current;
@@ -93,6 +96,19 @@ export const Minimap: React.FC = () => {
 
   return (
     <div className="absolute bottom-5 right-5">
+      {/* 가장자리 스크롤 토글 버튼 */}
+      <button
+        onClick={toggleEdgeScroll}
+        className={`absolute -top-1 -left-10 w-8 h-8 rounded flex items-center justify-center text-sm transition-all duration-200 z-10 ${
+          edgeScrollEnabled
+            ? 'bg-neon-cyan/20 border border-neon-cyan/50'
+            : 'bg-dark-700/80 border border-dark-500 opacity-50'
+        }`}
+        title={`가장자리 스크롤: ${edgeScrollEnabled ? 'ON' : 'OFF'} (Y)`}
+      >
+        📷
+      </button>
+
       {/* 미니맵 프레임 */}
       <div className="relative glass-dark rounded-xl p-2 border border-dark-500/50">
         {/* 헤더 */}

@@ -1,8 +1,20 @@
 import React from 'react';
 import { useUIStore } from '../../stores/useUIStore';
+import { useGameStore } from '../../stores/useGameStore';
+import { useTutorialStore } from '../../stores/useTutorialStore';
 
 export const ModeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
+  const initGame = useGameStore((state) => state.initGame);
+  const startGame = useGameStore((state) => state.startGame);
+  const startTutorial = useTutorialStore((state) => state.startTutorial);
+
+  const handleTutorial = () => {
+    initGame('tutorial', 'easy');
+    startTutorial();
+    startGame(); // 카운트다운 없이 바로 게임 시작
+    setScreen('game');
+  };
 
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
@@ -23,6 +35,27 @@ export const ModeSelectScreen: React.FC = () => {
 
         {/* 모드 버튼들 */}
         <div className="flex gap-8">
+          {/* 튜토리얼 */}
+          <button
+            onClick={handleTutorial}
+            className="group relative w-48 h-64 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-green-500/20 to-emerald-600/20 group-hover:from-green-500/30 group-hover:to-emerald-600/30 transition-all duration-300" />
+            <div className="absolute inset-0 border-2 border-green-500/50 rounded-lg group-hover:border-green-400 group-hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all duration-300" />
+
+            <div className="relative h-full flex flex-col items-center justify-center p-6">
+              <div className="text-6xl mb-4">📖</div>
+              <br></br>
+              <h2 className="font-game text-xl text-white mb-2">튜토리얼</h2>
+              <p className="text-gray-400 text-sm text-center">
+                게임 방법을 배우세요
+              </p>
+              <p className="text-green-400 text-xs mt-2">
+                초보자 추천
+              </p>
+            </div>
+          </button>
+
           {/* AI 대전 */}
           <button
             onClick={() => setScreen('difficultySelect')}

@@ -1,13 +1,19 @@
 import React, { useEffect, useCallback } from 'react';
 import { useGameStore } from '../../stores/useGameStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { useTutorialStore } from '../../stores/useTutorialStore';
 
 export const PauseScreen: React.FC = () => {
   const startGame = useGameStore((state) => state.startGame);
   const initGame = useGameStore((state) => state.initGame);
+  const gameMode = useGameStore((state) => state.gameMode);
   const setScreen = useUIStore((state) => state.setScreen);
   const selectedDifficulty = useUIStore((state) => state.selectedDifficulty);
   const resetGameUI = useUIStore((state) => state.resetGameUI);
+  const endTutorial = useTutorialStore((state) => state.endTutorial);
+  const startTutorial = useTutorialStore((state) => state.startTutorial);
+
+  const isTutorial = gameMode === 'tutorial';
 
   const handleResume = useCallback(() => {
     startGame();
@@ -27,13 +33,25 @@ export const PauseScreen: React.FC = () => {
 
   const handleRestart = () => {
     resetGameUI(); // UI 상태 초기화
-    initGame('ai', selectedDifficulty);
-    // 카운트다운 화면으로 이동
-    setScreen('countdown');
+    if (isTutorial) {
+      // 튜토리얼 재시작
+      endTutorial();
+      initGame('tutorial', 'easy');
+      startTutorial();
+      startGame();
+      setScreen('game');
+    } else {
+      initGame('ai', selectedDifficulty);
+      // 카운트다운 화면으로 이동
+      setScreen('countdown');
+    }
   };
 
   const handleMainMenu = () => {
     resetGameUI(); // UI 상태 초기화
+    if (isTutorial) {
+      endTutorial();
+    }
     setScreen('menu');
   };
 

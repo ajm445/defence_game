@@ -43,7 +43,7 @@ export interface GameState {
 
 export type GameScreen = 'menu' | 'modeSelect' | 'difficultySelect' | 'lobby' | 'countdown' | 'game' | 'gameover' | 'paused';
 
-export type GameMode = 'ai' | 'multiplayer';
+export type GameMode = 'ai' | 'multiplayer' | 'tutorial';
 
 export type AIDifficulty = 'easy' | 'normal' | 'hard' | 'nightmare' | 'bosstest';
 

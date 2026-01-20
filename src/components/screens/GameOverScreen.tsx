@@ -2,6 +2,7 @@ import React from 'react';
 import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { useTutorialStore } from '../../stores/useTutorialStore';
 
 export const GameOverScreen: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);
@@ -14,6 +15,9 @@ export const GameOverScreen: React.FC = () => {
   const selectedDifficulty = useUIStore((state) => state.selectedDifficulty);
   const multiplayerResult = useMultiplayerStore((state) => state.gameResult);
   const resetMultiplayer = useMultiplayerStore((state) => state.reset);
+  const endTutorial = useTutorialStore((state) => state.endTutorial);
+
+  const isTutorial = gameMode === 'tutorial';
 
   // 승리 조건 확인
   let victory = false;
@@ -31,6 +35,18 @@ export const GameOverScreen: React.FC = () => {
       resultMessage = '시간 종료';
     } else {
       resultMessage = ''; // 기지 파괴 메시지는 표시하지 않음
+    }
+  } else if (isTutorial) {
+    // 튜토리얼 결과
+    if (enemyBase.hp <= 0) {
+      victory = true;
+      resultMessage = '튜토리얼 완료! 이제 실전 게임에 도전해보세요!';
+    } else if (playerBase.hp <= 0) {
+      victory = false;
+      resultMessage = '다시 도전해보세요!';
+    } else if (time <= 0) {
+      victory = playerBase.hp > enemyBase.hp;
+      resultMessage = '튜토리얼 완료!';
     }
   } else {
     // 싱글플레이어 결과
@@ -50,6 +66,9 @@ export const GameOverScreen: React.FC = () => {
     if (gameMode === 'multiplayer') {
       resetMultiplayer();
     }
+    if (isTutorial) {
+      endTutorial();
+    }
     setScreen('menu');
   };
 
@@ -58,6 +77,10 @@ export const GameOverScreen: React.FC = () => {
       // 멀티플레이어에서는 로비로 돌아가기
       resetMultiplayer();
       setScreen('lobby');
+    } else if (isTutorial) {
+      // 튜토리얼에서는 모드 선택으로
+      endTutorial();
+      setScreen('modeSelect');
     } else {
       // 싱글플레이어에서는 동일한 난이도로 재시작
       initGame('ai', selectedDifficulty);
@@ -119,7 +142,7 @@ export const GameOverScreen: React.FC = () => {
             <div className={`absolute inset-0 ${victory || isDraw ? 'bg-neon-cyan/20' : 'bg-neon-red/20'}`} />
             <div className={`absolute inset-0 border rounded-lg ${victory || isDraw ? 'border-neon-cyan/50 group-hover:border-neon-cyan group-hover:shadow-neon-cyan' : 'border-neon-red/50 group-hover:border-neon-red group-hover:shadow-neon-red'} transition-all duration-300`} />
             <span className={`relative font-game text-lg tracking-wider ${victory || isDraw ? 'text-neon-cyan' : 'text-neon-red'}`}>
-              {gameMode === 'multiplayer' ? '로비로' : '다시 시작'}
+              {gameMode === 'multiplayer' ? '로비로' : isTutorial ? '실전 게임' : '다시 시작'}
             </span>
           </button>
 

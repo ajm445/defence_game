@@ -10,6 +10,7 @@ interface UIState {
   placementMode: PlacementMode;
   selectedDifficulty: AIDifficulty;
   massSpawnAlert: boolean; // 대량 발생 경고 표시 여부
+  edgeScrollEnabled: boolean; // 마우스 가장자리 스크롤 활성화 여부
 }
 
 interface UIActions {
@@ -21,6 +22,7 @@ interface UIActions {
   showMassSpawnAlert: () => void;
   hideMassSpawnAlert: () => void;
   resetGameUI: () => void;
+  toggleEdgeScroll: () => void;
 }
 
 interface UIStore extends UIState, UIActions {}
@@ -32,6 +34,7 @@ export const useUIStore = create<UIStore>((set) => ({
   placementMode: 'none',
   selectedDifficulty: 'easy',
   massSpawnAlert: false,
+  edgeScrollEnabled: false, // 기본값: 비활성화
 
   setScreen: (screen) => set({ currentScreen: screen }),
 
@@ -56,4 +59,6 @@ export const useUIStore = create<UIStore>((set) => ({
     placementMode: 'none',
     massSpawnAlert: false,
   }),
+
+  toggleEdgeScroll: () => set((state) => ({ edgeScrollEnabled: !state.edgeScrollEnabled })),
 }));

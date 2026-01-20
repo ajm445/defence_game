@@ -2,6 +2,7 @@ import React from 'react';
 import { useGameStore, useResources } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { useTutorialStore } from '../../stores/useTutorialStore';
 import { CONFIG } from '../../constants/config';
 import { wsClient } from '../../services/WebSocketClient';
 import { Emoji } from '../common/Emoji';
@@ -94,6 +95,7 @@ export const ActionPanel: React.FC = () => {
   const singlePlayerResources = useResources();
   const gameState = useMultiplayerStore((state) => state.gameState);
   const mySide = useMultiplayerStore((state) => state.mySide);
+  const setHerbSold = useTutorialStore((state) => state.setHerbSold);
 
   const myPlayerState = gameMode === 'multiplayer' && gameState && mySide
     ? (mySide === 'left' ? gameState.leftPlayer : gameState.rightPlayer)
@@ -144,6 +146,10 @@ export const ActionPanel: React.FC = () => {
     } else {
       if (sellHerb()) {
         showNotification(`약초 판매! (+${CONFIG.HERB_SELL_GOLD} 골드)`);
+        // 튜토리얼 진행을 위한 약초 판매 기록
+        if (gameMode === 'tutorial') {
+          setHerbSold(true);
+        }
       } else {
         showNotification('약초가 부족합니다!');
       }

@@ -23,12 +23,14 @@ export const useKeyboardInput = () => {
   const placementMode = useUIStore((state) => state.placementMode);
   const setPlacementMode = useUIStore((state) => state.setPlacementMode);
   const showNotification = useUIStore((state) => state.showNotification);
+  const edgeScrollEnabled = useUIStore((state) => state.edgeScrollEnabled);
+  const toggleEdgeScroll = useUIStore((state) => state.toggleEdgeScroll);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
-      // ESC 키는 일시정지/재개 토글 (AI 대전만)
+      // ESC 키는 일시정지/재개 토글 (AI 대전, 튜토리얼)
       if (e.key === 'Escape') {
-        if (gameMode === 'ai') {
+        if (gameMode === 'ai' || gameMode === 'tutorial') {
           if (currentScreen === 'paused') {
             // 일시정지 상태에서 ESC → 게임 재개
             startGame();
@@ -113,9 +115,14 @@ export const useKeyboardInput = () => {
             }
           }
           break;
+        // Y: 가장자리 스크롤 토글
+        case 'y':
+          toggleEdgeScroll();
+          showNotification(edgeScrollEnabled ? '가장자리 스크롤 비활성화' : '가장자리 스크롤 활성화');
+          break;
       }
     },
-    [running, gameMode, currentScreen, moveCamera, setCameraPosition, playerBase, stopGame, startGame, setScreen, placementMode, setPlacementMode, showNotification, canBuildWall, canUpgradeBase, canSellHerb, upgradePlayerBase, sellHerb, resources]
+    [running, gameMode, currentScreen, moveCamera, setCameraPosition, playerBase, stopGame, startGame, setScreen, placementMode, setPlacementMode, showNotification, canBuildWall, canUpgradeBase, canSellHerb, upgradePlayerBase, sellHerb, resources, edgeScrollEnabled, toggleEdgeScroll]
   );
 
   useEffect(() => {

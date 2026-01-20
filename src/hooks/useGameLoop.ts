@@ -499,25 +499,36 @@ export const useGameLoop = () => {
         }
       }
 
-      // AI 업데이트 (난이도별 행동 주기)
+      // AI 업데이트 (난이도별 행동 주기) - 튜토리얼 모드에서는 AI 매우 느리게
+      const isTutorial = state.gameMode === 'tutorial';
+      const aiInterval = isTutorial ? 10 : difficultyConfig.actionInterval; // 튜토리얼: 10초마다
+
       aiTimerRef.current += deltaTime;
-      if (aiTimerRef.current >= difficultyConfig.actionInterval) {
+      if (aiTimerRef.current >= aiInterval) {
         aiTimerRef.current = 0;
         const currentState = useGameStore.getState();
-        const decision = makeAIDecision(
-          currentState.aiResources,
-          currentState.enemyUnits,
-          difficultyConfig
-        );
 
-        // AI 약초 판매
-        if (decision.sellHerb) {
-          aiSellHerb();
-        }
+        // 튜토리얼 모드에서는 간단한 AI만 실행 (검병만 소환)
+        if (isTutorial) {
+          if (currentState.aiResources.gold >= 30 && Math.random() < 0.3) {
+            spawnUnit('melee', 'enemy');
+          }
+        } else {
+          const decision = makeAIDecision(
+            currentState.aiResources,
+            currentState.enemyUnits,
+            difficultyConfig
+          );
 
-        // 다중 유닛 소환 지원
-        for (const unitType of decision.spawnUnits) {
-          spawnUnit(unitType, 'enemy');
+          // AI 약초 판매
+          if (decision.sellHerb) {
+            aiSellHerb();
+          }
+
+          // 다중 유닛 소환 지원
+          for (const unitType of decision.spawnUnits) {
+            spawnUnit(unitType, 'enemy');
+          }
         }
       }
 
