@@ -5,11 +5,13 @@ import { useTutorialStore } from '../../stores/useTutorialStore';
 
 export const ModeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
+  const resetGameUI = useUIStore((state) => state.resetGameUI);
   const initGame = useGameStore((state) => state.initGame);
   const startGame = useGameStore((state) => state.startGame);
   const startTutorial = useTutorialStore((state) => state.startTutorial);
 
   const handleTutorial = () => {
+    resetGameUI(); // 이전 게임의 UI 상태 초기화
     initGame('tutorial', 'easy');
     startTutorial();
     startGame(); // 카운트다운 없이 바로 게임 시작

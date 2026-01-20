@@ -3,6 +3,7 @@ import { subscribeWithSelector } from 'zustand/middleware';
 import { GameState, Base, Camera, Wall, Resources, ResourceNode, Unit, UnitType, Team, AIDifficulty, GameMode, GamePhase } from '../types';
 import { CONFIG, AI_DIFFICULTY_CONFIG, getUpgradeCost } from '../constants/config';
 import { generateId, clamp } from '../utils/math';
+import { useTutorialStore, TUTORIAL_STEPS } from './useTutorialStore';
 
 interface GameActions {
   // 게임 제어
@@ -669,6 +670,20 @@ export const useGameStore = create<GameStore>()(
 
       if (state.playerBase.hp <= 0) {
         return 'defeat';
+      }
+
+      // 튜토리얼 모드: 마지막 단계(적 본진 파괴)에서만 승리 처리
+      if (state.gameMode === 'tutorial') {
+        const tutorialState = useTutorialStore.getState();
+        const isLastStep = tutorialState.currentStepIndex === TUTORIAL_STEPS.length - 1;
+
+        // 마지막 단계에서 적 본진 파괴 시 승리
+        if (isLastStep && state.enemyBase.hp <= 0) {
+          tutorialState.endTutorial();
+          return 'victory';
+        }
+        // 튜토리얼 중에는 적 본진이 파괴되어도 마지막 단계가 아니면 게임 종료하지 않음
+        return null;
       }
 
       // 극악/보스테스트 난이도: 페이즈 2에서 보스를 처치해야 승리

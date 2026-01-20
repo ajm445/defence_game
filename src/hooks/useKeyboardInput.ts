@@ -1,6 +1,7 @@
 import { useEffect, useCallback } from 'react';
 import { useGameStore } from '../stores/useGameStore';
 import { useUIStore } from '../stores/useUIStore';
+import { useTutorialStore } from '../stores/useTutorialStore';
 import { wsClient } from '../services/WebSocketClient';
 import { CONFIG } from '../constants/config';
 
@@ -25,6 +26,7 @@ export const useKeyboardInput = () => {
   const showNotification = useUIStore((state) => state.showNotification);
   const edgeScrollEnabled = useUIStore((state) => state.edgeScrollEnabled);
   const toggleEdgeScroll = useUIStore((state) => state.toggleEdgeScroll);
+  const setHerbSold = useTutorialStore((state) => state.setHerbSold);
 
   const handleKeyDown = useCallback(
     (e: KeyboardEvent) => {
@@ -109,6 +111,10 @@ export const useKeyboardInput = () => {
             if (canSellHerb()) {
               if (sellHerb()) {
                 showNotification(`약초 판매! (+${CONFIG.HERB_SELL_GOLD} 골드)`);
+                // 튜토리얼 진행을 위한 약초 판매 기록
+                if (gameMode === 'tutorial') {
+                  setHerbSold(true);
+                }
               }
             } else {
               showNotification('약초가 부족합니다!');
@@ -122,7 +128,7 @@ export const useKeyboardInput = () => {
           break;
       }
     },
-    [running, gameMode, currentScreen, moveCamera, setCameraPosition, playerBase, stopGame, startGame, setScreen, placementMode, setPlacementMode, showNotification, canBuildWall, canUpgradeBase, canSellHerb, upgradePlayerBase, sellHerb, resources, edgeScrollEnabled, toggleEdgeScroll]
+    [running, gameMode, currentScreen, moveCamera, setCameraPosition, playerBase, stopGame, startGame, setScreen, placementMode, setPlacementMode, showNotification, canBuildWall, canUpgradeBase, canSellHerb, upgradePlayerBase, sellHerb, resources, edgeScrollEnabled, toggleEdgeScroll, setHerbSold]
   );
 
   useEffect(() => {
