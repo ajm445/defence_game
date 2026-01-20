@@ -145,6 +145,7 @@ export const LobbyScreen: React.FC = () => {
             onClick={handleConnect}
             disabled={!inputName.trim() || isConnecting}
             className="px-8 py-3 rounded-lg bg-neon-cyan/20 border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
           >
             {isConnecting ? '연결 중...' : '서버 연결'}
           </button>
@@ -183,6 +184,7 @@ export const LobbyScreen: React.FC = () => {
                   useMultiplayerStore.setState({ error: null });
                 }}
                 className="px-6 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+                style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
               >
                 취소
               </button>
@@ -190,6 +192,7 @@ export const LobbyScreen: React.FC = () => {
                 onClick={handleJoinRoom}
                 disabled={roomCode.length !== 6}
                 className="px-6 py-3 rounded-lg bg-neon-purple/20 border border-neon-purple text-neon-purple hover:bg-neon-purple/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
               >
                 참가
               </button>
@@ -214,6 +217,7 @@ export const LobbyScreen: React.FC = () => {
             <button
               onClick={handleCreateRoom}
               className="px-8 py-4 rounded-lg bg-neon-cyan/20 border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/30 transition-all text-lg cursor-pointer"
+              style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
             >
               방 생성
             </button>
@@ -221,6 +225,7 @@ export const LobbyScreen: React.FC = () => {
             <button
               onClick={() => setShowJoinInput(true)}
               className="px-8 py-4 rounded-lg bg-neon-purple/20 border border-neon-purple text-neon-purple hover:bg-neon-purple/30 transition-all text-lg cursor-pointer"
+              style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
             >
               방 참가
             </button>
@@ -256,6 +261,7 @@ export const LobbyScreen: React.FC = () => {
           <button
             onClick={handleLeaveRoom}
             className="mt-4 px-6 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '3px', paddingBottom: '3px' }}
           >
             나가기
           </button>
@@ -358,6 +364,7 @@ export const LobbyScreen: React.FC = () => {
         <button
           onClick={handleBack}
           className="mt-8 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+          style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
         >
           뒤로 가기
         </button>
