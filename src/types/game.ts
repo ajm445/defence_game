@@ -41,9 +41,9 @@ export interface GameState {
   bossSpawned: boolean; // 보스 소환 여부
 }
 
-export type GameScreen = 'menu' | 'modeSelect' | 'difficultySelect' | 'lobby' | 'countdown' | 'game' | 'gameover' | 'paused';
+export type GameScreen = 'menu' | 'modeSelect' | 'difficultySelect' | 'lobby' | 'countdown' | 'game' | 'gameover' | 'paused' | 'rpgClassSelect';
 
-export type GameMode = 'ai' | 'multiplayer' | 'tutorial';
+export type GameMode = 'ai' | 'multiplayer' | 'tutorial' | 'rpg';
 
 export type AIDifficulty = 'easy' | 'normal' | 'hard' | 'nightmare' | 'bosstest';
 

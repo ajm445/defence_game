@@ -1,0 +1,203 @@
+import { Position } from './game';
+import { Unit, UnitType } from './unit';
+
+// 영웅 직업 타입
+export type HeroClass = 'warrior' | 'archer' | 'knight' | 'mage';
+
+// 직업별 스킬 타입
+export type SkillType =
+  // 기존 호환성
+  | 'dash' | 'spin' | 'heal'
+  // 전사
+  | 'warrior_q' | 'warrior_w' | 'warrior_e'
+  // 궁수
+  | 'archer_q' | 'archer_w' | 'archer_e'
+  // 기사
+  | 'knight_q' | 'knight_w' | 'knight_e'
+  // 마법사
+  | 'mage_q' | 'mage_w' | 'mage_e';
+
+// 스킬 슬롯 타입
+export type SkillSlot = 'Q' | 'W' | 'E';
+
+// 버프/디버프 타입
+export type BuffType =
+  | 'berserker'      // 광전사 (공격력, 공속 증가)
+  | 'ironwall'       // 철벽 방어 (데미지 감소)
+  | 'stun';          // 기절
+
+// 버프 상태
+export interface Buff {
+  type: BuffType;
+  duration: number;      // 남은 지속시간 (초)
+  startTime: number;     // 시작 시간
+  attackBonus?: number;  // 공격력 증가율
+  speedBonus?: number;   // 공속 증가율
+  damageReduction?: number; // 데미지 감소율
+}
+
+// 직업 설정
+export interface ClassConfig {
+  name: string;
+  nameEn: string;
+  emoji: string;
+  description: string;
+  hp: number;
+  attack: number;
+  attackSpeed: number;  // 공격 쿨다운 (초)
+  speed: number;        // 이동 속도
+  range: number;        // 공격 사거리
+}
+
+// 스킬 상태
+export interface Skill {
+  type: SkillType;
+  name: string;
+  key: string;           // Q, W, E
+  cooldown: number;      // 쿨다운 (초)
+  currentCooldown: number; // 현재 남은 쿨다운
+  level: number;         // 스킬 레벨 (1부터 시작)
+  unlocked: boolean;     // 해금 여부
+  unlockedAtLevel: number; // 해금 레벨
+}
+
+// 영웅 유닛 (기존 Unit 확장)
+export interface HeroUnit extends Omit<Unit, 'type'> {
+  type: 'hero';
+  heroClass: HeroClass;      // 영웅 직업
+  level: number;             // 현재 레벨
+  exp: number;               // 현재 경험치
+  expToNextLevel: number;    // 다음 레벨까지 필요 경험치
+  skills: Skill[];           // 보유 스킬
+  targetPosition?: Position; // 이동 목표 위치
+  attackTarget?: string;     // 공격 대상 ID
+  baseAttack: number;        // 기본 공격력
+  baseSpeed: number;         // 기본 이동속도
+  baseAttackSpeed: number;   // 기본 공격속도
+  skillPoints: number;       // 미사용 스킬 포인트
+  buffs: Buff[];             // 활성 버프 목록
+}
+
+// 웨이브 설정
+export interface WaveConfig {
+  waveNumber: number;
+  enemies: { type: UnitType; count: number }[];
+  spawnInterval: number;  // 적 스폰 간격 (초)
+  bossWave: boolean;      // 보스 웨이브 여부
+}
+
+// 적 AI 설정
+export interface EnemyAIConfig {
+  detectionRange: number;  // 탐지 범위
+  attackRange: number;     // 공격 사거리
+  moveSpeed: number;       // 이동속도
+  attackDamage: number;    // 공격력
+  attackSpeed: number;     // 공격 속도 (초)
+}
+
+// 적 유닛 (RPG 모드용)
+export interface RPGEnemy extends Unit {
+  expReward: number;       // 처치 시 경험치
+  targetHero: boolean;     // 영웅을 타겟으로 하는지
+  aiConfig: EnemyAIConfig; // AI 설정
+  buffs: Buff[];           // 활성 버프/디버프 목록
+}
+
+// 시야 시스템 설정
+export interface VisibilityState {
+  exploredCells: Set<string>;  // 탐사한 셀 (key: "x,y")
+  visibleRadius: number;       // 현재 시야 반경
+}
+
+// RPG 게임 상태
+export interface RPGGameState {
+  running: boolean;
+  paused: boolean;
+  gameOver: boolean;
+  victory: boolean;       // 승리 여부 (특정 웨이브 클리어 시)
+
+  // 영웅
+  hero: HeroUnit | null;
+  selectedClass: HeroClass | null;  // 선택된 직업
+
+  // 웨이브
+  currentWave: number;
+  waveInProgress: boolean;
+  enemiesRemaining: number;
+  enemies: RPGEnemy[];
+
+  // 스폰 관리
+  spawnQueue: { type: UnitType; delay: number }[];
+  lastSpawnTime: number;
+
+  // 타이머
+  gameTime: number;       // 총 플레이 시간
+  waveStartTime: number;  // 현재 웨이브 시작 시간
+
+  // 카메라
+  camera: {
+    x: number;
+    y: number;
+    zoom: number;
+    followHero: boolean;  // 영웅 자동 추적
+  };
+
+  // 시야 시스템
+  visibility: VisibilityState;
+
+  // 통계
+  stats: {
+    totalKills: number;
+    totalExpGained: number;
+    highestWave: number;
+    timePlayed: number;
+  };
+
+  // 스킬 효과
+  activeSkillEffects: SkillEffect[];
+
+  // 보류 중인 스킬 (운석 낙하 등)
+  pendingSkills: PendingSkill[];
+}
+
+// 보류 중인 스킬 (지연 발동)
+export interface PendingSkill {
+  type: SkillType;
+  position: Position;
+  triggerTime: number;   // 발동 시간
+  damage: number;
+  radius: number;
+}
+
+// 레벨업 보너스
+export interface LevelUpBonus {
+  hp: number;
+  attack: number;
+  speed: number;
+}
+
+// 스킬 효과
+export interface SkillEffect {
+  type: SkillType;
+  position: Position;
+  direction?: Position;   // 방향 (돌진용)
+  radius?: number;        // 범위
+  damage?: number;        // 데미지
+  heal?: number;          // 힐량
+  duration: number;       // 지속시간 (초)
+  startTime: number;      // 시작 시간
+}
+
+// 경험치 테이블 (적 유닛별)
+export type ExpTable = Partial<Record<UnitType, number>>;
+
+// RPG 게임 결과
+export interface RPGGameResult {
+  victory: boolean;
+  waveReached: number;
+  totalKills: number;
+  totalExp: number;
+  timePlayed: number;
+  heroLevel: number;
+  heroClass: HeroClass;
+}

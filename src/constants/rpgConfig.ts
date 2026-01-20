@@ -1,0 +1,425 @@
+import { UnitType } from '../types/unit';
+import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig } from '../types/rpg';
+
+// 직업별 설정
+export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
+  warrior: {
+    name: '전사',
+    nameEn: 'Warrior',
+    emoji: '⚔️',
+    description: '균형잡힌 스탯의 근접 전사',
+    hp: 350,
+    attack: 35,
+    attackSpeed: 1.0,
+    speed: 1.8,
+    range: 80,
+  },
+  archer: {
+    name: '궁수',
+    nameEn: 'Archer',
+    emoji: '🏹',
+    description: '높은 공격력과 빠른 공속의 원거리 딜러',
+    hp: 250,
+    attack: 45,
+    attackSpeed: 0.7,
+    speed: 2.2,
+    range: 150,
+  },
+  knight: {
+    name: '기사',
+    nameEn: 'Knight',
+    emoji: '🛡️',
+    description: '높은 체력과 방어력의 탱커',
+    hp: 450,
+    attack: 30,
+    attackSpeed: 1.3,
+    speed: 1.4,
+    range: 60,
+  },
+  mage: {
+    name: '마법사',
+    nameEn: 'Mage',
+    emoji: '🔮',
+    description: '높은 공격력과 범위 공격의 마법사',
+    hp: 220,
+    attack: 55,
+    attackSpeed: 1.8,
+    speed: 1.9,
+    range: 120,
+  },
+};
+
+// 적 유형별 AI 설정
+export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
+  melee: {
+    detectionRange: 400,
+    attackRange: 60,
+    moveSpeed: 1.5,
+    attackDamage: 15,
+    attackSpeed: 1.0,
+  },
+  ranged: {
+    detectionRange: 500,
+    attackRange: 150,
+    moveSpeed: 1.6,
+    attackDamage: 20,
+    attackSpeed: 0.8,
+  },
+  knight: {
+    detectionRange: 350,
+    attackRange: 70,
+    moveSpeed: 1.3,
+    attackDamage: 12,
+    attackSpeed: 1.2,
+  },
+  mage: {
+    detectionRange: 450,
+    attackRange: 180,
+    moveSpeed: 1.4,
+    attackDamage: 35,
+    attackSpeed: 1.5,
+  },
+  boss: {
+    detectionRange: 600,
+    attackRange: 100,
+    moveSpeed: 1.0,
+    attackDamage: 50,
+    attackSpeed: 2.0,
+  },
+  // 비전투 유닛 (기본값)
+  woodcutter: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
+  miner: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
+  gatherer: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
+  goldminer: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
+  healer: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
+};
+
+// 직업별 스킬 설정
+export const CLASS_SKILLS = {
+  warrior: {
+    q: {
+      type: 'warrior_q' as SkillType,
+      name: '강타',
+      key: 'Q',
+      cooldown: 1.0,
+      description: '단일 대상에게 공격력 100% 데미지',
+      damageMultiplier: 1.0,
+    },
+    w: {
+      type: 'warrior_w' as SkillType,
+      name: '돌진',
+      key: 'W',
+      cooldown: 6,
+      description: '전방으로 돌진하며 경로상 적에게 데미지',
+      distance: 200,
+      damageMultiplier: 1.2,
+    },
+    e: {
+      type: 'warrior_e' as SkillType,
+      name: '광전사',
+      key: 'E',
+      cooldown: 30,
+      description: '10초간 공격력 50%, 공격속도 30% 증가',
+      duration: 10,
+      attackBonus: 0.5,
+      speedBonus: 0.3,
+    },
+  },
+  archer: {
+    q: {
+      type: 'archer_q' as SkillType,
+      name: '속사',
+      key: 'Q',
+      cooldown: 0.7,
+      description: '원거리 단일 대상 공격',
+      damageMultiplier: 1.0,
+    },
+    w: {
+      type: 'archer_w' as SkillType,
+      name: '관통 화살',
+      key: 'W',
+      cooldown: 5,
+      description: '일직선 관통 공격 (공격력 150%)',
+      damageMultiplier: 1.5,
+      pierceDistance: 300,
+    },
+    e: {
+      type: 'archer_e' as SkillType,
+      name: '화살 비',
+      key: 'E',
+      cooldown: 25,
+      description: '범위 내 모든 적에게 공격력 200% 데미지',
+      damageMultiplier: 2.0,
+      radius: 150,
+    },
+  },
+  knight: {
+    q: {
+      type: 'knight_q' as SkillType,
+      name: '방패 타격',
+      key: 'Q',
+      cooldown: 1.3,
+      description: '근접 공격 (공격력 100%)',
+      damageMultiplier: 1.0,
+    },
+    w: {
+      type: 'knight_w' as SkillType,
+      name: '방패 돌진',
+      key: 'W',
+      cooldown: 8,
+      description: '전방 돌진 후 적 1초 기절',
+      distance: 150,
+      damageMultiplier: 0.8,
+      stunDuration: 1.0,
+    },
+    e: {
+      type: 'knight_e' as SkillType,
+      name: '철벽 방어',
+      key: 'E',
+      cooldown: 35,
+      description: '5초간 받는 데미지 70% 감소, HP 20% 회복',
+      duration: 5,
+      damageReduction: 0.7,
+      healPercent: 0.2,
+    },
+  },
+  mage: {
+    q: {
+      type: 'mage_q' as SkillType,
+      name: '마법 화살',
+      key: 'Q',
+      cooldown: 1.8,
+      description: '원거리 마법 공격 (공격력 100%)',
+      damageMultiplier: 1.0,
+    },
+    w: {
+      type: 'mage_w' as SkillType,
+      name: '화염구',
+      key: 'W',
+      cooldown: 7,
+      description: '범위 공격 (공격력 180%)',
+      damageMultiplier: 1.8,
+      radius: 80,
+    },
+    e: {
+      type: 'mage_e' as SkillType,
+      name: '운석 낙하',
+      key: 'E',
+      cooldown: 40,
+      description: '3초 후 대범위 공격 (공격력 300%)',
+      damageMultiplier: 3.0,
+      radius: 150,
+      delay: 3.0,
+    },
+  },
+};
+
+export const RPG_CONFIG = {
+  // 맵 설정
+  MAP_WIDTH: 2000,
+  MAP_HEIGHT: 2000,
+  MAP_CENTER_X: 1000,
+  MAP_CENTER_Y: 1000,
+
+  // 시야 설정
+  VISIBILITY: {
+    RADIUS: 300,           // 플레이어 시야 반경
+    CELL_SIZE: 50,         // 탐사 셀 크기
+  },
+
+  // 영웅 기본 스탯 (기본값, 직업별로 덮어씀)
+  HERO: {
+    HP: 300,
+    ATTACK: 30,
+    ATTACK_SPEED: 1,      // 초
+    SPEED: 2.0,
+    RANGE: 80,
+  },
+
+  // 레벨업 보너스
+  LEVEL_UP_BONUS: {
+    hp: 30,
+    attack: 5,
+    speed: 0.05,
+  } as LevelUpBonus,
+
+  // 경험치 공식: 필요 경험치 = BASE + (레벨 * MULTIPLIER)
+  EXP: {
+    BASE: 50,
+    MULTIPLIER: 30,
+  },
+
+  // 적 유닛별 경험치
+  EXP_TABLE: {
+    melee: 10,    // 검병
+    ranged: 15,   // 궁수
+    knight: 25,   // 기사
+    mage: 30,     // 마법사
+    boss: 200,    // 보스
+  } as ExpTable,
+
+  // 스킬 설정
+  SKILLS: {
+    dash: {
+      name: '돌진',
+      key: 'Q',
+      cooldown: 5,
+      damage: 50,         // 경로상 적에게 주는 데미지
+      distance: 200,      // 돌진 거리
+      unlockedAtLevel: 1,
+    },
+    spin: {
+      name: '회전 베기',
+      key: 'W',
+      cooldown: 8,
+      damageMultiplier: 1.5, // 공격력의 150%
+      radius: 100,        // 범위
+      unlockedAtLevel: 3,
+    },
+    heal: {
+      name: '회복',
+      key: 'E',
+      cooldown: 15,
+      healPercent: 0.3,   // HP 30% 회복
+      unlockedAtLevel: 5,
+    },
+  } as Record<SkillType, {
+    name: string;
+    key: string;
+    cooldown: number;
+    damage?: number;
+    damageMultiplier?: number;
+    distance?: number;
+    radius?: number;
+    healPercent?: number;
+    unlockedAtLevel: number;
+  }>,
+
+  // 스킬 레벨업 보너스 (레벨당)
+  SKILL_UPGRADE: {
+    dash: {
+      cooldownReduction: 0.5, // 초
+      damageBonus: 10,
+    },
+    spin: {
+      cooldownReduction: 0.5,
+      damageMultiplierBonus: 0.1,
+    },
+    heal: {
+      cooldownReduction: 1,
+      healPercentBonus: 0.05, // 5%
+    },
+  } as Record<SkillType, {
+    cooldownReduction: number;
+    damageBonus?: number;
+    damageMultiplierBonus?: number;
+    healPercentBonus?: number;
+  }>,
+
+  // 카메라 설정
+  CAMERA: {
+    MIN_ZOOM: 0.5,
+    MAX_ZOOM: 2.0,
+    DEFAULT_ZOOM: 1.0,
+    ZOOM_SPEED: 0.1,
+  },
+
+  // 스폰 위치 (맵 가장자리)
+  SPAWN_MARGIN: 50, // 맵 가장자리에서의 거리
+} as const;
+
+// 웨이브 설정 생성 함수
+export function generateWaveConfig(waveNumber: number): WaveConfig {
+  const isBossWave = waveNumber % 10 === 0;
+
+  // 적 구성 결정
+  const enemies: { type: UnitType; count: number }[] = [];
+
+  if (isBossWave) {
+    // 보스 웨이브
+    enemies.push({ type: 'boss', count: 1 });
+    enemies.push({ type: 'melee', count: Math.floor(waveNumber / 2) });
+  } else if (waveNumber <= 3) {
+    // 웨이브 1~3: 검병만
+    enemies.push({ type: 'melee', count: 3 + waveNumber * 2 });
+  } else if (waveNumber <= 6) {
+    // 웨이브 4~6: 검병 + 궁수
+    enemies.push({ type: 'melee', count: 3 + waveNumber });
+    enemies.push({ type: 'ranged', count: Math.floor(waveNumber / 2) });
+  } else if (waveNumber <= 9) {
+    // 웨이브 7~9: 검병 + 궁수 + 기사
+    enemies.push({ type: 'melee', count: 2 + waveNumber });
+    enemies.push({ type: 'ranged', count: Math.floor(waveNumber / 2) });
+    enemies.push({ type: 'knight', count: Math.floor(waveNumber / 3) });
+  } else {
+    // 웨이브 11+: 패턴 반복 (스탯 강화는 별도 처리)
+    const cycleWave = ((waveNumber - 1) % 10) + 1;
+    const multiplier = Math.floor(waveNumber / 10) + 1;
+
+    if (cycleWave <= 3) {
+      enemies.push({ type: 'melee', count: (3 + cycleWave * 2) * multiplier });
+    } else if (cycleWave <= 6) {
+      enemies.push({ type: 'melee', count: (3 + cycleWave) * multiplier });
+      enemies.push({ type: 'ranged', count: Math.floor(cycleWave / 2) * multiplier });
+    } else {
+      enemies.push({ type: 'melee', count: (2 + cycleWave) * multiplier });
+      enemies.push({ type: 'ranged', count: Math.floor(cycleWave / 2) * multiplier });
+      enemies.push({ type: 'knight', count: Math.floor(cycleWave / 3) * multiplier });
+      if (waveNumber >= 20) {
+        enemies.push({ type: 'mage', count: Math.floor(multiplier / 2) });
+      }
+    }
+  }
+
+  // 스폰 간격 (웨이브가 진행될수록 빨라짐)
+  const spawnInterval = Math.max(0.5, 2 - waveNumber * 0.1);
+
+  return {
+    waveNumber,
+    enemies,
+    spawnInterval,
+    bossWave: isBossWave,
+  };
+}
+
+// 웨이브별 적 스탯 배율 (10웨이브마다 강화)
+export function getWaveStatMultiplier(waveNumber: number): number {
+  return 1 + Math.floor(waveNumber / 10) * 0.3;
+}
+
+// 필요 경험치 계산
+export function calculateExpToNextLevel(level: number): number {
+  return RPG_CONFIG.EXP.BASE + (level * RPG_CONFIG.EXP.MULTIPLIER);
+}
+
+// 스폰 위치 생성 (맵 가장자리 4방향 중 랜덤)
+export function getRandomSpawnPosition(): { x: number; y: number } {
+  const margin = RPG_CONFIG.SPAWN_MARGIN;
+  const side = Math.floor(Math.random() * 4); // 0: 상, 1: 하, 2: 좌, 3: 우
+
+  switch (side) {
+    case 0: // 상
+      return {
+        x: margin + Math.random() * (RPG_CONFIG.MAP_WIDTH - margin * 2),
+        y: margin,
+      };
+    case 1: // 하
+      return {
+        x: margin + Math.random() * (RPG_CONFIG.MAP_WIDTH - margin * 2),
+        y: RPG_CONFIG.MAP_HEIGHT - margin,
+      };
+    case 2: // 좌
+      return {
+        x: margin,
+        y: margin + Math.random() * (RPG_CONFIG.MAP_HEIGHT - margin * 2),
+      };
+    case 3: // 우
+    default:
+      return {
+        x: RPG_CONFIG.MAP_WIDTH - margin,
+        y: margin + Math.random() * (RPG_CONFIG.MAP_HEIGHT - margin * 2),
+      };
+  }
+}
+
+export type RPGConfig = typeof RPG_CONFIG;

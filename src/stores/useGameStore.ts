@@ -9,6 +9,7 @@ interface GameActions {
   // 게임 제어
   initGame: (mode?: GameMode, difficulty?: AIDifficulty) => void;
   gameMode: GameMode;
+  setGameMode: (mode: GameMode) => void;
   startGame: () => void;
   stopGame: () => void;
 
@@ -235,6 +236,8 @@ export const useGameStore = create<GameStore>()(
     startGame: () => set({ running: true }),
 
     stopGame: () => set({ running: false }),
+
+    setGameMode: (mode) => set({ gameMode: mode }),
 
     updateTime: (deltaTime) =>
       set((state) => ({

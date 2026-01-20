@@ -10,6 +10,7 @@ export const ModeSelectScreen: React.FC = () => {
   const initGame = useGameStore((state) => state.initGame);
   const startGame = useGameStore((state) => state.startGame);
   const startTutorial = useTutorialStore((state) => state.startTutorial);
+  const setGameMode = useGameStore((state) => state.setGameMode);
 
   const handleTutorial = () => {
     soundManager.init(); // 사운드 시스템 초기화
@@ -19,6 +20,13 @@ export const ModeSelectScreen: React.FC = () => {
     startTutorial();
     startGame(); // 카운트다운 없이 바로 게임 시작
     setScreen('game');
+  };
+
+  const handleRPGMode = () => {
+    soundManager.init();
+    soundManager.play('ui_click');
+    resetGameUI();
+    setScreen('rpgClassSelect'); // 직업 선택 화면으로 이동
   };
 
   return (
@@ -107,6 +115,27 @@ export const ModeSelectScreen: React.FC = () => {
               </p>
               <p className="text-neon-purple text-xs mt-2">
                 실시간 매칭
+              </p>
+            </div>
+          </button>
+
+          {/* RPG 모드 */}
+          <button
+            onClick={handleRPGMode}
+            className="group relative w-48 h-64 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+          >
+            <div className="absolute inset-0 bg-gradient-to-b from-yellow-500/20 to-orange-500/20 group-hover:from-yellow-500/30 group-hover:to-orange-500/30 transition-all duration-300" />
+            <div className="absolute inset-0 border-2 border-yellow-500/50 rounded-lg group-hover:border-yellow-400 group-hover:shadow-[0_0_20px_rgba(234,179,8,0.3)] transition-all duration-300" />
+
+            <div className="relative h-full flex flex-col items-center justify-center p-6">
+              <div className="text-6xl mb-4">🦸</div>
+              <br></br>
+              <h2 className="font-game text-xl text-white mb-2">RPG 모드</h2>
+              <p className="text-gray-400 text-sm text-center">
+                영웅으로 웨이브 생존
+              </p>
+              <p className="text-yellow-400 text-xs mt-2">
+                신규 모드!
               </p>
             </div>
           </button>
