@@ -16,11 +16,11 @@ export function renderRPG(
 ) {
   const zoom = state.camera.zoom;
 
-  // 캔버스 클리어 - 다크 그라데이션 배경
+  // 캔버스 클리어 - 싱글플레이와 동일한 다크 그린 그라데이션 배경
   const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-  gradient.addColorStop(0, '#1a1a2e');
-  gradient.addColorStop(0.5, '#16213e');
-  gradient.addColorStop(1, '#0f0f23');
+  gradient.addColorStop(0, '#1a2e1a');
+  gradient.addColorStop(0.5, '#162016');
+  gradient.addColorStop(1, '#0f1a0f');
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
@@ -50,10 +50,11 @@ export function renderRPG(
   }
 
   // 적 유닛 렌더링
+  const heroPos = state.hero ? { x: state.hero.x, y: state.hero.y } : undefined;
   for (const enemy of state.enemies) {
     if (enemy.hp > 0) {
       const isTarget = state.hero?.attackTarget === enemy.id;
-      drawRPGEnemy(ctx, enemy, camera, scaledWidth, scaledHeight, isTarget);
+      drawRPGEnemy(ctx, enemy, camera, scaledWidth, scaledHeight, isTarget, heroPos);
     }
   }
 

@@ -310,23 +310,39 @@ export function executeQSkill(
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
-
-  // 사거리 내 가장 가까운 적 찾기
-  let nearestEnemy: RPGEnemy | null = null;
-  let minDist = Infinity;
   const range = hero.config.range || CLASS_CONFIGS[heroClass].range;
 
+  // 1. 먼저 타겟 위치 근처의 적 찾기 (클릭한 위치)
+  let targetEnemy: RPGEnemy | null = null;
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
-    const dist = distance(hero.x, hero.y, enemy.x, enemy.y);
-    if (dist <= range && dist < minDist) {
-      minDist = dist;
-      nearestEnemy = enemy;
+    const distToClick = distance(targetX, targetY, enemy.x, enemy.y);
+    if (distToClick <= 50) {
+      // 클릭 위치 50px 이내의 적
+      const distToHero = distance(hero.x, hero.y, enemy.x, enemy.y);
+      if (distToHero <= range * 1.5) {
+        // 사거리의 1.5배 이내면 공격 가능
+        targetEnemy = enemy;
+        break;
+      }
     }
   }
 
-  if (nearestEnemy) {
-    enemyDamages.push({ enemyId: nearestEnemy.id, damage: finalDamage });
+  // 2. 타겟 위치에 적이 없으면 사거리 내 가장 가까운 적 찾기
+  if (!targetEnemy) {
+    let minDist = Infinity;
+    for (const enemy of enemies) {
+      if (enemy.hp <= 0) continue;
+      const dist = distance(hero.x, hero.y, enemy.x, enemy.y);
+      if (dist <= range && dist < minDist) {
+        minDist = dist;
+        targetEnemy = enemy;
+      }
+    }
+  }
+
+  if (targetEnemy) {
+    enemyDamages.push({ enemyId: targetEnemy.id, damage: finalDamage });
   }
 
   const effect: SkillEffect = {
@@ -511,7 +527,7 @@ export function executeESkill(
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].e;
   const baseDamage = hero.config.attack || hero.baseAttack;
-  const damage = Math.floor(baseDamage * (skillConfig.damageMultiplier || 1.0));
+  const damage = Math.floor(baseDamage * ((skillConfig as any).damageMultiplier || 1.0));
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
   let effect: SkillEffect | undefined;

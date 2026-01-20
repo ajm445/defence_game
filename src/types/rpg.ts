@@ -10,12 +10,16 @@ export type SkillType =
   | 'dash' | 'spin' | 'heal'
   // 전사
   | 'warrior_q' | 'warrior_w' | 'warrior_e'
+  | 'warrior_strike' | 'warrior_charge' | 'warrior_berserker'
   // 궁수
   | 'archer_q' | 'archer_w' | 'archer_e'
+  | 'archer_shot' | 'archer_pierce' | 'archer_rain'
   // 기사
   | 'knight_q' | 'knight_w' | 'knight_e'
+  | 'knight_bash' | 'knight_charge' | 'knight_ironwall'
   // 마법사
-  | 'mage_q' | 'mage_w' | 'mage_e';
+  | 'mage_q' | 'mage_w' | 'mage_e'
+  | 'mage_bolt' | 'mage_fireball' | 'mage_meteor';
 
 // 스킬 슬롯 타입
 export type SkillSlot = 'Q' | 'W' | 'E';
@@ -76,6 +80,7 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   baseAttackSpeed: number;   // 기본 공격속도
   skillPoints: number;       // 미사용 스킬 포인트
   buffs: Buff[];             // 활성 버프 목록
+  facingRight: boolean;      // 오른쪽을 바라보는지 여부
 }
 
 // 웨이브 설정

@@ -1,13 +1,14 @@
 import { HeroUnit, RPGEnemy, SkillEffect, HeroClass } from '../types/rpg';
-import { Camera } from '../types';
+import { Camera, UnitType } from '../types';
 import { drawEmoji } from '../utils/canvasEmoji';
+import { drawUnitImage } from '../utils/unitImages';
 
-// 직업별 이모지 및 색상 설정
-const CLASS_VISUALS: Record<HeroClass, { emoji: string; color: string; glowColor: string }> = {
-  warrior: { emoji: '⚔️', color: '#ff6b35', glowColor: '#ff6b35' },
-  archer: { emoji: '🏹', color: '#22c55e', glowColor: '#22c55e' },
-  knight: { emoji: '🛡️', color: '#3b82f6', glowColor: '#3b82f6' },
-  mage: { emoji: '🔮', color: '#a855f7', glowColor: '#a855f7' },
+// 직업별 이미지 매핑 및 색상 설정
+const CLASS_VISUALS: Record<HeroClass, { unitType: UnitType; emoji: string; color: string; glowColor: string }> = {
+  warrior: { unitType: 'melee', emoji: '⚔️', color: '#ff6b35', glowColor: '#ff6b35' },
+  archer: { unitType: 'ranged', emoji: '🏹', color: '#22c55e', glowColor: '#22c55e' },
+  knight: { unitType: 'knight', emoji: '🛡️', color: '#3b82f6', glowColor: '#3b82f6' },
+  mage: { unitType: 'mage', emoji: '🔮', color: '#a855f7', glowColor: '#a855f7' },
 };
 
 /**
@@ -107,8 +108,13 @@ export function drawHero(
 
   ctx.restore();
 
-  // 영웅 아이콘 (직업별 이모지)
-  drawEmoji(ctx, classVisual.emoji, screenX, screenY, 28);
+  // 영웅 아이콘 (직업별 이미지, 없으면 이모지 폴백)
+  // 원본 이미지가 왼쪽을 바라보므로, 오른쪽을 바라볼 때 flip
+  const flipHero = hero.facingRight;
+  const imageDrawn = drawUnitImage(ctx, classVisual.unitType, screenX, screenY, 30, flipHero, 40);
+  if (!imageDrawn) {
+    drawEmoji(ctx, classVisual.emoji, screenX, screenY, 28);
+  }
 
   // 레벨 배지
   ctx.fillStyle = '#1a1a35';
@@ -215,7 +221,8 @@ export function drawRPGEnemy(
   camera: Camera,
   canvasWidth: number,
   canvasHeight: number,
-  isTarget: boolean = false
+  isTarget: boolean = false,
+  heroPosition?: { x: number; y: number }
 ) {
   const screenX = enemy.x - camera.x;
   const screenY = enemy.y - camera.y;
@@ -271,7 +278,7 @@ export function drawRPGEnemy(
 
   ctx.restore();
 
-  // 유닛 아이콘
+  // 유닛 아이콘 (이미지 우선, 없으면 이모지 폴백)
   const EMOJI_MAP: Record<string, string> = {
     melee: '⚔️',
     ranged: '🏹',
@@ -279,9 +286,18 @@ export function drawRPGEnemy(
     mage: '🔮',
     boss: '👹',
   };
-  const emoji = EMOJI_MAP[enemy.type] || '👾';
+  const iconSize = isBoss ? 60 : 30;
+  const iconHeight = isBoss ? 80 : 40;
   const emojiSize = isBoss ? 40 : 20;
-  drawEmoji(ctx, emoji, screenX, screenY, emojiSize);
+
+  // 적이 영웅을 바라보도록 flip (원본 이미지가 왼쪽을 바라봄)
+  // 영웅이 오른쪽에 있으면 flip하여 오른쪽을 바라봄
+  const flipEnemy = heroPosition ? heroPosition.x > enemy.x : false;
+  const enemyImageDrawn = drawUnitImage(ctx, enemy.type as UnitType, screenX, screenY, iconSize, flipEnemy, iconHeight);
+  if (!enemyImageDrawn) {
+    const emoji = EMOJI_MAP[enemy.type] || '👾';
+    drawEmoji(ctx, emoji, screenX, screenY, emojiSize);
+  }
 
   // 체력바
   const hpBarWidth = isBoss ? 80 : 26;

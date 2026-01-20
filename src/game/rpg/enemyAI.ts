@@ -16,7 +16,7 @@ export function updateEnemyAI(
   enemy: RPGEnemy,
   hero: HeroUnit,
   deltaTime: number,
-  gameTime: number
+  _gameTime: number
 ): EnemyAIResult {
   // 기절 상태면 아무것도 하지 않음
   const isStunned = enemy.buffs?.some(b => b.type === 'stun' && b.duration > 0);

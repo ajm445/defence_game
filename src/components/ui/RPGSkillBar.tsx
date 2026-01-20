@@ -10,7 +10,7 @@ interface SkillButtonProps {
 }
 
 // 직업별 스킬 아이콘
-const getSkillIcon = (skillType: SkillType, heroClass: HeroClass): string => {
+const getSkillIcon = (skillType: SkillType, _heroClass: HeroClass): string => {
   const iconMap: Record<string, string> = {
     // 기존 스킬
     dash: '💨',

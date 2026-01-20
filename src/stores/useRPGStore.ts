@@ -201,6 +201,7 @@ function createHeroUnit(heroClass: HeroClass): HeroUnit {
     baseAttackSpeed: classConfig.attackSpeed,
     skillPoints: 0,
     buffs: [],
+    facingRight: true,  // 기본적으로 오른쪽을 바라봄
   };
 }
 
@@ -251,12 +252,15 @@ export const useRPGStore = create<RPGStore>()(
     moveHero: (x, y) => {
       set((state) => {
         if (!state.hero) return state;
+        // 이동 방향에 따라 facingRight 업데이트
+        const facingRight = x > state.hero.x;
         return {
           hero: {
             ...state.hero,
             targetPosition: { x, y },
             state: 'moving',
             attackTarget: undefined, // 이동 시 공격 타겟 해제
+            facingRight: x !== state.hero.x ? facingRight : state.hero.facingRight, // x가 같으면 기존 방향 유지
           },
         };
       });
