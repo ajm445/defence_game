@@ -6,6 +6,7 @@ import { useTutorialStore } from '../../stores/useTutorialStore';
 import { CONFIG } from '../../constants/config';
 import { wsClient } from '../../services/WebSocketClient';
 import { Emoji } from '../common/Emoji';
+import { soundManager } from '../../services/SoundManager';
 
 interface CostItem {
   amount: number;
@@ -113,6 +114,7 @@ export const ActionPanel: React.FC = () => {
   const canSellHerb = resources.herb >= CONFIG.HERB_SELL_COST;
 
   const handleBuildWall = () => {
+    soundManager.play('ui_click');
     if (placementMode === 'wall') {
       setPlacementMode('none');
       showNotification('벽 배치 취소');
@@ -125,11 +127,14 @@ export const ActionPanel: React.FC = () => {
   };
 
   const handleUpgradeBase = () => {
+    soundManager.play('ui_click');
     if (gameMode === 'multiplayer') {
       wsClient.upgradeBase();
+      soundManager.play('upgrade');
       showNotification('본진 강화 요청!');
     } else {
       if (upgradePlayerBase()) {
+        soundManager.play('upgrade');
         const newLevel = (playerBaseLevel ?? 0) + 1;
         const newGoldPerSec = CONFIG.GOLD_PER_SECOND + (newLevel * CONFIG.BASE_UPGRADE.GOLD_BONUS);
         showNotification(`본진 강화! (+${CONFIG.BASE_UPGRADE.HP_BONUS} HP, 골드 수입 ${newGoldPerSec}/초)`);
@@ -140,11 +145,14 @@ export const ActionPanel: React.FC = () => {
   };
 
   const handleSellHerb = () => {
+    soundManager.play('ui_click');
     if (gameMode === 'multiplayer') {
       wsClient.sellHerb();
+      soundManager.play('resource_collect');
       showNotification(`약초 판매 요청!`);
     } else {
       if (sellHerb()) {
+        soundManager.play('resource_collect');
         showNotification(`약초 판매! (+${CONFIG.HERB_SELL_GOLD} 골드)`);
         // 튜토리얼 진행을 위한 약초 판매 기록
         if (gameMode === 'tutorial') {

@@ -10,6 +10,7 @@ import { makeAIDecision } from '../game/ai/aiController';
 import { Unit } from '../types';
 import { EffectType } from '../types/effect';
 import { effectManager } from '../effects';
+import { soundManager } from '../services/SoundManager';
 
 export const useGameLoop = () => {
   const lastTimeRef = useRef<number>(0);
@@ -419,13 +420,26 @@ export const useGameLoop = () => {
         }
       }
 
-      // 이펙트 생성
+      // 이펙트 생성 및 사운드 재생
       for (const effect of effectsToCreate) {
         if (effect.unitId) {
           // 채집 이펙트는 쿨타임 적용
-          effectManager.createGatherEffect(effect.type, effect.x, effect.y, effect.unitId);
+          const created = effectManager.createGatherEffect(effect.type, effect.x, effect.y, effect.unitId);
+          if (created) {
+            soundManager.play('resource_collect');
+          }
         } else {
           effectManager.createEffect(effect.type, effect.x, effect.y, effect.targetX, effect.targetY);
+          // 이펙트 타입에 따른 사운드 매핑
+          if (effect.type === 'attack_melee') {
+            soundManager.play('attack_melee');
+          } else if (effect.type === 'attack_ranged') {
+            soundManager.play('attack_ranged');
+          } else if (effect.type === 'attack_mage') {
+            soundManager.play('attack_mage');
+          } else if (effect.type === 'heal') {
+            soundManager.play('heal');
+          }
         }
       }
 
@@ -483,6 +497,7 @@ export const useGameLoop = () => {
             const showMassSpawnAlert = useUIStore.getState().showMassSpawnAlert;
             const hideMassSpawnAlert = useUIStore.getState().hideMassSpawnAlert;
             showMassSpawnAlert();
+            soundManager.play('warning');
             setTimeout(() => hideMassSpawnAlert(), 3000); // 3초 후 알림 숨김
 
             // 대량 발생 유닛 소환 (자원과 무관하게 강제 소환)
@@ -538,6 +553,7 @@ export const useGameLoop = () => {
         // 페이즈 2 시작 및 보스 소환
         startPhase2();
         spawnBoss();
+        soundManager.play('boss_spawn');
 
         // 페이즈 2 알림 표시
         const showMassSpawnAlert = useUIStore.getState().showMassSpawnAlert;
@@ -549,6 +565,7 @@ export const useGameLoop = () => {
       // 게임 종료 확인
       const gameEnd = checkGameEnd();
       if (gameEnd) {
+        soundManager.play(gameEnd === 'victory' ? 'victory' : 'defeat');
         stopGame();
         setScreen('gameover');
         return;

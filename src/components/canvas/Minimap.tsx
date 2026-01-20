@@ -4,6 +4,7 @@ import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { drawMinimap, drawMinimapMultiplayer } from '../../renderer';
 import { CONFIG } from '../../constants/config';
+import { SoundControl } from '../ui/SoundControl';
 
 export const Minimap: React.FC = () => {
   const canvasRef = useRef<HTMLCanvasElement>(null);
@@ -96,6 +97,11 @@ export const Minimap: React.FC = () => {
 
   return (
     <div className="absolute bottom-5 right-5">
+      {/* 사운드 컨트롤 버튼 */}
+      <div className="absolute -top-1 -left-20">
+        <SoundControl />
+      </div>
+
       {/* 가장자리 스크롤 토글 버튼 */}
       <button
         onClick={toggleEdgeScroll}

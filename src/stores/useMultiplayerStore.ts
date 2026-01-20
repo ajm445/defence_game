@@ -15,6 +15,7 @@ import { wsClient } from '../services/WebSocketClient';
 import { effectManager } from '../effects';
 import { EffectType } from '../types/effect';
 import { CONFIG } from '../constants/config';
+import { soundManager } from '../services/SoundManager';
 
 interface MultiplayerState {
   // 연결 상태
@@ -154,6 +155,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => {
         break;
 
       case 'GAME_OVER':
+        soundManager.play(message.result === 'win' ? 'victory' : 'defeat');
         set({
           gameResult: {
             result: message.result,
@@ -163,6 +165,7 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => {
         break;
 
       case 'OPPONENT_DISCONNECTED':
+        soundManager.play('victory');
         set({
           gameResult: {
             result: 'win',
@@ -277,6 +280,7 @@ function handleGameEvent(
 
   switch (event.event) {
     case 'UNIT_SPAWNED':
+      soundManager.play('unit_spawn');
       set({
         gameState: {
           ...gameState,
@@ -286,6 +290,7 @@ function handleGameEvent(
       break;
 
     case 'UNIT_DIED':
+      soundManager.play('unit_death');
       set({
         gameState: {
           ...gameState,
@@ -313,6 +318,14 @@ function handleGameEvent(
       if (attacker && target) {
         const effectType = getAttackEffectType(attacker.type);
         effectManager.createEffect(effectType, target.x, target.y, target.x, target.y);
+        // 공격 사운드
+        if (effectType === 'attack_melee') {
+          soundManager.play('attack_melee');
+        } else if (effectType === 'attack_ranged') {
+          soundManager.play('attack_ranged');
+        } else if (effectType === 'attack_mage') {
+          soundManager.play('attack_mage');
+        }
       }
 
       // HP 업데이트
@@ -332,13 +345,17 @@ function handleGameEvent(
     case 'UNIT_HEALED': {
       // 힐 이펙트 생성
       effectManager.createEffect('heal', event.x, event.y);
+      soundManager.play('heal');
       break;
     }
 
     case 'RESOURCE_GATHERED': {
       // 채집 이펙트 생성
       const effectType = getGatherEffectType(event.unitType);
-      effectManager.createGatherEffect(effectType, event.x, event.y, event.unitId);
+      const created = effectManager.createGatherEffect(effectType, event.x, event.y, event.unitId);
+      if (created) {
+        soundManager.play('resource_collect');
+      }
       break;
     }
 
@@ -367,6 +384,7 @@ function handleGameEvent(
     }
 
     case 'WALL_BUILT':
+      soundManager.play('build_wall');
       set({
         gameState: {
           ...gameState,

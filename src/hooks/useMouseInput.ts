@@ -5,6 +5,7 @@ import { useMultiplayerStore } from '../stores/useMultiplayerStore';
 import { distance } from '../utils/math';
 import { CONFIG } from '../constants/config';
 import { wsClient } from '../services/WebSocketClient';
+import { soundManager } from '../services/SoundManager';
 
 const ZOOM_SPEED = 0.1;
 
@@ -79,6 +80,7 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
 
           if (isMyTerritory) {
             wsClient.buildWall(clickX, clickY);
+            soundManager.play('build_wall');
             showNotification('벽 건설 요청!');
           } else {
             showNotification('내 진영에만 건설할 수 있습니다!');
@@ -88,6 +90,7 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
           if (clickX < CONFIG.MAP_WIDTH / 2) {
             const success = buildWall(clickX, clickY);
             if (success) {
+              soundManager.play('build_wall');
               showNotification('벽 건설 완료!');
             } else {
               showNotification('자원이 부족합니다!');

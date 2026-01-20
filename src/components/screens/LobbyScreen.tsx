@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useGameStore } from '../../stores/useGameStore';
+import { soundManager } from '../../services/SoundManager';
 
 export const LobbyScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -68,6 +69,7 @@ export const LobbyScreen: React.FC = () => {
       return;
     }
 
+    soundManager.play('ui_click');
     setIsConnecting(true);
     try {
       await connect(inputName.trim());
@@ -78,11 +80,13 @@ export const LobbyScreen: React.FC = () => {
   };
 
   const handleCreateRoom = () => {
+    soundManager.play('ui_click');
     setPlayerName(inputName.trim());
     createRoom();
   };
 
   const handleJoinRoom = () => {
+    soundManager.play('ui_click');
     if (roomCode.trim().length !== 6) {
       useMultiplayerStore.setState({ error: '6자리 초대 코드를 입력하세요.' });
       return;

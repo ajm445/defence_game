@@ -3,6 +3,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { AI_DIFFICULTY_CONFIG } from '../../constants/config';
 import { AIDifficulty } from '../../types';
+import { soundManager } from '../../services/SoundManager';
 
 const difficulties: AIDifficulty[] = ['easy', 'normal', 'hard', 'nightmare', 'bosstest'];
 
@@ -33,6 +34,7 @@ export const DifficultySelectScreen: React.FC = () => {
   const resetGameUI = useUIStore((state) => state.resetGameUI);
 
   const handleSelectDifficulty = (difficulty: AIDifficulty) => {
+    soundManager.play('ui_click');
     setSelectedDifficulty(difficulty);
     resetGameUI(); // UI 상태 초기화
     initGame('ai', difficulty);

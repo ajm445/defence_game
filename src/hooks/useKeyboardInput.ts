@@ -4,6 +4,7 @@ import { useUIStore } from '../stores/useUIStore';
 import { useTutorialStore } from '../stores/useTutorialStore';
 import { wsClient } from '../services/WebSocketClient';
 import { CONFIG } from '../constants/config';
+import { soundManager } from '../services/SoundManager';
 
 export const useKeyboardInput = () => {
   const moveCamera = useGameStore((state) => state.moveCamera);
@@ -26,6 +27,8 @@ export const useKeyboardInput = () => {
   const showNotification = useUIStore((state) => state.showNotification);
   const edgeScrollEnabled = useUIStore((state) => state.edgeScrollEnabled);
   const toggleEdgeScroll = useUIStore((state) => state.toggleEdgeScroll);
+  const soundMuted = useUIStore((state) => state.soundMuted);
+  const toggleSoundMuted = useUIStore((state) => state.toggleSoundMuted);
   const setHerbSold = useTutorialStore((state) => state.setHerbSold);
 
   const handleKeyDown = useCallback(
@@ -126,9 +129,15 @@ export const useKeyboardInput = () => {
           toggleEdgeScroll();
           showNotification(edgeScrollEnabled ? '가장자리 스크롤 비활성화' : '가장자리 스크롤 활성화');
           break;
+        // M: 사운드 음소거 토글
+        case 'm':
+          toggleSoundMuted();
+          soundManager.setMuted(!soundMuted);
+          showNotification(soundMuted ? '사운드 켜짐' : '사운드 꺼짐');
+          break;
       }
     },
-    [running, gameMode, currentScreen, moveCamera, setCameraPosition, playerBase, stopGame, startGame, setScreen, placementMode, setPlacementMode, showNotification, canBuildWall, canUpgradeBase, canSellHerb, upgradePlayerBase, sellHerb, resources, edgeScrollEnabled, toggleEdgeScroll, setHerbSold]
+    [running, gameMode, currentScreen, moveCamera, setCameraPosition, playerBase, stopGame, startGame, setScreen, placementMode, setPlacementMode, showNotification, canBuildWall, canUpgradeBase, canSellHerb, upgradePlayerBase, sellHerb, resources, edgeScrollEnabled, toggleEdgeScroll, soundMuted, toggleSoundMuted, setHerbSold]
   );
 
   useEffect(() => {

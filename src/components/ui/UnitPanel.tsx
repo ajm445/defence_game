@@ -5,6 +5,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { UnitButton } from './UnitButton';
 import { UnitType } from '../../types';
 import { wsClient } from '../../services/WebSocketClient';
+import { soundManager } from '../../services/SoundManager';
 
 // 공격 유닛과 지원 유닛 분리
 const COMBAT_UNITS: UnitType[] = ['melee', 'ranged', 'knight', 'mage'];
@@ -32,14 +33,18 @@ export const UnitPanel: React.FC = () => {
   const handleSpawn = (type: UnitType) => {
     const config: Record<UnitType, string> = { melee: '검병', ranged: '궁수', knight: '기사', woodcutter: '나무꾼', miner: '광부', gatherer: '채집꾼', goldminer: '금광부', healer: '힐러', mage: '마법사', boss: '보스' };
 
+    soundManager.play('ui_click');
+
     if (gameMode === 'multiplayer') {
       // 멀티플레이어: 서버로 유닛 소환 요청 전송
       wsClient.spawnUnit(type);
+      soundManager.play('unit_spawn');
       showNotification(`${config[type]} 소환 요청!`);
     } else {
       // 싱글플레이어: 로컬에서 처리
       const success = spawnUnit(type, 'player');
       if (success) {
+        soundManager.play('unit_spawn');
         showNotification(`${config[type]} 고용!`);
       } else {
         showNotification('자원이 부족합니다!');

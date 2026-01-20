@@ -47,16 +47,17 @@ class EffectManager {
     this.effects.push(effect);
   }
 
-  public createGatherEffect(type: EffectType, x: number, y: number, unitId: string): void {
+  public createGatherEffect(type: EffectType, x: number, y: number, unitId: string): boolean {
     const now = performance.now() / 1000;
     const lastTime = this.gatherCooldowns.get(unitId) || 0;
 
     if (now - lastTime < this.GATHER_COOLDOWN) {
-      return;
+      return false;
     }
 
     this.gatherCooldowns.set(unitId, now);
     this.createEffect(type, x, y);
+    return true;
   }
 
   private createParticles(config: ParticleConfig, x: number, y: number, targetX?: number, targetY?: number): Particle[] {

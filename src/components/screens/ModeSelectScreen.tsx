@@ -2,6 +2,7 @@ import React from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useTutorialStore } from '../../stores/useTutorialStore';
+import { soundManager } from '../../services/SoundManager';
 
 export const ModeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -11,6 +12,8 @@ export const ModeSelectScreen: React.FC = () => {
   const startTutorial = useTutorialStore((state) => state.startTutorial);
 
   const handleTutorial = () => {
+    soundManager.init(); // 사운드 시스템 초기화
+    soundManager.play('ui_click');
     resetGameUI(); // 이전 게임의 UI 상태 초기화
     initGame('tutorial', 'easy');
     startTutorial();
@@ -60,7 +63,11 @@ export const ModeSelectScreen: React.FC = () => {
 
           {/* AI 대전 */}
           <button
-            onClick={() => setScreen('difficultySelect')}
+            onClick={() => {
+              soundManager.init();
+              soundManager.play('ui_click');
+              setScreen('difficultySelect');
+            }}
             className="group relative w-48 h-64 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
           >
             <div className="absolute inset-0 bg-gradient-to-b from-neon-cyan/20 to-neon-blue/20 group-hover:from-neon-cyan/30 group-hover:to-neon-blue/30 transition-all duration-300" />
@@ -81,7 +88,11 @@ export const ModeSelectScreen: React.FC = () => {
 
           {/* 1vs1 대전 */}
           <button
-            onClick={() => setScreen('lobby')}
+            onClick={() => {
+              soundManager.init();
+              soundManager.play('ui_click');
+              setScreen('lobby');
+            }}
             className="group relative w-48 h-64 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
           >
             <div className="absolute inset-0 bg-gradient-to-b from-neon-purple/20 to-neon-pink/20 group-hover:from-neon-purple/30 group-hover:to-neon-pink/30 transition-all duration-300" />

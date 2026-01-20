@@ -11,6 +11,8 @@ interface UIState {
   selectedDifficulty: AIDifficulty;
   massSpawnAlert: boolean; // 대량 발생 경고 표시 여부
   edgeScrollEnabled: boolean; // 마우스 가장자리 스크롤 활성화 여부
+  soundVolume: number; // 0.0 ~ 1.0
+  soundMuted: boolean;
 }
 
 interface UIActions {
@@ -23,6 +25,9 @@ interface UIActions {
   hideMassSpawnAlert: () => void;
   resetGameUI: () => void;
   toggleEdgeScroll: () => void;
+  setSoundVolume: (volume: number) => void;
+  setSoundMuted: (muted: boolean) => void;
+  toggleSoundMuted: () => void;
 }
 
 interface UIStore extends UIState, UIActions {}
@@ -35,6 +40,8 @@ export const useUIStore = create<UIStore>((set) => ({
   selectedDifficulty: 'easy',
   massSpawnAlert: false,
   edgeScrollEnabled: false, // 기본값: 비활성화
+  soundVolume: 0.5, // 기본 볼륨 50%
+  soundMuted: false,
 
   setScreen: (screen) => set({ currentScreen: screen }),
 
@@ -61,4 +68,10 @@ export const useUIStore = create<UIStore>((set) => ({
   }),
 
   toggleEdgeScroll: () => set((state) => ({ edgeScrollEnabled: !state.edgeScrollEnabled })),
+
+  setSoundVolume: (volume) => set({ soundVolume: Math.max(0, Math.min(1, volume)) }),
+
+  setSoundMuted: (muted) => set({ soundMuted: muted }),
+
+  toggleSoundMuted: () => set((state) => ({ soundMuted: !state.soundMuted })),
 }));
