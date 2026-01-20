@@ -47,50 +47,27 @@ export function updateEnemyAI(
     updatedEnemy.attackCooldown -= deltaTime;
   }
 
-  // AI 행동 결정
-  if (dist <= aiConfig.detectionRange) {
-    // 탐지 범위 내
-    if (dist <= aiConfig.attackRange) {
-      // 공격 사거리 내: 공격
-      if (updatedEnemy.attackCooldown <= 0) {
-        heroDamage = aiConfig.attackDamage;
-        updatedEnemy.attackCooldown = aiConfig.attackSpeed;
-        updatedEnemy.state = 'attacking';
-        isAttacking = true;
-      } else {
-        // 공격 대기
-        updatedEnemy.state = 'idle';
-      }
+  // AI 행동 결정 - 항상 플레이어를 향해 추적
+  if (dist <= aiConfig.attackRange) {
+    // 공격 사거리 내: 공격
+    if (updatedEnemy.attackCooldown <= 0) {
+      heroDamage = aiConfig.attackDamage;
+      updatedEnemy.attackCooldown = aiConfig.attackSpeed;
+      updatedEnemy.state = 'attacking';
+      isAttacking = true;
     } else {
-      // 사거리 밖: 플레이어 방향으로 이동
-      const angle = Math.atan2(heroY - enemy.y, heroX - enemy.x);
-      const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
-      const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
-
-      updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);
-      updatedEnemy.y = clamp(enemy.y + moveY, 30, RPG_CONFIG.MAP_HEIGHT - 30);
-      updatedEnemy.state = 'moving';
-    }
-  } else {
-    // 탐지 범위 밖: 랜덤 이동 또는 대기
-    if (Math.random() < 0.01) {
-      // 1% 확률로 랜덤 이동
-      const randomAngle = Math.random() * Math.PI * 2;
-      const wanderDist = 30;
-      updatedEnemy.x = clamp(
-        enemy.x + Math.cos(randomAngle) * wanderDist * deltaTime * 60,
-        30,
-        RPG_CONFIG.MAP_WIDTH - 30
-      );
-      updatedEnemy.y = clamp(
-        enemy.y + Math.sin(randomAngle) * wanderDist * deltaTime * 60,
-        30,
-        RPG_CONFIG.MAP_HEIGHT - 30
-      );
-      updatedEnemy.state = 'moving';
-    } else {
+      // 공격 대기
       updatedEnemy.state = 'idle';
     }
+  } else {
+    // 사거리 밖: 플레이어 방향으로 이동 (항상 추적)
+    const angle = Math.atan2(heroY - enemy.y, heroX - enemy.x);
+    const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
+    const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
+
+    updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);
+    updatedEnemy.y = clamp(enemy.y + moveY, 30, RPG_CONFIG.MAP_HEIGHT - 30);
+    updatedEnemy.state = 'moving';
   }
 
   // 버프 업데이트

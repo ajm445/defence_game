@@ -4,6 +4,7 @@ import { useUIStore } from '../stores/useUIStore';
 import { findEnemyAtPosition } from '../game/rpg/heroUnit';
 import { RPG_CONFIG } from '../constants/rpgConfig';
 import { soundManager } from '../services/SoundManager';
+import { SkillType } from '../types/rpg';
 
 const ZOOM_SPEED = 0.1;
 
@@ -41,12 +42,7 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
       const clickY = state.camera.y - scaledHeight / 2 + screenY;
 
       if (e.button === 0) {
-        // 좌클릭: 적 공격
-        const enemy = findEnemyAtPosition(clickX, clickY, state.enemies, 30);
-        if (enemy) {
-          useRPGStore.getState().setAttackTarget(enemy.id);
-          soundManager.play('attack_melee');
-        }
+        // 좌클릭: 아무 동작 없음 (Q키로 공격)
       } else if (e.button === 1) {
         // 중버튼: 카메라 드래그 시작
         isDraggingRef.current = true;
@@ -68,10 +64,28 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
 
   const handleMouseMove = useCallback(
     (e: React.MouseEvent) => {
+      const canvas = canvasRef.current;
+      if (!canvas) return;
+
+      const state = useRPGStore.getState();
+      const rect = canvas.getBoundingClientRect();
+      const zoom = state.camera.zoom;
+
+      // 화면 좌표를 월드 좌표로 변환
+      const screenX = (e.clientX - rect.left) / zoom;
+      const screenY = (e.clientY - rect.top) / zoom;
+      const scaledWidth = rect.width / zoom;
+      const scaledHeight = rect.height / zoom;
+
+      const worldX = state.camera.x - scaledWidth / 2 + screenX;
+      const worldY = state.camera.y - scaledHeight / 2 + screenY;
+
+      // 마우스 위치 저장 (스킬 타겟 및 방향 결정용)
+      useRPGStore.getState().setMousePosition(worldX, worldY);
+
       if (isDraggingRef.current) {
         const dx = e.clientX - lastMouseRef.current.x;
         const dy = e.clientY - lastMouseRef.current.y;
-        const state = useRPGStore.getState();
         useRPGStore.getState().setCamera(
           state.camera.x - dx / state.camera.zoom,
           state.camera.y - dy / state.camera.zoom
@@ -79,7 +93,7 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
         lastMouseRef.current = { x: e.clientX, y: e.clientY };
       }
     },
-    []
+    [canvasRef]
   );
 
   const handleMouseUp = useCallback(() => {
@@ -124,7 +138,7 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
 /**
  * RPG 키보드 입력 처리 훅
  */
-export function useRPGKeyboard(onSkillUse?: (slot: 'Q' | 'W' | 'E') => void) {
+export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const state = useRPGStore.getState();
@@ -140,9 +154,8 @@ export function useRPGKeyboard(onSkillUse?: (slot: 'Q' | 'W' | 'E') => void) {
           {
             const qSkill = skills.find(s => s.key === 'Q');
             if (qSkill && qSkill.unlocked && qSkill.currentCooldown <= 0) {
-              if (useRPGStore.getState().useSkill(qSkill.type)) {
+              if (requestSkill?.(qSkill.type)) {
                 soundManager.play('attack_melee');
-                onSkillUse?.('Q');
               }
             }
           }
@@ -153,9 +166,8 @@ export function useRPGKeyboard(onSkillUse?: (slot: 'Q' | 'W' | 'E') => void) {
           {
             const wSkill = skills.find(s => s.key === 'W');
             if (wSkill && wSkill.unlocked && wSkill.currentCooldown <= 0) {
-              if (useRPGStore.getState().useSkill(wSkill.type)) {
+              if (requestSkill?.(wSkill.type)) {
                 soundManager.play('attack_melee');
-                onSkillUse?.('W');
               }
             }
           }
@@ -166,13 +178,12 @@ export function useRPGKeyboard(onSkillUse?: (slot: 'Q' | 'W' | 'E') => void) {
           {
             const eSkill = skills.find(s => s.key === 'E');
             if (eSkill && eSkill.unlocked && eSkill.currentCooldown <= 0) {
-              if (useRPGStore.getState().useSkill(eSkill.type)) {
+              if (requestSkill?.(eSkill.type)) {
                 if (heroClass === 'knight') {
                   soundManager.play('heal');
                 } else {
                   soundManager.play('attack_melee');
                 }
-                onSkillUse?.('E');
               }
             }
           }
@@ -199,5 +210,5 @@ export function useRPGKeyboard(onSkillUse?: (slot: 'Q' | 'W' | 'E') => void) {
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [onSkillUse]);
+  }, [requestSkill]);
 }

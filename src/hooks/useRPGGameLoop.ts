@@ -139,11 +139,12 @@ export function useRPGGameLoop() {
     // 시야 업데이트
     useRPGStore.getState().updateVisibility();
 
-    // 적 AI 업데이트
+    // 적 AI 업데이트 (현재 상태의 적 배열 사용 - 스킬 데미지 반영)
     const currentHeroState = useRPGStore.getState().hero;
+    const currentEnemies = useRPGStore.getState().enemies;
     if (currentHeroState) {
       const { updatedEnemies, totalHeroDamage: rawDamage } = updateAllEnemiesAI(
-        state.enemies,
+        currentEnemies,
         currentHeroState,
         deltaTime,
         state.gameTime
@@ -363,8 +364,9 @@ export function useRPGGameLoop() {
       if (!state.hero) return;
 
       const heroClass = state.hero.heroClass;
-      const targetX = state.hero.targetPosition?.x || state.hero.x + 100;
-      const targetY = state.hero.targetPosition?.y || state.hero.y;
+      // 마우스 위치를 스킬 타겟으로 사용 (바라보는 방향으로 공격)
+      const targetX = state.mousePosition.x;
+      const targetY = state.mousePosition.y;
 
       // 기존 스킬 처리 (하위 호환)
       switch (skillType) {

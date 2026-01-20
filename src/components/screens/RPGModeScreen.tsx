@@ -14,7 +14,7 @@ import { soundManager } from '../../services/SoundManager';
 export const RPGModeScreen: React.FC = () => {
   // 게임 루프 시작
   const { requestSkill } = useRPGGameLoop();
-  useRPGKeyboard();
+  useRPGKeyboard(requestSkill);
 
   const gameOver = useRPGGameOver();
   const result = useRPGResult();

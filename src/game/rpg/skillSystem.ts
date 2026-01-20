@@ -311,33 +311,26 @@ export function executeQSkill(
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
   const range = hero.config.range || CLASS_CONFIGS[heroClass].range;
+  // 최소 공격 범위 200px 보장
+  const attackRange = Math.max(range * 2, 200);
 
-  // 1. 먼저 타겟 위치 근처의 적 찾기 (클릭한 위치)
+  // 공격 방향 계산 (영웅 → 마우스 방향)
+  const dx = targetX - hero.x;
+  const dy = targetY - hero.y;
+  const dirDist = Math.sqrt(dx * dx + dy * dy);
+  const dirX = dirDist > 0 ? dx / dirDist : (hero.facingRight ? 1 : -1);
+  const dirY = dirDist > 0 ? dy / dirDist : 0;
+
   let targetEnemy: RPGEnemy | null = null;
+  let minDist = Infinity;
+
+  // 공격 범위 내에서 가장 가까운 적 찾기 (단순화)
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
-    const distToClick = distance(targetX, targetY, enemy.x, enemy.y);
-    if (distToClick <= 50) {
-      // 클릭 위치 50px 이내의 적
-      const distToHero = distance(hero.x, hero.y, enemy.x, enemy.y);
-      if (distToHero <= range * 1.5) {
-        // 사거리의 1.5배 이내면 공격 가능
-        targetEnemy = enemy;
-        break;
-      }
-    }
-  }
-
-  // 2. 타겟 위치에 적이 없으면 사거리 내 가장 가까운 적 찾기
-  if (!targetEnemy) {
-    let minDist = Infinity;
-    for (const enemy of enemies) {
-      if (enemy.hp <= 0) continue;
-      const dist = distance(hero.x, hero.y, enemy.x, enemy.y);
-      if (dist <= range && dist < minDist) {
-        minDist = dist;
-        targetEnemy = enemy;
-      }
+    const distToHero = distance(hero.x, hero.y, enemy.x, enemy.y);
+    if (distToHero <= attackRange && distToHero < minDist) {
+      minDist = distToHero;
+      targetEnemy = enemy;
     }
   }
 
@@ -345,9 +338,14 @@ export function executeQSkill(
     enemyDamages.push({ enemyId: targetEnemy.id, damage: finalDamage });
   }
 
+  // 이펙트는 타겟 방향으로 표시
+  const effectX = targetEnemy ? targetEnemy.x : hero.x + dirX * range;
+  const effectY = targetEnemy ? targetEnemy.y : hero.y + dirY * range;
+
   const effect: SkillEffect = {
     type: skillConfig.type,
-    position: { x: hero.x, y: hero.y },
+    position: { x: effectX, y: effectY },
+    direction: { x: dirX, y: dirY },
     damage: finalDamage,
     duration: 0.3,
     startTime: gameTime,

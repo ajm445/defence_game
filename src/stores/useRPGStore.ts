@@ -10,6 +10,9 @@ interface RPGState extends RPGGameState {
 
   // 결과
   result: RPGGameResult | null;
+
+  // 마우스 위치 (월드 좌표, 스킬 타겟용)
+  mousePosition: { x: number; y: number };
 }
 
 interface RPGActions {
@@ -27,6 +30,9 @@ interface RPGActions {
   damageHero: (amount: number) => void;
   healHero: (amount: number) => void;
   updateHeroPosition: (x: number, y: number) => void;
+
+  // 마우스 위치 (스킬 타겟용)
+  setMousePosition: (x: number, y: number) => void;
 
   // 버프 관련
   addBuff: (buff: Buff) => void;
@@ -127,6 +133,7 @@ const initialState: RPGState = {
   activeSkillEffects: [],
   pendingSkills: [],
   result: null,
+  mousePosition: { x: RPG_CONFIG.MAP_CENTER_X, y: RPG_CONFIG.MAP_CENTER_Y },
 };
 
 // 직업별 스킬 생성
@@ -232,13 +239,15 @@ export const useRPGStore = create<RPGStore>()(
       });
     },
 
-    resetGame: () => set({
+    resetGame: () => set((state) => ({
       ...initialState,
+      // 선택된 직업은 유지 (다시 시작할 때 사용)
+      selectedClass: state.selectedClass,
       visibility: {
         exploredCells: new Set<string>(),
         visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
       },
-    }),
+    })),
 
     selectClass: (heroClass: HeroClass) => {
       set({ selectedClass: heroClass });
@@ -309,6 +318,21 @@ export const useRPGStore = create<RPGStore>()(
         if (!state.hero) return state;
         return {
           hero: { ...state.hero, x, y },
+        };
+      });
+    },
+
+    setMousePosition: (x, y) => {
+      set((state) => {
+        if (!state.hero) return { mousePosition: { x, y } };
+        // 마우스 위치에 따라 facingRight 업데이트
+        const facingRight = x > state.hero.x;
+        return {
+          mousePosition: { x, y },
+          hero: {
+            ...state.hero,
+            facingRight: x !== state.hero.x ? facingRight : state.hero.facingRight,
+          },
         };
       });
     },

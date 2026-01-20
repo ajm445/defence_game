@@ -14,7 +14,7 @@ export interface HeroUpdateResult {
 export function updateHeroUnit(
   hero: HeroUnit,
   deltaTime: number,
-  enemies: RPGEnemy[]
+  _enemies: RPGEnemy[]
 ): HeroUpdateResult {
   let updatedHero = { ...hero };
   let enemyDamage: { targetId: string; damage: number } | undefined;
@@ -26,40 +26,10 @@ export function updateHeroUnit(
   }
 
   const config = updatedHero.config;
-  const range = config.range || RPG_CONFIG.HERO.RANGE;
-  const attack = config.attack || updatedHero.baseAttack;
-  const attackSpeed = config.attackSpeed || RPG_CONFIG.HERO.ATTACK_SPEED;
   const speed = config.speed || updatedHero.baseSpeed;
 
-  // 1. 공격 대상이 있는 경우
-  if (updatedHero.attackTarget) {
-    const target = enemies.find((e) => e.id === updatedHero.attackTarget && e.hp > 0);
-
-    if (target) {
-      const dist = distance(updatedHero.x, updatedHero.y, target.x, target.y);
-
-      if (dist <= range) {
-        // 사거리 내: 공격
-        if (updatedHero.attackCooldown <= 0) {
-          enemyDamage = { targetId: target.id, damage: attack };
-          updatedHero.attackCooldown = attackSpeed;
-          updatedHero.state = 'attacking';
-        }
-      } else {
-        // 사거리 밖: 타겟으로 이동
-        const angle = Math.atan2(target.y - updatedHero.y, target.x - updatedHero.x);
-        updatedHero.x += Math.cos(angle) * speed * deltaTime * 60;
-        updatedHero.y += Math.sin(angle) * speed * deltaTime * 60;
-        updatedHero.state = 'moving';
-      }
-    } else {
-      // 타겟이 죽었거나 없음
-      updatedHero.attackTarget = undefined;
-      updatedHero.state = 'idle';
-    }
-  }
-  // 2. 이동 목표가 있는 경우
-  else if (updatedHero.targetPosition) {
+  // 이동 목표가 있는 경우 (공격은 Q 스킬로만 처리)
+  if (updatedHero.targetPosition) {
     const target = updatedHero.targetPosition;
     const dist = distance(updatedHero.x, updatedHero.y, target.x, target.y);
     const moveDistance = speed * deltaTime * 60;
