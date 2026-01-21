@@ -49,7 +49,21 @@ export function updateHeroUnit(
       updatedHero.state = 'moving';
     }
   }
-  // 이동 목표가 있는 경우 (공격은 Q 스킬로만 처리)
+  // WASD 방향 이동 (새로운 방식)
+  else if (updatedHero.moveDirection && (updatedHero.moveDirection.x !== 0 || updatedHero.moveDirection.y !== 0)) {
+    const dir = updatedHero.moveDirection;
+    const moveDistance = speed * deltaTime * 60;
+
+    // 방향 정규화
+    const dirLength = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
+    const normalizedX = dir.x / dirLength;
+    const normalizedY = dir.y / dirLength;
+
+    updatedHero.x += normalizedX * moveDistance;
+    updatedHero.y += normalizedY * moveDistance;
+    updatedHero.state = 'moving';
+  }
+  // 이동 목표가 있는 경우 (구 방식 - 호환성 유지)
   else if (updatedHero.targetPosition) {
     const target = updatedHero.targetPosition;
     const dist = distance(updatedHero.x, updatedHero.y, target.x, target.y);

@@ -9,7 +9,7 @@ import { Notification } from '../ui/Notification';
 import { useRPGCoopStore, useMyCoopHero, useCoopWaveInfo } from '../../stores/useRPGCoopStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { soundManager } from '../../services/SoundManager';
-import { CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { CLASS_CONFIGS, CLASS_SKILLS } from '../../constants/rpgConfig';
 import type { SkillType } from '../../types/rpg';
 
 export const RPGCoopGameScreen: React.FC = () => {
@@ -53,7 +53,33 @@ export const RPGCoopGameScreen: React.FC = () => {
       const targetY = myHero.y;
 
       useSkill(slot, targetX, targetY);
-      soundManager.play('skill_use');
+
+      // 스킬별 사운드 (싱글플레이와 동일)
+      switch (skillType) {
+        // 근접 공격 스킬
+        case 'warrior_q':
+        case 'warrior_w':
+        case 'knight_q':
+        case 'knight_w':
+          soundManager.play('attack_melee');
+          break;
+        // 원거리 공격 스킬
+        case 'archer_q':
+        case 'archer_w':
+        case 'archer_e':
+        case 'mage_q':
+        case 'mage_w':
+        case 'mage_e':
+          soundManager.play('attack_ranged');
+          break;
+        // 버프 스킬
+        case 'warrior_e':
+        case 'knight_e':
+          soundManager.play('heal');
+          break;
+        default:
+          soundManager.play('skill_use');
+      }
     },
     [myHero, useSkill]
   );
@@ -106,7 +132,7 @@ export const RPGCoopGameScreen: React.FC = () => {
 
       {/* 조작법 안내 */}
       <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">
-        <div>우클릭: 이동 | Q: 기본 공격 | W: 스킬 | E: 궁극기 | C: 사거리 | Space: 카메라</div>
+        <div>WASD: 이동 | 자동 공격 | Shift: 스킬 | R: 궁극기 | C: 사거리 | Space: 카메라</div>
       </div>
 
       {/* 게임 오버 모달 */}
@@ -204,6 +230,20 @@ const SKILL_NAMES: Record<string, Record<string, string>> = {
   mage: { Q: '마력탄', W: '화염구', E: '메테오' },
 };
 
+// 스킬 키 표시 변환 (W -> Shift, E -> R)
+const getDisplayKey = (slot: string): string => {
+  if (slot === 'W') return 'Shift';
+  if (slot === 'E') return 'R';
+  return slot;
+};
+
+// 스킬 타입 라벨 (W -> 스킬, E -> 궁극기)
+const getSkillLabel = (slot: string): string => {
+  if (slot === 'W') return '스킬';
+  if (slot === 'E') return '궁극기';
+  return slot;
+};
+
 // 협동 모드 스킬바
 const CoopSkillBar: React.FC<{ onUseSkill: (skillType: SkillType) => void }> = ({ onUseSkill }) => {
   const myHero = useMyCoopHero();
@@ -233,12 +273,12 @@ const CoopSkillBar: React.FC<{ onUseSkill: (skillType: SkillType) => void }> = (
 
   const skills = skillTypeMap[heroClass] || skillTypeMap.warrior;
 
+  // Q 스킬 제외 (자동 공격), W와 E만 표시
+  const displaySlots = ['W', 'E'] as const;
+
   return (
-    <div className="flex gap-2 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
-      <div className="text-xs text-gray-400 uppercase tracking-wider self-center mr-2">
-        스킬
-      </div>
-      {(['Q', 'W', 'E'] as const).map((slot) => {
+    <div className="flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
+      {displaySlots.map((slot) => {
         const cooldown = skillCooldowns[slot];
         const maxCooldown = SKILL_COOLDOWNS[heroClass]?.[slot] || 10;
         const isOnCooldown = cooldown > 0;
@@ -247,53 +287,62 @@ const CoopSkillBar: React.FC<{ onUseSkill: (skillType: SkillType) => void }> = (
         const skillIcon = getSkillIcon(heroClass, slot);
         const skillColor = getSkillColor(heroClass, slot);
         const skillName = SKILL_NAMES[heroClass]?.[slot] || slot;
+        const displayKey = getDisplayKey(slot);
 
         return (
-          <div key={slot} className="relative group">
-            <button
-              onClick={() => onUseSkill(skillType)}
-              onMouseEnter={() => handleSkillHoverStart(slot)}
-              onMouseLeave={handleSkillHoverEnd}
-              disabled={isOnCooldown || myHero.isDead}
-              className={`
-                relative w-14 h-14 rounded-lg border-2 overflow-hidden
-                transition-all duration-200
-                ${isOnCooldown || myHero.isDead
-                  ? 'bg-dark-700/80 border-dark-500 cursor-not-allowed'
-                  : `bg-gradient-to-br ${skillColor} border-neon-cyan/50 hover:border-neon-cyan hover:scale-105 cursor-pointer`
-                }
-              `}
-            >
-              {/* 쿨다운 오버레이 */}
-              {isOnCooldown && (
-                <div
-                  className="absolute bottom-0 left-0 right-0 bg-dark-900/80 transition-all"
-                  style={{ height: `${cooldownPercent}%` }}
-                />
-              )}
+          <div key={slot} className="flex flex-col items-center gap-1">
+            <div className="text-[10px] text-gray-400 font-medium">
+              {getSkillLabel(slot)}
+            </div>
+            <div className="relative group">
+              <button
+                onClick={() => onUseSkill(skillType)}
+                onMouseEnter={() => handleSkillHoverStart(slot)}
+                onMouseLeave={handleSkillHoverEnd}
+                disabled={isOnCooldown || myHero.isDead}
+                className={`
+                  relative w-14 h-14 rounded-lg border-2 overflow-hidden
+                  transition-all duration-200
+                  ${isOnCooldown || myHero.isDead
+                    ? 'bg-dark-700/80 border-dark-500 cursor-not-allowed'
+                    : `bg-gradient-to-br ${skillColor} border-neon-cyan/50 hover:border-neon-cyan hover:scale-105 cursor-pointer`
+                  }
+                `}
+              >
+                {/* 쿨다운 오버레이 */}
+                {isOnCooldown && (
+                  <div
+                    className="absolute bottom-0 left-0 right-0 bg-dark-900/80 transition-all"
+                    style={{ height: `${cooldownPercent}%` }}
+                  />
+                )}
 
-              {/* 스킬 아이콘 */}
-              <div className="relative z-10 flex flex-col items-center justify-center h-full">
-                <span className="text-2xl">{skillIcon}</span>
-                <span className="text-[10px] text-white/70 font-bold">{slot}</span>
-              </div>
-
-              {/* 쿨다운 텍스트 */}
-              {isOnCooldown && (
-                <div className="absolute inset-0 flex items-center justify-center z-20">
-                  <span className="text-lg font-bold text-white drop-shadow-lg">
-                    {Math.ceil(cooldown)}
-                  </span>
+                {/* 스킬 아이콘 */}
+                <div className="relative z-10 flex flex-col items-center justify-center h-full">
+                  <span className="text-2xl">{skillIcon}</span>
+                  <span className="text-[10px] text-white/70 font-bold">{displayKey}</span>
                 </div>
-              )}
-            </button>
 
-            {/* 툴팁 */}
-            <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-              <div className="bg-dark-800/95 border border-dark-500 rounded-lg px-3 py-2 whitespace-nowrap text-center min-w-[100px]">
-                <div className="font-bold text-white">{skillName}</div>
-                <div className="text-xs text-neon-cyan mt-1">
-                  쿨타임: {maxCooldown}초
+                {/* 쿨다운 텍스트 */}
+                {isOnCooldown && (
+                  <div className="absolute inset-0 flex items-center justify-center z-20">
+                    <span className="text-lg font-bold text-white drop-shadow-lg">
+                      {Math.ceil(cooldown)}
+                    </span>
+                  </div>
+                )}
+              </button>
+
+              {/* 툴팁 */}
+              <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
+                <div className="bg-dark-800/95 border border-dark-500 rounded-lg px-3 py-2 whitespace-nowrap text-center min-w-[140px]">
+                  <div className="font-bold text-white">{skillName}</div>
+                  <div className="text-xs text-gray-400 mt-1 max-w-[180px] whitespace-normal">
+                    {CLASS_SKILLS[heroClass]?.[slot.toLowerCase() as 'q' | 'w' | 'e']?.description || ''}
+                  </div>
+                  <div className="text-xs text-neon-cyan mt-1">
+                    쿨타임: {maxCooldown}초
+                  </div>
                 </div>
               </div>
             </div>

@@ -1,12 +1,19 @@
 import { useRef, useCallback, RefObject, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
-import { findEnemyAtPosition } from '../game/rpg/heroUnit';
 import { RPG_CONFIG } from '../constants/rpgConfig';
 import { soundManager } from '../services/SoundManager';
 import { SkillType } from '../types/rpg';
 
 const ZOOM_SPEED = 0.1;
+
+// WASD 키 상태 추적
+const keyState = {
+  w: false,
+  a: false,
+  s: false,
+  d: false,
+};
 
 interface UseRPGInputReturn {
   handleMouseDown: (e: React.MouseEvent) => void;
@@ -18,33 +25,16 @@ interface UseRPGInputReturn {
 
 export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): UseRPGInputReturn {
   const isDraggingRef = useRef(false);
-  const isRightClickHeldRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
 
-  // 카메라 드래그 관련 (중버튼)
+  // 마우스 클릭 처리 (카메라 드래그만)
   const handleMouseDown = useCallback(
     (e: React.MouseEvent) => {
       const state = useRPGStore.getState();
       const canvas = canvasRef.current;
       if (!canvas || !state.hero) return;
 
-      const rect = canvas.getBoundingClientRect();
-      const zoom = state.camera.zoom;
-
-      // 화면 좌표를 월드 좌표로 변환
-      // state.camera.x/y는 화면 중앙의 월드 좌표
-      const screenX = (e.clientX - rect.left) / zoom;
-      const screenY = (e.clientY - rect.top) / zoom;
-      const scaledWidth = rect.width / zoom;
-      const scaledHeight = rect.height / zoom;
-
-      // 화면 좌상단의 월드 좌표 + 화면에서의 위치 = 클릭 위치의 월드 좌표
-      const clickX = state.camera.x - scaledWidth / 2 + screenX;
-      const clickY = state.camera.y - scaledHeight / 2 + screenY;
-
-      if (e.button === 0) {
-        // 좌클릭: 아무 동작 없음 (Q키로 공격)
-      } else if (e.button === 1) {
+      if (e.button === 1) {
         // 중버튼: 카메라 드래그 시작
         isDraggingRef.current = true;
         lastMouseRef.current = { x: e.clientX, y: e.clientY };
@@ -52,14 +42,8 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
         if (state.camera.followHero) {
           useRPGStore.getState().toggleFollowHero();
         }
-      } else if (e.button === 2) {
-        // 우클릭: 이동 시작
-        isRightClickHeldRef.current = true;
-        // 맵 경계 내로 제한
-        const targetX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, clickX));
-        const targetY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, clickY));
-        useRPGStore.getState().moveHero(targetX, targetY);
       }
+      // 우클릭 이동 제거됨 - WASD로 이동
     },
     [canvasRef]
   );
@@ -94,11 +78,6 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
           state.camera.y - dy / state.camera.zoom
         );
         lastMouseRef.current = { x: e.clientX, y: e.clientY };
-      } else if (isRightClickHeldRef.current && state.hero) {
-        // 우클릭 홀드 중: 계속 이동
-        const targetX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, worldX));
-        const targetY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, worldY));
-        useRPGStore.getState().moveHero(targetX, targetY);
       }
     },
     [canvasRef]
@@ -107,8 +86,6 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
   const handleMouseUp = useCallback((e: React.MouseEvent) => {
     if (e.button === 1) {
       isDraggingRef.current = false;
-    } else if (e.button === 2) {
-      isRightClickHeldRef.current = false;
     }
   }, []);
 
@@ -147,18 +124,52 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
   };
 }
 
+// WASD 키 상태로부터 이동 방향 계산
+function calculateMoveDirection(): { x: number; y: number } | undefined {
+  let x = 0;
+  let y = 0;
+
+  if (keyState.w) y -= 1;
+  if (keyState.s) y += 1;
+  if (keyState.a) x -= 1;
+  if (keyState.d) x += 1;
+
+  if (x === 0 && y === 0) {
+    return undefined;
+  }
+
+  return { x, y };
+}
+
 /**
  * RPG 키보드 입력 처리 훅
+ * - WASD: 이동
+ * - Shift: W 스킬
+ * - R: E 궁극기
+ * - C: 사거리 표시
+ * - Space: 카메라 센터링
+ * - ESC: 일시정지
  */
 export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean) {
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const state = useRPGStore.getState();
+      const key = e.key.toLowerCase();
 
       // C 키는 게임 상태와 관계없이 처리 (사거리 표시)
-      if (e.key.toLowerCase() === 'c') {
+      if (key === 'c') {
         useRPGStore.getState().setShowAttackRange(true);
         return;
+      }
+
+      // WASD 이동 처리 (게임 진행 중에만)
+      if (state.running && !state.paused && !state.gameOver && state.hero) {
+        if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
+          keyState[key as 'w' | 'a' | 's' | 'd'] = true;
+          const direction = calculateMoveDirection();
+          useRPGStore.getState().setMoveDirection(direction);
+          return;
+        }
       }
 
       if (!state.running || state.paused || state.gameOver) return;
@@ -167,21 +178,10 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
       const heroClass = state.hero.heroClass;
       const skills = state.hero.skills;
 
-      switch (e.key.toLowerCase()) {
-        case 'q':
-          // Q 스킬 (일반공격)
-          {
-            const qSkill = skills.find(s => s.key === 'Q');
-            if (qSkill && qSkill.currentCooldown <= 0) {
-              if (requestSkill?.(qSkill.type)) {
-                soundManager.play('attack_melee');
-              }
-            }
-          }
-          break;
-
-        case 'w':
-          // W 스킬
+      switch (key) {
+        case 'shift':
+          // Shift: W 스킬
+          e.preventDefault();
           {
             const wSkill = skills.find(s => s.key === 'W');
             if (wSkill && wSkill.currentCooldown <= 0) {
@@ -192,16 +192,16 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
           }
           break;
 
-        case 'e':
-          // E 스킬 (궁극기)
+        case 'r':
+          // R: E 스킬 (궁극기)
           {
             const eSkill = skills.find(s => s.key === 'E');
             if (eSkill && eSkill.currentCooldown <= 0) {
               if (requestSkill?.(eSkill.type)) {
-                if (heroClass === 'knight') {
+                if (heroClass === 'knight' || heroClass === 'warrior') {
                   soundManager.play('heal');
                 } else {
-                  soundManager.play('attack_melee');
+                  soundManager.play('attack_ranged');
                 }
               }
             }
@@ -228,9 +228,19 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
+      const key = e.key.toLowerCase();
+
       // C 키를 떼면 사거리 표시 비활성화
-      if (e.key.toLowerCase() === 'c') {
+      if (key === 'c') {
         useRPGStore.getState().setShowAttackRange(false);
+        return;
+      }
+
+      // WASD 키 해제
+      if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
+        keyState[key as 'w' | 'a' | 's' | 'd'] = false;
+        const direction = calculateMoveDirection();
+        useRPGStore.getState().setMoveDirection(direction);
       }
     };
 
@@ -239,6 +249,11 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      // 클린업 시 키 상태 초기화
+      keyState.w = false;
+      keyState.a = false;
+      keyState.s = false;
+      keyState.d = false;
     };
   }, [requestSkill]);
 }

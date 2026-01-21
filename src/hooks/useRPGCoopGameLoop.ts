@@ -1,15 +1,19 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useRPGCoopStore } from '../stores/useRPGCoopStore';
 import { effectManager } from '../effects';
+import { soundManager } from '../services/SoundManager';
+import { CLASS_CONFIGS } from '../constants/rpgConfig';
 
 /**
  * 협동 모드 클라이언트 게임 루프
  * - 서버에서 게임 로직 처리, 클라이언트는 렌더링 + 입력 처리
  * - 클라이언트 예측으로 로컬 영웅 이동 부드럽게 처리
+ * - 자동 공격: 사거리 내 적 감지 시 Q 스킬 요청
  */
 export function useRPGCoopGameLoop() {
   const lastTimeRef = useRef<number>(0);
   const animationIdRef = useRef<number>(0);
+  const lastAutoAttackRef = useRef<number>(0);
 
   const connectionState = useRPGCoopStore((state) => state.connectionState);
   const gameState = useRPGCoopStore((state) => state.gameState);
@@ -32,6 +36,9 @@ export function useRPGCoopGameLoop() {
     // 로컬 영웅 위치 보간 (클라이언트 예측)
     updateLocalHeroPosition(state, deltaTime);
 
+    // 자동 공격 처리
+    processAutoAttack(state, timestamp, lastAutoAttackRef);
+
     animationIdRef.current = requestAnimationFrame(tick);
   }, []);
 
@@ -53,52 +60,102 @@ export function useRPGCoopGameLoop() {
   };
 }
 
+// 서버 보정 상수
+const SERVER_CORRECTION_RATE = 0.15;  // 서버 위치로 보정하는 비율 (프레임당)
+const SNAP_THRESHOLD = 150;           // 즉시 스냅하는 거리 임계값
+
 /**
- * 로컬 영웅 위치 보간
- * - 서버 위치와 로컬 예측 위치 사이를 부드럽게 보간
+ * 로컬 영웅 위치 보간 (클라이언트 예측 + 서버 보정)
+ *
+ * 1. 로컬 목표가 있으면 그 방향으로 이동 (클라이언트 예측)
+ * 2. 서버 위치와의 차이를 부드럽게 보정 (lerp)
+ * 3. 큰 차이(150px+)는 즉시 스냅
  */
 function updateLocalHeroPosition(
   state: ReturnType<typeof useRPGCoopStore.getState>,
-  _deltaTime: number
+  deltaTime: number
 ) {
-  const { gameState, myHeroId, localHeroPosition } = state;
+  const { gameState, myHeroId, localHeroPosition, localTargetPosition } = state;
   if (!gameState || !myHeroId) return;
 
   const myHero = gameState.heroes.find(h => h.id === myHeroId);
   if (!myHero || myHero.isDead) return;
 
-  // 로컬 예측 위치가 있고 목표 위치가 있으면 보간
-  if (localHeroPosition && myHero.targetX !== undefined && myHero.targetY !== undefined) {
-    const targetX = myHero.targetX;
-    const targetY = myHero.targetY;
+  // 로컬 위치가 없으면 서버 위치로 초기화
+  if (!localHeroPosition) {
+    useRPGCoopStore.setState({
+      localHeroPosition: { x: myHero.x, y: myHero.y },
+    });
+    return;
+  }
 
-    const dx = targetX - localHeroPosition.x;
-    const dy = targetY - localHeroPosition.y;
+  let newX = localHeroPosition.x;
+  let newY = localHeroPosition.y;
+
+  // 1. 로컬 목표가 있으면 그 방향으로 이동
+  if (localTargetPosition) {
+    const dx = localTargetPosition.x - newX;
+    const dy = localTargetPosition.y - newY;
     const dist = Math.sqrt(dx * dx + dy * dy);
 
     if (dist > 5) {
-      // 이동 중: 부드럽게 이동
+      // 서버와 동일한 이동 공식: speed * deltaTime * 60
       const speed = myHero.speed || 3;
-      const moveX = (dx / dist) * speed;
-      const moveY = (dy / dist) * speed;
+      const moveDistance = speed * deltaTime * 60;
+      const moveX = (dx / dist) * moveDistance;
+      const moveY = (dy / dist) * moveDistance;
 
-      const newX = localHeroPosition.x + moveX;
-      const newY = localHeroPosition.y + moveY;
+      newX += moveX;
+      newY += moveY;
 
       // 목표 지점을 지나쳤는지 체크
-      const newDist = Math.sqrt((targetX - newX) ** 2 + (targetY - newY) ** 2);
-      if (newDist < dist) {
+      const newDist = Math.sqrt((localTargetPosition.x - newX) ** 2 + (localTargetPosition.y - newY) ** 2);
+      if (newDist >= dist) {
+        // 목표 도달
+        newX = localTargetPosition.x;
+        newY = localTargetPosition.y;
         useRPGCoopStore.setState({
           localHeroPosition: { x: newX, y: newY },
+          localTargetPosition: null,
         });
-      } else {
-        // 목표 도달
-        useRPGCoopStore.setState({
-          localHeroPosition: { x: targetX, y: targetY },
-        });
+        return;
       }
+    } else {
+      // 목표에 거의 도달
+      newX = localTargetPosition.x;
+      newY = localTargetPosition.y;
+      useRPGCoopStore.setState({
+        localHeroPosition: { x: newX, y: newY },
+        localTargetPosition: null,
+      });
+      return;
     }
   }
+
+  // 2. 서버 위치와의 차이 계산
+  const serverDx = myHero.x - newX;
+  const serverDy = myHero.y - newY;
+  const serverDist = Math.sqrt(serverDx * serverDx + serverDy * serverDy);
+
+  if (serverDist > SNAP_THRESHOLD) {
+    // 큰 차이: 서버 위치로 즉시 스냅
+    useRPGCoopStore.setState({
+      localHeroPosition: { x: myHero.x, y: myHero.y },
+      localTargetPosition: null,
+    });
+    return;
+  }
+
+  // 3. 부드러운 서버 보정 (이동 중이 아닐 때만)
+  if (!localTargetPosition && serverDist > 3) {
+    // 서버 위치로 점진적 보정 (lerp)
+    newX += serverDx * SERVER_CORRECTION_RATE;
+    newY += serverDy * SERVER_CORRECTION_RATE;
+  }
+
+  useRPGCoopStore.setState({
+    localHeroPosition: { x: newX, y: newY },
+  });
 }
 
 /**
@@ -144,4 +201,65 @@ export function getCameraPosition(): { x: number; y: number } {
   }
 
   return { x: myHero.x, y: myHero.y };
+}
+
+/**
+ * 자동 공격 처리
+ * - 사거리 내 적이 있고 Q 스킬이 준비되면 자동 공격
+ */
+function processAutoAttack(
+  state: ReturnType<typeof useRPGCoopStore.getState>,
+  timestamp: number,
+  lastAutoAttackRef: React.MutableRefObject<number>
+) {
+  const { gameState, myHeroId } = state;
+  if (!gameState || !myHeroId) return;
+
+  const myHero = gameState.heroes.find(h => h.id === myHeroId);
+  if (!myHero || myHero.isDead) return;
+
+  // Q 스킬 쿨다운 체크
+  if (myHero.skillCooldowns.Q > 0) return;
+
+  // 스로틀링 (최소 100ms 간격)
+  if (timestamp - lastAutoAttackRef.current < 100) return;
+
+  // 공격 사거리 계산
+  const classConfig = CLASS_CONFIGS[myHero.heroClass];
+  const attackRange = classConfig?.range || 80;
+
+  // 가장 가까운 적 찾기
+  let nearestEnemy = null;
+  let nearestDist = Infinity;
+
+  for (const enemy of gameState.enemies) {
+    if (enemy.hp <= 0) continue;
+
+    const dx = enemy.x - myHero.x;
+    const dy = enemy.y - myHero.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
+
+    if (dist < nearestDist) {
+      nearestDist = dist;
+      nearestEnemy = enemy;
+    }
+  }
+
+  // 사거리 내 적이 있으면 Q 스킬 사용
+  if (nearestEnemy && nearestDist <= attackRange) {
+    lastAutoAttackRef.current = timestamp;
+
+    // 마우스 위치를 적 위치로 설정
+    useRPGCoopStore.getState().setMousePosition(nearestEnemy.x, nearestEnemy.y);
+
+    // Q 스킬 요청
+    useRPGCoopStore.getState().useSkill('Q', nearestEnemy.x, nearestEnemy.y);
+
+    // 사운드 재생
+    if (myHero.heroClass === 'archer' || myHero.heroClass === 'mage') {
+      soundManager.play('attack_ranged');
+    } else {
+      soundManager.play('attack_melee');
+    }
+  }
 }

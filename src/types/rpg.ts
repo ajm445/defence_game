@@ -101,7 +101,8 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   exp: number;               // 현재 경험치
   expToNextLevel: number;    // 다음 레벨까지 필요 경험치
   skills: Skill[];           // 보유 스킬
-  targetPosition?: Position; // 이동 목표 위치
+  targetPosition?: Position; // 이동 목표 위치 (구 방식 - 사용 안함)
+  moveDirection?: Position;  // WASD 이동 방향 (신 방식)
   attackTarget?: string;     // 공격 대상 ID
   baseAttack: number;        // 기본 공격력
   baseSpeed: number;         // 기본 이동속도

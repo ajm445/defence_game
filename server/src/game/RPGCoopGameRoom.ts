@@ -1169,6 +1169,10 @@ export class RPGCoopGameRoom {
     const baseMageDamageBonus = 0.25;  // 기본 패시브 25%
     const damageBonus = hero.heroClass === 'mage' ? baseMageDamageBonus + hero.passiveGrowth.currentValue : 0;
 
+    // 스킬 이펙트 생성 (싱글플레이와 동일한 시각 효과)
+    const skillType = `${hero.heroClass}_${slot.toLowerCase()}` as SkillType;
+    this.createSkillEffect(hero, skillType, targetX, targetY, dirX, dirY, config);
+
     switch (hero.heroClass) {
       case 'warrior':
         this.executeWarriorSkill(hero, slot, targetX, targetY, dirX, dirY, config, damageBonus);
@@ -1183,6 +1187,43 @@ export class RPGCoopGameRoom {
         this.executeMageSkill(hero, slot, targetX, targetY, dirX, dirY, config, damageBonus);
         break;
     }
+  }
+
+  // 스킬 시각 이펙트 생성
+  private createSkillEffect(
+    hero: ServerHero,
+    skillType: SkillType,
+    targetX: number,
+    targetY: number,
+    dirX: number,
+    dirY: number,
+    config: any
+  ): void {
+    // E 스킬 중 mage_e(메테오)는 pendingSkills로 처리되므로 제외
+    if (skillType === 'mage_e') return;
+
+    const effect: SkillEffect = {
+      type: skillType,
+      position: { x: hero.x, y: hero.y },
+      targetPosition: { x: targetX, y: targetY },
+      direction: { x: dirX, y: dirY },
+      radius: config.radius || hero.range || 80,
+      duration: 0.4,  // 이펙트 지속 시간
+      startTime: this.gameTime,
+      heroClass: hero.heroClass,
+    };
+
+    // W 스킬 (돌진류)은 더 긴 duration
+    if (skillType.endsWith('_w')) {
+      effect.duration = 0.5;
+    }
+
+    // 범위 스킬은 목표 위치에 이펙트
+    if (skillType === 'archer_e' || skillType === 'mage_w') {
+      effect.position = { x: targetX, y: targetY };
+    }
+
+    this.activeSkillEffects.push(effect);
   }
 
   private executeWarriorSkill(hero: ServerHero, slot: 'Q' | 'W' | 'E', targetX: number, targetY: number,

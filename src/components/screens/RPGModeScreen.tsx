@@ -112,7 +112,7 @@ export const RPGModeScreen: React.FC = () => {
 
       {/* 조작법 안내 */}
       <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">
-        <div>우클릭: 이동 | Q: 기본 공격 | W: 스킬 | E: 궁극기 | C: 사거리 | Space: 카메라</div>
+        <div>WASD: 이동 | 자동 공격 | Shift: 스킬 | R: 궁극기 | C: 사거리 | Space: 카메라</div>
       </div>
 
       {/* 게임 오버 모달 */}

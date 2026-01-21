@@ -37,6 +37,7 @@ interface RPGActions {
   // 영웅 관련
   createHero: (heroClass: HeroClass) => void;
   moveHero: (x: number, y: number) => void;
+  setMoveDirection: (direction: { x: number; y: number } | undefined) => void;
   setAttackTarget: (targetId: string | undefined) => void;
   damageHero: (amount: number) => void;
   healHero: (amount: number) => void;
@@ -298,6 +299,32 @@ export const useRPGStore = create<RPGStore>()(
             attackTarget: undefined, // 이동 시 공격 타겟 해제
             facingRight: x !== state.hero.x ? facingRight : state.hero.facingRight, // x가 같으면 기존 방향 유지
             facingAngle: dist > 0 ? facingAngle : state.hero.facingAngle, // 거리가 0이면 기존 방향 유지
+          },
+        };
+      });
+    },
+
+    setMoveDirection: (direction) => {
+      set((state) => {
+        if (!state.hero) return state;
+
+        // 방향이 있을 때 바라보는 방향 업데이트
+        let facingRight = state.hero.facingRight;
+        let facingAngle = state.hero.facingAngle;
+
+        if (direction && (direction.x !== 0 || direction.y !== 0)) {
+          facingRight = direction.x >= 0;
+          facingAngle = Math.atan2(direction.y, direction.x);
+        }
+
+        return {
+          hero: {
+            ...state.hero,
+            moveDirection: direction,
+            targetPosition: undefined, // WASD 이동 시 목표 위치 해제
+            state: direction ? 'moving' : 'idle',
+            facingRight,
+            facingAngle,
           },
         };
       });

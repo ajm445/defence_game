@@ -66,12 +66,27 @@ const getSkillColor = (slot: string, heroClass: HeroClass): string => {
   return colorMap[heroClass]?.[slot] || 'from-gray-500/30 to-gray-400/30';
 };
 
+// 스킬 키 표시 변환 (W -> Shift, E -> R)
+const getDisplayKey = (key: string): string => {
+  if (key === 'W') return 'Shift';
+  if (key === 'E') return 'R';
+  return key;
+};
+
+// 스킬 타입 이름 표시 (W -> 스킬, E -> 궁극기)
+const getSkillLabel = (key: string): string => {
+  if (key === 'W') return '스킬';
+  if (key === 'E') return '궁극기';
+  return key;
+};
+
 const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHoverStart, onHoverEnd }) => {
   const isOnCooldown = skill.currentCooldown > 0;
   const cooldownPercent = isOnCooldown ? (skill.currentCooldown / skill.cooldown) * 100 : 0;
 
   const skillIcon = getSkillIcon(skill.type, heroClass);
   const skillColor = getSkillColor(skill.key, heroClass);
+  const displayKey = getDisplayKey(skill.key);
 
   return (
     <div
@@ -102,7 +117,7 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
         {/* 스킬 아이콘 */}
         <div className="relative z-10 flex flex-col items-center justify-center h-full">
           <span className="text-2xl">{skillIcon}</span>
-          <span className="text-[10px] text-white/70 font-bold">{skill.key}</span>
+          <span className="text-[10px] text-white/70 font-bold">{displayKey}</span>
         </div>
 
         {/* 쿨다운 텍스트 */}
@@ -201,20 +216,24 @@ export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
 
   if (!hero) return null;
 
+  // Q 스킬 제외 (자동 공격이므로), W와 E만 표시
+  const displaySkills = hero.skills.filter(skill => skill.key === 'W' || skill.key === 'E');
+
   return (
-    <div className="flex gap-2 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
-      <div className="text-xs text-gray-400 uppercase tracking-wider self-center mr-2">
-        스킬
-      </div>
-      {hero.skills.map((skill) => (
-        <SkillButton
-          key={skill.type}
-          skill={skill}
-          heroClass={hero.heroClass}
-          onUse={() => onUseSkill(skill.type)}
-          onHoverStart={() => handleSkillHoverStart(skill.type, hero.heroClass)}
-          onHoverEnd={handleSkillHoverEnd}
-        />
+    <div className="flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
+      {displaySkills.map((skill) => (
+        <div key={skill.type} className="flex flex-col items-center gap-1">
+          <div className="text-[10px] text-gray-400 font-medium">
+            {getSkillLabel(skill.key)}
+          </div>
+          <SkillButton
+            skill={skill}
+            heroClass={hero.heroClass}
+            onUse={() => onUseSkill(skill.type)}
+            onHoverStart={() => handleSkillHoverStart(skill.type, hero.heroClass)}
+            onHoverEnd={handleSkillHoverEnd}
+          />
+        </div>
       ))}
     </div>
   );

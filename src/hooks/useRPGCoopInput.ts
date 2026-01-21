@@ -1,8 +1,18 @@
 import { useEffect, useCallback, useRef, useState } from 'react';
 import { useRPGCoopStore } from '../stores/useRPGCoopStore';
 import { RPG_CONFIG } from '../constants/rpgConfig';
+import { soundManager } from '../services/SoundManager';
 
 const ZOOM_SPEED = 0.1;
+const MOVE_UPDATE_INTERVAL = 50; // WASD 이동 업데이트 간격 (ms)
+
+// WASD 키 상태 추적
+const keyState = {
+  w: false,
+  a: false,
+  s: false,
+  d: false,
+};
 
 interface UseRPGCoopInputOptions {
   canvasRef: React.RefObject<HTMLCanvasElement | null>;
@@ -17,20 +27,39 @@ export interface CoopInputState {
   hoveredSkill: 'Q' | 'W' | 'E' | null;
 }
 
+// WASD 키 상태로부터 이동 방향 계산
+function calculateMoveDirection(): { x: number; y: number } | null {
+  let x = 0;
+  let y = 0;
+
+  if (keyState.w) y -= 1;
+  if (keyState.s) y += 1;
+  if (keyState.a) x -= 1;
+  if (keyState.d) x += 1;
+
+  if (x === 0 && y === 0) {
+    return null;
+  }
+
+  // 정규화
+  const length = Math.sqrt(x * x + y * y);
+  return { x: x / length, y: y / length };
+}
+
 /**
  * 협동 모드 입력 처리 훅
- * - 우클릭: 이동 (싱글플레이와 동일)
+ * - WASD: 이동
  * - 휠 버튼 드래그: 카메라 이동
  * - Space: 카메라 센터링
  * - C 키: 사거리 표시
- * - Q/W/E 키: 스킬 사용
+ * - Shift: W 스킬, R: E 궁극기
  */
 export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: UseRPGCoopInputOptions): CoopInputState {
   const mousePositionRef = useRef<{ x: number; y: number }>({ x: 0, y: 0 });
   const isHoveringRef = useRef(false);
   const isDraggingCameraRef = useRef(false);
-  const isRightClickHeldRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
+  const moveIntervalRef = useRef<number | null>(null);
 
   const [showAttackRange, setShowAttackRange] = useState(false);
   const [hoveredSkill, setHoveredSkill] = useState<'Q' | 'W' | 'E' | null>(null);
@@ -64,28 +93,14 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
   const handleMouseDown = useCallback((e: MouseEvent) => {
     if (connectionState !== 'coop_in_game') return;
 
-    const hero = getMyHero();
-    const camera = cameraRef.current;
-
     if (e.button === 1) {
       // 중버튼: 카메라 드래그 시작
       e.preventDefault();
       isDraggingCameraRef.current = true;
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
-    } else if (e.button === 2) {
-      // 우클릭: 이동 시작 (싱글플레이와 동일)
-      if (!hero || hero.isDead) return;
-
-      isRightClickHeldRef.current = true;
-      const worldPos = screenToWorld(e.clientX, e.clientY);
-
-      // 맵 경계 체크
-      const clampedX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, worldPos.x));
-      const clampedY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, worldPos.y));
-
-      moveHero(clampedX, clampedY);
     }
-  }, [connectionState, getMyHero, moveHero, screenToWorld, cameraRef]);
+    // 우클릭 이동 제거됨 - WASD로 이동
+  }, [connectionState]);
 
   // 마우스 이동 핸들러
   const handleMouseMove = useCallback((e: MouseEvent) => {
@@ -109,23 +124,12 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
       );
       lastMouseRef.current = { x: e.clientX, y: e.clientY };
     }
-    // 우클릭 홀드 중: 계속 이동
-    else if (isRightClickHeldRef.current) {
-      const hero = getMyHero();
-      if (hero && !hero.isDead) {
-        const clampedX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, worldPos.x));
-        const clampedY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, worldPos.y));
-        moveHero(clampedX, clampedY);
-      }
-    }
-  }, [screenToWorld, cameraRef, setCameraPosition, getMyHero, moveHero]);
+  }, [screenToWorld, cameraRef, setCameraPosition]);
 
   // 마우스 업 핸들러
   const handleMouseUp = useCallback((e: MouseEvent) => {
     if (e.button === 1) {
       isDraggingCameraRef.current = false;
-    } else if (e.button === 2) {
-      isRightClickHeldRef.current = false;
     }
   }, []);
 
@@ -133,7 +137,6 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
   const handleMouseLeave = useCallback(() => {
     isHoveringRef.current = false;
     isDraggingCameraRef.current = false;
-    isRightClickHeldRef.current = false;
   }, []);
 
   // 우클릭 컨텍스트 메뉴 방지
@@ -155,6 +158,34 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
 
     camera.zoom = newZoom;
   }, [cameraRef]);
+
+  // WASD 이동 업데이트 시작
+  const startMoveUpdate = useCallback(() => {
+    if (moveIntervalRef.current) return;
+
+    moveIntervalRef.current = window.setInterval(() => {
+      const direction = calculateMoveDirection();
+      if (!direction) return;
+
+      const hero = getMyHero();
+      if (!hero || hero.isDead) return;
+
+      // 현재 위치에서 이동 방향으로 일정 거리만큼 이동
+      const moveDistance = 50; // 이동 업데이트당 거리
+      const targetX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + direction.x * moveDistance));
+      const targetY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + direction.y * moveDistance));
+
+      moveHero(targetX, targetY);
+    }, MOVE_UPDATE_INTERVAL);
+  }, [getMyHero, moveHero]);
+
+  // WASD 이동 업데이트 중지
+  const stopMoveUpdate = useCallback(() => {
+    if (moveIntervalRef.current) {
+      clearInterval(moveIntervalRef.current);
+      moveIntervalRef.current = null;
+    }
+  }, []);
 
   // 키보드 핸들러
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -187,14 +218,38 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
     const hero = getMyHero();
     if (!hero || hero.isDead) return;
 
-    // 스킬 키
-    if (key === 'q' || key === 'w' || key === 'e') {
-      e.preventDefault();
-      const slot = key.toUpperCase() as 'Q' | 'W' | 'E';
-      const targetPos = mousePositionRef.current;
-      useSkill(slot, targetPos.x, targetPos.y);
+    // WASD 이동
+    if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
+      const wasMoving = keyState.w || keyState.a || keyState.s || keyState.d;
+      keyState[key as 'w' | 'a' | 's' | 'd'] = true;
+      if (!wasMoving) {
+        startMoveUpdate();
+      }
+      return;
     }
-  }, [connectionState, getMyHero, useSkill, setCameraPosition]);
+
+    // Shift 키: W 스킬
+    if (key === 'shift') {
+      e.preventDefault();
+      const targetPos = mousePositionRef.current;
+      if (hero.skillCooldowns.W <= 0) {
+        useSkill('W', targetPos.x, targetPos.y);
+        // 사운드는 RPGCoopGameScreen에서 처리
+      }
+      return;
+    }
+
+    // R 키: E 궁극기
+    if (key === 'r') {
+      e.preventDefault();
+      const targetPos = mousePositionRef.current;
+      if (hero.skillCooldowns.E <= 0) {
+        useSkill('E', targetPos.x, targetPos.y);
+        // 사운드는 RPGCoopGameScreen에서 처리
+      }
+      return;
+    }
+  }, [connectionState, getMyHero, useSkill, setCameraPosition, startMoveUpdate]);
 
   // 키업 핸들러
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
@@ -203,8 +258,18 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
     // C 키를 떼면 사거리 표시 비활성화
     if (key === 'c') {
       setShowAttackRange(false);
+      return;
     }
-  }, []);
+
+    // WASD 키 해제
+    if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
+      keyState[key as 'w' | 'a' | 's' | 'd'] = false;
+      const stillMoving = keyState.w || keyState.a || keyState.s || keyState.d;
+      if (!stillMoving) {
+        stopMoveUpdate();
+      }
+    }
+  }, [stopMoveUpdate]);
 
   // 이벤트 리스너 등록
   useEffect(() => {
@@ -229,6 +294,16 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
       canvas.removeEventListener('wheel', handleWheel);
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+
+      // 클린업 시 키 상태 및 이동 업데이트 초기화
+      keyState.w = false;
+      keyState.a = false;
+      keyState.s = false;
+      keyState.d = false;
+      if (moveIntervalRef.current) {
+        clearInterval(moveIntervalRef.current);
+        moveIntervalRef.current = null;
+      }
     };
   }, [canvasRef, handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave, handleContextMenu, handleWheel, handleKeyDown, handleKeyUp]);
 

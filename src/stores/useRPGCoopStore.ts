@@ -35,6 +35,7 @@ interface RPGCoopState {
 
   // 로컬 클라이언트 예측 상태
   localHeroPosition: { x: number; y: number } | null;
+  localTargetPosition: { x: number; y: number } | null;  // 클라이언트측 이동 목표
 
   // 결과
   gameResult: RPGCoopGameResult | null;
@@ -82,6 +83,7 @@ const initialState = {
   gameState: null,
   myHeroId: null,
   localHeroPosition: null,
+  localTargetPosition: null,
   gameResult: null,
   hoveredSkill: null as 'Q' | 'W' | 'E' | null,
   mousePosition: { x: 0, y: 0 },
@@ -219,6 +221,7 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
           myHeroId: message.yourHeroId,
           countdown: 0,
           localHeroPosition: null,
+          localTargetPosition: null,
         });
         soundManager.play('wave_start');
         break;
@@ -341,11 +344,21 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
     },
 
     moveHero: (targetX: number, targetY: number) => {
-      const { gameState, myHeroId } = get();
+      const { gameState, myHeroId, localHeroPosition } = get();
       if (!gameState || !myHeroId) return;
 
-      // 로컬 즉시 반영 (클라이언트 예측)
-      set({ localHeroPosition: { x: targetX, y: targetY } });
+      const myHero = gameState.heroes.find(h => h.id === myHeroId);
+      if (!myHero || myHero.isDead) return;
+
+      // 로컬 위치가 없으면 서버 위치로 초기화
+      const currentLocalPos = localHeroPosition || { x: myHero.x, y: myHero.y };
+
+      // 로컬 목표 위치 설정 (클라이언트 예측)
+      // localHeroPosition은 게임 루프에서 부드럽게 이동
+      set({
+        localHeroPosition: currentLocalPos,
+        localTargetPosition: { x: targetX, y: targetY }
+      });
 
       // 서버에 요청
       wsClient.coopHeroMove(targetX, targetY);
@@ -382,6 +395,7 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
         gameState: null,
         myHeroId: null,
         localHeroPosition: null,
+        localTargetPosition: null,
         gameResult: null,
         hoveredSkill: null,
         error: null,
@@ -428,26 +442,9 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
 function handleGameState(
   state: RPGCoopGameState,
   set: (state: Partial<RPGCoopState> | ((state: RPGCoopState) => Partial<RPGCoopState>)) => void,
-  get: () => RPGCoopState
+  _get: () => RPGCoopState
 ) {
-  const { myHeroId, localHeroPosition } = get();
-
-  // 로컬 위치 보정 (클라이언트 예측)
-  if (myHeroId && localHeroPosition) {
-    const serverHero = state.heroes.find(h => h.id === myHeroId);
-    if (serverHero) {
-      const dx = serverHero.x - localHeroPosition.x;
-      const dy = serverHero.y - localHeroPosition.y;
-      const distance = Math.sqrt(dx * dx + dy * dy);
-
-      if (distance > 50) {
-        // 큰 차이: 서버 위치로 즉시 보정
-        set({ localHeroPosition: null });
-      }
-      // 작은 차이: 로컬 위치 유지 (자연스러운 이동)
-    }
-  }
-
+  // 서버 상태 업데이트 (위치 보정은 게임 루프에서 처리)
   set({ gameState: state });
 }
 
@@ -485,6 +482,11 @@ function handleGameEvent(
     case 'HERO_DIED': {
       if (event.heroId === myHeroId) {
         soundManager.play('hero_death');
+        // 로컬 이동 상태 초기화
+        useRPGCoopStore.setState({
+          localHeroPosition: null,
+          localTargetPosition: null,
+        });
       }
       break;
     }
@@ -492,6 +494,11 @@ function handleGameEvent(
     case 'HERO_REVIVED': {
       if (event.heroId === myHeroId) {
         soundManager.play('hero_revive');
+        // 부활 위치로 로컬 상태 초기화
+        useRPGCoopStore.setState({
+          localHeroPosition: { x: event.x, y: event.y },
+          localTargetPosition: null,
+        });
       }
       effectManager.createEffect('heal', event.x, event.y);
       break;

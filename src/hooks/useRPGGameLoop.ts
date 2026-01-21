@@ -2,7 +2,7 @@ import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
 import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_WAVE, PASSIVE_GROWTH_INTERVAL, PASSIVE_GROWTH_CONFIGS } from '../constants/rpgConfig';
-import { updateHeroUnit, canLevelUp } from '../game/rpg/heroUnit';
+import { updateHeroUnit, canLevelUp, findNearestEnemy } from '../game/rpg/heroUnit';
 import {
   createWaveEnemies,
   createRPGEnemy,
@@ -18,6 +18,7 @@ import {
   executeQSkill,
   executeWSkill,
   executeESkill,
+  canUseSkill,
 } from '../game/rpg/skillSystem';
 import {
   updateAllEnemiesAI,
@@ -65,6 +66,37 @@ export function useRPGGameLoop() {
 
     // 스킬 쿨다운 업데이트
     useRPGStore.getState().updateSkillCooldowns(deltaTime);
+
+    // 자동 공격: 적이 사거리 내에 있고 Q 스킬이 준비되면 자동 발동
+    const heroForAutoAttack = useRPGStore.getState().hero;
+    if (heroForAutoAttack && !heroForAutoAttack.dashState) {
+      const heroClass = heroForAutoAttack.heroClass;
+      const qSkillType = CLASS_SKILLS[heroClass].q.type;
+      const qSkill = heroForAutoAttack.skills.find(s => s.type === qSkillType);
+
+      if (qSkill && qSkill.currentCooldown <= 0) {
+        // 공격 사거리 내 가장 가까운 적 찾기
+        const attackRange = heroForAutoAttack.config.range || 80;
+        const nearestEnemy = findNearestEnemy(heroForAutoAttack, state.enemies);
+
+        if (nearestEnemy) {
+          const dist = distance(heroForAutoAttack.x, heroForAutoAttack.y, nearestEnemy.x, nearestEnemy.y);
+          if (dist <= attackRange) {
+            // 적 방향으로 마우스 위치 설정 후 Q 스킬 실행
+            useRPGStore.getState().setMousePosition(nearestEnemy.x, nearestEnemy.y);
+            useRPGStore.getState().useSkill(qSkillType);
+            pendingSkillRef.current = qSkillType;
+
+            // 사운드 재생
+            if (heroClass === 'archer' || heroClass === 'mage') {
+              soundManager.play('attack_ranged');
+            } else {
+              soundManager.play('attack_melee');
+            }
+          }
+        }
+      }
+    }
 
     // 보류된 스킬 처리
     if (pendingSkillRef.current) {

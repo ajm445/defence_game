@@ -9,6 +9,7 @@ import { drawGrid } from '../../renderer/drawGrid';
 import { drawEmoji } from '../../utils/canvasEmoji';
 import { drawUnitImage } from '../../utils/unitImages';
 import { drawRPGMinimap, getMinimapConfig } from '../../renderer/drawRPGMinimap';
+import { drawSkillEffect as drawSkillEffectSP } from '../../renderer/drawHero';
 import type { NetworkCoopHero, NetworkCoopEnemy } from '@shared/types/rpgNetwork';
 import type { HeroClass, Buff } from '../../types/rpg';
 import type { UnitType } from '../../types/unit';
@@ -158,9 +159,9 @@ function renderCoopGame(
   // 맵 경계 표시
   drawMapBoundary(ctx, cameraOffset, scaledWidth, scaledHeight);
 
-  // 스킬 이펙트 렌더링
+  // 스킬 이펙트 렌더링 (싱글플레이와 동일한 함수 사용)
   gameState.activeSkillEffects?.forEach(effect => {
-    drawSkillEffect(ctx, effect, cameraOffset, gameState.gameTime);
+    drawSkillEffectSP(ctx, effect as any, cameraOffset, gameState.gameTime);
   });
 
   // 보류 중인 스킬 범위 표시 (운석 등)
