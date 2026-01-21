@@ -154,6 +154,8 @@ export const RPGClassSelectScreen: React.FC = () => {
         </h1>
         <p className="text-gray-400 mb-8">플레이할 영웅의 직업을 선택하세요</p>
 
+        <div style={{ height: '30px' }} />
+
         {/* 직업 카드들 */}
         <div className="flex gap-6 mb-8">
           {heroClasses.map((heroClass) => (
@@ -165,12 +167,15 @@ export const RPGClassSelectScreen: React.FC = () => {
             />
           ))}
         </div>
+        
+        <div style={{ height: '30px' }} />
 
         {/* 버튼들 */}
         <div className="flex gap-4">
           <button
             onClick={handleBack}
             className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
           >
             뒤로 가기
           </button>
@@ -184,6 +189,7 @@ export const RPGClassSelectScreen: React.FC = () => {
                 : 'bg-gray-700 text-gray-500 cursor-not-allowed'
               }
             `}
+            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
           >
             게임 시작
           </button>

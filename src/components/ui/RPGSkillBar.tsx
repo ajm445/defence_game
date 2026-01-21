@@ -1,12 +1,15 @@
-import React from 'react';
-import { useHero } from '../../stores/useRPGStore';
+import React, { useCallback } from 'react';
+import { useHero, useRPGStore } from '../../stores/useRPGStore';
 import { Skill, SkillType, HeroClass } from '../../types/rpg';
 import { getSkillDescription } from '../../game/rpg/skillSystem';
+import { CLASS_SKILLS, CLASS_CONFIGS } from '../../constants/rpgConfig';
 
 interface SkillButtonProps {
   skill: Skill;
   heroClass: HeroClass;
   onUse: () => void;
+  onHoverStart: () => void;
+  onHoverEnd: () => void;
 }
 
 // 직업별 스킬 아이콘
@@ -63,7 +66,7 @@ const getSkillColor = (slot: string, heroClass: HeroClass): string => {
   return colorMap[heroClass]?.[slot] || 'from-gray-500/30 to-gray-400/30';
 };
 
-const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse }) => {
+const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHoverStart, onHoverEnd }) => {
   const isOnCooldown = skill.currentCooldown > 0;
   const isLocked = !skill.unlocked;
   const cooldownPercent = isOnCooldown ? (skill.currentCooldown / skill.cooldown) * 100 : 0;
@@ -72,7 +75,11 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse }) =>
   const skillColor = getSkillColor(skill.key, heroClass);
 
   return (
-    <div className="relative group">
+    <div
+      className="relative group"
+      onMouseEnter={onHoverStart}
+      onMouseLeave={onHoverEnd}
+    >
       <button
         onClick={onUse}
         disabled={isOnCooldown || isLocked}
@@ -145,8 +152,62 @@ interface RPGSkillBarProps {
   onUseSkill: (skillType: SkillType) => void;
 }
 
+// 스킬 타입에 따른 사거리 정보 계산
+function getSkillRangeInfo(
+  skillType: SkillType,
+  heroClass: HeroClass
+): { type: 'circle' | 'line' | 'aoe' | null; range: number; radius?: number } | null {
+  const classConfig = CLASS_CONFIGS[heroClass];
+  const classSkills = CLASS_SKILLS[heroClass];
+  const baseRange = classConfig.range;
+
+  // Q 스킬: 기본 공격 - 사거리 표시 없음 (C 키로 표시 가능)
+  if (skillType.endsWith('_q')) {
+    return null;
+  }
+
+  // W 스킬: 돌진/관통/범위 스킬
+  if (skillType.endsWith('_w')) {
+    const wSkill = classSkills.w as { distance?: number; pierceDistance?: number; radius?: number };
+    if (wSkill.distance) {
+      // 돌진 스킬 (전사, 기사)
+      return { type: 'line', range: wSkill.distance };
+    }
+    if (wSkill.pierceDistance) {
+      // 관통 스킬 (궁수)
+      return { type: 'line', range: wSkill.pierceDistance };
+    }
+    if (wSkill.radius) {
+      // 범위 스킬 (마법사 화염구)
+      return { type: 'circle', range: baseRange, radius: wSkill.radius };
+    }
+  }
+
+  // E 스킬: 궁극기
+  if (skillType.endsWith('_e')) {
+    const eSkill = classSkills.e as { radius?: number; duration?: number };
+    if (eSkill.radius) {
+      // 범위 스킬 (궁수 화살비, 마법사 운석) - 무제한 사거리, 마우스 위치에 AoE만 표시
+      return { type: 'aoe', range: 0, radius: eSkill.radius };
+    }
+    // 버프 스킬 (전사 광전사, 기사 철벽)은 사거리 표시 없음
+    return null;
+  }
+
+  return null;
+}
+
 export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
   const hero = useHero();
+
+  const handleSkillHoverStart = useCallback((skillType: SkillType, heroClass: HeroClass) => {
+    const rangeInfo = getSkillRangeInfo(skillType, heroClass);
+    useRPGStore.getState().setHoveredSkillRange(rangeInfo);
+  }, []);
+
+  const handleSkillHoverEnd = useCallback(() => {
+    useRPGStore.getState().setHoveredSkillRange(null);
+  }, []);
 
   if (!hero) return null;
 
@@ -161,6 +222,8 @@ export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
           skill={skill}
           heroClass={hero.heroClass}
           onUse={() => onUseSkill(skill.type)}
+          onHoverStart={() => handleSkillHoverStart(skill.type, hero.heroClass)}
+          onHoverEnd={handleSkillHoverEnd}
         />
       ))}
     </div>

@@ -16,6 +16,13 @@ interface RPGState extends RPGGameState {
 
   // 공격 사거리 표시 여부
   showAttackRange: boolean;
+
+  // 호버된 스킬 사거리 정보
+  hoveredSkillRange: {
+    type: 'circle' | 'line' | 'aoe' | null;  // 원형 범위, 직선, 또는 무제한 AoE
+    range: number;                            // 사거리/거리
+    radius?: number;                          // AoE 반경 (범위 스킬용)
+  } | null;
 }
 
 interface RPGActions {
@@ -33,6 +40,7 @@ interface RPGActions {
   damageHero: (amount: number) => void;
   healHero: (amount: number) => void;
   updateHeroPosition: (x: number, y: number) => void;
+  updateHeroState: (heroUpdate: Partial<HeroUnit>) => void;
 
   // 마우스 위치 (스킬 타겟용)
   setMousePosition: (x: number, y: number) => void;
@@ -91,6 +99,9 @@ interface RPGActions {
 
   // 공격 사거리 표시
   setShowAttackRange: (show: boolean) => void;
+
+  // 호버된 스킬 사거리 설정
+  setHoveredSkillRange: (range: RPGState['hoveredSkillRange']) => void;
 }
 
 interface RPGStore extends RPGState, RPGActions {}
@@ -111,6 +122,7 @@ const initialState: RPGState = {
 
   currentWave: 0,
   waveInProgress: false,
+  waveStarted: false,  // 첫 웨이브가 시작되었는지 여부
   enemiesRemaining: 0,
   enemies: [],
 
@@ -141,6 +153,7 @@ const initialState: RPGState = {
   result: null,
   mousePosition: { x: RPG_CONFIG.MAP_CENTER_X, y: RPG_CONFIG.MAP_CENTER_Y },
   showAttackRange: false,
+  hoveredSkillRange: null,
 };
 
 // 직업별 스킬 생성
@@ -215,7 +228,8 @@ function createHeroUnit(heroClass: HeroClass): HeroUnit {
     baseAttackSpeed: classConfig.attackSpeed,
     skillPoints: 0,
     buffs: [],
-    facingRight: true,  // 기본적으로 오른쪽을 바라봄
+    facingRight: true,   // 기본적으로 오른쪽을 바라봄 (이미지 반전용)
+    facingAngle: 0,      // 기본적으로 오른쪽 방향 (0 라디안)
   };
 }
 
@@ -268,8 +282,15 @@ export const useRPGStore = create<RPGStore>()(
     moveHero: (x, y) => {
       set((state) => {
         if (!state.hero) return state;
-        // 이동 방향에 따라 facingRight 업데이트
+        // 이동 방향 계산
+        const dx = x - state.hero.x;
+        const dy = y - state.hero.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+
+        // 이동 방향에 따라 facingRight 및 facingAngle 업데이트
         const facingRight = x > state.hero.x;
+        const facingAngle = dist > 0 ? Math.atan2(dy, dx) : state.hero.facingAngle;
+
         return {
           hero: {
             ...state.hero,
@@ -277,6 +298,7 @@ export const useRPGStore = create<RPGStore>()(
             state: 'moving',
             attackTarget: undefined, // 이동 시 공격 타겟 해제
             facingRight: x !== state.hero.x ? facingRight : state.hero.facingRight, // x가 같으면 기존 방향 유지
+            facingAngle: dist > 0 ? facingAngle : state.hero.facingAngle, // 거리가 0이면 기존 방향 유지
           },
         };
       });
@@ -325,6 +347,16 @@ export const useRPGStore = create<RPGStore>()(
         if (!state.hero) return state;
         return {
           hero: { ...state.hero, x, y },
+        };
+      });
+    },
+
+    // 영웅 전체 상태 업데이트 (이동, 돌진 등)
+    updateHeroState: (heroUpdate: Partial<HeroUnit>) => {
+      set((state) => {
+        if (!state.hero) return state;
+        return {
+          hero: { ...state.hero, ...heroUpdate },
         };
       });
     },
@@ -484,6 +516,7 @@ export const useRPGStore = create<RPGStore>()(
       set((state) => ({
         currentWave: waveNumber,
         waveInProgress: true,
+        waveStarted: true,
         waveStartTime: state.gameTime,
         stats: {
           ...state.stats,
@@ -630,6 +663,11 @@ export const useRPGStore = create<RPGStore>()(
       set({ showAttackRange: show });
     },
 
+    // 호버된 스킬 사거리 설정
+    setHoveredSkillRange: (range) => {
+      set({ hoveredSkillRange: range });
+    },
+
     // 버프 관련
     addBuff: (buff: Buff) => {
       set((state) => {
@@ -737,3 +775,4 @@ export const useSelectedClass = () => useRPGStore((state) => state.selectedClass
 export const useVisibility = () => useRPGStore((state) => state.visibility);
 export const usePendingSkills = () => useRPGStore((state) => state.pendingSkills);
 export const useShowAttackRange = () => useRPGStore((state) => state.showAttackRange);
+export const useHoveredSkillRange = () => useRPGStore((state) => state.hoveredSkillRange);

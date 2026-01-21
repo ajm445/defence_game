@@ -110,8 +110,14 @@ export function useRPGGameLoop() {
       }
     }
 
-    // 영웅 위치 업데이트
-    useRPGStore.getState().updateHeroPosition(updatedHero.x, updatedHero.y);
+    // 영웅 상태 업데이트 (위치, 돌진 상태, 이동 상태 등)
+    useRPGStore.getState().updateHeroState({
+      x: updatedHero.x,
+      y: updatedHero.y,
+      state: updatedHero.state,
+      dashState: updatedHero.dashState,
+      targetPosition: updatedHero.targetPosition,
+    });
 
     // 카메라 영웅 추적
     if (state.camera.followHero) {
@@ -275,8 +281,8 @@ export function useRPGGameLoop() {
       }
     }
 
-    // 첫 웨이브 시작 (게임 시작 직후)
-    if (latestState.currentWave === 0 && !latestState.waveInProgress) {
+    // 첫 웨이브 시작 (게임 시작 직후) - 이미 시작된 경우 스킵
+    if (!latestState.waveStarted && latestState.currentWave === 0 && !latestState.waveInProgress) {
       useRPGStore.getState().startWave(1);
       const waveEnemies = createWaveEnemies(1);
       for (const enemy of waveEnemies) {

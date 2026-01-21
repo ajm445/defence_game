@@ -408,11 +408,15 @@ export function executeWSkill(
   let effect: SkillEffect | undefined;
   let updatedHero = hero;
 
+  let buff: Buff | undefined;
+
   switch (heroClass) {
     case 'warrior':
-      // 돌진 - 전방으로 돌진하며 경로상 적에게 데미지
+      // 돌진 - 전방으로 돌진하며 경로상 적에게 150% 데미지 (돌진 중 무적)
       {
         const dashDistance = (skillConfig as any).distance || 200;
+        const invincibleDuration = (skillConfig as any).invincibleDuration || 2.0;
+        const dashDuration = 0.25; // 돌진 애니메이션 지속 시간
         const dx = targetX - hero.x;
         const dy = targetY - hero.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -422,6 +426,7 @@ export function executeWSkill(
         const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + dirX * dashDistance));
         const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + dirY * dashDistance));
 
+        // 돌진 경로상 적에게 데미지 (즉시 적용)
         for (const enemy of enemies) {
           if (enemy.hp <= 0) continue;
           const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, newX, newY);
@@ -436,11 +441,35 @@ export function executeWSkill(
           direction: { x: dirX, y: dirY },
           radius: dashDistance,
           damage,
-          duration: 0.3,
+          duration: dashDuration + 0.1,
           startTime: gameTime,
         };
 
-        updatedHero = { ...hero, x: newX, y: newY, targetPosition: undefined };
+        // 돌진 후 무적 버프 추가
+        buff = {
+          type: 'invincible',
+          duration: invincibleDuration,
+          startTime: gameTime,
+        };
+
+        // 돌진 상태 설정 (애니메이션용) - 위치는 즉시 변경하지 않음
+        updatedHero = {
+          ...hero,
+          targetPosition: undefined,
+          state: 'moving',
+          facingRight: dirX >= 0,
+          facingAngle: Math.atan2(dirY, dirX),
+          dashState: {
+            startX: hero.x,
+            startY: hero.y,
+            targetX: newX,
+            targetY: newY,
+            progress: 0,
+            duration: dashDuration,
+            dirX,
+            dirY,
+          },
+        };
       }
       break;
 
@@ -541,7 +570,7 @@ export function executeWSkill(
 
   updatedHero = startSkillCooldown(updatedHero, skillConfig.type);
 
-  return { hero: updatedHero, effect, enemyDamages, stunTargets };
+  return { hero: updatedHero, effect, enemyDamages, stunTargets, buff };
 }
 
 /**

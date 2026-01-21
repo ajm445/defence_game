@@ -18,6 +18,7 @@ interface UseRPGInputReturn {
 
 export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): UseRPGInputReturn {
   const isDraggingRef = useRef(false);
+  const isRightClickHeldRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
 
   // 카메라 드래그 관련 (중버튼)
@@ -52,7 +53,8 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
           useRPGStore.getState().toggleFollowHero();
         }
       } else if (e.button === 2) {
-        // 우클릭: 이동
+        // 우클릭: 이동 시작
+        isRightClickHeldRef.current = true;
         // 맵 경계 내로 제한
         const targetX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, clickX));
         const targetY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, clickY));
@@ -84,6 +86,7 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
       useRPGStore.getState().setMousePosition(worldX, worldY);
 
       if (isDraggingRef.current) {
+        // 카메라 드래그
         const dx = e.clientX - lastMouseRef.current.x;
         const dy = e.clientY - lastMouseRef.current.y;
         useRPGStore.getState().setCamera(
@@ -91,13 +94,22 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
           state.camera.y - dy / state.camera.zoom
         );
         lastMouseRef.current = { x: e.clientX, y: e.clientY };
+      } else if (isRightClickHeldRef.current && state.hero) {
+        // 우클릭 홀드 중: 계속 이동
+        const targetX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, worldX));
+        const targetY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, worldY));
+        useRPGStore.getState().moveHero(targetX, targetY);
       }
     },
     [canvasRef]
   );
 
-  const handleMouseUp = useCallback(() => {
-    isDraggingRef.current = false;
+  const handleMouseUp = useCallback((e: React.MouseEvent) => {
+    if (e.button === 1) {
+      isDraggingRef.current = false;
+    } else if (e.button === 2) {
+      isRightClickHeldRef.current = false;
+    }
   }, []);
 
   const handleContextMenu = useCallback((e: React.MouseEvent) => {
@@ -143,8 +155,8 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
     const handleKeyDown = (e: KeyboardEvent) => {
       const state = useRPGStore.getState();
 
-      // V 키는 게임 상태와 관계없이 처리 (사거리 표시)
-      if (e.key.toLowerCase() === 'v') {
+      // C 키는 게임 상태와 관계없이 처리 (사거리 표시)
+      if (e.key.toLowerCase() === 'c') {
         useRPGStore.getState().setShowAttackRange(true);
         return;
       }
@@ -216,8 +228,8 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
     };
 
     const handleKeyUp = (e: KeyboardEvent) => {
-      // V 키를 떼면 사거리 표시 비활성화
-      if (e.key.toLowerCase() === 'v') {
+      // C 키를 떼면 사거리 표시 비활성화
+      if (e.key.toLowerCase() === 'c') {
         useRPGStore.getState().setShowAttackRange(false);
       }
     };

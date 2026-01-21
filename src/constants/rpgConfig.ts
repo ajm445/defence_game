@@ -110,9 +110,10 @@ export const CLASS_SKILLS = {
       name: '돌진',
       key: 'W',
       cooldown: 6,
-      description: '전방으로 돌진하며 경로상 적에게 데미지',
+      description: '전방으로 돌진하며 경로상 적에게 공격력 150% 데미지 (돌진 후 2초 무적)',
       distance: 200,
-      damageMultiplier: 1.2,
+      damageMultiplier: 1.5,
+      invincibleDuration: 2.0,
     },
     e: {
       type: 'warrior_e' as SkillType,

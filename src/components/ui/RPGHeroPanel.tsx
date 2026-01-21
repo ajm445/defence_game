@@ -1,6 +1,6 @@
 import React from 'react';
 import { useHero, useRPGStats } from '../../stores/useRPGStore';
-import { HeroClass } from '../../types/rpg';
+import { HeroClass, BuffType } from '../../types/rpg';
 
 // 직업별 표시 정보
 const CLASS_DISPLAY: Record<HeroClass, { emoji: string; name: string; color: string; bgColor: string }> = {
@@ -8,6 +8,65 @@ const CLASS_DISPLAY: Record<HeroClass, { emoji: string; name: string; color: str
   archer: { emoji: '🏹', name: '궁수', color: 'text-green-400', bgColor: 'from-green-500/30 to-emerald-500/30' },
   knight: { emoji: '🛡️', name: '기사', color: 'text-blue-400', bgColor: 'from-blue-500/30 to-indigo-500/30' },
   mage: { emoji: '🔮', name: '마법사', color: 'text-purple-400', bgColor: 'from-purple-500/30 to-pink-500/30' },
+};
+
+// 버프별 표시 정보
+const BUFF_DISPLAY: Record<BuffType, { emoji: string; name: string; color: string; maxDuration: number }> = {
+  berserker: { emoji: '🔥', name: '광전사', color: '#ef4444', maxDuration: 10 },
+  ironwall: { emoji: '🛡️', name: '철벽 방어', color: '#3b82f6', maxDuration: 5 },
+  invincible: { emoji: '✨', name: '무적', color: '#fbbf24', maxDuration: 2.0 },
+  stun: { emoji: '💫', name: '기절', color: '#9ca3af', maxDuration: 1 },
+};
+
+// 원형 프로그레스 버프 아이콘 컴포넌트
+const CircularBuffIcon: React.FC<{
+  emoji: string;
+  color: string;
+  progress: number; // 0~1, 남은 시간 비율
+  size?: number;
+}> = ({ emoji, color, progress, size = 48 }) => {
+  const strokeWidth = 3;
+  const radius = (size - strokeWidth) / 2;
+  const circumference = 2 * Math.PI * radius;
+  const strokeDashoffset = circumference * (1 - progress);
+
+  return (
+    <div className="relative" style={{ width: size, height: size }}>
+      {/* 배경 원 */}
+      <svg
+        className="absolute inset-0"
+        width={size}
+        height={size}
+        style={{ transform: 'rotate(-90deg)' }}
+      >
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="rgba(0, 0, 0, 0.5)"
+          stroke="rgba(255, 255, 255, 0.2)"
+          strokeWidth={strokeWidth}
+        />
+        {/* 프로그레스 원 (시계방향으로 줄어듦) */}
+        <circle
+          cx={size / 2}
+          cy={size / 2}
+          r={radius}
+          fill="none"
+          stroke={color}
+          strokeWidth={strokeWidth}
+          strokeLinecap="round"
+          strokeDasharray={circumference}
+          strokeDashoffset={strokeDashoffset}
+          style={{ transition: 'stroke-dashoffset 0.1s linear' }}
+        />
+      </svg>
+      {/* 이모지 */}
+      <div className="absolute inset-0 flex items-center justify-center">
+        <span style={{ fontSize: size * 0.5 }}>{emoji}</span>
+      </div>
+    </div>
+  );
 };
 
 export const RPGHeroPanel: React.FC = () => {
@@ -56,29 +115,32 @@ export const RPGHeroPanel: React.FC = () => {
           </div>
           <div className="text-xs text-gray-400">레벨 {hero.level}</div>
         </div>
-      </div>
 
-      {/* 활성 버프 표시 */}
-      {activeBuffs.length > 0 && (
-        <div className="flex gap-2 mb-3">
-          {activeBuffs.map((buff, index) => (
-            <div
-              key={index}
-              className={`px-2 py-1 rounded text-xs font-medium ${
-                buff.type === 'berserker'
-                  ? 'bg-red-500/20 text-red-400'
-                  : buff.type === 'ironwall'
-                  ? 'bg-blue-500/20 text-blue-400'
-                  : 'bg-gray-500/20 text-gray-400'
-              }`}
-            >
-              {buff.type === 'berserker' && '광전사'}
-              {buff.type === 'ironwall' && '철벽 방어'}
-              <span className="ml-1 opacity-70">{buff.duration.toFixed(1)}s</span>
-            </div>
-          ))}
-        </div>
-      )}
+        {/* 활성 버프 표시 - 원형 프로그레스 바 (헤더 오른쪽) */}
+        {activeBuffs.length > 0 && (
+          <div className="flex gap-1 items-center">
+            {activeBuffs
+              .filter(buff => buff.type !== 'invincible') // 무적은 너무 짧아서 표시 제외
+              .map((buff, index) => {
+                const buffInfo = BUFF_DISPLAY[buff.type];
+                const progress = buff.duration / buffInfo.maxDuration;
+                return (
+                  <div key={index} className="flex flex-col items-center">
+                    <CircularBuffIcon
+                      emoji={buffInfo.emoji}
+                      color={buffInfo.color}
+                      progress={Math.min(1, Math.max(0, progress))}
+                      size={36}
+                    />
+                    <span className="text-xs text-gray-400">
+                      {buff.duration.toFixed(1)}s
+                    </span>
+                  </div>
+                );
+              })}
+          </div>
+        )}
+      </div>
 
       {/* HP 바 */}
       <div className="mb-2">

@@ -2,6 +2,7 @@ import React, { useEffect, useCallback } from 'react';
 import { useGameStore } from '../../stores/useGameStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTutorialStore } from '../../stores/useTutorialStore';
+import { useRPGStore } from '../../stores/useRPGStore';
 
 export const PauseScreen: React.FC = () => {
   const startGame = useGameStore((state) => state.startGame);
@@ -14,11 +15,19 @@ export const PauseScreen: React.FC = () => {
   const startTutorial = useTutorialStore((state) => state.startTutorial);
 
   const isTutorial = gameMode === 'tutorial';
+  const isRPG = gameMode === 'rpg';
 
   const handleResume = useCallback(() => {
-    startGame();
-    setScreen('game');
-  }, [startGame, setScreen]);
+    if (isRPG) {
+      // RPG 모드: 일시정지 해제
+      useRPGStore.getState().setPaused(false);
+      setScreen('game');
+    } else {
+      // 일반 모드
+      startGame();
+      setScreen('game');
+    }
+  }, [isRPG, startGame, setScreen]);
 
   // ESC 키로 게임 재개
   useEffect(() => {
@@ -33,7 +42,12 @@ export const PauseScreen: React.FC = () => {
 
   const handleRestart = () => {
     resetGameUI(); // UI 상태 초기화
-    if (isTutorial) {
+    if (isRPG) {
+      // RPG 모드 재시작
+      useRPGStore.getState().resetGame();
+      useRPGStore.getState().initGame();
+      setScreen('game');
+    } else if (isTutorial) {
       // 튜토리얼 재시작
       endTutorial();
       initGame('tutorial', 'easy');
@@ -49,7 +63,10 @@ export const PauseScreen: React.FC = () => {
 
   const handleMainMenu = () => {
     resetGameUI(); // UI 상태 초기화
-    if (isTutorial) {
+    if (isRPG) {
+      // RPG 모드 정리
+      useRPGStore.getState().resetGame();
+    } else if (isTutorial) {
       endTutorial();
     }
     setScreen('menu');

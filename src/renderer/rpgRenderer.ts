@@ -1,7 +1,7 @@
 import { RPGGameState } from '../types/rpg';
 import { RPG_CONFIG } from '../constants/rpgConfig';
 import { drawGrid } from './drawGrid';
-import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange } from './drawHero';
+import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange, drawSkillRange } from './drawHero';
 import { effectManager } from '../effects';
 import { drawRPGMinimap, getMinimapConfig } from './drawRPGMinimap';
 import { useRPGStore } from '../stores/useRPGStore';
@@ -61,13 +61,20 @@ export function renderRPG(
 
   // 영웅 렌더링
   if (state.hero) {
-    // 공격 범위 표시 (Tab 키 누른 상태)
+    // 공격 범위 표시 (V 키 누른 상태)
     const showAttackRange = useRPGStore.getState().showAttackRange;
     if (showAttackRange) {
       drawHeroAttackRange(ctx, state.hero, camera);
     }
 
-    drawHero(ctx, state.hero, camera, scaledWidth, scaledHeight);
+    // 스킬 사거리 표시 (스킬 아이콘 호버 시)
+    const hoveredSkillRange = useRPGStore.getState().hoveredSkillRange;
+    if (hoveredSkillRange && hoveredSkillRange.type) {
+      const mousePosition = useRPGStore.getState().mousePosition;
+      drawSkillRange(ctx, state.hero, camera, hoveredSkillRange, mousePosition);
+    }
+
+    drawHero(ctx, state.hero, camera, scaledWidth, scaledHeight, state.gameTime);
   }
 
   // 파티클 이펙트 렌더링

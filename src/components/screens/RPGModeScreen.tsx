@@ -21,14 +21,15 @@ export const RPGModeScreen: React.FC = () => {
   const resetGame = useRPGStore((state) => state.resetGame);
   const setScreen = useUIStore((state) => state.setScreen);
 
-  // 게임 초기화
+  // 게임 초기화 (이미 실행 중이면 초기화하지 않음)
   useEffect(() => {
-    useRPGStore.getState().initGame();
+    const state = useRPGStore.getState();
+    // 이미 영웅이 있고 게임이 실행 중이면 (일시정지에서 돌아온 경우) 초기화하지 않음
+    if (!state.hero) {
+      useRPGStore.getState().initGame();
+    }
 
-    return () => {
-      // 게임 종료 시 정리
-      useRPGStore.getState().resetGame();
-    };
+    // 언마운트 시 정리하지 않음 - 메인 메뉴로 돌아갈 때만 PauseScreen에서 resetGame 호출
   }, []);
 
   // 스킬 사용 핸들러
@@ -111,7 +112,7 @@ export const RPGModeScreen: React.FC = () => {
 
       {/* 조작법 안내 */}
       <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">
-        <div>우클릭: 이동 | Q: 기본 공격 | W: 스킬 | E: 궁극기 | V: 사거리 | Space: 카메라</div>
+        <div>우클릭: 이동 | Q: 기본 공격 | W: 스킬 | E: 궁극기 | C: 사거리 | Space: 카메라</div>
       </div>
 
       {/* 게임 오버 모달 */}

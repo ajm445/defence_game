@@ -28,6 +28,7 @@ export type SkillSlot = 'Q' | 'W' | 'E';
 export type BuffType =
   | 'berserker'      // 광전사 (공격력, 공속 증가)
   | 'ironwall'       // 철벽 방어 (데미지 감소)
+  | 'invincible'     // 무적 (돌진 중)
   | 'stun';          // 기절
 
 // 버프 상태
@@ -65,6 +66,18 @@ export interface Skill {
   unlockedAtLevel: number; // 해금 레벨
 }
 
+// 돌진 상태 정보
+export interface DashState {
+  startX: number;
+  startY: number;
+  targetX: number;
+  targetY: number;
+  progress: number;      // 0 ~ 1
+  duration: number;      // 돌진 지속 시간 (초)
+  dirX: number;
+  dirY: number;
+}
+
 // 영웅 유닛 (기존 Unit 확장)
 export interface HeroUnit extends Omit<Unit, 'type'> {
   type: 'hero';
@@ -80,7 +93,9 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   baseAttackSpeed: number;   // 기본 공격속도
   skillPoints: number;       // 미사용 스킬 포인트
   buffs: Buff[];             // 활성 버프 목록
-  facingRight: boolean;      // 오른쪽을 바라보는지 여부
+  facingRight: boolean;      // 오른쪽을 바라보는지 여부 (이미지 반전용)
+  facingAngle: number;       // 실제 바라보는 방향 각도 (라디안, 스킬 방향용)
+  dashState?: DashState;     // 돌진 중일 때의 상태 정보
 }
 
 // 웨이브 설정
@@ -128,6 +143,7 @@ export interface RPGGameState {
   // 웨이브
   currentWave: number;
   waveInProgress: boolean;
+  waveStarted: boolean;  // 첫 웨이브가 시작되었는지 여부
   enemiesRemaining: number;
   enemies: RPGEnemy[];
 

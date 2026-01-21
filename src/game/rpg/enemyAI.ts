@@ -143,12 +143,21 @@ export function updateAllEnemiesAI(
 }
 
 /**
- * 영웅의 철벽 방어 버프로 데미지 감소 계산
+ * 영웅의 버프로 데미지 감소 계산
+ * - 무적 버프: 데미지 0
+ * - 철벽 방어 버프: 데미지 감소율 적용
  */
 export function calculateDamageAfterReduction(
   damage: number,
   hero: HeroUnit
 ): number {
+  // 무적 버프 체크 (돌진 중)
+  const invincibleBuff = hero.buffs?.find(b => b.type === 'invincible');
+  if (invincibleBuff) {
+    return 0;
+  }
+
+  // 철벽 방어 버프 체크
   const ironwallBuff = hero.buffs?.find(b => b.type === 'ironwall');
   if (ironwallBuff && ironwallBuff.damageReduction) {
     return Math.floor(damage * (1 - ironwallBuff.damageReduction));

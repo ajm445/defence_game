@@ -28,8 +28,29 @@ export function updateHeroUnit(
   const config = updatedHero.config;
   const speed = config.speed || updatedHero.baseSpeed;
 
+  // 돌진 중인 경우 - 일반 이동보다 우선
+  if (updatedHero.dashState) {
+    const dash = updatedHero.dashState;
+    const newProgress = dash.progress + deltaTime / dash.duration;
+
+    if (newProgress >= 1) {
+      // 돌진 완료
+      updatedHero.x = dash.targetX;
+      updatedHero.y = dash.targetY;
+      updatedHero.dashState = undefined;
+      updatedHero.state = 'idle';
+      reachedTarget = true;
+    } else {
+      // 돌진 중 - easeOutQuad 이징 적용 (가속 후 감속)
+      const easedProgress = 1 - (1 - newProgress) * (1 - newProgress);
+      updatedHero.x = dash.startX + (dash.targetX - dash.startX) * easedProgress;
+      updatedHero.y = dash.startY + (dash.targetY - dash.startY) * easedProgress;
+      updatedHero.dashState = { ...dash, progress: newProgress };
+      updatedHero.state = 'moving';
+    }
+  }
   // 이동 목표가 있는 경우 (공격은 Q 스킬로만 처리)
-  if (updatedHero.targetPosition) {
+  else if (updatedHero.targetPosition) {
     const target = updatedHero.targetPosition;
     const dist = distance(updatedHero.x, updatedHero.y, target.x, target.y);
     const moveDistance = speed * deltaTime * 60;
