@@ -398,23 +398,11 @@ export const useRPGStore = create<RPGStore>()(
         const newAttack = hero.baseAttack + bonus.attack;
         const newSpeed = hero.baseSpeed + bonus.speed;
 
-<<<<<<< HEAD
         // 레벨업 시 모든 스킬 쿨타임 초기화
         const updatedSkills = hero.skills.map((skill) => ({
           ...skill,
           currentCooldown: 0,
         }));
-=======
-        // 스킬 해금 체크 + 쿨타임 초기화
-        const updatedSkills = hero.skills.map((skill) => {
-          const shouldUnlock = !skill.unlocked && skill.unlockedAtLevel <= newLevel;
-          return {
-            ...skill,
-            unlocked: shouldUnlock ? true : skill.unlocked,
-            cooldown: 0, // 레벨업 시 모든 스킬 쿨타임 초기화
-          };
-        });
->>>>>>> 7e032c78371eace468b62ee73be3233fddea18e3
 
         return {
           hero: {
