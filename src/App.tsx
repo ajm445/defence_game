@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useUIStore } from './stores/useUIStore';
 import { useGameStore } from './stores/useGameStore';
 import { MainMenu } from './components/screens/MainMenu';
+import { GameTypeSelectScreen } from './components/screens/GameTypeSelectScreen';
 import { ModeSelectScreen } from './components/screens/ModeSelectScreen';
 import { DifficultySelectScreen } from './components/screens/DifficultySelectScreen';
 import { LobbyScreen } from './components/screens/LobbyScreen';
@@ -27,6 +28,7 @@ function App() {
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900">
       {currentScreen === 'menu' && <MainMenu />}
+      {currentScreen === 'gameTypeSelect' && <GameTypeSelectScreen />}
       {currentScreen === 'modeSelect' && <ModeSelectScreen />}
       {currentScreen === 'difficultySelect' && <DifficultySelectScreen />}
       {currentScreen === 'rpgClassSelect' && <RPGClassSelectScreen />}

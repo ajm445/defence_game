@@ -7,7 +7,7 @@ export const MainMenu: React.FC = () => {
   const [showHelp, setShowHelp] = useState(false);
 
   const handleStartGame = () => {
-    setScreen('modeSelect');
+    setScreen('gameTypeSelect');
   };
 
   return (

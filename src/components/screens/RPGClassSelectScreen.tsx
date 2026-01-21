@@ -133,7 +133,7 @@ export const RPGClassSelectScreen: React.FC = () => {
 
   const handleBack = useCallback(() => {
     soundManager.play('ui_click');
-    setScreen('modeSelect');
+    setScreen('gameTypeSelect');
   }, [setScreen]);
 
   const heroClasses: HeroClass[] = ['warrior', 'archer', 'knight', 'mage'];

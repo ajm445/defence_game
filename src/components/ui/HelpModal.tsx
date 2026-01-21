@@ -38,8 +38,9 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
 
   const slides: SlideData[] = [
+    // RTS 모드 슬라이드
     {
-      title: '게임 규칙',
+      title: 'RTS 규칙',
       icon: '🎯',
       content: (
         <div className="space-y-6">
@@ -196,7 +197,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       ),
     },
     {
-      title: '조작법',
+      title: 'RTS 조작',
       icon: '🎮',
       content: (
         <div className="grid grid-cols-2 gap-3">
@@ -232,7 +233,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       ),
     },
     {
-      title: '전략 팁',
+      title: 'RTS 팁',
       icon: '💡',
       content: (
         <div className="space-y-4">
@@ -256,6 +257,201 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             <li className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
               <Emoji emoji="💡" size={20} />
               <span>벽으로 적의 공격을 지연시킬 수 있습니다</span>
+            </li>
+          </ul>
+        </div>
+      ),
+    },
+    // RPG 모드 슬라이드
+    {
+      title: 'RPG 모드',
+      icon: '⚔️',
+      content: (
+        <div className="space-y-4">
+          <div className="text-center py-4 bg-purple-500/10 rounded-lg border border-purple-500/30 text-purple-300 font-bold text-lg mb-4">
+            액션 RPG 서바이벌 모드
+          </div>
+          <div className="space-y-3">
+            <div className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
+              <Emoji emoji="⚔️" size={24} />
+              <div>
+                <span className="text-purple-300 font-bold">웨이브 서바이벌</span>
+                <div className="text-gray-200 text-sm">몰려오는 적들을 물리치고 살아남으세요</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
+              <Emoji emoji="🦸" size={24} />
+              <div>
+                <span className="text-purple-300 font-bold">4가지 직업</span>
+                <div className="text-gray-200 text-sm">전사, 궁수, 기사, 마법사 중 선택</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
+              <Emoji emoji="✨" size={24} />
+              <div>
+                <span className="text-purple-300 font-bold">스킬 시스템</span>
+                <div className="text-gray-200 text-sm">Q/W/E 키로 기본공격, 스킬, 궁극기 사용</div>
+              </div>
+            </div>
+            <div className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
+              <Emoji emoji="📈" size={24} />
+              <div>
+                <span className="text-purple-300 font-bold">레벨업</span>
+                <div className="text-gray-200 text-sm">적 처치로 경험치 획득, 레벨업 시 스탯 증가</div>
+              </div>
+            </div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'RPG 직업',
+      icon: '🦸',
+      content: (
+        <div className="space-y-3">
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-red-500/30">
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2">
+              <Emoji emoji="⚔️" size={24} />
+              <span className="text-red-400">전사</span>
+            </div>
+            <div className="text-gray-300">HP 350 | 공격력 35 | 사거리 80</div>
+            <div className="text-gray-400 text-sm mt-1">균형 잡힌 근접 딜러, 돌진/광전사 버프</div>
+          </div>
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-green-500/30">
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2">
+              <Emoji emoji="🏹" size={24} />
+              <span className="text-green-400">궁수</span>
+            </div>
+            <div className="text-gray-300">HP 250 | 공격력 45 | 사거리 150</div>
+            <div className="text-gray-400 text-sm mt-1">고공격 원거리 딜러, 관통화살/화살비</div>
+          </div>
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-blue-500/30">
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2">
+              <Emoji emoji="🛡️" size={24} />
+              <span className="text-blue-400">기사</span>
+            </div>
+            <div className="text-gray-300">HP 450 | 공격력 30 | 사거리 60</div>
+            <div className="text-gray-400 text-sm mt-1">고체력 탱커, 방패돌진/철벽방어</div>
+          </div>
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-purple-500/30">
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2">
+              <Emoji emoji="🔮" size={24} />
+              <span className="text-purple-400">마법사</span>
+            </div>
+            <div className="text-gray-300">HP 220 | 공격력 55 | 사거리 120</div>
+            <div className="text-gray-400 text-sm mt-1">광역 마법 딜러, 화염구/운석낙하</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'RPG 스킬',
+      icon: '✨',
+      content: (
+        <div className="space-y-4">
+          <div className="grid grid-cols-3 gap-2 mb-4">
+            <div className="bg-yellow-500/20 p-3 rounded-lg border border-yellow-500/30 text-center">
+              <div className="text-yellow-300 font-bold text-xl">Q</div>
+              <div className="text-gray-300 text-sm">기본 공격</div>
+            </div>
+            <div className="bg-blue-500/20 p-3 rounded-lg border border-blue-500/30 text-center">
+              <div className="text-blue-300 font-bold text-xl">W</div>
+              <div className="text-gray-300 text-sm">스킬</div>
+            </div>
+            <div className="bg-purple-500/20 p-3 rounded-lg border border-purple-500/30 text-center">
+              <div className="text-purple-300 font-bold text-xl">E</div>
+              <div className="text-gray-300 text-sm">궁극기</div>
+            </div>
+          </div>
+          <div className="space-y-2 text-sm">
+            <div className="bg-dark-700/50 p-2 rounded flex justify-between">
+              <span className="text-red-400">전사</span>
+              <span className="text-gray-300">강타 | 돌진 | 광전사</span>
+            </div>
+            <div className="bg-dark-700/50 p-2 rounded flex justify-between">
+              <span className="text-green-400">궁수</span>
+              <span className="text-gray-300">속사 | 관통화살 | 화살비</span>
+            </div>
+            <div className="bg-dark-700/50 p-2 rounded flex justify-between">
+              <span className="text-blue-400">기사</span>
+              <span className="text-gray-300">방패타격 | 방패돌진 | 철벽방어</span>
+            </div>
+            <div className="bg-dark-700/50 p-2 rounded flex justify-between">
+              <span className="text-purple-400">마법사</span>
+              <span className="text-gray-300">마법화살 | 화염구 | 운석낙하</span>
+            </div>
+          </div>
+          <div className="text-gray-400 text-sm mt-2 bg-dark-700/30 p-2 rounded">
+            <Emoji emoji="💡" size={14} /> 스킬은 마우스 방향으로 시전됩니다
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'RPG 조작',
+      icon: '🕹️',
+      content: (
+        <div className="grid grid-cols-2 gap-3">
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+            <div className="text-purple-300 font-bold">우클릭</div>
+            <div className="text-gray-200">이동</div>
+          </div>
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+            <div className="text-purple-300 font-bold">Q</div>
+            <div className="text-gray-200">기본 공격</div>
+          </div>
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+            <div className="text-purple-300 font-bold">W</div>
+            <div className="text-gray-200">스킬</div>
+          </div>
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+            <div className="text-purple-300 font-bold">E</div>
+            <div className="text-gray-200">궁극기</div>
+          </div>
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+            <div className="text-purple-300 font-bold">C (누르기)</div>
+            <div className="text-gray-200">사거리 표시</div>
+          </div>
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+            <div className="text-purple-300 font-bold">Space</div>
+            <div className="text-gray-200">카메라 → 영웅</div>
+          </div>
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+            <div className="text-purple-300 font-bold">마우스 휠</div>
+            <div className="text-gray-200">줌 인/아웃</div>
+          </div>
+          <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
+            <div className="text-purple-300 font-bold">ESC</div>
+            <div className="text-gray-200">일시정지</div>
+          </div>
+        </div>
+      ),
+    },
+    {
+      title: 'RPG 팁',
+      icon: '🎯',
+      content: (
+        <div className="space-y-4">
+          <ul className="space-y-3 text-white">
+            <li className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
+              <Emoji emoji="🏹" size={20} />
+              <span>궁수/마법사는 거리를 유지하며 카이팅하세요</span>
+            </li>
+            <li className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
+              <Emoji emoji="⚔️" size={20} />
+              <span>전사는 돌진 후 광전사 버프로 적을 빠르게 처치하세요</span>
+            </li>
+            <li className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
+              <Emoji emoji="🛡️" size={20} />
+              <span>기사는 위험할 때 철벽 방어로 버티세요</span>
+            </li>
+            <li className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
+              <Emoji emoji="🔮" size={20} />
+              <span>마법사 운석은 3초 후 발동, 적 위치를 예측하세요</span>
+            </li>
+            <li className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
+              <Emoji emoji="👹" size={20} />
+              <span>10웨이브마다 보스 등장, 궁극기를 아껴두세요</span>
             </li>
           </ul>
         </div>
