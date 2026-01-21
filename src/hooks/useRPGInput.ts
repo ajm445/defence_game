@@ -142,6 +142,13 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
   useEffect(() => {
     const handleKeyDown = (e: KeyboardEvent) => {
       const state = useRPGStore.getState();
+
+      // V 키는 게임 상태와 관계없이 처리 (사거리 표시)
+      if (e.key.toLowerCase() === 'v') {
+        useRPGStore.getState().setShowAttackRange(true);
+        return;
+      }
+
       if (!state.running || state.paused || state.gameOver) return;
       if (!state.hero) return;
 
@@ -208,7 +215,18 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
       }
     };
 
+    const handleKeyUp = (e: KeyboardEvent) => {
+      // V 키를 떼면 사거리 표시 비활성화
+      if (e.key.toLowerCase() === 'v') {
+        useRPGStore.getState().setShowAttackRange(false);
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
-    return () => window.removeEventListener('keydown', handleKeyDown);
+    window.addEventListener('keyup', handleKeyUp);
+    return () => {
+      window.removeEventListener('keydown', handleKeyDown);
+      window.removeEventListener('keyup', handleKeyUp);
+    };
   }, [requestSkill]);
 }

@@ -289,6 +289,9 @@ export interface ClassSkillResult {
 
 /**
  * 직업별 Q 스킬 실행 (일반공격)
+ * - 전사, 기사: 근접 범위 공격 (다수 타격)
+ * - 마법사: 원거리 범위 공격 (다수 타격)
+ * - 궁수: 원거리 단일 공격
  */
 export function executeQSkill(
   hero: HeroUnit,
@@ -310,9 +313,8 @@ export function executeQSkill(
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
-  const range = hero.config.range || CLASS_CONFIGS[heroClass].range;
-  // 최소 공격 범위 200px 보장
-  const attackRange = Math.max(range * 2, 200);
+  // 직업별 기본 공격 사거리 사용
+  const attackRange = hero.config.range || CLASS_CONFIGS[heroClass].range;
 
   // 공격 방향 계산 (영웅 → 마우스 방향)
   const dx = targetX - hero.x;
@@ -321,31 +323,61 @@ export function executeQSkill(
   const dirX = dirDist > 0 ? dx / dirDist : (hero.facingRight ? 1 : -1);
   const dirY = dirDist > 0 ? dy / dirDist : 0;
 
+  // 범위 공격 직업 여부 (전사, 기사: 근접 범위 / 마법사: 원거리 범위)
+  const isAoE = heroClass === 'warrior' || heroClass === 'knight' || heroClass === 'mage';
+  // 근거리 직업 여부
+  const isMelee = heroClass === 'warrior' || heroClass === 'knight';
+  // 전방 공격 각도 (내적 기준: 0.0 = 90도, -0.5 = 120도)
+  const attackAngleThreshold = isMelee ? -0.3 : 0.0; // 근거리는 약 110도, 원거리는 90도
+
   let targetEnemy: RPGEnemy | null = null;
   let minDist = Infinity;
 
-  // 공격 범위 내에서 가장 가까운 적 찾기 (단순화)
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
+
     const distToHero = distance(hero.x, hero.y, enemy.x, enemy.y);
-    if (distToHero <= attackRange && distToHero < minDist) {
-      minDist = distToHero;
-      targetEnemy = enemy;
+    if (distToHero > attackRange) continue;
+
+    // 바라보는 방향 체크 (내적 사용)
+    const enemyDx = enemy.x - hero.x;
+    const enemyDy = enemy.y - hero.y;
+    const enemyDist = Math.sqrt(enemyDx * enemyDx + enemyDy * enemyDy);
+    if (enemyDist === 0) continue;
+
+    const enemyDirX = enemyDx / enemyDist;
+    const enemyDirY = enemyDy / enemyDist;
+    const dot = dirX * enemyDirX + dirY * enemyDirY;
+
+    // 바라보는 방향 범위 밖이면 스킵
+    if (dot < attackAngleThreshold) continue;
+
+    if (isAoE) {
+      // 범위 공격 (전사, 기사, 마법사): 범위 내 모든 적에게 데미지
+      enemyDamages.push({ enemyId: enemy.id, damage: finalDamage });
+    } else {
+      // 단일 타겟 (궁수): 가장 가까운 적 하나만
+      if (distToHero < minDist) {
+        minDist = distToHero;
+        targetEnemy = enemy;
+      }
     }
   }
 
-  if (targetEnemy) {
+  // 단일 타겟 캐릭터 (궁수)
+  if (!isAoE && targetEnemy) {
     enemyDamages.push({ enemyId: targetEnemy.id, damage: finalDamage });
   }
 
   // 이펙트는 타겟 방향으로 표시
-  const effectX = targetEnemy ? targetEnemy.x : hero.x + dirX * range;
-  const effectY = targetEnemy ? targetEnemy.y : hero.y + dirY * range;
+  const effectX = hero.x + dirX * attackRange;
+  const effectY = hero.y + dirY * attackRange;
 
   const effect: SkillEffect = {
     type: skillConfig.type,
     position: { x: effectX, y: effectY },
     direction: { x: dirX, y: dirY },
+    radius: isAoE ? attackRange : undefined,
     damage: finalDamage,
     duration: 0.3,
     startTime: gameTime,

@@ -4,6 +4,7 @@ import { drawGrid } from './drawGrid';
 import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange } from './drawHero';
 import { effectManager } from '../effects';
 import { drawRPGMinimap, getMinimapConfig } from './drawRPGMinimap';
+import { useRPGStore } from '../stores/useRPGStore';
 
 /**
  * RPG 모드 렌더링
@@ -60,8 +61,11 @@ export function renderRPG(
 
   // 영웅 렌더링
   if (state.hero) {
-    // 공격 범위 표시 (옵션)
-    // drawHeroAttackRange(ctx, state.hero, camera);
+    // 공격 범위 표시 (Tab 키 누른 상태)
+    const showAttackRange = useRPGStore.getState().showAttackRange;
+    if (showAttackRange) {
+      drawHeroAttackRange(ctx, state.hero, camera);
+    }
 
     drawHero(ctx, state.hero, camera, scaledWidth, scaledHeight);
   }

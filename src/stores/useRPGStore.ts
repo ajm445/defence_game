@@ -13,6 +13,9 @@ interface RPGState extends RPGGameState {
 
   // 마우스 위치 (월드 좌표, 스킬 타겟용)
   mousePosition: { x: number; y: number };
+
+  // 공격 사거리 표시 여부
+  showAttackRange: boolean;
 }
 
 interface RPGActions {
@@ -85,6 +88,9 @@ interface RPGActions {
   // 통계
   incrementKills: () => void;
   addExpGained: (amount: number) => void;
+
+  // 공격 사거리 표시
+  setShowAttackRange: (show: boolean) => void;
 }
 
 interface RPGStore extends RPGState, RPGActions {}
@@ -134,6 +140,7 @@ const initialState: RPGState = {
   pendingSkills: [],
   result: null,
   mousePosition: { x: RPG_CONFIG.MAP_CENTER_X, y: RPG_CONFIG.MAP_CENTER_Y },
+  showAttackRange: false,
 };
 
 // 직업별 스킬 생성
@@ -618,6 +625,11 @@ export const useRPGStore = create<RPGStore>()(
       }));
     },
 
+    // 공격 사거리 표시
+    setShowAttackRange: (show: boolean) => {
+      set({ showAttackRange: show });
+    },
+
     // 버프 관련
     addBuff: (buff: Buff) => {
       set((state) => {
@@ -724,3 +736,4 @@ export const useActiveSkillEffects = () => useRPGStore((state) => state.activeSk
 export const useSelectedClass = () => useRPGStore((state) => state.selectedClass);
 export const useVisibility = () => useRPGStore((state) => state.visibility);
 export const usePendingSkills = () => useRPGStore((state) => state.pendingSkills);
+export const useShowAttackRange = () => useRPGStore((state) => state.showAttackRange);

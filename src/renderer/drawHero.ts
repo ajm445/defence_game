@@ -551,7 +551,8 @@ export function drawSkillEffect(
 }
 
 /**
- * 영웅 공격 범위 표시
+ * 영웅 기본 공격 사거리 표시
+ * 직업별 기본 사거리 (config.range)를 표시
  */
 export function drawHeroAttackRange(
   ctx: CanvasRenderingContext2D,
@@ -560,16 +561,35 @@ export function drawHeroAttackRange(
 ) {
   const screenX = hero.x - camera.x;
   const screenY = hero.y - camera.y;
-  const range = hero.config.range || 80;
+  // 직업별 기본 공격 사거리
+  const attackRange = hero.config.range || 80;
 
   ctx.save();
-  ctx.globalAlpha = 0.2;
+
+  // 외곽 원 (공격 가능 범위)
+  ctx.globalAlpha = 0.3;
   ctx.strokeStyle = '#ffd700';
-  ctx.lineWidth = 1;
-  ctx.setLineDash([5, 5]);
+  ctx.lineWidth = 2;
+  ctx.setLineDash([8, 4]);
   ctx.beginPath();
-  ctx.arc(screenX, screenY, range, 0, Math.PI * 2);
+  ctx.arc(screenX, screenY, attackRange, 0, Math.PI * 2);
   ctx.stroke();
+
+  // 내부 채우기 (반투명)
+  ctx.globalAlpha = 0.08;
+  ctx.fillStyle = '#ffd700';
+  ctx.beginPath();
+  ctx.arc(screenX, screenY, attackRange, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 사거리 텍스트
   ctx.setLineDash([]);
+  ctx.globalAlpha = 0.6;
+  ctx.font = 'bold 12px Arial';
+  ctx.fillStyle = '#ffd700';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillText(`${attackRange}px`, screenX, screenY - attackRange - 15);
+
   ctx.restore();
 }

@@ -69,8 +69,13 @@ export function useRPGGameLoop() {
       handleSkillExecution(skillType, state.gameTime);
     }
 
-    // 영웅 업데이트
-    const heroResult = updateHeroUnit(state.hero, deltaTime, state.enemies);
+    // 영웅 업데이트 - 스킬 실행 후 최신 상태에서 영웅 가져오기
+    const currentHeroForUpdate = useRPGStore.getState().hero;
+    if (!currentHeroForUpdate) {
+      animationIdRef.current = requestAnimationFrame(tick);
+      return;
+    }
+    const heroResult = updateHeroUnit(currentHeroForUpdate, deltaTime, state.enemies);
     const updatedHero = heroResult.hero;
 
     // 영웅 공격 데미지 처리
