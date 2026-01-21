@@ -140,4 +140,82 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     spread: Math.PI / 2,
     direction: -Math.PI / 2,
   },
+
+  // ===== RPG 모드 전용 이펙트 =====
+
+  // 레벨업 - 금색 별 상승
+  level_up: {
+    count: 15,
+    colors: ['#ffd700', '#ffec00', '#fff700', '#ffaa00'],
+    sizeMin: 4,
+    sizeMax: 8,
+    speedMin: 40,
+    speedMax: 100,
+    lifeMin: 0.6,
+    lifeMax: 1.0,
+    gravity: -60,
+    shape: 'star',
+    spread: Math.PI * 2,
+  },
+
+  // 스턴 - 노란 별 회전
+  stun: {
+    count: 5,
+    colors: ['#ffff00', '#ffdd00', '#ffffff'],
+    sizeMin: 6,
+    sizeMax: 10,
+    speedMin: 20,
+    speedMax: 40,
+    lifeMin: 0.8,
+    lifeMax: 1.2,
+    gravity: 0,
+    shape: 'star',
+    spread: Math.PI * 2,
+  },
+
+  // 메테오 - 빨강/주황 폭발
+  meteor: {
+    count: 25,
+    colors: ['#ff4400', '#ff6600', '#ff0000', '#ff8800', '#ffaa00'],
+    sizeMin: 5,
+    sizeMax: 12,
+    speedMin: 100,
+    speedMax: 200,
+    lifeMin: 0.4,
+    lifeMax: 0.8,
+    gravity: 150,
+    shape: 'circle',
+    spread: Math.PI * 2,
+  },
+
+  // 화살 비 - 파란색 화살 파티클
+  arrow_rain: {
+    count: 20,
+    colors: ['#00aaff', '#0088ff', '#00ccff', '#66ddff'],
+    sizeMin: 3,
+    sizeMax: 6,
+    speedMin: 150,
+    speedMax: 250,
+    lifeMin: 0.3,
+    lifeMax: 0.5,
+    gravity: 300,
+    shape: 'circle',
+    spread: Math.PI / 6,
+    direction: Math.PI / 2, // 아래로
+  },
+
+  // 파이어볼 - 주황/빨강 폭발
+  fireball: {
+    count: 18,
+    colors: ['#ff4400', '#ff6600', '#ff8800', '#ffaa00', '#ff0000'],
+    sizeMin: 4,
+    sizeMax: 10,
+    speedMin: 80,
+    speedMax: 160,
+    lifeMin: 0.3,
+    lifeMax: 0.6,
+    gravity: 50,
+    shape: 'circle',
+    spread: Math.PI * 2,
+  },
 };

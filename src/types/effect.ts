@@ -6,7 +6,13 @@ export type EffectType =
   | 'gather_stone'
   | 'gather_herb'
   | 'gather_gold'
-  | 'heal';
+  | 'heal'
+  // RPG 모드 전용 이펙트
+  | 'level_up'
+  | 'stun'
+  | 'meteor'
+  | 'arrow_rain'
+  | 'fireball';
 
 export type ParticleShape = 'circle' | 'square' | 'star' | 'emoji' | 'cross';
 

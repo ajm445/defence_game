@@ -10,6 +10,9 @@ import { CountdownScreen } from './components/screens/CountdownScreen';
 import { GameScreen } from './components/screens/GameScreen';
 import { RPGModeScreen } from './components/screens/RPGModeScreen';
 import { RPGClassSelectScreen } from './components/screens/RPGClassSelectScreen';
+import { RPGPlayTypeSelectScreen } from './components/screens/RPGPlayTypeSelectScreen';
+import { RPGCoopLobbyScreen } from './components/screens/RPGCoopLobbyScreen';
+import { RPGCoopGameScreen } from './components/screens/RPGCoopGameScreen';
 import { GameOverScreen } from './components/screens/GameOverScreen';
 import { PauseScreen } from './components/screens/PauseScreen';
 import { preloadGameEmojis } from './utils/canvasEmoji';
@@ -31,7 +34,10 @@ function App() {
       {currentScreen === 'gameTypeSelect' && <GameTypeSelectScreen />}
       {currentScreen === 'modeSelect' && <ModeSelectScreen />}
       {currentScreen === 'difficultySelect' && <DifficultySelectScreen />}
+      {currentScreen === 'rpgPlayTypeSelect' && <RPGPlayTypeSelectScreen />}
       {currentScreen === 'rpgClassSelect' && <RPGClassSelectScreen />}
+      {currentScreen === 'rpgCoopLobby' && <RPGCoopLobbyScreen />}
+      {currentScreen === 'rpgCoopGame' && <RPGCoopGameScreen />}
       {currentScreen === 'lobby' && <LobbyScreen />}
       {(currentScreen === 'countdown' || currentScreen === 'game') && gameMode !== 'rpg' && <GameScreen />}
       {currentScreen === 'game' && gameMode === 'rpg' && <RPGModeScreen />}

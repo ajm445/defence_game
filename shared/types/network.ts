@@ -9,6 +9,12 @@ import type {
   PlayerSide
 } from './game';
 
+import type {
+  CoopClientMessage,
+  CoopServerMessage,
+  CoopConnectionState
+} from './rpgNetwork';
+
 // ============================================
 // 클라이언트 → 서버 메시지
 // ============================================
@@ -24,7 +30,9 @@ export type ClientMessage =
   | { type: 'BUILD_WALL'; x: number; y: number }
   | { type: 'UPGRADE_BASE' }
   | { type: 'SELL_HERB' }
-  | { type: 'COLLECT_RESOURCE'; nodeId: string };
+  | { type: 'COLLECT_RESOURCE'; nodeId: string }
+  // 협동 모드 메시지
+  | CoopClientMessage;
 
 // ============================================
 // 서버 → 클라이언트 메시지
@@ -45,7 +53,9 @@ export type ServerMessage =
   | { type: 'GAME_EVENT'; event: GameEvent }
   | { type: 'GAME_OVER'; result: GameResult; reason: string }
   | { type: 'OPPONENT_DISCONNECTED' }
-  | { type: 'ERROR'; message: string };
+  | { type: 'ERROR'; message: string }
+  // 협동 모드 메시지
+  | CoopServerMessage;
 
 // ============================================
 // 게임 이벤트 (델타 업데이트)
@@ -104,3 +114,16 @@ export interface RoomInfo {
   opponentName?: string;
   side: PlayerSide;
 }
+
+// Re-export coop types for convenience
+export type { CoopClientMessage, CoopServerMessage, CoopConnectionState } from './rpgNetwork';
+export type {
+  CoopPlayerInfo,
+  CoopRoomInfo,
+  RPGCoopGameState,
+  RPGCoopGameEvent,
+  RPGCoopGameResult,
+  NetworkCoopHero,
+  NetworkCoopEnemy,
+} from './rpgNetwork';
+export { COOP_CONFIG } from './rpgNetwork';

@@ -481,7 +481,7 @@ export function drawRPGEnemy(
       ctx.font = isBoss ? '16px Arial' : '12px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
-      ctx.fillText('★', starX, starY);
+      ctx.fillText('⭐', starX, starY);
     }
 
     // 기절 텍스트

@@ -14,7 +14,7 @@ export const GameTypeSelectScreen: React.FC = () => {
   const handleRPGMode = () => {
     soundManager.init();
     soundManager.play('ui_click');
-    setScreen('rpgClassSelect');
+    setScreen('rpgPlayTypeSelect');
   };
 
   return (
@@ -120,9 +120,9 @@ export const GameTypeSelectScreen: React.FC = () => {
 
               {/* 서브 모드 목록 */}
               <div className="flex flex-col gap-1 text-xs text-gray-400">
+                <span>• 싱글 / 협동 플레이</span>
                 <span>• 4가지 직업</span>
                 <span>• Q/W/E 스킬</span>
-                <span>• 레벨업 시스템</span>
               </div>
 
               {/* 하단 태그 */}

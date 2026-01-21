@@ -1,7 +1,7 @@
 import { WebSocketServer, WebSocket } from 'ws';
 import { createServer, IncomingMessage, ServerResponse } from 'http';
 import { v4 as uuidv4 } from 'uuid';
-import { handleMessage, getRoom } from './MessageHandler';
+import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect } from './MessageHandler';
 import { handlePlayerDisconnect } from '../room/RoomManager';
 import { players, sendMessage, Player } from '../state/players';
 
@@ -69,15 +69,24 @@ export function createWebSocketServer(port: number) {
 
       const player = players.get(playerId);
       if (player && player.roomId) {
-        // 게임 방에서 플레이어 제거 처리
+        // PvP 게임 방에서 플레이어 제거 처리
         const room = getRoom(player.roomId);
         if (room) {
           room.handlePlayerDisconnect(playerId);
         }
+
+        // 협동 게임 방에서 플레이어 제거 처리
+        const coopRoom = getCoopRoom(player.roomId);
+        if (coopRoom) {
+          coopRoom.handlePlayerDisconnect(playerId);
+        }
       }
 
-      // 대기 방에서 제거
+      // 대기 방에서 제거 (PvP)
       handlePlayerDisconnect(playerId);
+
+      // 협동 대기 방에서 제거
+      handleCoopDisconnect(playerId);
 
       players.delete(playerId);
       console.log(`현재 접속자: ${players.size}명`);

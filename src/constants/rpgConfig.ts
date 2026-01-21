@@ -493,3 +493,56 @@ export function getRandomSpawnPosition(): { x: number; y: number } {
 }
 
 export type RPGConfig = typeof RPG_CONFIG;
+
+// ============================================
+// 협동 모드 설정
+// ============================================
+
+export const COOP_CONFIG = {
+  MAX_PLAYERS: 4,
+  MIN_PLAYERS: 2,
+  COUNTDOWN_SECONDS: 3,
+
+  // 부활 시스템
+  REVIVE: {
+    BASE_TIME: 10,           // 기본 10초
+    TIME_PER_WAVE: 2,        // 웨이브당 +2초
+    MAX_TIME: 30,            // 최대 30초
+    REVIVE_HP_PERCENT: 0.5,  // HP 50%로 부활
+    SPAWN_OFFSET: 100,       // 아군 근처 100px 내 랜덤 위치
+  },
+
+  // 난이도 스케일링 (플레이어 수에 따른 적 체력 배율)
+  DIFFICULTY_SCALING: {
+    1: 1.0,
+    2: 1.5,
+    3: 2.0,
+    4: 2.5,
+  } as Record<number, number>,
+
+  // 버프 공유
+  BUFF_SHARE: {
+    KNIGHT_HP_REGEN_RANGE: 150,    // 기사 HP 재생 공유 범위
+    KNIGHT_HP_REGEN_RATIO: 0.5,    // 공유 시 50%만 적용
+    WARRIOR_BERSERKER_RANGE: 200,  // 전사 광전사 버프 공유 범위
+    WARRIOR_BERSERKER_ATK_BONUS: 0.2, // 공유 시 공격력 20% 증가
+  },
+
+  // 어그로 시스템
+  AGGRO: {
+    KNIGHT_BONUS: 2.0,          // 기사에게 어그로 보너스 x2
+    LOW_HP_THRESHOLD: 0.3,      // HP 30% 미만 시
+    LOW_HP_PRIORITY_BONUS: 1.5, // 낮은 HP 우선순위 보너스
+    CURRENT_TARGET_BONUS: 1.2,  // 현재 타겟 유지 보너스
+  },
+
+  // 경험치 분배
+  EXP_SHARE: {
+    DEAD_PLAYER_RATIO: 0.5,  // 죽은 플레이어 경험치 50%
+  },
+
+  // 웨이브 대기 시간
+  WAVE_DELAY: 5,
+} as const;
+
+export type CoopConfig = typeof COOP_CONFIG;

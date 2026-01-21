@@ -4,6 +4,7 @@ import type {
   ConnectionState,
 } from '@shared/types/network';
 import type { UnitType } from '@shared/types/game';
+import type { HeroClass, SkillType } from '../types/rpg';
 
 type MessageHandler = (message: ServerMessage) => void;
 
@@ -161,6 +162,50 @@ class WebSocketClient {
 
   public isConnected(): boolean {
     return this.ws?.readyState === WebSocket.OPEN;
+  }
+
+  // ============================================
+  // 협동 모드 메서드
+  // ============================================
+
+  public createCoopRoom(playerName: string, heroClass: HeroClass): void {
+    this.send({ type: 'CREATE_COOP_ROOM', playerName, heroClass });
+  }
+
+  public joinCoopRoom(roomCode: string, playerName: string, heroClass: HeroClass): void {
+    this.send({ type: 'JOIN_COOP_ROOM', roomCode, playerName, heroClass });
+  }
+
+  public leaveCoopRoom(): void {
+    this.send({ type: 'LEAVE_COOP_ROOM' });
+  }
+
+  public coopReady(): void {
+    this.send({ type: 'COOP_READY' });
+  }
+
+  public coopUnready(): void {
+    this.send({ type: 'COOP_UNREADY' });
+  }
+
+  public changeCoopClass(heroClass: HeroClass): void {
+    this.send({ type: 'CHANGE_COOP_CLASS', heroClass });
+  }
+
+  public startCoopGame(): void {
+    this.send({ type: 'START_COOP_GAME' });
+  }
+
+  public kickCoopPlayer(playerId: string): void {
+    this.send({ type: 'KICK_COOP_PLAYER', playerId });
+  }
+
+  public coopHeroMove(targetX: number, targetY: number): void {
+    this.send({ type: 'COOP_HERO_MOVE', targetX, targetY });
+  }
+
+  public coopUseSkill(skillType: SkillType, targetX: number, targetY: number): void {
+    this.send({ type: 'COOP_USE_SKILL', skillType, targetX, targetY });
   }
 }
 

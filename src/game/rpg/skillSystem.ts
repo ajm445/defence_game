@@ -39,12 +39,25 @@ export function startSkillCooldown(hero: HeroUnit, skillType: SkillType): HeroUn
 
 /**
  * 스킬 쿨다운 업데이트
+ * - 광전사 버프 활성화 시 Q스킬 쿨다운 30% 빠르게 감소
  */
 export function updateSkillCooldowns(hero: HeroUnit, deltaTime: number): HeroUnit {
-  const updatedSkills = hero.skills.map((skill) => ({
-    ...skill,
-    currentCooldown: Math.max(0, skill.currentCooldown - deltaTime),
-  }));
+  // 광전사 버프 확인 (공격속도 증가)
+  const berserkerBuff = hero.buffs.find(b => b.type === 'berserker');
+  const attackSpeedMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
+
+  const updatedSkills = hero.skills.map((skill) => {
+    // Q스킬(기본 공격)에만 공격속도 버프 적용
+    const isQSkill = skill.type.endsWith('_q');
+    const cooldownReduction = isQSkill
+      ? deltaTime * attackSpeedMultiplier  // 광전사 버프 시 30% 빠르게 감소
+      : deltaTime;
+
+    return {
+      ...skill,
+      currentCooldown: Math.max(0, skill.currentCooldown - cooldownReduction),
+    };
+  });
   return { ...hero, skills: updatedSkills };
 }
 

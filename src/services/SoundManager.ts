@@ -17,7 +17,16 @@ export type SoundType =
   | 'defeat'
   | 'warning'
   | 'boss_spawn'
-  | 'heal';
+  | 'heal'
+  // RPG 모드 전용 사운드
+  | 'skill_use'
+  | 'wave_start'
+  | 'wave_clear'
+  | 'hero_hit'
+  | 'hero_death'
+  | 'hero_revive'
+  | 'level_up'
+  | 'enemy_death';
 
 class SoundManager {
   private static instance: SoundManager;
@@ -146,6 +155,31 @@ class SoundManager {
         break;
       case 'heal':
         this.playHeal();
+        break;
+      // RPG 모드 전용 사운드
+      case 'skill_use':
+        this.playSkillUse();
+        break;
+      case 'wave_start':
+        this.playWaveStart();
+        break;
+      case 'wave_clear':
+        this.playWaveClear();
+        break;
+      case 'hero_hit':
+        this.playHeroHit();
+        break;
+      case 'hero_death':
+        this.playHeroDeath();
+        break;
+      case 'hero_revive':
+        this.playHeroRevive();
+        break;
+      case 'level_up':
+        this.playLevelUp();
+        break;
+      case 'enemy_death':
+        this.playEnemyDeath();
         break;
     }
   }
@@ -574,6 +608,217 @@ class SoundManager {
 
     osc.start(now);
     osc.stop(now + 0.15);
+  }
+
+  // ===== RPG 모드 전용 사운드 =====
+
+  /**
+   * 스킬 사용 - 에너지 방출음
+   */
+  private playSkillUse(): void {
+    const ctx = this.audioContext!;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(200, now + 0.1);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain!);
+
+    osc.start(now);
+    osc.stop(now + 0.1);
+  }
+
+  /**
+   * 웨이브 시작 - 경고음
+   */
+  private playWaveStart(): void {
+    const ctx = this.audioContext!;
+    const now = ctx.currentTime;
+
+    const notes = [440, 550, 660];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'square';
+      osc.frequency.value = freq;
+
+      const startTime = now + i * 0.1;
+      gain.gain.setValueAtTime(0.15, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.08);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.start(startTime);
+      osc.stop(startTime + 0.08);
+    });
+  }
+
+  /**
+   * 웨이브 클리어 - 승리 팡파레
+   */
+  private playWaveClear(): void {
+    const ctx = this.audioContext!;
+    const now = ctx.currentTime;
+
+    const notes = [523, 659, 784];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      const startTime = now + i * 0.1;
+      gain.gain.setValueAtTime(0.2, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.15);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.start(startTime);
+      osc.stop(startTime + 0.15);
+    });
+  }
+
+  /**
+   * 영웅 피격 - 짧은 충격음
+   */
+  private playHeroHit(): void {
+    const ctx = this.audioContext!;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(200, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.05);
+
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.05);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain!);
+
+    osc.start(now);
+    osc.stop(now + 0.05);
+  }
+
+  /**
+   * 영웅 사망 - 하강 톤
+   */
+  private playHeroDeath(): void {
+    const ctx = this.audioContext!;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sawtooth';
+    osc.frequency.setValueAtTime(400, now);
+    osc.frequency.exponentialRampToValueAtTime(100, now + 0.3);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.3);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain!);
+
+    osc.start(now);
+    osc.stop(now + 0.3);
+  }
+
+  /**
+   * 영웅 부활 - 상승 톤
+   */
+  private playHeroRevive(): void {
+    const ctx = this.audioContext!;
+    const now = ctx.currentTime;
+
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(300, now);
+    osc.frequency.exponentialRampToValueAtTime(800, now + 0.2);
+
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain!);
+
+    osc.start(now);
+    osc.stop(now + 0.2);
+  }
+
+  /**
+   * 레벨업 - 밝은 팡파레
+   */
+  private playLevelUp(): void {
+    const ctx = this.audioContext!;
+    const now = ctx.currentTime;
+
+    const notes = [523, 659, 784, 1047];
+    notes.forEach((freq, i) => {
+      const osc = ctx.createOscillator();
+      const gain = ctx.createGain();
+
+      osc.type = 'sine';
+      osc.frequency.value = freq;
+
+      const startTime = now + i * 0.08;
+      gain.gain.setValueAtTime(0.2, startTime);
+      gain.gain.exponentialRampToValueAtTime(0.01, startTime + 0.1);
+
+      osc.connect(gain);
+      gain.connect(this.masterGain!);
+
+      osc.start(startTime);
+      osc.stop(startTime + 0.1);
+    });
+  }
+
+  /**
+   * 적 사망 - 짧은 폭발음
+   */
+  private playEnemyDeath(): void {
+    const ctx = this.audioContext!;
+    const now = ctx.currentTime;
+
+    const bufferSize = ctx.sampleRate * 0.1;
+    const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
+    const data = buffer.getChannelData(0);
+    for (let i = 0; i < bufferSize; i++) {
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+    }
+
+    const noise = ctx.createBufferSource();
+    noise.buffer = buffer;
+
+    const filter = ctx.createBiquadFilter();
+    filter.type = 'lowpass';
+    filter.frequency.value = 600;
+
+    const gain = ctx.createGain();
+    gain.gain.setValueAtTime(0.15, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+    noise.connect(filter);
+    filter.connect(gain);
+    gain.connect(this.masterGain!);
+
+    noise.start(now);
   }
 }
 
