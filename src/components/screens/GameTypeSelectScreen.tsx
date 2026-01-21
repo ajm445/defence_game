@@ -33,6 +33,8 @@ export const GameTypeSelectScreen: React.FC = () => {
         </h1>
         <p className="text-gray-400 mb-12">플레이할 게임 유형을 선택하세요</p>
 
+        <div style={{ height: '30px' }} />
+
         {/* 모드 카드들 */}
         <div className="flex gap-12">
           {/* RTS 모드 */}
