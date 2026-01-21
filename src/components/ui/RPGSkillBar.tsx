@@ -28,8 +28,8 @@ const getSkillIcon = (skillType: SkillType, _heroClass: HeroClass): string => {
     archer_w: '➡️',
     archer_e: '🌧️',
     // 기사
-    knight_q: '🛡️',
-    knight_w: '💪',
+    knight_q: '💪',
+    knight_w: '🛡️',
     knight_e: '🏰',
     // 마법사
     mage_q: '✨',

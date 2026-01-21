@@ -432,6 +432,22 @@ export function executeQSkill(
     }
   }
 
+  // 기사: Q 스킬 적중 시 W 스킬(방패 돌진) 쿨타임 1초 감소 (적중당)
+  if (heroClass === 'knight' && enemyDamages.length > 0) {
+    const cooldownReduction = 1.0 * enemyDamages.length; // 적중한 적 수만큼 1초씩 감소
+    const wSkillType = CLASS_SKILLS.knight.w.type;
+    const updatedSkills = updatedHero.skills.map((skill) => {
+      if (skill.type === wSkillType && skill.currentCooldown > 0) {
+        return {
+          ...skill,
+          currentCooldown: Math.max(0, skill.currentCooldown - cooldownReduction),
+        };
+      }
+      return skill;
+    });
+    updatedHero = { ...updatedHero, skills: updatedSkills };
+  }
+
   return { hero: updatedHero, effect, enemyDamages };
 }
 
@@ -449,7 +465,7 @@ export function executeWSkill(
   const skillConfig = CLASS_SKILLS[heroClass].w;
   const classConfig = CLASS_CONFIGS[heroClass];
   const baseDamage = hero.config.attack || hero.baseAttack;
-  let damage = Math.floor(baseDamage * (skillConfig.damageMultiplier || 1.0));
+  let damage = Math.floor(baseDamage * ((skillConfig as any).damageMultiplier || 1.0));
 
   // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용
   if (heroClass === 'mage') {
@@ -563,10 +579,12 @@ export function executeWSkill(
       break;
 
     case 'knight':
-      // 방패 돌진 - 전방 돌진하며 경로상 적 2초 기절 (데미지 없음)
+      // 방패 돌진 - 전방 돌진하며 경로상 적에게 최대 HP 10% 데미지 + 2초 기절
       {
         const dashDistance = (skillConfig as any).distance || 150;
         const stunDuration = 2.0; // 기절 지속 시간 (초)
+        const hpDamagePercent = (skillConfig as any).hpDamagePercent || 0.1; // 최대 HP의 10%
+        const hpBasedDamage = Math.floor(hero.maxHp * hpDamagePercent);
         const dashDuration = 0.25; // 돌진 애니메이션 지속 시간
         const dx = targetX - hero.x;
         const dy = targetY - hero.y;
@@ -577,12 +595,14 @@ export function executeWSkill(
         const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + dirX * dashDistance));
         const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + dirY * dashDistance));
 
-        // 돌진 경로상 적에게 기절 적용 (데미지 없음)
+        // 돌진 경로상 적에게 HP 기반 데미지 + 기절 적용
         for (const enemy of enemies) {
           if (enemy.hp <= 0) continue;
           const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, newX, newY);
           if (enemyDist <= 50) {
-            // 기절만 적용, 데미지 없음
+            // HP 기반 데미지 적용
+            enemyDamages.push({ enemyId: enemy.id, damage: hpBasedDamage });
+            // 기절 적용
             stunTargets.push(enemy.id);
           }
         }

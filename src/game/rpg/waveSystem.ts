@@ -135,12 +135,9 @@ export function isWaveCleared(
 /**
  * 다음 웨이브까지 대기 시간 (초)
  */
-export function getWaveBreakDuration(waveNumber: number): number {
-  // 보스 웨이브 후에는 더 긴 휴식
-  if (waveNumber % 10 === 0) {
-    return 5;
-  }
-  return 3;
+export function getWaveBreakDuration(_waveNumber: number): number {
+  // 대기 없이 바로 다음 웨이브 시작
+  return 0;
 }
 
 /**

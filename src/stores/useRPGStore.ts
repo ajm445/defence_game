@@ -391,7 +391,8 @@ export const useRPGStore = create<RPGStore>()(
 
         const hero = state.hero;
         const newLevel = hero.level + 1;
-        const bonus = RPG_CONFIG.LEVEL_UP_BONUS;
+        // 직업별 레벨업 보너스 사용 (기사는 HP +50)
+        const bonus = RPG_CONFIG.CLASS_LEVEL_UP_BONUS[hero.heroClass] || RPG_CONFIG.LEVEL_UP_BONUS;
 
         // 스탯 증가
         const newMaxHp = hero.maxHp + bonus.hp;

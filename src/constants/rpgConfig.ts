@@ -63,7 +63,7 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     hp: 350,
     attack: 35,
     attackSpeed: 1.0,
-    speed: 1.8,
+    speed: 2.7,
     range: 80,
     passive: {
       lifesteal: 0.15, // 15% 피해흡혈
@@ -77,7 +77,7 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     hp: 250,
     attack: 45,
     attackSpeed: 0.7,
-    speed: 2.2,
+    speed: 3.3,
     range: 180,
     passive: {
       multiTarget: 3, // 기본 공격 3명 동시 공격
@@ -91,7 +91,7 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     hp: 450,
     attack: 30,
     attackSpeed: 1.3,
-    speed: 1.4,
+    speed: 2.1,
     range: 80,
     passive: {
       hpRegen: 5, // 초당 5 HP 재생
@@ -105,7 +105,7 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     hp: 220,
     attack: 55,
     attackSpeed: 1.8,
-    speed: 1.9,
+    speed: 2.85,
     range: 190,
     passive: {
       damageBonus: 0.25, // 25% 데미지 증가
@@ -118,35 +118,35 @@ export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
   melee: {
     detectionRange: 400,
     attackRange: 60,
-    moveSpeed: 1.5,
+    moveSpeed: 2.25,
     attackDamage: 15,
     attackSpeed: 1.0,
   },
   ranged: {
     detectionRange: 500,
     attackRange: 150,
-    moveSpeed: 1.6,
+    moveSpeed: 2.4,
     attackDamage: 20,
     attackSpeed: 0.8,
   },
   knight: {
     detectionRange: 350,
     attackRange: 70,
-    moveSpeed: 1.3,
+    moveSpeed: 1.95,
     attackDamage: 12,
     attackSpeed: 1.2,
   },
   mage: {
     detectionRange: 450,
     attackRange: 180,
-    moveSpeed: 1.4,
+    moveSpeed: 2.1,
     attackDamage: 35,
     attackSpeed: 1.5,
   },
   boss: {
     detectionRange: 600,
     attackRange: 100,
-    moveSpeed: 1.0,
+    moveSpeed: 1.5,
     attackDamage: 50,
     attackSpeed: 2.0,
   },
@@ -233,9 +233,9 @@ export const CLASS_SKILLS = {
       name: '방패 돌진',
       key: 'W',
       cooldown: 8,
-      description: '전방 돌진하며 경로상 적 2초 기절',
+      description: '전방 돌진하며 경로상 적에게 최대 HP 10% 데미지 + 2초 기절',
       distance: 150,
-      damageMultiplier: 0, // 데미지 없음
+      hpDamagePercent: 0.1, // 최대 HP의 10% 데미지
       stunDuration: 2.0,
     },
     e: {
@@ -302,12 +302,20 @@ export const RPG_CONFIG = {
     RANGE: 80,
   },
 
-  // 레벨업 보너스
+  // 레벨업 보너스 (기본값)
   LEVEL_UP_BONUS: {
     hp: 30,
     attack: 5,
     speed: 0.05,
   } as LevelUpBonus,
+
+  // 직업별 레벨업 보너스 (기본값 덮어쓰기)
+  CLASS_LEVEL_UP_BONUS: {
+    warrior: { hp: 30, attack: 5, speed: 0.05 },
+    archer: { hp: 30, attack: 5, speed: 0.05 },
+    knight: { hp: 50, attack: 5, speed: 0.05 }, // 기사는 HP +50
+    mage: { hp: 30, attack: 5, speed: 0.05 },
+  } as Record<HeroClass, LevelUpBonus>,
 
   // 경험치 공식: 필요 경험치 = BASE + (레벨 * MULTIPLIER)
   EXP: {

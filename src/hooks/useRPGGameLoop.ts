@@ -32,8 +32,9 @@ import { distance } from '../utils/math';
 export function useRPGGameLoop() {
   const lastTimeRef = useRef<number>(0);
   const animationIdRef = useRef<number>(0);
-  const waveBreakTimerRef = useRef<number>(0);
+  const waveBreakTimerRef = useRef<number>(-1);
   const pendingSkillRef = useRef<SkillType | null>(null);
+  const levelUpThisFrameRef = useRef<boolean>(false); // 레벨업 사운드 중복 방지
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -49,6 +50,9 @@ export function useRPGGameLoop() {
 
     const deltaTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1);
     lastTimeRef.current = timestamp;
+
+    // 프레임 시작 시 레벨업 플래그 리셋
+    levelUpThisFrameRef.current = false;
 
     // 게임 시간 업데이트
     useRPGStore.getState().updateGameTime(deltaTime);
@@ -148,7 +152,8 @@ export function useRPGGameLoop() {
         // 레벨업 알림
         const showNotification = useUIStore.getState().showNotification;
         showNotification(`레벨 ${newHero.level} 달성!`);
-        soundManager.play('heal'); // 레벨업 사운드
+        soundManager.play('upgrade'); // 레벨업 사운드 (3음 아르페지오)
+        levelUpThisFrameRef.current = true; // 이 프레임에서 레벨업 발생 표시
       }
     }
 
@@ -271,7 +276,12 @@ export function useRPGGameLoop() {
       isWaveCleared(latestState.enemies, latestState.spawnQueue.length === 0)
     ) {
       useRPGStore.getState().endWave();
-      soundManager.play('victory');
+      // 레벨업 사운드와 중복 방지 (지연 재생)
+      if (levelUpThisFrameRef.current) {
+        setTimeout(() => soundManager.play('victory'), 800);
+      } else {
+        soundManager.play('victory');
+      }
 
       const clearedWave = latestState.currentWave;
       const showNotification = useUIStore.getState().showNotification;
@@ -346,10 +356,13 @@ export function useRPGGameLoop() {
     }
 
     // 웨이브 휴식 타이머
-    if (!latestState.waveInProgress && waveBreakTimerRef.current > 0) {
+    if (!latestState.waveInProgress && waveBreakTimerRef.current >= 0) {
       waveBreakTimerRef.current -= deltaTime;
 
-      if (waveBreakTimerRef.current <= 0) {
+      if (waveBreakTimerRef.current < 0) {
+        // 타이머 비활성화
+        waveBreakTimerRef.current = -1;
+
         // 다음 웨이브 시작
         const nextWave = latestState.currentWave + 1;
         useRPGStore.getState().startWave(nextWave);
@@ -364,10 +377,20 @@ export function useRPGGameLoop() {
         const showNotification = useUIStore.getState().showNotification;
         if (nextWave % 10 === 0) {
           showNotification(`⚠️ 보스 웨이브 ${nextWave} 시작!`);
-          soundManager.play('boss_spawn');
+          // 레벨업 사운드와 중복 방지 (지연 재생)
+          if (levelUpThisFrameRef.current) {
+            setTimeout(() => soundManager.play('boss_spawn'), 800);
+          } else {
+            soundManager.play('boss_spawn');
+          }
         } else {
           showNotification(`웨이브 ${nextWave} 시작!`);
-          soundManager.play('warning');
+          // 레벨업 사운드와 중복 방지 (지연 재생)
+          if (levelUpThisFrameRef.current) {
+            setTimeout(() => soundManager.play('warning'), 800);
+          } else {
+            soundManager.play('warning');
+          }
         }
 
         // 10웨이브마다 적 스탯 증가 알림 (웨이브 10, 20, 30...)
@@ -605,7 +628,7 @@ export function useRPGGameLoop() {
   useEffect(() => {
     if (running && !paused && !gameOver) {
       lastTimeRef.current = performance.now();
-      waveBreakTimerRef.current = 0;
+      waveBreakTimerRef.current = -1;
       animationIdRef.current = requestAnimationFrame(tick);
     }
 
