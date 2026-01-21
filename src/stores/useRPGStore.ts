@@ -2,7 +2,8 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState } from '../types/rpg';
 import { UnitType } from '../types/unit';
-import { RPG_CONFIG, calculateExpToNextLevel, CLASS_CONFIGS, CLASS_SKILLS } from '../constants/rpgConfig';
+import { RPG_CONFIG, calculateExpToNextLevel, CLASS_CONFIGS, CLASS_SKILLS, PASSIVE_GROWTH_CONFIGS } from '../constants/rpgConfig';
+import { createInitialPassiveState, upgradePassiveState } from '../game/rpg/passiveSystem';
 
 interface RPGState extends RPGGameState {
   // 활성 스킬 효과
@@ -96,6 +97,9 @@ interface RPGActions {
   // 통계
   incrementKills: () => void;
   addExpGained: (amount: number) => void;
+
+  // 패시브 성장
+  upgradePassive: (clearedWave: number) => void;
 
   // 공격 사거리 표시
   setShowAttackRange: (show: boolean) => void;
@@ -230,6 +234,7 @@ function createHeroUnit(heroClass: HeroClass): HeroUnit {
     buffs: [],
     facingRight: true,   // 기본적으로 오른쪽을 바라봄 (이미지 반전용)
     facingAngle: 0,      // 기본적으로 오른쪽 방향 (0 라디안)
+    passiveGrowth: createInitialPassiveState(), // 패시브 성장 상태 초기화
   };
 }
 
@@ -656,6 +661,56 @@ export const useRPGStore = create<RPGStore>()(
       set((state) => ({
         stats: { ...state.stats, totalExpGained: state.stats.totalExpGained + amount },
       }));
+    },
+
+    // 패시브 성장
+    upgradePassive: (clearedWave: number) => {
+      set((state) => {
+        if (!state.hero) return state;
+
+        const hero = state.hero;
+        const newPassiveState = upgradePassiveState(hero.passiveGrowth, hero.heroClass, clearedWave);
+
+        // 레벨이 변하지 않으면 업데이트 안함
+        if (newPassiveState.level === hero.passiveGrowth.level) {
+          return state;
+        }
+
+        // 오버플로우 보너스 적용 (최대치 초과 시 스탯 증가)
+        const config = PASSIVE_GROWTH_CONFIGS[hero.heroClass];
+        let updatedHero = { ...hero, passiveGrowth: newPassiveState };
+
+        if (newPassiveState.overflowBonus > 0 && newPassiveState.overflowBonus !== hero.passiveGrowth.overflowBonus) {
+          const bonusDiff = newPassiveState.overflowBonus - hero.passiveGrowth.overflowBonus;
+
+          if (config.overflowType === 'attack') {
+            // 공격력 증가
+            const attackBonus = Math.floor(hero.baseAttack * bonusDiff);
+            updatedHero = {
+              ...updatedHero,
+              baseAttack: hero.baseAttack + attackBonus,
+              config: {
+                ...hero.config,
+                attack: (hero.config.attack || hero.baseAttack) + attackBonus,
+              },
+            };
+          } else if (config.overflowType === 'maxHp') {
+            // 체력 증가
+            const hpBonus = Math.floor(hero.maxHp * bonusDiff);
+            updatedHero = {
+              ...updatedHero,
+              maxHp: hero.maxHp + hpBonus,
+              hp: hero.hp + hpBonus, // 현재 체력도 증가
+              config: {
+                ...hero.config,
+                hp: hero.maxHp + hpBonus,
+              },
+            };
+          }
+        }
+
+        return { hero: updatedHero };
+      });
     },
 
     // 공격 사거리 표시

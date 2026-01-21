@@ -1,6 +1,7 @@
-import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass } from '../../types/rpg';
+import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget } from '../../types/rpg';
 import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
+import { calculateWarriorLifesteal, rollMultiTarget } from './passiveSystem';
 
 // 스킬 슬롯에서 스킬 타입 가져오기
 export function getSkillTypeForSlot(heroClass: HeroClass, slot: 'Q' | 'W' | 'E'): SkillType {
@@ -285,13 +286,14 @@ export interface ClassSkillResult {
   buff?: Buff;
   pendingSkill?: PendingSkill;
   stunTargets?: string[];
+  stunDuration?: number; // 기절 지속시간 (초)
 }
 
 /**
  * 직업별 Q 스킬 실행 (일반공격)
  * - 전사, 기사: 근접 범위 공격 (다수 타격)
  * - 마법사: 원거리 범위 공격 (다수 타격)
- * - 궁수: 원거리 단일 공격
+ * - 궁수: 다중 타겟 공격 (패시브 확률 기반)
  */
 export function executeQSkill(
   hero: HeroUnit,
@@ -302,8 +304,16 @@ export function executeQSkill(
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].q;
+  const classConfig = CLASS_CONFIGS[heroClass];
   const baseDamage = hero.config.attack || hero.baseAttack;
-  const damage = Math.floor(baseDamage * (skillConfig.damageMultiplier || 1.0));
+  let damage = Math.floor(baseDamage * (skillConfig.damageMultiplier || 1.0));
+
+  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용
+  if (heroClass === 'mage') {
+    const baseDamageBonus = classConfig.passive.damageBonus || 0;
+    const growthDamageBonus = hero.passiveGrowth.currentValue;
+    damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
+  }
 
   // 버프 적용된 공격력 계산
   let finalDamage = damage;
@@ -313,6 +323,7 @@ export function executeQSkill(
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
+  const hitTargets: HitTarget[] = []; // 피격 대상 위치 수집
   // 직업별 기본 공격 사거리 사용
   const attackRange = hero.config.range || CLASS_CONFIGS[heroClass].range;
 
@@ -330,8 +341,13 @@ export function executeQSkill(
   // 전방 공격 각도 (내적 기준: 0.0 = 90도, -0.5 = 120도)
   const attackAngleThreshold = isMelee ? -0.3 : 0.0; // 근거리는 약 110도, 원거리는 90도
 
-  let targetEnemy: RPGEnemy | null = null;
-  let minDist = Infinity;
+  // 궁수: 패시브 성장 기반 다중타겟 확률 판정
+  const baseMultiTargetCount = classConfig.passive.multiTarget || 1;
+  // 패시브 성장이 활성화되어 있고 확률 판정 성공 시 다중타겟
+  const useGrowthMultiTarget = heroClass === 'archer' && rollMultiTarget(hero.passiveGrowth.currentValue);
+  const multiTargetCount = useGrowthMultiTarget ? baseMultiTargetCount : 1;
+
+  const targetEnemies: { enemy: RPGEnemy; dist: number }[] = [];
 
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
@@ -355,18 +371,21 @@ export function executeQSkill(
     if (isAoE) {
       // 범위 공격 (전사, 기사, 마법사): 범위 내 모든 적에게 데미지
       enemyDamages.push({ enemyId: enemy.id, damage: finalDamage });
+      hitTargets.push({ x: enemy.x, y: enemy.y, damage: finalDamage });
     } else {
-      // 단일 타겟 (궁수): 가장 가까운 적 하나만
-      if (distToHero < minDist) {
-        minDist = distToHero;
-        targetEnemy = enemy;
-      }
+      // 다중 타겟 (궁수): 가까운 순서로 정렬 후 선택
+      targetEnemies.push({ enemy, dist: distToHero });
     }
   }
 
-  // 단일 타겟 캐릭터 (궁수)
-  if (!isAoE && targetEnemy) {
-    enemyDamages.push({ enemyId: targetEnemy.id, damage: finalDamage });
+  // 다중 타겟 캐릭터 (궁수) - 가까운 순서로 정렬 후 multiTargetCount 명 공격
+  if (!isAoE && targetEnemies.length > 0) {
+    targetEnemies.sort((a, b) => a.dist - b.dist);
+    const targets = targetEnemies.slice(0, multiTargetCount);
+    for (const t of targets) {
+      enemyDamages.push({ enemyId: t.enemy.id, damage: finalDamage });
+      hitTargets.push({ x: t.enemy.x, y: t.enemy.y, damage: finalDamage });
+    }
   }
 
   // 이펙트는 타겟 방향으로 표시
@@ -375,15 +394,43 @@ export function executeQSkill(
 
   const effect: SkillEffect = {
     type: skillConfig.type,
-    position: { x: effectX, y: effectY },
+    position: { x: hero.x, y: hero.y }, // 영웅 위치에서 시작
     direction: { x: dirX, y: dirY },
     radius: isAoE ? attackRange : undefined,
     damage: finalDamage,
-    duration: 0.3,
+    duration: 0.4, // 이펙트 지속시간 증가
     startTime: gameTime,
+    hitTargets, // 피격 대상 위치들
+    heroClass, // 직업 정보 (렌더링용)
   };
 
-  const updatedHero = startSkillCooldown(hero, skillConfig.type);
+  let updatedHero = startSkillCooldown(hero, skillConfig.type);
+
+  // 전사: 피해흡혈 적용 (기본 패시브 + 패시브 성장 곱연산 with 광전사 버프)
+  if (heroClass === 'warrior' && enemyDamages.length > 0) {
+    const totalDamage = enemyDamages.reduce((sum, ed) => sum + ed.damage, 0);
+
+    // 기본 패시브 + 패시브 성장 피해흡혈
+    const baseLifesteal = classConfig.passive.lifesteal || 0;
+    const growthLifesteal = hero.passiveGrowth.currentValue;
+    const passiveTotal = baseLifesteal + growthLifesteal;
+
+    // 광전사 버프 피해흡혈
+    const buffLifesteal = berserkerBuff?.lifesteal || 0;
+
+    // 곱연산: (1 + 패시브) * (1 + 버프) - 1
+    const totalLifesteal = calculateWarriorLifesteal(passiveTotal, buffLifesteal);
+
+    if (totalLifesteal > 0) {
+      const healAmount = Math.floor(totalDamage * totalLifesteal);
+      if (healAmount > 0) {
+        updatedHero = {
+          ...updatedHero,
+          hp: Math.min(updatedHero.maxHp, updatedHero.hp + healAmount),
+        };
+      }
+    }
+  }
 
   return { hero: updatedHero, effect, enemyDamages };
 }
@@ -400,13 +447,22 @@ export function executeWSkill(
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].w;
+  const classConfig = CLASS_CONFIGS[heroClass];
   const baseDamage = hero.config.attack || hero.baseAttack;
-  const damage = Math.floor(baseDamage * (skillConfig.damageMultiplier || 1.0));
+  let damage = Math.floor(baseDamage * (skillConfig.damageMultiplier || 1.0));
+
+  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용
+  if (heroClass === 'mage') {
+    const baseDamageBonus = classConfig.passive.damageBonus || 0;
+    const growthDamageBonus = hero.passiveGrowth.currentValue;
+    damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
+  }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
   const stunTargets: string[] = [];
   let effect: SkillEffect | undefined;
   let updatedHero = hero;
+  let returnStunDuration: number | undefined;
 
   let buff: Buff | undefined;
 
@@ -507,10 +563,11 @@ export function executeWSkill(
       break;
 
     case 'knight':
-      // 방패 돌진 - 전방 돌진 후 적 기절
+      // 방패 돌진 - 전방 돌진하며 경로상 적 2초 기절 (데미지 없음)
       {
         const dashDistance = (skillConfig as any).distance || 150;
-        const stunDuration = (skillConfig as any).stunDuration || 1.0;
+        const stunDuration = 2.0; // 기절 지속 시간 (초)
+        const dashDuration = 0.25; // 돌진 애니메이션 지속 시간
         const dx = targetX - hero.x;
         const dy = targetY - hero.y;
         const dist = Math.sqrt(dx * dx + dy * dy);
@@ -520,26 +577,47 @@ export function executeWSkill(
         const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + dirX * dashDistance));
         const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + dirY * dashDistance));
 
+        // 돌진 경로상 적에게 기절 적용 (데미지 없음)
         for (const enemy of enemies) {
           if (enemy.hp <= 0) continue;
-          const enemyDist = distance(newX, newY, enemy.x, enemy.y);
-          if (enemyDist <= 60) {
-            enemyDamages.push({ enemyId: enemy.id, damage });
+          const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, newX, newY);
+          if (enemyDist <= 50) {
+            // 기절만 적용, 데미지 없음
             stunTargets.push(enemy.id);
           }
         }
 
+        // 기절 지속시간 설정
+        returnStunDuration = stunDuration;
+
         effect = {
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
+          targetPosition: { x: newX, y: newY },
           direction: { x: dirX, y: dirY },
           radius: dashDistance,
-          damage,
-          duration: 0.4,
+          duration: dashDuration + 0.5, // 이펙트 지속시간
           startTime: gameTime,
         };
 
-        updatedHero = { ...hero, x: newX, y: newY, targetPosition: undefined };
+        // 돌진 상태 설정 (애니메이션용) - 위치는 즉시 변경하지 않음
+        updatedHero = {
+          ...hero,
+          targetPosition: undefined,
+          state: 'moving',
+          facingRight: dirX >= 0,
+          facingAngle: Math.atan2(dirY, dirX),
+          dashState: {
+            startX: hero.x,
+            startY: hero.y,
+            targetX: newX,
+            targetY: newY,
+            progress: 0,
+            duration: dashDuration,
+            dirX,
+            dirY,
+          },
+        };
       }
       break;
 
@@ -548,10 +626,17 @@ export function executeWSkill(
       {
         const radius = (skillConfig as any).radius || 80;
 
+        // 방향 계산 (영웅 → 타겟)
+        const dx = targetX - hero.x;
+        const dy = targetY - hero.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dirX = dist > 0 ? dx / dist : 1;
+        const dirY = dist > 0 ? dy / dist : 0;
+
         for (const enemy of enemies) {
           if (enemy.hp <= 0) continue;
-          const dist = distance(targetX, targetY, enemy.x, enemy.y);
-          if (dist <= radius) {
+          const enemyDist = distance(targetX, targetY, enemy.x, enemy.y);
+          if (enemyDist <= radius) {
             enemyDamages.push({ enemyId: enemy.id, damage });
           }
         }
@@ -559,9 +644,10 @@ export function executeWSkill(
         effect = {
           type: skillConfig.type,
           position: { x: targetX, y: targetY },
+          direction: { x: dirX, y: dirY },
           radius,
           damage,
-          duration: 0.5,
+          duration: 0.7, // 화염구 발사 + 폭발 시간
           startTime: gameTime,
         };
       }
@@ -570,7 +656,7 @@ export function executeWSkill(
 
   updatedHero = startSkillCooldown(updatedHero, skillConfig.type);
 
-  return { hero: updatedHero, effect, enemyDamages, stunTargets, buff };
+  return { hero: updatedHero, effect, enemyDamages, stunTargets, stunDuration: returnStunDuration, buff };
 }
 
 /**
@@ -585,8 +671,16 @@ export function executeESkill(
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].e;
+  const classConfig = CLASS_CONFIGS[heroClass];
   const baseDamage = hero.config.attack || hero.baseAttack;
-  const damage = Math.floor(baseDamage * ((skillConfig as any).damageMultiplier || 1.0));
+  let damage = Math.floor(baseDamage * ((skillConfig as any).damageMultiplier || 1.0));
+
+  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용
+  if (heroClass === 'mage') {
+    const baseDamageBonus = classConfig.passive.damageBonus || 0;
+    const growthDamageBonus = hero.passiveGrowth.currentValue;
+    damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
+  }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
   let effect: SkillEffect | undefined;
@@ -596,11 +690,12 @@ export function executeESkill(
 
   switch (heroClass) {
     case 'warrior':
-      // 광전사 - 공격력/공속 증가 버프
+      // 광전사 - 공격력/공속 증가 + 피해흡혈 버프
       {
         const duration = (skillConfig as any).duration || 10;
         const attackBonus = (skillConfig as any).attackBonus || 0.5;
         const speedBonus = (skillConfig as any).speedBonus || 0.3;
+        const lifesteal = 0.5; // 피해량의 50% 흡혈
 
         buff = {
           type: 'berserker',
@@ -608,6 +703,7 @@ export function executeESkill(
           startTime: gameTime,
           attackBonus,
           speedBonus,
+          lifesteal,
         };
 
         effect = {

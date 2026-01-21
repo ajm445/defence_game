@@ -315,7 +315,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               <span className="text-red-400">전사</span>
             </div>
             <div className="text-gray-300">HP 350 | 공격력 35 | 사거리 80</div>
-            <div className="text-gray-400 text-sm mt-1">균형 잡힌 근접 딜러, 돌진/광전사 버프</div>
+            <div className="text-gray-400 text-sm mt-1">균형 잡힌 근접 딜러, 돌진/광전사(흡혈) 버프</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-green-500/30">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2">
@@ -439,7 +439,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             </li>
             <li className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
               <Emoji emoji="⚔️" size={20} />
-              <span>전사는 돌진 후 광전사 버프로 적을 빠르게 처치하세요</span>
+              <span>전사는 광전사 버프로 흡혈하며 적을 빠르게 처치하세요</span>
             </li>
             <li className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
               <Emoji emoji="🛡️" size={20} />

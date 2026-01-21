@@ -1,6 +1,58 @@
 import { UnitType } from '../types/unit';
 import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig } from '../types/rpg';
 
+// 패시브 성장 시스템 상수
+export const PASSIVE_UNLOCK_WAVE = 10;      // 패시브 활성화 웨이브
+export const PASSIVE_GROWTH_INTERVAL = 10;  // 성장 간격 (10웨이브마다)
+
+// 패시브 성장 설정 (직업별)
+export interface PassiveGrowthConfig {
+  type: 'lifesteal' | 'multiTarget' | 'hpRegen' | 'damageBonus';
+  startValue: number;      // 시작 값
+  growthPerLevel: number;  // 레벨당 성장량
+  maxValue: number;        // 최대 값
+  overflowType: 'attack' | 'maxHp';  // 초과 보너스 유형
+  overflowPerLevel: number; // 초과 시 레벨당 보너스 (%)
+  // 궁수 전용
+  baseChance?: number;     // 다중타겟 기본 확률 (첫 활성화 시)
+}
+
+export const PASSIVE_GROWTH_CONFIGS: Record<HeroClass, PassiveGrowthConfig> = {
+  warrior: {
+    type: 'lifesteal',
+    startValue: 0,
+    growthPerLevel: 0.005,   // +0.5%/레벨
+    maxValue: 0.5,           // 50% 최대
+    overflowType: 'attack',
+    overflowPerLevel: 0.005, // 초과 시 공격력 +0.5%
+  },
+  archer: {
+    type: 'multiTarget',
+    startValue: 0,
+    baseChance: 0.2,         // 첫 활성화 시 20% 확률
+    growthPerLevel: 0.005,   // +0.5%/레벨
+    maxValue: 1.0,           // 100% 최대 (항상 발동)
+    overflowType: 'attack',
+    overflowPerLevel: 0.005, // 초과 시 공격력 +0.5%
+  },
+  knight: {
+    type: 'hpRegen',
+    startValue: 0,
+    growthPerLevel: 5,       // +5/초/레벨
+    maxValue: 200,           // 200/초 최대
+    overflowType: 'maxHp',
+    overflowPerLevel: 0.005, // 초과 시 체력 +0.5%
+  },
+  mage: {
+    type: 'damageBonus',
+    startValue: 0,
+    growthPerLevel: 0.01,    // +1%/레벨
+    maxValue: 1.0,           // 100% 최대
+    overflowType: 'attack',
+    overflowPerLevel: 0.01,  // 초과 시 공격력 +1%
+  },
+};
+
 // 직업별 설정
 export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
   warrior: {
@@ -13,6 +65,9 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     attackSpeed: 1.0,
     speed: 1.8,
     range: 80,
+    passive: {
+      lifesteal: 0.15, // 15% 피해흡혈
+    },
   },
   archer: {
     name: '궁수',
@@ -24,6 +79,9 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     attackSpeed: 0.7,
     speed: 2.2,
     range: 150,
+    passive: {
+      multiTarget: 3, // 기본 공격 3명 동시 공격
+    },
   },
   knight: {
     name: '기사',
@@ -35,6 +93,9 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     attackSpeed: 1.3,
     speed: 1.4,
     range: 60,
+    passive: {
+      hpRegen: 5, // 초당 5 HP 재생
+    },
   },
   mage: {
     name: '마법사',
@@ -46,6 +107,9 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     attackSpeed: 1.8,
     speed: 1.9,
     range: 120,
+    passive: {
+      damageBonus: 0.25, // 25% 데미지 증가
+    },
   },
 };
 
@@ -120,10 +184,11 @@ export const CLASS_SKILLS = {
       name: '광전사',
       key: 'E',
       cooldown: 30,
-      description: '10초간 공격력 50%, 공격속도 30% 증가',
+      description: '10초간 공격력 50%, 공격속도 30% 증가, 피해흡혈 50%',
       duration: 10,
       attackBonus: 0.5,
       speedBonus: 0.3,
+      lifesteal: 0.5,
     },
   },
   archer: {
@@ -168,10 +233,10 @@ export const CLASS_SKILLS = {
       name: '방패 돌진',
       key: 'W',
       cooldown: 8,
-      description: '전방 돌진 후 적 1초 기절',
+      description: '전방 돌진하며 경로상 적 2초 기절',
       distance: 150,
-      damageMultiplier: 0.8,
-      stunDuration: 1.0,
+      damageMultiplier: 0, // 데미지 없음
+      stunDuration: 2.0,
     },
     e: {
       type: 'knight_e' as SkillType,

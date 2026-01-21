@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
-import { RPG_CONFIG, CLASS_SKILLS } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_WAVE, PASSIVE_GROWTH_INTERVAL, PASSIVE_GROWTH_CONFIGS } from '../constants/rpgConfig';
 import { updateHeroUnit, canLevelUp } from '../game/rpg/heroUnit';
 import {
   createWaveEnemies,
@@ -26,7 +26,7 @@ import {
 } from '../game/rpg/enemyAI';
 import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
-import { SkillType, PendingSkill } from '../types/rpg';
+import { SkillType, PendingSkill, SkillEffect } from '../types/rpg';
 import { distance } from '../utils/math';
 
 export function useRPGGameLoop() {
@@ -124,6 +124,21 @@ export function useRPGGameLoop() {
       useRPGStore.getState().setCamera(updatedHero.x, updatedHero.y);
     }
 
+    // 패시브 HP 재생 (기사: 기본 패시브 + 패시브 성장)
+    const heroForRegen = useRPGStore.getState().hero;
+    if (heroForRegen && heroForRegen.heroClass === 'knight' && heroForRegen.hp < heroForRegen.maxHp) {
+      const classConfig = CLASS_CONFIGS[heroForRegen.heroClass];
+      const baseRegen = classConfig.passive.hpRegen || 0;
+      const growthRegen = heroForRegen.passiveGrowth.currentValue;
+      const totalRegen = baseRegen + growthRegen;
+
+      if (totalRegen > 0) {
+        const regenAmount = totalRegen * deltaTime;
+        const newHp = Math.min(heroForRegen.maxHp, heroForRegen.hp + regenAmount);
+        useRPGStore.getState().updateHeroState({ hp: newHp });
+      }
+    }
+
     // 레벨업 체크
     const currentHero = useRPGStore.getState().hero;
     if (currentHero && canLevelUp(currentHero)) {
@@ -197,12 +212,31 @@ export function useRPGGameLoop() {
           if (enemy.hp <= 0) continue;
           const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
           if (dist <= skill.radius) {
-            useRPGStore.getState().damageEnemy(enemy.id, skill.damage);
+            const killed = useRPGStore.getState().damageEnemy(enemy.id, skill.damage);
+            if (killed) {
+              useRPGStore.getState().addExp(enemy.expReward);
+              useRPGStore.getState().addExpGained(enemy.expReward);
+              useRPGStore.getState().incrementKills();
+              useRPGStore.getState().removeEnemy(enemy.id);
+            }
           }
         }
 
-        // 폭발 이펙트
-        effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
+        // 운석 폭발 이펙트 추가 (스킬 타입이 mage_e인 경우)
+        if (skill.type === 'mage_e') {
+          const explosionEffect: SkillEffect = {
+            type: 'mage_meteor' as SkillType,
+            position: { x: skill.position.x, y: skill.position.y },
+            radius: skill.radius,
+            damage: skill.damage,
+            duration: 0.5, // 폭발 애니메이션 시간
+            startTime: currentGameTime,
+          };
+          useRPGStore.getState().addSkillEffect(explosionEffect);
+        } else {
+          // 기본 폭발 이펙트
+          effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
+        }
         soundManager.play('attack_melee');
       }
     });
@@ -246,9 +280,73 @@ export function useRPGGameLoop() {
       useRPGStore.getState().endWave();
       soundManager.play('victory');
 
-      // 웨이브 클리어 알림
+      const clearedWave = latestState.currentWave;
       const showNotification = useUIStore.getState().showNotification;
-      showNotification(`웨이브 ${latestState.currentWave} 클리어!`);
+
+      // 웨이브 클리어 알림
+      showNotification(`웨이브 ${clearedWave} 클리어!`);
+
+      // 패시브 성장 처리 (10, 20, 30... 웨이브 클리어 시)
+      if (clearedWave >= PASSIVE_UNLOCK_WAVE && clearedWave % PASSIVE_GROWTH_INTERVAL === 0) {
+        const heroBeforeUpgrade = useRPGStore.getState().hero;
+        if (heroBeforeUpgrade) {
+          const previousLevel = heroBeforeUpgrade.passiveGrowth.level;
+          useRPGStore.getState().upgradePassive(clearedWave);
+          const heroAfterUpgrade = useRPGStore.getState().hero;
+
+          if (heroAfterUpgrade && heroAfterUpgrade.passiveGrowth.level > previousLevel) {
+            const config = PASSIVE_GROWTH_CONFIGS[heroAfterUpgrade.heroClass];
+            const passiveLevel = heroAfterUpgrade.passiveGrowth.level;
+
+            // 패시브 활성화/강화 알림
+            setTimeout(() => {
+              if (passiveLevel === 1) {
+                // 첫 활성화
+                let passiveDesc = '';
+                switch (config.type) {
+                  case 'lifesteal':
+                    passiveDesc = `피해흡혈 ${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
+                    break;
+                  case 'multiTarget':
+                    passiveDesc = `다중타겟 확률 ${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
+                    break;
+                  case 'hpRegen':
+                    passiveDesc = `HP 재생 +${heroAfterUpgrade.passiveGrowth.currentValue.toFixed(0)}/초`;
+                    break;
+                  case 'damageBonus':
+                    passiveDesc = `데미지 +${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
+                    break;
+                }
+                showNotification(`패시브 활성화! ${passiveDesc}`);
+              } else {
+                // 강화
+                let passiveDesc = '';
+                switch (config.type) {
+                  case 'lifesteal':
+                    passiveDesc = `피해흡혈 ${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
+                    break;
+                  case 'multiTarget':
+                    passiveDesc = `다중타겟 확률 ${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
+                    break;
+                  case 'hpRegen':
+                    passiveDesc = `HP 재생 ${heroAfterUpgrade.passiveGrowth.currentValue.toFixed(0)}/초`;
+                    break;
+                  case 'damageBonus':
+                    passiveDesc = `데미지 +${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
+                    break;
+                }
+
+                // 오버플로우 보너스 표시
+                if (heroAfterUpgrade.passiveGrowth.overflowBonus > 0) {
+                  const bonusType = config.overflowType === 'attack' ? '공격력' : '체력';
+                  passiveDesc += ` (+${(heroAfterUpgrade.passiveGrowth.overflowBonus * 100).toFixed(1)}% ${bonusType})`;
+                }
+                showNotification(`패시브 강화! ${passiveDesc}`);
+              }
+            }, 1000); // 웨이브 클리어 알림 후 1초 뒤에 표시
+          }
+        }
+      }
 
       // 휴식 시간 설정
       waveBreakTimerRef.current = getWaveBreakDuration(latestState.currentWave);
@@ -277,6 +375,15 @@ export function useRPGGameLoop() {
         } else {
           showNotification(`웨이브 ${nextWave} 시작!`);
           soundManager.play('warning');
+        }
+
+        // 10웨이브마다 적 스탯 증가 알림 (웨이브 10, 20, 30...)
+        if (nextWave % 10 === 0) {
+          const statBoostLevel = Math.floor(nextWave / 10);
+          const statBoostPercent = statBoostLevel * 30;
+          setTimeout(() => {
+            showNotification(`⚡ 적 강화! 스탯 +${statBoostPercent}%`);
+          }, 1500); // 보스 알림 후 1.5초 뒤에 표시
         }
       }
     }
@@ -354,15 +461,20 @@ export function useRPGGameLoop() {
       }
 
       // 기절 적용
-      if (result.stunTargets) {
+      if (result.stunTargets && result.stunTargets.length > 0) {
+        const stunDuration = result.stunDuration || 1.0; // 기본값 1초
         const enemies = useRPGStore.getState().enemies;
         const updatedEnemies = enemies.map(enemy => {
           if (result.stunTargets!.includes(enemy.id)) {
-            return applyStunToEnemy(enemy, 1.0, state.gameTime);
+            return applyStunToEnemy(enemy, stunDuration, state.gameTime);
           }
           return enemy;
         });
         useRPGStore.getState().updateEnemies(updatedEnemies);
+
+        // 기절 적용 알림
+        const showNotification = useUIStore.getState().showNotification;
+        showNotification(`${result.stunTargets.length}명 기절! (${stunDuration}초)`);
       }
     },
     []
@@ -447,6 +559,12 @@ export function useRPGGameLoop() {
       if (skillType === classSkills.w.type) {
         const result = executeWSkill(state.hero, state.enemies, targetX, targetY, gameTime);
         processSkillResult(result, state);
+
+        // 기사 방패 돌진 알림
+        if (heroClass === 'knight') {
+          const showNotification = useUIStore.getState().showNotification;
+          showNotification('방패 돌진!');
+        }
         return;
       }
 

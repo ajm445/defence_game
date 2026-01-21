@@ -39,6 +39,22 @@ export interface Buff {
   attackBonus?: number;  // 공격력 증가율
   speedBonus?: number;   // 공속 증가율
   damageReduction?: number; // 데미지 감소율
+  lifesteal?: number;    // 피해흡혈율 (0.5 = 50%)
+}
+
+// 패시브 능력 설정
+export interface PassiveAbility {
+  lifesteal?: number;       // 피해흡혈 비율 (0.1 = 10%)
+  multiTarget?: number;     // 기본 공격 대상 수
+  hpRegen?: number;         // 초당 HP 재생
+  damageBonus?: number;     // 데미지 증가 비율 (0.2 = 20%)
+}
+
+// 패시브 성장 상태
+export interface PassiveGrowthState {
+  level: number;           // 패시브 레벨 (0부터 시작, 웨이브10 클리어 시 1)
+  currentValue: number;    // 현재 패시브 값
+  overflowBonus: number;   // 초과 보너스 (최대치 도달 후 추가 스탯 보너스)
 }
 
 // 직업 설정
@@ -52,6 +68,7 @@ export interface ClassConfig {
   attackSpeed: number;  // 공격 쿨다운 (초)
   speed: number;        // 이동 속도
   range: number;        // 공격 사거리
+  passive: PassiveAbility; // 패시브 능력
 }
 
 // 스킬 상태
@@ -96,6 +113,7 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   facingRight: boolean;      // 오른쪽을 바라보는지 여부 (이미지 반전용)
   facingAngle: number;       // 실제 바라보는 방향 각도 (라디안, 스킬 방향용)
   dashState?: DashState;     // 돌진 중일 때의 상태 정보
+  passiveGrowth: PassiveGrowthState; // 패시브 성장 상태
 }
 
 // 웨이브 설정
@@ -197,16 +215,26 @@ export interface LevelUpBonus {
   speed: number;
 }
 
+// 피격 대상 정보 (공격 이펙트용)
+export interface HitTarget {
+  x: number;
+  y: number;
+  damage: number;
+}
+
 // 스킬 효과
 export interface SkillEffect {
   type: SkillType;
   position: Position;
+  targetPosition?: Position; // 목표 위치 (돌진용)
   direction?: Position;   // 방향 (돌진용)
   radius?: number;        // 범위
   damage?: number;        // 데미지
   heal?: number;          // 힐량
   duration: number;       // 지속시간 (초)
   startTime: number;      // 시작 시간
+  hitTargets?: HitTarget[]; // 피격 대상 위치들 (공격 이펙트용)
+  heroClass?: HeroClass;   // 발동한 영웅 직업 (이펙트 스타일 결정용)
 }
 
 // 경험치 테이블 (적 유닛별)
