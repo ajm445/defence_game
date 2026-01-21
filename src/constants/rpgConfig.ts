@@ -78,7 +78,7 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     attack: 45,
     attackSpeed: 0.7,
     speed: 2.2,
-    range: 150,
+    range: 180,
     passive: {
       multiTarget: 3, // 기본 공격 3명 동시 공격
     },
@@ -92,7 +92,7 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     attack: 30,
     attackSpeed: 1.3,
     speed: 1.4,
-    range: 60,
+    range: 80,
     passive: {
       hpRegen: 5, // 초당 5 HP 재생
     },
@@ -106,7 +106,7 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     attack: 55,
     attackSpeed: 1.8,
     speed: 1.9,
-    range: 120,
+    range: 190,
     passive: {
       damageBonus: 0.25, // 25% 데미지 증가
     },
