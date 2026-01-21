@@ -171,8 +171,6 @@ function createClassSkills(heroClass: HeroClass): Skill[] {
       cooldown: classSkills.q.cooldown,
       currentCooldown: 0,
       level: 1,
-      unlocked: true,  // Q는 항상 해금
-      unlockedAtLevel: 1,
     },
     {
       type: classSkills.w.type,
@@ -181,8 +179,6 @@ function createClassSkills(heroClass: HeroClass): Skill[] {
       cooldown: classSkills.w.cooldown,
       currentCooldown: 0,
       level: 1,
-      unlocked: true,  // W도 시작시 해금
-      unlockedAtLevel: 1,
     },
     {
       type: classSkills.e.type,
@@ -191,8 +187,6 @@ function createClassSkills(heroClass: HeroClass): Skill[] {
       cooldown: classSkills.e.cooldown,
       currentCooldown: 0,
       level: 1,
-      unlocked: true,  // E도 시작시 해금
-      unlockedAtLevel: 1,
     },
   ];
 }
@@ -404,13 +398,11 @@ export const useRPGStore = create<RPGStore>()(
         const newAttack = hero.baseAttack + bonus.attack;
         const newSpeed = hero.baseSpeed + bonus.speed;
 
-        // 스킬 해금 체크
-        const updatedSkills = hero.skills.map((skill) => {
-          if (!skill.unlocked && skill.unlockedAtLevel <= newLevel) {
-            return { ...skill, unlocked: true };
-          }
-          return skill;
-        });
+        // 레벨업 시 모든 스킬 쿨타임 초기화
+        const updatedSkills = hero.skills.map((skill) => ({
+          ...skill,
+          currentCooldown: 0,
+        }));
 
         return {
           hero: {
@@ -440,7 +432,7 @@ export const useRPGStore = create<RPGStore>()(
       if (!state.hero) return false;
 
       const skill = state.hero.skills.find((s) => s.type === skillType);
-      if (!skill || !skill.unlocked || skill.currentCooldown > 0) {
+      if (!skill || skill.currentCooldown > 0) {
         return false;
       }
 
@@ -491,7 +483,7 @@ export const useRPGStore = create<RPGStore>()(
         if (!state.hero || state.hero.skillPoints <= 0) return state;
 
         const skill = state.hero.skills.find((s) => s.type === skillType);
-        if (!skill || !skill.unlocked) return state;
+        if (!skill) return state;
 
         const upgrade = RPG_CONFIG.SKILL_UPGRADE[skillType as keyof typeof RPG_CONFIG.SKILL_UPGRADE];
         if (!upgrade) return state;

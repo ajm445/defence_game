@@ -9,7 +9,7 @@ import {
   isWaveCleared,
   getWaveBreakDuration,
 } from '../game/rpg/waveSystem';
-import { addExperience, getSkillUnlockedAtLevel } from '../game/rpg/expSystem';
+import { addExperience } from '../game/rpg/expSystem';
 import {
   executeDash,
   executeSpin,
@@ -148,13 +148,6 @@ export function useRPGGameLoop() {
         // 레벨업 알림
         const showNotification = useUIStore.getState().showNotification;
         showNotification(`레벨 ${newHero.level} 달성!`);
-
-        // 스킬 해금 체크
-        const unlockedSkill = getSkillUnlockedAtLevel(newHero.level);
-        if (unlockedSkill) {
-          showNotification(`새 스킬 해금: ${unlockedSkill}!`);
-        }
-
         soundManager.play('heal'); // 레벨업 사운드
       }
     }
@@ -596,7 +589,7 @@ export function useRPGGameLoop() {
     if (!state.hero) return false;
 
     const skill = state.hero.skills.find((s) => s.type === skillType);
-    if (!skill || !skill.unlocked || skill.currentCooldown > 0) {
+    if (!skill || skill.currentCooldown > 0) {
       return false;
     }
 

@@ -21,7 +21,7 @@ export function getSkillConfig(heroClass: HeroClass, slot: 'Q' | 'W' | 'E') {
 export function canUseSkill(hero: HeroUnit, skillType: SkillType): boolean {
   const skill = hero.skills.find((s) => s.type === skillType);
   if (!skill) return false;
-  return skill.unlocked && skill.currentCooldown <= 0;
+  return skill.currentCooldown <= 0;
 }
 
 /**
@@ -213,7 +213,7 @@ export function upgradeSkill(hero: HeroUnit, skillType: SkillType): HeroUnit | n
   if (hero.skillPoints <= 0) return null;
 
   const skill = hero.skills.find((s) => s.type === skillType);
-  if (!skill || !skill.unlocked) return null;
+  if (!skill) return null;
 
   const upgrade = RPG_CONFIG.SKILL_UPGRADE[skillType];
   if (!upgrade) return null;

@@ -79,8 +79,6 @@ export interface Skill {
   cooldown: number;      // 쿨다운 (초)
   currentCooldown: number; // 현재 남은 쿨다운
   level: number;         // 스킬 레벨 (1부터 시작)
-  unlocked: boolean;     // 해금 여부
-  unlockedAtLevel: number; // 해금 레벨
 }
 
 // 돌진 상태 정보

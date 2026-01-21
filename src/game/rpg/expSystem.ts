@@ -47,13 +47,11 @@ export function levelUpHero(hero: HeroUnit): HeroUnit {
   const newAttack = hero.baseAttack + bonus.attack;
   const newSpeed = hero.baseSpeed + bonus.speed;
 
-  // 스킬 해금 체크
-  const updatedSkills = hero.skills.map((skill) => {
-    if (!skill.unlocked && skill.unlockedAtLevel <= newLevel) {
-      return { ...skill, unlocked: true };
-    }
-    return skill;
-  });
+  // 레벨업 시 스킬 쿨타임 초기화
+  const updatedSkills = hero.skills.map((skill) => ({
+    ...skill,
+    currentCooldown: 0,
+  }));
 
   return {
     ...hero,
@@ -97,14 +95,3 @@ export function getLevelUpBonusText(): string {
   return `HP +${bonus.hp}, 공격력 +${bonus.attack}, 이동속도 +${bonus.speed.toFixed(2)}`;
 }
 
-/**
- * 특정 레벨에서 해금되는 스킬 확인
- */
-export function getSkillUnlockedAtLevel(level: number): string | null {
-  for (const [skillType, skillConfig] of Object.entries(RPG_CONFIG.SKILLS)) {
-    if (skillConfig.unlockedAtLevel === level) {
-      return skillConfig.name;
-    }
-  }
-  return null;
-}

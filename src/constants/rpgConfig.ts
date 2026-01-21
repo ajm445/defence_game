@@ -78,7 +78,7 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     attack: 45,
     attackSpeed: 0.7,
     speed: 2.2,
-    range: 150,
+    range: 180,
     passive: {
       multiTarget: 3, // 기본 공격 3명 동시 공격
     },
@@ -92,7 +92,7 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     attack: 30,
     attackSpeed: 1.3,
     speed: 1.4,
-    range: 60,
+    range: 80,
     passive: {
       hpRegen: 5, // 초당 5 HP 재생
     },
@@ -106,7 +106,7 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     attack: 55,
     attackSpeed: 1.8,
     speed: 1.9,
-    range: 120,
+    range: 190,
     passive: {
       damageBonus: 0.25, // 25% 데미지 증가
     },
@@ -332,7 +332,6 @@ export const RPG_CONFIG = {
       cooldown: 5,
       damage: 50,         // 경로상 적에게 주는 데미지
       distance: 200,      // 돌진 거리
-      unlockedAtLevel: 1,
     },
     spin: {
       name: '회전 베기',
@@ -340,14 +339,12 @@ export const RPG_CONFIG = {
       cooldown: 8,
       damageMultiplier: 1.5, // 공격력의 150%
       radius: 100,        // 범위
-      unlockedAtLevel: 3,
     },
     heal: {
       name: '회복',
       key: 'E',
       cooldown: 15,
       healPercent: 0.3,   // HP 30% 회복
-      unlockedAtLevel: 5,
     },
   } as Record<SkillType, {
     name: string;
@@ -358,7 +355,6 @@ export const RPG_CONFIG = {
     distance?: number;
     radius?: number;
     healPercent?: number;
-    unlockedAtLevel: number;
   }>,
 
   // 스킬 레벨업 보너스 (레벨당)

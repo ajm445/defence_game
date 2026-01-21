@@ -68,7 +68,6 @@ const getSkillColor = (slot: string, heroClass: HeroClass): string => {
 
 const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHoverStart, onHoverEnd }) => {
   const isOnCooldown = skill.currentCooldown > 0;
-  const isLocked = !skill.unlocked;
   const cooldownPercent = isOnCooldown ? (skill.currentCooldown / skill.cooldown) * 100 : 0;
 
   const skillIcon = getSkillIcon(skill.type, heroClass);
@@ -82,15 +81,13 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
     >
       <button
         onClick={onUse}
-        disabled={isOnCooldown || isLocked}
+        disabled={isOnCooldown}
         className={`
           relative w-14 h-14 rounded-lg border-2 overflow-hidden
           transition-all duration-200
-          ${isLocked
-            ? 'bg-dark-800/80 border-dark-600 cursor-not-allowed'
-            : isOnCooldown
-              ? 'bg-dark-700/80 border-dark-500 cursor-not-allowed'
-              : `bg-gradient-to-br ${skillColor} border-neon-cyan/50 hover:border-neon-cyan hover:scale-105 cursor-pointer`
+          ${isOnCooldown
+            ? 'bg-dark-700/80 border-dark-500 cursor-not-allowed'
+            : `bg-gradient-to-br ${skillColor} border-neon-cyan/50 hover:border-neon-cyan hover:scale-105 cursor-pointer`
           }
         `}
       >
@@ -100,13 +97,6 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
             className="absolute bottom-0 left-0 right-0 bg-dark-900/80 transition-all"
             style={{ height: `${cooldownPercent}%` }}
           />
-        )}
-
-        {/* 잠금 오버레이 */}
-        {isLocked && (
-          <div className="absolute inset-0 bg-dark-900/60 flex items-center justify-center">
-            <span className="text-2xl">🔒</span>
-          </div>
         )}
 
         {/* 스킬 아이콘 */}
@@ -125,7 +115,7 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
         )}
 
         {/* 레벨 표시 */}
-        {!isLocked && skill.level > 1 && (
+        {skill.level > 1 && (
           <div className="absolute top-0 right-0 bg-neon-cyan/80 text-dark-900 text-[10px] font-bold px-1 rounded-bl">
             Lv{skill.level}
           </div>
@@ -137,7 +127,7 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
         <div className="bg-dark-800/95 border border-dark-500 rounded-lg px-3 py-2 whitespace-nowrap text-center min-w-[140px]">
           <div className="font-bold text-white">{skill.name}</div>
           <div className="text-xs text-gray-400 mt-1 max-w-[180px] whitespace-normal">
-            {isLocked ? `레벨 ${skill.unlockedAtLevel}에서 해금` : getSkillDescription(skill)}
+            {getSkillDescription(skill)}
           </div>
           <div className="text-xs text-neon-cyan mt-1">
             쿨타임: {skill.cooldown}초

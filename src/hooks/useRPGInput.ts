@@ -172,7 +172,7 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
           // Q 스킬 (일반공격)
           {
             const qSkill = skills.find(s => s.key === 'Q');
-            if (qSkill && qSkill.unlocked && qSkill.currentCooldown <= 0) {
+            if (qSkill && qSkill.currentCooldown <= 0) {
               if (requestSkill?.(qSkill.type)) {
                 soundManager.play('attack_melee');
               }
@@ -184,7 +184,7 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
           // W 스킬
           {
             const wSkill = skills.find(s => s.key === 'W');
-            if (wSkill && wSkill.unlocked && wSkill.currentCooldown <= 0) {
+            if (wSkill && wSkill.currentCooldown <= 0) {
               if (requestSkill?.(wSkill.type)) {
                 soundManager.play('attack_melee');
               }
@@ -196,7 +196,7 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
           // E 스킬 (궁극기)
           {
             const eSkill = skills.find(s => s.key === 'E');
-            if (eSkill && eSkill.unlocked && eSkill.currentCooldown <= 0) {
+            if (eSkill && eSkill.currentCooldown <= 0) {
               if (requestSkill?.(eSkill.type)) {
                 if (heroClass === 'knight') {
                   soundManager.play('heal');
