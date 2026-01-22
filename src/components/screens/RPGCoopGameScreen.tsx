@@ -5,6 +5,7 @@ import { RPGCoopHeroPanel } from '../ui/RPGCoopHeroPanel';
 import { RPGCoopReviveTimer } from '../ui/RPGCoopReviveTimer';
 import { RPGSkillBar } from '../ui/RPGSkillBar';
 import { RPGWaveInfo } from '../ui/RPGWaveInfo';
+import { RPGGameTimer } from '../ui/RPGGameTimer';
 import { Notification } from '../ui/Notification';
 import { useRPGCoopStore, useMyCoopHero, useCoopWaveInfo } from '../../stores/useRPGCoopStore';
 import { useUIStore } from '../../stores/useUIStore';
@@ -101,6 +102,9 @@ export const RPGCoopGameScreen: React.FC = () => {
     <div className="relative w-full h-screen overflow-hidden bg-dark-900">
       {/* 메인 캔버스 */}
       <RPGCoopCanvas />
+
+      {/* 상단 중앙 타이머 */}
+      <RPGGameTimer mode="coop" />
 
       {/* 상단 UI */}
       <div className="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none">
