@@ -197,15 +197,32 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
     if (connectionState !== 'coop_in_game') return;
 
     const hero = getMyHero();
-    if (!hero || hero.isDead) return;
+    const camera = cameraRef.current;
 
-    // WASD 이동
+    // WASD 이동 / 카메라 이동 (사망 시)
     if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
-      keyState[key as 'w' | 'a' | 's' | 'd'] = true;
-      // 키가 눌릴 때마다 방향 업데이트 (대각선 이동 등 처리)
-      updateMoveDirection();
+      if (hero && !hero.isDead) {
+        // 살아있으면 영웅 이동
+        keyState[key as 'w' | 'a' | 's' | 'd'] = true;
+        updateMoveDirection();
+      } else if (camera && setCameraPosition) {
+        // 사망 시 카메라 이동 (관전 모드)
+        const CAMERA_SPEED = 15;
+        let dx = 0, dy = 0;
+        if (key === 'w') dy = -CAMERA_SPEED;
+        if (key === 's') dy = CAMERA_SPEED;
+        if (key === 'a') dx = -CAMERA_SPEED;
+        if (key === 'd') dx = CAMERA_SPEED;
+
+        const newX = Math.max(0, Math.min(RPG_CONFIG.MAP_WIDTH, camera.x + dx));
+        const newY = Math.max(0, Math.min(RPG_CONFIG.MAP_HEIGHT, camera.y + dy));
+        setCameraPosition(newX, newY);
+      }
       return;
     }
+
+    // 살아있을 때만 스킬 사용 가능
+    if (!hero || hero.isDead) return;
 
     // Shift 키: W 스킬
     if (key === 'shift') {
@@ -228,7 +245,7 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
       }
       return;
     }
-  }, [connectionState, getMyHero, useSkill, setCameraPosition, updateMoveDirection]);
+  }, [connectionState, getMyHero, useSkill, setCameraPosition, updateMoveDirection, cameraRef]);
 
   // 키업 핸들러
   const handleKeyUp = useCallback((e: KeyboardEvent) => {

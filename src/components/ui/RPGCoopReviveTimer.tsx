@@ -53,6 +53,10 @@ export const RPGCoopReviveTimer: React.FC<RPGCoopReviveTimerProps> = ({ reviveTi
       <div className="mt-4 text-gray-500 text-xs">
         아군 근처에서 부활합니다
       </div>
+
+      <div className="mt-3 text-gray-600 text-xs border-t border-gray-700 pt-3">
+        💡 WASD로 맵을 둘러볼 수 있습니다
+      </div>
     </div>
   );
 };
