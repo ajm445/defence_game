@@ -10,9 +10,12 @@ import {
   getCurrentSession,
   getPlayerProfile,
   onAuthStateChange,
+  updateSoundSettings,
 } from '../services/authService';
 import { isSupabaseConfigured } from '../services/supabase';
 import { useProfileStore } from './useProfileStore';
+import { useUIStore } from './useUIStore';
+import { soundManager } from '../services/SoundManager';
 
 interface AuthState {
   // 인증 상태
@@ -41,6 +44,9 @@ interface AuthActions {
   updateLocalProfile: (updates: Partial<PlayerProfile>) => void;
   updateClassProgress: (progress: ClassProgress) => void;
 
+  // 사운드 설정
+  saveSoundSettings: (volume: number, muted: boolean) => Promise<void>;
+
   // 상태 관리
   setError: (error: string | null) => void;
   clearError: () => void;
@@ -51,14 +57,91 @@ interface AuthActions {
 
 interface AuthStore extends AuthState, AuthActions {}
 
+// localStorage 키
+const SOUND_SETTINGS_KEY = 'defence_game_sound_settings';
+
+// localStorage에서 사운드 설정 로드
+const loadSoundSettingsFromStorage = (): { volume: number; muted: boolean } | null => {
+  try {
+    const stored = localStorage.getItem(SOUND_SETTINGS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        volume: typeof parsed.volume === 'number' ? parsed.volume : 0.5,
+        muted: typeof parsed.muted === 'boolean' ? parsed.muted : false,
+      };
+    }
+  } catch (e) {
+    console.error('Failed to load sound settings from localStorage:', e);
+  }
+  return null;
+};
+
+// localStorage에 사운드 설정 저장
+const saveSoundSettingsToStorage = (volume: number, muted: boolean) => {
+  try {
+    localStorage.setItem(SOUND_SETTINGS_KEY, JSON.stringify({ volume, muted }));
+  } catch (e) {
+    console.error('Failed to save sound settings to localStorage:', e);
+  }
+};
+
+// localStorage에서 사운드 설정 삭제
+const clearSoundSettingsFromStorage = () => {
+  try {
+    localStorage.removeItem(SOUND_SETTINGS_KEY);
+  } catch (e) {
+    console.error('Failed to clear sound settings from localStorage:', e);
+  }
+};
+
 // 로컬 게스트 프로필 생성
-const createLocalGuestProfile = (nickname: string): PlayerProfile => ({
-  id: `guest_${Date.now()}`,
-  nickname,
-  playerLevel: 1,
-  playerExp: 0,
-  isGuest: true,
-});
+const createLocalGuestProfile = (nickname: string): PlayerProfile => {
+  // localStorage에서 이전 설정 로드
+  const storedSettings = loadSoundSettingsFromStorage();
+  return {
+    id: `guest_${Date.now()}`,
+    nickname,
+    playerLevel: 1,
+    playerExp: 0,
+    isGuest: true,
+    soundVolume: storedSettings?.volume ?? 0.5,
+    soundMuted: storedSettings?.muted ?? false,
+  };
+};
+
+// 프로필에서 사운드 설정을 UIStore와 soundManager에 동기화
+const syncSoundSettings = (profile: PlayerProfile) => {
+  const storedSettings = loadSoundSettingsFromStorage();
+
+  let volume: number;
+  let muted: boolean;
+
+  // DB에 실제 사운드 설정이 저장되어 있는지 확인
+  const hasDbSoundSettings =
+    profile.soundVolume !== undefined && profile.soundVolume !== null;
+
+  if (!profile.isGuest && hasDbSoundSettings) {
+    // 로그인 사용자이고 DB에 설정이 있으면 DB 값 사용
+    volume = profile.soundVolume!;
+    muted = profile.soundMuted ?? false;
+    // localStorage도 업데이트 (다음 로그인 전 백업용)
+    saveSoundSettingsToStorage(volume, muted);
+  } else if (storedSettings) {
+    // localStorage에 설정이 있으면 사용 (게스트 또는 DB에 설정이 없는 경우)
+    volume = storedSettings.volume;
+    muted = storedSettings.muted;
+  } else {
+    // 둘 다 없으면 기본값
+    volume = 0.5;
+    muted = false;
+  }
+
+  useUIStore.getState().setSoundVolume(volume);
+  useUIStore.getState().setSoundMuted(muted);
+  soundManager.setVolume(volume);
+  soundManager.setMuted(muted);
+};
 
 export const useAuthStore = create<AuthStore>()(
   subscribeWithSelector((set, get) => ({
@@ -88,6 +171,9 @@ export const useAuthStore = create<AuthStore>()(
 
       if (result.user) {
         const profile = await getPlayerProfile(result.user.id);
+        if (profile) {
+          syncSoundSettings(profile);
+        }
         set({
           status: 'authenticated',
           user: result.user,
@@ -112,6 +198,9 @@ export const useAuthStore = create<AuthStore>()(
 
       if (result.user) {
         const profile = await getPlayerProfile(result.user.id);
+        if (profile) {
+          syncSoundSettings(profile);
+        }
         set({
           status: 'authenticated',
           user: result.user,
@@ -130,6 +219,7 @@ export const useAuthStore = create<AuthStore>()(
       if (!isSupabaseConfigured()) {
         // Supabase 없이 로컬 게스트 모드
         const localProfile = createLocalGuestProfile(nickname);
+        syncSoundSettings(localProfile);
         set({
           status: 'authenticated',
           user: { id: localProfile.id } as User,
@@ -144,6 +234,7 @@ export const useAuthStore = create<AuthStore>()(
       if (!result.success) {
         // Supabase 오류 시에도 로컬 게스트 모드로 진행
         const localProfile = createLocalGuestProfile(nickname);
+        syncSoundSettings(localProfile);
         set({
           status: 'authenticated',
           user: { id: localProfile.id } as User,
@@ -155,10 +246,12 @@ export const useAuthStore = create<AuthStore>()(
 
       if (result.user) {
         const profile = await getPlayerProfile(result.user.id) || createLocalGuestProfile(nickname);
+        const guestProfile = { ...profile, isGuest: true };
+        syncSoundSettings(guestProfile);
         set({
           status: 'authenticated',
           user: result.user,
-          profile: { ...profile, isGuest: true },
+          profile: guestProfile,
           isLoading: false,
         });
       }
@@ -168,12 +261,18 @@ export const useAuthStore = create<AuthStore>()(
 
     // 로그아웃
     signOut: async () => {
+      const { profile } = get();
       set({ isLoading: true });
 
       await authSignOut();
 
       // ProfileStore 초기화
       useProfileStore.getState().reset();
+
+      // 게스트 로그아웃 시 localStorage 사운드 설정 삭제
+      if (profile?.isGuest) {
+        clearSoundSettingsFromStorage();
+      }
 
       set({
         status: 'unauthenticated',
@@ -203,6 +302,9 @@ export const useAuthStore = create<AuthStore>()(
 
         if (session?.user) {
           const profile = await getPlayerProfile(session.user.id);
+          if (profile) {
+            syncSoundSettings(profile);
+          }
           set({
             status: 'authenticated',
             user: session.user,
@@ -220,6 +322,9 @@ export const useAuthStore = create<AuthStore>()(
         onAuthStateChange(async (user) => {
           if (user) {
             const profile = await getPlayerProfile(user.id);
+            if (profile) {
+              syncSoundSettings(profile);
+            }
             set({
               status: 'authenticated',
               user,
@@ -277,6 +382,31 @@ export const useAuthStore = create<AuthStore>()(
         set({ classProgress: updated });
       } else {
         set({ classProgress: [...classProgress, progress] });
+      }
+    },
+
+    // 사운드 설정 저장
+    saveSoundSettings: async (volume, muted) => {
+      const { user, profile } = get();
+      if (!user || !profile) return;
+
+      // 로컬 프로필 업데이트
+      set({
+        profile: { ...profile, soundVolume: volume, soundMuted: muted },
+      });
+
+      // UIStore와 soundManager 동기화
+      useUIStore.getState().setSoundVolume(volume);
+      useUIStore.getState().setSoundMuted(muted);
+      soundManager.setVolume(volume);
+      soundManager.setMuted(muted);
+
+      // localStorage에 항상 저장 (게스트 및 비로그인 상태에서 사용)
+      saveSoundSettingsToStorage(volume, muted);
+
+      // 서버에도 저장 (게스트가 아닌 경우)
+      if (!profile.isGuest) {
+        await updateSoundSettings(user.id, volume, muted);
       }
     },
 

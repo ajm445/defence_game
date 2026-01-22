@@ -200,6 +200,8 @@ export const createPlayerProfile = async (
       playerLevel: 1,
       playerExp: 0,
       isGuest,
+      soundVolume: 0.5,
+      soundMuted: false,
     };
   }
 
@@ -212,6 +214,8 @@ export const createPlayerProfile = async (
         player_level: 1,
         player_exp: 0,
         is_guest: isGuest,
+        sound_volume: 0.5,
+        sound_muted: false,
       }, {
         onConflict: 'id',
       })
@@ -229,6 +233,8 @@ export const createPlayerProfile = async (
       playerLevel: data.player_level,
       playerExp: data.player_exp,
       isGuest: data.is_guest,
+      soundVolume: data.sound_volume ?? 0.5,
+      soundMuted: data.sound_muted ?? false,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
@@ -266,12 +272,46 @@ export const getPlayerProfile = async (userId: string): Promise<PlayerProfile | 
       playerLevel: data.player_level,
       playerExp: data.player_exp,
       isGuest: data.is_guest,
+      // DB에 값이 있으면 사용, 없으면 undefined (localStorage 우선 사용)
+      soundVolume: data.sound_volume !== null && data.sound_volume !== undefined ? data.sound_volume : undefined,
+      soundMuted: data.sound_muted !== null && data.sound_muted !== undefined ? data.sound_muted : undefined,
       createdAt: data.created_at,
       updatedAt: data.updated_at,
     };
   } catch (err) {
     console.error('Get profile error:', err);
     return null;
+  }
+};
+
+// 사운드 설정 업데이트
+export const updateSoundSettings = async (
+  userId: string,
+  soundVolume: number,
+  soundMuted: boolean
+): Promise<boolean> => {
+  if (!isSupabaseConfigured() || !supabase) {
+    return true; // 로컬 모드에서는 항상 성공
+  }
+
+  try {
+    const { error } = await supabase
+      .from('player_profiles')
+      .update({
+        sound_volume: soundVolume,
+        sound_muted: soundMuted,
+      })
+      .eq('id', userId);
+
+    if (error) {
+      console.error('Update sound settings error:', error);
+      return false;
+    }
+
+    return true;
+  } catch (err) {
+    console.error('Update sound settings error:', err);
+    return false;
   }
 };
 

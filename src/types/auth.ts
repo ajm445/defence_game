@@ -7,6 +7,9 @@ export interface PlayerProfile {
   playerLevel: number;
   playerExp: number;
   isGuest: boolean;
+  // 사운드 설정
+  soundVolume?: number;
+  soundMuted?: boolean;
   createdAt?: string;
   updatedAt?: string;
 }
