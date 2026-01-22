@@ -318,11 +318,11 @@ export const updateSoundSettings = async (
 // 인증 에러 번역
 const translateAuthError = (error: AuthError): string => {
   const errorMessages: Record<string, string> = {
-    'Invalid login credentials': '이메일 또는 비밀번호가 올바르지 않습니다.',
-    'Email not confirmed': '이메일 인증이 필요합니다.',
-    'User already registered': '이미 가입된 이메일입니다.',
+    'Invalid login credentials': '아이디 또는 비밀번호가 올바르지 않습니다.',
+    'Email not confirmed': '계정 인증이 필요합니다. 관리자에게 문의하세요.',
+    'User already registered': '이미 사용 중인 아이디입니다.',
     'Password should be at least 6 characters': '비밀번호는 최소 6자 이상이어야 합니다.',
-    'Invalid email': '올바른 이메일 형식이 아닙니다.',
+    'Invalid email': '아이디 형식이 올바르지 않습니다.',
     'Anonymous sign-ins are disabled': '게스트 로그인이 비활성화되어 있습니다.',
   };
 
