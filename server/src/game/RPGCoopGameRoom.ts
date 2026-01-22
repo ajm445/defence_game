@@ -162,6 +162,8 @@ interface ServerEnemy extends NetworkCoopEnemy {
   targetPosition?: { x: number; y: number };
   isStunned: boolean;
   stunDuration: number;
+  lastAttackerId?: string;      // 마지막으로 공격한 영웅 ID
+  lastAttackedTime?: number;    // 마지막 공격받은 시간
 }
 
 // 플레이어 통계
@@ -525,27 +527,64 @@ export class RPGCoopGameRoom {
     const aliveHeroes = Array.from(this.heroes.values()).filter(h => !h.isDead);
     if (aliveHeroes.length === 0) return null;
 
+    // 싱글플레이처럼 항상 추적 - detectionRange는 우선순위에만 영향
     let bestTarget: ServerHero | null = null;
     let bestScore = -Infinity;
 
+    // 근접 영웅들 (전사, 기사)
+    const meleeHeroes = aliveHeroes.filter(h => h.heroClass === 'warrior' || h.heroClass === 'knight');
+
+    // 공격자 정보 (최근 3초 이내 공격한 영웅)
+    const AGGRO_DURATION = 3.0;
+    const lastAttacker = enemy.lastAttackerId && enemy.lastAttackedTime &&
+      (this.gameTime - enemy.lastAttackedTime) < AGGRO_DURATION
+      ? this.heroes.get(enemy.lastAttackerId)
+      : null;
+    const attackerIsAlive = lastAttacker && !lastAttacker.isDead;
+
     aliveHeroes.forEach(hero => {
       const dist = this.getDistance(enemy.x, enemy.y, hero.x, hero.y);
-      if (dist > enemy.detectionRange) return;
+      const isMeleeHero = hero.heroClass === 'warrior' || hero.heroClass === 'knight';
 
       // 기본 점수 = 거리 기반 (가까울수록 높음)
-      // 싱글플레이와 동일하게 가장 가까운 영웅을 우선 타겟
-      let score = 1000 - dist;
+      // 최대 거리를 맵 대각선으로 설정하여 항상 점수가 양수가 되도록
+      let score = 10000 - dist;
 
-      // 근접 영웅 우선순위 (전사, 기사)
-      // 적이 원거리 영웅보다 근접 영웅을 더 선호
-      const isMeleeHero = hero.heroClass === 'warrior' || hero.heroClass === 'knight';
+      // 1. 근접 영웅 우선순위 (가장 중요)
+      // 근접 영웅이 싸우고 있으면 항상 근접 영웅을 우선
       if (isMeleeHero) {
-        score *= CONFIG.AGGRO.MELEE_HERO_BONUS;
+        // 근접 영웅이 일정 거리 이내면 강한 우선순위
+        if (dist <= 300) {
+          score += 5000;  // 근접 영웅이 가까이 있으면 최우선
+        } else {
+          score += 2000;  // 멀리 있어도 근접 영웅 우선
+        }
       }
 
-      // 현재 타겟 유지 보너스 (약간만 - 타겟 변경이 너무 잦지 않도록)
+      // 2. 공격자 우선순위 (반격)
+      // 공격받고 있을 때, 공격자가 원거리이고 근처에 근접 영웅이 없으면 공격자 타겟
+      if (attackerIsAlive && hero.id === lastAttacker!.id) {
+        const nearbyMelee = meleeHeroes.some(m =>
+          this.getDistance(enemy.x, enemy.y, m.x, m.y) <= 200
+        );
+
+        if (!nearbyMelee) {
+          // 근처에 근접 영웅이 없으면 공격자에게 반격
+          score += 3000;
+        } else if (isMeleeHero) {
+          // 공격자가 근접 영웅이면 우선순위 더 높임
+          score += 1000;
+        }
+      }
+
+      // 3. 현재 타겟 유지 보너스 (타겟 변경이 너무 잦지 않도록)
       if (enemy.targetHeroId === hero.id) {
-        score *= CONFIG.AGGRO.CURRENT_TARGET_BONUS;
+        score += 500;
+      }
+
+      // 4. 탐지 범위 내 적은 약간의 보너스
+      if (dist <= enemy.detectionRange) {
+        score += 100;
       }
 
       if (score > bestScore) {
@@ -1009,6 +1048,12 @@ export class RPGCoopGameRoom {
     if (!enemy) return;
 
     enemy.hp = Math.max(0, enemy.hp - damage);
+
+    // 어그로 추적 - 누가 공격했는지 기록
+    if (attackerId) {
+      enemy.lastAttackerId = attackerId;
+      enemy.lastAttackedTime = this.gameTime;
+    }
 
     // 플레이어 통계 업데이트
     if (attackerId) {

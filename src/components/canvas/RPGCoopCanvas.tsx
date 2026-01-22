@@ -765,26 +765,6 @@ function drawCoopHero(
   );
   ctx.fill();
 
-  // 이동 중일 때 이동 대상 표시
-  if (hero.targetX !== undefined && hero.targetY !== undefined) {
-    const targetScreenX = hero.targetX - camera.x;
-    const targetScreenY = hero.targetY - camera.y;
-
-    ctx.strokeStyle = '#ffd70080';
-    ctx.lineWidth = 2;
-    ctx.setLineDash([5, 5]);
-    ctx.beginPath();
-    ctx.moveTo(screenX, screenY);
-    ctx.lineTo(targetScreenX, targetScreenY);
-    ctx.stroke();
-    ctx.setLineDash([]);
-
-    ctx.fillStyle = '#ffd700';
-    ctx.beginPath();
-    ctx.arc(targetScreenX, targetScreenY, 5, 0, Math.PI * 2);
-    ctx.fill();
-  }
-
   ctx.globalAlpha = 1;
 }
 
