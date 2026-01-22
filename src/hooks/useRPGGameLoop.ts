@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, PASSIVE_UNLOCK_WAVE, PASSIVE_GROWTH_INTERVAL, PASSIVE_GROWTH_CONFIGS } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, PASSIVE_UNLOCK_WAVE, PASSIVE_GROWTH_INTERVAL } from '../constants/rpgConfig';
 import { updateHeroUnit, canLevelUp, findNearestEnemy } from '../game/rpg/heroUnit';
 import {
   createWaveEnemies,
@@ -324,61 +324,7 @@ export function useRPGGameLoop() {
       if (clearedWave >= PASSIVE_UNLOCK_WAVE && clearedWave % PASSIVE_GROWTH_INTERVAL === 0) {
         const heroBeforeUpgrade = useRPGStore.getState().hero;
         if (heroBeforeUpgrade) {
-          const previousLevel = heroBeforeUpgrade.passiveGrowth.level;
           useRPGStore.getState().upgradePassive(clearedWave);
-          const heroAfterUpgrade = useRPGStore.getState().hero;
-
-          if (heroAfterUpgrade && heroAfterUpgrade.passiveGrowth.level > previousLevel) {
-            const config = PASSIVE_GROWTH_CONFIGS[heroAfterUpgrade.heroClass];
-            const passiveLevel = heroAfterUpgrade.passiveGrowth.level;
-
-            // 패시브 활성화/강화 알림
-            setTimeout(() => {
-              if (passiveLevel === 1) {
-                // 첫 활성화
-                let passiveDesc = '';
-                switch (config.type) {
-                  case 'lifesteal':
-                    passiveDesc = `피해흡혈 ${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
-                    break;
-                  case 'multiTarget':
-                    passiveDesc = `다중타겟 확률 ${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
-                    break;
-                  case 'hpRegen':
-                    passiveDesc = `HP 재생 +${heroAfterUpgrade.passiveGrowth.currentValue.toFixed(0)}/초`;
-                    break;
-                  case 'damageBonus':
-                    passiveDesc = `데미지 +${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
-                    break;
-                }
-                showNotification(`패시브 활성화! ${passiveDesc}`);
-              } else {
-                // 강화
-                let passiveDesc = '';
-                switch (config.type) {
-                  case 'lifesteal':
-                    passiveDesc = `피해흡혈 ${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
-                    break;
-                  case 'multiTarget':
-                    passiveDesc = `다중타겟 확률 ${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
-                    break;
-                  case 'hpRegen':
-                    passiveDesc = `HP 재생 ${heroAfterUpgrade.passiveGrowth.currentValue.toFixed(0)}/초`;
-                    break;
-                  case 'damageBonus':
-                    passiveDesc = `데미지 +${(heroAfterUpgrade.passiveGrowth.currentValue * 100).toFixed(1)}%`;
-                    break;
-                }
-
-                // 오버플로우 보너스 표시
-                if (heroAfterUpgrade.passiveGrowth.overflowBonus > 0) {
-                  const bonusType = config.overflowType === 'attack' ? '공격력' : '체력';
-                  passiveDesc += ` (+${(heroAfterUpgrade.passiveGrowth.overflowBonus * 100).toFixed(1)}% ${bonusType})`;
-                }
-                showNotification(`패시브 강화! ${passiveDesc}`);
-              }
-            }, 1000); // 웨이브 클리어 알림 후 1초 뒤에 표시
-          }
         }
       }
 

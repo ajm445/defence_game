@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthProfile, useAuthStatus } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
@@ -8,8 +8,13 @@ export const MainMenu: React.FC = () => {
   const authStatus = useAuthStatus();
   const profile = useAuthProfile();
   const signOut = useAuthStore((state) => state.signOut);
+  const saveSoundSettings = useAuthStore((state) => state.saveSoundSettings);
   const soundVolume = useUIStore((state) => state.soundVolume);
   const soundMuted = useUIStore((state) => state.soundMuted);
+  const setSoundVolume = useUIStore((state) => state.setSoundVolume);
+  const setSoundMuted = useUIStore((state) => state.setSoundMuted);
+
+  const [showSettings, setShowSettings] = useState(false);
 
   // 앱 시작 시 사운드 설정 동기화
   useEffect(() => {
@@ -39,6 +44,33 @@ export const MainMenu: React.FC = () => {
     soundManager.init();
     soundManager.play('ui_click');
     await signOut();
+  };
+
+  const handleToggleSettings = () => {
+    soundManager.init();
+    soundManager.play('ui_click');
+    setShowSettings(!showSettings);
+  };
+
+  const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const newVolume = parseFloat(e.target.value);
+    setSoundVolume(newVolume);
+    soundManager.setVolume(newVolume);
+  };
+
+  const handleToggleMute = () => {
+    const newMuted = !soundMuted;
+    setSoundMuted(newMuted);
+    soundManager.setMuted(newMuted);
+    if (!newMuted) {
+      soundManager.play('ui_click');
+    }
+  };
+
+  const handleSaveSettings = async () => {
+    soundManager.play('ui_click');
+    await saveSoundSettings(soundVolume, soundMuted);
+    setShowSettings(false);
   };
 
   const isAuthenticated = authStatus === 'authenticated' && profile;
@@ -189,6 +221,80 @@ export const MainMenu: React.FC = () => {
           <span>ESC - Menu</span>
         </div>
       </div>
+
+      {/* 설정 버튼 (우측 상단) */}
+      <button
+        onClick={handleToggleSettings}
+        className="absolute top-6 right-6 z-20 w-12 h-12 rounded-full bg-dark-700/80 border border-gray-600 hover:border-yellow-500 hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group"
+      >
+        <span className="text-2xl group-hover:rotate-90 transition-transform duration-300">⚙️</span>
+      </button>
+
+      {/* 설정 패널 */}
+      {showSettings && (
+        <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 flex items-center justify-center">
+          <div className="bg-dark-800/95 rounded-xl p-6 border border-gray-600 min-w-[320px] animate-fade-in">
+            <h3 className="text-white font-bold text-xl mb-6 text-center">⚙️ 설정</h3>
+
+            {/* 음량 조절 */}
+            <div className="space-y-6">
+              <div>
+                <div className="flex justify-between items-center mb-3">
+                  <span className="text-gray-300">음량</span>
+                  <span className="text-neon-cyan font-bold">{Math.round(soundVolume * 100)}%</span>
+                </div>
+                <input
+                  type="range"
+                  min="0"
+                  max="1"
+                  step="0.05"
+                  value={soundVolume}
+                  onChange={handleVolumeChange}
+                  className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer accent-neon-cyan"
+                />
+              </div>
+
+              {/* 음소거 토글 */}
+              <div className="flex justify-between items-center">
+                <span className="text-gray-300">음소거</span>
+                <button
+                  onClick={handleToggleMute}
+                  className={`px-4 py-2 rounded-lg border transition-all cursor-pointer ${
+                    soundMuted
+                      ? 'bg-red-500/20 border-red-500 text-red-400'
+                      : 'bg-green-500/20 border-green-500 text-green-400'
+                  }`}
+                >
+                  {soundMuted ? '🔇 꺼짐' : '🔊 켜짐'}
+                </button>
+              </div>
+            </div>
+
+            {/* 버튼들 */}
+            <div className="mt-8 flex gap-3">
+              <button
+                onClick={() => setShowSettings(false)}
+                className="flex-1 py-3 bg-dark-600 hover:bg-dark-500 text-gray-300 rounded-lg transition-colors cursor-pointer"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleSaveSettings}
+                className="flex-1 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan border border-neon-cyan/50 hover:border-neon-cyan rounded-lg transition-all cursor-pointer"
+              >
+                저장
+              </button>
+            </div>
+
+            {/* 로그인 안내 (비로그인 시) */}
+            {!isAuthenticated && (
+              <p className="mt-4 text-xs text-gray-500 text-center">
+                로그인하면 설정이 계정에 저장됩니다.
+              </p>
+            )}
+          </div>
+        </div>
+      )}
 
       {/* 코너 장식 */}
       <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-neon-cyan/30" />

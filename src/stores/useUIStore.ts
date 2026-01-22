@@ -3,6 +3,26 @@ import { GameScreen, AIDifficulty } from '../types';
 
 export type PlacementMode = 'none' | 'wall';
 
+// localStorage에서 사운드 설정 로드
+const SOUND_SETTINGS_KEY = 'defence_game_sound_settings';
+const loadInitialSoundSettings = (): { volume: number; muted: boolean } => {
+  try {
+    const stored = localStorage.getItem(SOUND_SETTINGS_KEY);
+    if (stored) {
+      const parsed = JSON.parse(stored);
+      return {
+        volume: typeof parsed.volume === 'number' ? parsed.volume : 0.5,
+        muted: typeof parsed.muted === 'boolean' ? parsed.muted : false,
+      };
+    }
+  } catch (e) {
+    // localStorage 접근 실패 시 기본값 사용
+  }
+  return { volume: 0.5, muted: false };
+};
+
+const initialSoundSettings = loadInitialSoundSettings();
+
 interface UIState {
   currentScreen: GameScreen;
   previousScreen: GameScreen | null; // 이전 화면 추적 (프로필 등에서 뒤로 가기용)
@@ -34,7 +54,7 @@ interface UIActions {
 
 interface UIStore extends UIState, UIActions {}
 
-export const useUIStore = create<UIStore>((set, get) => ({
+export const useUIStore = create<UIStore>((set) => ({
   currentScreen: 'menu',
   previousScreen: null,
   notification: null,
@@ -43,8 +63,8 @@ export const useUIStore = create<UIStore>((set, get) => ({
   selectedDifficulty: 'easy',
   massSpawnAlert: false,
   edgeScrollEnabled: false, // 기본값: 비활성화
-  soundVolume: 0.5, // 기본 볼륨 50%
-  soundMuted: false,
+  soundVolume: initialSoundSettings.volume, // localStorage에서 로드
+  soundMuted: initialSoundSettings.muted, // localStorage에서 로드
 
   setScreen: (screen) => set((state) => ({
     currentScreen: screen,

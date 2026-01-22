@@ -185,12 +185,6 @@ export const RPGHeroPanel: React.FC = () => {
           <div className="text-white font-bold">{hero.config.range}</div>
         </div>
       </div>
-
-      {/* 통계 */}
-      <div className="mt-3 pt-3 border-t border-dark-600/50 flex justify-between text-xs text-gray-400">
-        <span>처치: {stats.totalKills}</span>
-        <span>경험치: {stats.totalExpGained}</span>
-      </div>
     </div>
   );
 };
