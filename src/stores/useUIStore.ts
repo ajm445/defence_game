@@ -54,7 +54,7 @@ interface UIActions {
 
 interface UIStore extends UIState, UIActions {}
 
-export const useUIStore = create<UIStore>((set, get) => ({
+export const useUIStore = create<UIStore>((set) => ({
   currentScreen: 'menu',
   previousScreen: null,
   notification: null,
