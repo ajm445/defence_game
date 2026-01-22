@@ -1,8 +1,9 @@
 import { UnitType } from '../types/unit';
 import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig } from '../types/rpg';
 
-// 패시브 성장 시스템 상수
-export const PASSIVE_UNLOCK_WAVE = 10;      // 패시브 활성화 웨이브
+// 패시브 시스템 상수
+export const PASSIVE_UNLOCK_LEVEL = 5;      // 기본 패시브 활성화 레벨
+export const PASSIVE_UNLOCK_WAVE = 10;      // 패시브 성장 활성화 웨이브
 export const PASSIVE_GROWTH_INTERVAL = 10;  // 성장 간격 (10웨이브마다)
 
 // 패시브 성장 설정 (직업별)

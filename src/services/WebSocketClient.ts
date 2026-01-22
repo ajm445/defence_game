@@ -200,8 +200,8 @@ class WebSocketClient {
     this.send({ type: 'KICK_COOP_PLAYER', playerId });
   }
 
-  public coopHeroMove(targetX: number, targetY: number): void {
-    this.send({ type: 'COOP_HERO_MOVE', targetX, targetY });
+  public coopHeroMove(direction: { x: number; y: number } | null): void {
+    this.send({ type: 'COOP_HERO_MOVE', direction });
   }
 
   public coopUseSkill(skillType: SkillType, targetX: number, targetY: number): void {

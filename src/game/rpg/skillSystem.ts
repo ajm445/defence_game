@@ -1,5 +1,5 @@
 import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget } from '../../types/rpg';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
 import { calculateWarriorLifesteal, rollMultiTarget } from './passiveSystem';
 
@@ -321,9 +321,9 @@ export function executeQSkill(
   const baseDamage = hero.config.attack || hero.baseAttack;
   let damage = Math.floor(baseDamage * (skillConfig.damageMultiplier || 1.0));
 
-  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용
+  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
   if (heroClass === 'mage') {
-    const baseDamageBonus = classConfig.passive.damageBonus || 0;
+    const baseDamageBonus = hero.level >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
     const growthDamageBonus = hero.passiveGrowth.currentValue;
     damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
   }
@@ -354,10 +354,11 @@ export function executeQSkill(
   // 전방 공격 각도 (내적 기준: 0.0 = 90도, -0.5 = 120도)
   const attackAngleThreshold = isMelee ? -0.3 : 0.0; // 근거리는 약 110도, 원거리는 90도
 
-  // 궁수: 패시브 성장 기반 다중타겟 확률 판정
+  // 궁수: 기본 패시브 다중타겟 (레벨 5 이상) + 패시브 성장 확률 판정
   const baseMultiTargetCount = classConfig.passive.multiTarget || 1;
-  // 패시브 성장이 활성화되어 있고 확률 판정 성공 시 다중타겟
-  const useGrowthMultiTarget = heroClass === 'archer' && rollMultiTarget(hero.passiveGrowth.currentValue);
+  // 레벨 5 이상이고 패시브 성장 확률 판정 성공 시 다중타겟
+  const isPassiveUnlocked = hero.level >= PASSIVE_UNLOCK_LEVEL;
+  const useGrowthMultiTarget = heroClass === 'archer' && isPassiveUnlocked && rollMultiTarget(hero.passiveGrowth.currentValue);
   const multiTargetCount = useGrowthMultiTarget ? baseMultiTargetCount : 1;
 
   const targetEnemies: { enemy: RPGEnemy; dist: number }[] = [];
@@ -419,12 +420,12 @@ export function executeQSkill(
 
   let updatedHero = startSkillCooldown(hero, skillConfig.type);
 
-  // 전사: 피해흡혈 적용 (기본 패시브 + 패시브 성장 곱연산 with 광전사 버프)
+  // 전사: 피해흡혈 적용 (기본 패시브 레벨 5 이상 + 패시브 성장 곱연산 with 광전사 버프)
   if (heroClass === 'warrior' && enemyDamages.length > 0) {
     const totalDamage = enemyDamages.reduce((sum, ed) => sum + ed.damage, 0);
 
-    // 기본 패시브 + 패시브 성장 피해흡혈
-    const baseLifesteal = classConfig.passive.lifesteal || 0;
+    // 기본 패시브 (레벨 5 이상) + 패시브 성장 피해흡혈
+    const baseLifesteal = hero.level >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
     const growthLifesteal = hero.passiveGrowth.currentValue;
     const passiveTotal = baseLifesteal + growthLifesteal;
 
@@ -480,9 +481,9 @@ export function executeWSkill(
   const baseDamage = hero.config.attack || hero.baseAttack;
   let damage = Math.floor(baseDamage * ((skillConfig as any).damageMultiplier || 1.0));
 
-  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용
+  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
   if (heroClass === 'mage') {
-    const baseDamageBonus = classConfig.passive.damageBonus || 0;
+    const baseDamageBonus = hero.level >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
     const growthDamageBonus = hero.passiveGrowth.currentValue;
     damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
   }
@@ -708,9 +709,9 @@ export function executeESkill(
   const baseDamage = hero.config.attack || hero.baseAttack;
   let damage = Math.floor(baseDamage * ((skillConfig as any).damageMultiplier || 1.0));
 
-  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용
+  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
   if (heroClass === 'mage') {
-    const baseDamageBonus = classConfig.passive.damageBonus || 0;
+    const baseDamageBonus = hero.level >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
     const growthDamageBonus = hero.passiveGrowth.currentValue;
     damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
   }

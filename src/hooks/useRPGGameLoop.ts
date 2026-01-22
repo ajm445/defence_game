@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_WAVE, PASSIVE_GROWTH_INTERVAL, PASSIVE_GROWTH_CONFIGS } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, PASSIVE_UNLOCK_WAVE, PASSIVE_GROWTH_INTERVAL, PASSIVE_GROWTH_CONFIGS } from '../constants/rpgConfig';
 import { updateHeroUnit, canLevelUp, findNearestEnemy } from '../game/rpg/heroUnit';
 import {
   createWaveEnemies,
@@ -160,11 +160,11 @@ export function useRPGGameLoop() {
       useRPGStore.getState().setCamera(updatedHero.x, updatedHero.y);
     }
 
-    // 패시브 HP 재생 (기사: 기본 패시브 + 패시브 성장)
+    // 패시브 HP 재생 (기사: 기본 패시브 레벨 5 이상 + 패시브 성장)
     const heroForRegen = useRPGStore.getState().hero;
     if (heroForRegen && heroForRegen.heroClass === 'knight' && heroForRegen.hp < heroForRegen.maxHp) {
       const classConfig = CLASS_CONFIGS[heroForRegen.heroClass];
-      const baseRegen = classConfig.passive.hpRegen || 0;
+      const baseRegen = heroForRegen.level >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.hpRegen || 0) : 0;
       const growthRegen = heroForRegen.passiveGrowth.currentValue;
       const totalRegen = baseRegen + growthRegen;
 

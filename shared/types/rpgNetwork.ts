@@ -97,8 +97,7 @@ export interface NetworkCoopHero {
     W: number;
     E: number;
   };
-  targetX?: number;
-  targetY?: number;
+  moveDirection: { x: number; y: number } | null;  // 이동 방향 (정규화됨)
 }
 
 // ============================================
@@ -212,7 +211,7 @@ export type CoopClientMessage =
   | { type: 'START_COOP_GAME' }  // 호스트 전용
   | { type: 'KICK_COOP_PLAYER'; playerId: string }  // 호스트 전용
   // 게임 액션
-  | { type: 'COOP_HERO_MOVE'; targetX: number; targetY: number }
+  | { type: 'COOP_HERO_MOVE'; direction: { x: number; y: number } | null }  // null = 이동 중지
   | { type: 'COOP_USE_SKILL'; skillType: SkillType; targetX: number; targetY: number };
 
 // ============================================

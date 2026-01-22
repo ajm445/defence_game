@@ -4,7 +4,6 @@ import { RPG_CONFIG } from '../constants/rpgConfig';
 import { soundManager } from '../services/SoundManager';
 
 const ZOOM_SPEED = 0.1;
-const MOVE_UPDATE_INTERVAL = 50; // WASD 이동 업데이트 간격 (ms)
 
 // WASD 키 상태 추적
 const keyState = {
@@ -59,13 +58,12 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
   const isHoveringRef = useRef(false);
   const isDraggingCameraRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
-  const moveIntervalRef = useRef<number | null>(null);
 
   const [showAttackRange, setShowAttackRange] = useState(false);
   const [hoveredSkill, setHoveredSkill] = useState<'Q' | 'W' | 'E' | null>(null);
 
   const connectionState = useRPGCoopStore((state) => state.connectionState);
-  const moveHero = useRPGCoopStore((state) => state.moveHero);
+  const setMoveDirection = useRPGCoopStore((state) => state.setMoveDirection);
   const useSkill = useRPGCoopStore((state) => state.useSkill);
   const getMyHero = useRPGCoopStore((state) => state.getMyHero);
 
@@ -159,33 +157,16 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
     camera.zoom = newZoom;
   }, [cameraRef]);
 
-  // WASD 이동 업데이트 시작
-  const startMoveUpdate = useCallback(() => {
-    if (moveIntervalRef.current) return;
+  // 이동 방향 업데이트 및 서버 전송
+  const updateMoveDirection = useCallback(() => {
+    const direction = calculateMoveDirection();
+    setMoveDirection(direction);
+  }, [setMoveDirection]);
 
-    moveIntervalRef.current = window.setInterval(() => {
-      const direction = calculateMoveDirection();
-      if (!direction) return;
-
-      const hero = getMyHero();
-      if (!hero || hero.isDead) return;
-
-      // 현재 위치에서 이동 방향으로 일정 거리만큼 이동
-      const moveDistance = 50; // 이동 업데이트당 거리
-      const targetX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + direction.x * moveDistance));
-      const targetY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + direction.y * moveDistance));
-
-      moveHero(targetX, targetY);
-    }, MOVE_UPDATE_INTERVAL);
-  }, [getMyHero, moveHero]);
-
-  // WASD 이동 업데이트 중지
-  const stopMoveUpdate = useCallback(() => {
-    if (moveIntervalRef.current) {
-      clearInterval(moveIntervalRef.current);
-      moveIntervalRef.current = null;
-    }
-  }, []);
+  // 이동 중지 (방향 null 전송)
+  const stopMoving = useCallback(() => {
+    setMoveDirection(null);
+  }, [setMoveDirection]);
 
   // 키보드 핸들러
   const handleKeyDown = useCallback((e: KeyboardEvent) => {
@@ -220,11 +201,9 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
 
     // WASD 이동
     if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
-      const wasMoving = keyState.w || keyState.a || keyState.s || keyState.d;
       keyState[key as 'w' | 'a' | 's' | 'd'] = true;
-      if (!wasMoving) {
-        startMoveUpdate();
-      }
+      // 키가 눌릴 때마다 방향 업데이트 (대각선 이동 등 처리)
+      updateMoveDirection();
       return;
     }
 
@@ -249,7 +228,7 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
       }
       return;
     }
-  }, [connectionState, getMyHero, useSkill, setCameraPosition, startMoveUpdate]);
+  }, [connectionState, getMyHero, useSkill, setCameraPosition, updateMoveDirection]);
 
   // 키업 핸들러
   const handleKeyUp = useCallback((e: KeyboardEvent) => {
@@ -265,11 +244,15 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
     if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
       keyState[key as 'w' | 'a' | 's' | 'd'] = false;
       const stillMoving = keyState.w || keyState.a || keyState.s || keyState.d;
-      if (!stillMoving) {
-        stopMoveUpdate();
+      if (stillMoving) {
+        // 다른 키가 아직 눌려있으면 방향 업데이트
+        updateMoveDirection();
+      } else {
+        // 모든 키가 떼어졌으면 이동 중지
+        stopMoving();
       }
     }
-  }, [stopMoveUpdate]);
+  }, [updateMoveDirection, stopMoving]);
 
   // 이벤트 리스너 등록
   useEffect(() => {
@@ -295,15 +278,11 @@ export function useRPGCoopInput({ canvasRef, cameraRef, setCameraPosition }: Use
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
 
-      // 클린업 시 키 상태 및 이동 업데이트 초기화
+      // 클린업 시 키 상태 초기화
       keyState.w = false;
       keyState.a = false;
       keyState.s = false;
       keyState.d = false;
-      if (moveIntervalRef.current) {
-        clearInterval(moveIntervalRef.current);
-        moveIntervalRef.current = null;
-      }
     };
   }, [canvasRef, handleMouseDown, handleMouseMove, handleMouseUp, handleMouseLeave, handleContextMenu, handleWheel, handleKeyDown, handleKeyUp]);
 

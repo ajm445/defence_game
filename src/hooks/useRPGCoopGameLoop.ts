@@ -2,7 +2,7 @@ import { useRef, useCallback, useEffect } from 'react';
 import { useRPGCoopStore } from '../stores/useRPGCoopStore';
 import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
-import { CLASS_CONFIGS } from '../constants/rpgConfig';
+import { CLASS_CONFIGS, RPG_CONFIG } from '../constants/rpgConfig';
 
 /**
  * 협동 모드 클라이언트 게임 루프
@@ -65,9 +65,9 @@ const SERVER_CORRECTION_RATE = 0.15;  // 서버 위치로 보정하는 비율 (�
 const SNAP_THRESHOLD = 150;           // 즉시 스냅하는 거리 임계값
 
 /**
- * 로컬 영웅 위치 보간 (클라이언트 예측 + 서버 보정)
+ * 로컬 영웅 위치 업데이트 (이동 방향 기반 + 서버 보정)
  *
- * 1. 로컬 목표가 있으면 그 방향으로 이동 (클라이언트 예측)
+ * 1. 로컬 이동 방향이 있으면 해당 방향으로 이동 (클라이언트 예측)
  * 2. 서버 위치와의 차이를 부드럽게 보정 (lerp)
  * 3. 큰 차이(150px+)는 즉시 스냅
  */
@@ -75,7 +75,7 @@ function updateLocalHeroPosition(
   state: ReturnType<typeof useRPGCoopStore.getState>,
   deltaTime: number
 ) {
-  const { gameState, myHeroId, localHeroPosition, localTargetPosition } = state;
+  const { gameState, myHeroId, localHeroPosition, localMoveDirection } = state;
   if (!gameState || !myHeroId) return;
 
   const myHero = gameState.heroes.find(h => h.id === myHeroId);
@@ -92,44 +92,18 @@ function updateLocalHeroPosition(
   let newX = localHeroPosition.x;
   let newY = localHeroPosition.y;
 
-  // 1. 로컬 목표가 있으면 그 방향으로 이동
-  if (localTargetPosition) {
-    const dx = localTargetPosition.x - newX;
-    const dy = localTargetPosition.y - newY;
-    const dist = Math.sqrt(dx * dx + dy * dy);
+  // 1. 이동 방향이 있으면 해당 방향으로 이동
+  if (localMoveDirection) {
+    // 서버와 동일한 이동 공식: speed * deltaTime * 60
+    const speed = myHero.speed || 3;
+    const moveDistance = speed * deltaTime * 60;
 
-    if (dist > 5) {
-      // 서버와 동일한 이동 공식: speed * deltaTime * 60
-      const speed = myHero.speed || 3;
-      const moveDistance = speed * deltaTime * 60;
-      const moveX = (dx / dist) * moveDistance;
-      const moveY = (dy / dist) * moveDistance;
+    newX += localMoveDirection.x * moveDistance;
+    newY += localMoveDirection.y * moveDistance;
 
-      newX += moveX;
-      newY += moveY;
-
-      // 목표 지점을 지나쳤는지 체크
-      const newDist = Math.sqrt((localTargetPosition.x - newX) ** 2 + (localTargetPosition.y - newY) ** 2);
-      if (newDist >= dist) {
-        // 목표 도달
-        newX = localTargetPosition.x;
-        newY = localTargetPosition.y;
-        useRPGCoopStore.setState({
-          localHeroPosition: { x: newX, y: newY },
-          localTargetPosition: null,
-        });
-        return;
-      }
-    } else {
-      // 목표에 거의 도달
-      newX = localTargetPosition.x;
-      newY = localTargetPosition.y;
-      useRPGCoopStore.setState({
-        localHeroPosition: { x: newX, y: newY },
-        localTargetPosition: null,
-      });
-      return;
-    }
+    // 맵 경계 처리
+    newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, newX));
+    newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, newY));
   }
 
   // 2. 서버 위치와의 차이 계산
@@ -141,16 +115,19 @@ function updateLocalHeroPosition(
     // 큰 차이: 서버 위치로 즉시 스냅
     useRPGCoopStore.setState({
       localHeroPosition: { x: myHero.x, y: myHero.y },
-      localTargetPosition: null,
     });
     return;
   }
 
-  // 3. 부드러운 서버 보정 (이동 중이 아닐 때만)
-  if (!localTargetPosition && serverDist > 3) {
-    // 서버 위치로 점진적 보정 (lerp)
-    newX += serverDx * SERVER_CORRECTION_RATE;
-    newY += serverDy * SERVER_CORRECTION_RATE;
+  // 3. 부드러운 서버 보정 (항상 적용, 이동 중에도 약하게)
+  if (serverDist > 3) {
+    // 이동 중일 때는 보정 비율 감소
+    const correctionRate = localMoveDirection
+      ? SERVER_CORRECTION_RATE * 0.3  // 이동 중: 30%만 보정
+      : SERVER_CORRECTION_RATE;        // 정지 시: 전체 보정
+
+    newX += serverDx * correctionRate;
+    newY += serverDy * correctionRate;
   }
 
   useRPGCoopStore.setState({

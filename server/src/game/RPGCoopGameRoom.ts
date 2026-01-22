@@ -21,6 +21,17 @@ const CONFIG = {
   MAP_CENTER_Y: 1000,
   SPAWN_MARGIN: 50,
 
+  // 패시브 시스템
+  PASSIVE_UNLOCK_LEVEL: 5,  // 기본 패시브 활성화 레벨
+
+  // 직업별 기본 패시브
+  BASE_PASSIVES: {
+    warrior: { lifesteal: 0.15 },      // 15% 피해흡혈
+    archer: { multiTarget: 3, baseChance: 0.2 },  // 3명 동시 공격, 20% 기본 확률
+    knight: { hpRegen: 5 },             // 초당 5 HP 재생
+    mage: { damageBonus: 0.25 },        // 25% 데미지 증가
+  } as Record<HeroClass, any>,
+
   // 부활 시스템
   REVIVE: {
     BASE_TIME: 10,
@@ -121,13 +132,13 @@ const CONFIG = {
 };
 
 // 서버측 영웅 상태
-interface ServerHero extends NetworkCoopHero {
+interface ServerHero extends Omit<NetworkCoopHero, 'moveDirection'> {
   attackCooldown: number;
   baseAttack: number;
   baseSpeed: number;
   baseAttackSpeed: number;
   skillPoints: number;
-  targetPosition?: { x: number; y: number };
+  moveDirection: { x: number; y: number } | null;  // 이동 방향 (정규화됨)
   dashState?: {
     startX: number;
     startY: number;
@@ -292,6 +303,7 @@ export class RPGCoopGameRoom {
         baseSpeed: classConfig.speed,
         baseAttackSpeed: classConfig.attackSpeed,
         skillPoints: 0,
+        moveDirection: null,
       };
 
       this.heroes.set(heroId, hero);
@@ -399,36 +411,33 @@ export class RPGCoopGameRoom {
           hero.x = hero.dashState.startX + (hero.dashState.targetX - hero.dashState.startX) * eased;
           hero.y = hero.dashState.startY + (hero.dashState.targetY - hero.dashState.startY) * eased;
         }
-      } else if (hero.targetPosition) {
-        // 일반 이동 (싱글플레이와 동일한 공식: speed * deltaTime * 60)
-        const dx = hero.targetPosition.x - hero.x;
-        const dy = hero.targetPosition.y - hero.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
+      } else if (hero.moveDirection) {
+        // 방향 기반 이동 (싱글플레이와 동일한 공식: speed * deltaTime * 60)
+        const baseSpeed = this.getEffectiveSpeed(hero);
+        const moveDistance = baseSpeed * deltaTime * 60;  // 싱글플레이 공식
+        const moveX = hero.moveDirection.x * moveDistance;
+        const moveY = hero.moveDirection.y * moveDistance;
+        hero.x += moveX;
+        hero.y += moveY;
 
-        if (dist > 5) {
-          const baseSpeed = this.getEffectiveSpeed(hero);
-          const moveDistance = baseSpeed * deltaTime * 60;  // 싱글플레이 공식
-          const moveX = (dx / dist) * moveDistance;
-          const moveY = (dy / dist) * moveDistance;
-          hero.x += moveX;
-          hero.y += moveY;
-
-          // 바라보는 방향 업데이트
-          hero.facingRight = dx >= 0;
-          hero.facingAngle = Math.atan2(dy, dx);
-        } else {
-          hero.targetPosition = undefined;
-        }
+        // 바라보는 방향 업데이트
+        hero.facingRight = hero.moveDirection.x >= 0;
+        hero.facingAngle = Math.atan2(hero.moveDirection.y, hero.moveDirection.x);
       }
 
       // 맵 경계 체크
       hero.x = Math.max(0, Math.min(CONFIG.MAP_WIDTH, hero.x));
       hero.y = Math.max(0, Math.min(CONFIG.MAP_HEIGHT, hero.y));
 
-      // 패시브 HP 재생 (기사)
-      if (hero.heroClass === 'knight' && hero.passiveGrowth.currentValue > 0) {
-        const hpRegen = hero.passiveGrowth.currentValue * deltaTime;
-        hero.hp = Math.min(hero.maxHp, hero.hp + hpRegen);
+      // 패시브 HP 재생 (기사: 기본 패시브 레벨 5 이상 + 패시브 성장)
+      if (hero.heroClass === 'knight' && hero.hp < hero.maxHp) {
+        const baseRegen = hero.level >= CONFIG.PASSIVE_UNLOCK_LEVEL ? (CONFIG.BASE_PASSIVES.knight.hpRegen || 0) : 0;
+        const growthRegen = hero.passiveGrowth.currentValue;
+        const totalRegen = baseRegen + growthRegen;
+        if (totalRegen > 0) {
+          const hpRegen = totalRegen * deltaTime;
+          hero.hp = Math.min(hero.maxHp, hero.hp + hpRegen);
+        }
       }
     });
   }
@@ -602,12 +611,16 @@ export class RPGCoopGameRoom {
   private updateBuffSharing(deltaTime: number): void {
     const aliveHeroes = Array.from(this.heroes.values()).filter(h => !h.isDead);
 
-    // 기사 HP 재생 공유
+    // 기사 HP 재생 공유 (기본 패시브 레벨 5 이상 + 패시브 성장)
     aliveHeroes.forEach(knight => {
       if (knight.heroClass !== 'knight') return;
-      if (knight.passiveGrowth.currentValue <= 0) return;
 
-      const shareAmount = knight.passiveGrowth.currentValue * CONFIG.BUFF_SHARE.KNIGHT_HP_REGEN_RATIO * deltaTime;
+      const baseRegen = knight.level >= CONFIG.PASSIVE_UNLOCK_LEVEL ? (CONFIG.BASE_PASSIVES.knight.hpRegen || 0) : 0;
+      const growthRegen = knight.passiveGrowth.currentValue;
+      const totalRegen = baseRegen + growthRegen;
+      if (totalRegen <= 0) return;
+
+      const shareAmount = totalRegen * CONFIG.BUFF_SHARE.KNIGHT_HP_REGEN_RATIO * deltaTime;
 
       aliveHeroes.forEach(ally => {
         if (ally.id === knight.id) return;
@@ -1088,21 +1101,16 @@ export class RPGCoopGameRoom {
   }
 
   // 플레이어 입력 처리
-  public handleHeroMove(playerId: string, targetX: number, targetY: number): void {
+  public handleHeroMoveDirection(playerId: string, direction: { x: number; y: number } | null): void {
     const heroId = this.playerHeroMap.get(playerId);
     if (!heroId) return;
 
     const hero = this.heroes.get(heroId);
     if (!hero || hero.isDead) return;
 
-    hero.targetPosition = { x: targetX, y: targetY };
+    hero.moveDirection = direction;
 
-    this.broadcastEvent({
-      event: 'HERO_MOVED',
-      heroId,
-      x: targetX,
-      y: targetY,
-    });
+    // HERO_MOVED 이벤트는 더 이상 필요하지 않음 (상태 동기화로 충분)
   }
 
   public handleUseSkill(playerId: string, skillType: SkillType, targetX: number, targetY: number): void {
@@ -1164,9 +1172,10 @@ export class RPGCoopGameRoom {
     const dirX = dist > 0 ? dx / dist : 1;
     const dirY = dist > 0 ? dy / dist : 0;
 
-    // 마법사 패시브 데미지 보너스 (기본 25% + 패시브 성장)
-    // 싱글플레이와 동일: baseDamageBonus(0.25) + growthDamageBonus
-    const baseMageDamageBonus = 0.25;  // 기본 패시브 25%
+    // 마법사 패시브 데미지 보너스 (기본 패시브 레벨 5 이상 + 패시브 성장)
+    const baseMageDamageBonus = hero.level >= CONFIG.PASSIVE_UNLOCK_LEVEL
+      ? (CONFIG.BASE_PASSIVES.mage.damageBonus || 0)
+      : 0;
     const damageBonus = hero.heroClass === 'mage' ? baseMageDamageBonus + hero.passiveGrowth.currentValue : 0;
 
     // 스킬 이펙트 생성 (싱글플레이와 동일한 시각 효과)
@@ -1291,7 +1300,11 @@ export class RPGCoopGameRoom {
     switch (slot) {
       case 'Q':
         // 속사 - 단일/다중 대상 공격 (전방 90도 방향 체크)
-        const multiTargetChance = hero.passiveGrowth.currentValue;
+        // 다중타겟 확률: 기본 패시브 (레벨 5 이상) + 패시브 성장
+        const baseMultiChance = hero.level >= CONFIG.PASSIVE_UNLOCK_LEVEL
+          ? (CONFIG.BASE_PASSIVES.archer.baseChance || 0)
+          : 0;
+        const multiTargetChance = baseMultiChance + hero.passiveGrowth.currentValue;
         const isMultiTarget = Math.random() < multiTargetChance;
         const archerAngleThreshold = 0.0;  // 90도 (싱글플레이와 동일)
 
@@ -1465,7 +1478,10 @@ export class RPGCoopGameRoom {
         // 전사 피해흡혈 (싱글플레이와 동일한 곱연산 공식)
         // 공식: (1 + 기본패시브 + 패시브성장) * (1 + 버프) - 1
         if (hero && hero.heroClass === 'warrior') {
-          const baseLifesteal = 0.15;  // 기본 패시브 15%
+          // 레벨 5 이상일 때만 기본 패시브 적용
+          const baseLifesteal = hero.level >= CONFIG.PASSIVE_UNLOCK_LEVEL
+            ? (CONFIG.BASE_PASSIVES.warrior.lifesteal || 0)
+            : 0;
           const growthLifesteal = hero.passiveGrowth.currentValue;
           const passiveTotal = baseLifesteal + growthLifesteal;
 
@@ -1646,8 +1662,7 @@ export class RPGCoopGameRoom {
       buffs: hero.buffs,
       passiveGrowth: hero.passiveGrowth,
       skillCooldowns: hero.skillCooldowns,
-      targetX: hero.targetPosition?.x,
-      targetY: hero.targetPosition?.y,
+      moveDirection: hero.moveDirection,
     };
   }
 

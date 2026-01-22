@@ -35,7 +35,8 @@ interface RPGCoopState {
 
   // 로컬 클라이언트 예측 상태
   localHeroPosition: { x: number; y: number } | null;
-  localTargetPosition: { x: number; y: number } | null;  // 클라이언트측 이동 목표
+  localMoveDirection: { x: number; y: number } | null;  // 클라이언트측 이동 방향
+  lastSentDirection: { x: number; y: number } | null;   // 마지막으로 서버에 전송한 방향
 
   // 결과
   gameResult: RPGCoopGameResult | null;
@@ -60,7 +61,7 @@ interface RPGCoopState {
   setReady: (isReady: boolean) => void;
   startGame: () => void;
   kickPlayer: (playerId: string) => void;
-  moveHero: (targetX: number, targetY: number) => void;
+  setMoveDirection: (direction: { x: number; y: number } | null) => void;
   useSkill: (skillSlot: 'Q' | 'W' | 'E', targetX: number, targetY: number) => void;
   reset: () => void;
 
@@ -83,7 +84,8 @@ const initialState = {
   gameState: null,
   myHeroId: null,
   localHeroPosition: null,
-  localTargetPosition: null,
+  localMoveDirection: null,
+  lastSentDirection: null,
   gameResult: null,
   hoveredSkill: null as 'Q' | 'W' | 'E' | null,
   mousePosition: { x: 0, y: 0 },
@@ -221,7 +223,8 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
           myHeroId: message.yourHeroId,
           countdown: 0,
           localHeroPosition: null,
-          localTargetPosition: null,
+          localMoveDirection: null,
+          lastSentDirection: null,
         });
         soundManager.play('wave_start');
         break;
@@ -343,25 +346,31 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
       wsClient.kickCoopPlayer(playerId);
     },
 
-    moveHero: (targetX: number, targetY: number) => {
-      const { gameState, myHeroId, localHeroPosition } = get();
+    setMoveDirection: (direction: { x: number; y: number } | null) => {
+      const { gameState, myHeroId, lastSentDirection } = get();
       if (!gameState || !myHeroId) return;
 
       const myHero = gameState.heroes.find(h => h.id === myHeroId);
       if (!myHero || myHero.isDead) return;
 
-      // 로컬 위치가 없으면 서버 위치로 초기화
-      const currentLocalPos = localHeroPosition || { x: myHero.x, y: myHero.y };
+      // 방향이 변경되었는지 확인 (불필요한 전송 방지)
+      const directionChanged =
+        (direction === null && lastSentDirection !== null) ||
+        (direction !== null && lastSentDirection === null) ||
+        (direction !== null && lastSentDirection !== null &&
+          (Math.abs(direction.x - lastSentDirection.x) > 0.01 ||
+           Math.abs(direction.y - lastSentDirection.y) > 0.01));
 
-      // 로컬 목표 위치 설정 (클라이언트 예측)
-      // localHeroPosition은 게임 루프에서 부드럽게 이동
-      set({
-        localHeroPosition: currentLocalPos,
-        localTargetPosition: { x: targetX, y: targetY }
-      });
+      if (directionChanged) {
+        // 로컬 상태 업데이트
+        set({
+          localMoveDirection: direction,
+          lastSentDirection: direction,
+        });
 
-      // 서버에 요청
-      wsClient.coopHeroMove(targetX, targetY);
+        // 서버에 방향 전송
+        wsClient.coopHeroMove(direction);
+      }
     },
 
     useSkill: (skillSlot: 'Q' | 'W' | 'E', targetX: number, targetY: number) => {
@@ -395,7 +404,8 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
         gameState: null,
         myHeroId: null,
         localHeroPosition: null,
-        localTargetPosition: null,
+        localMoveDirection: null,
+        lastSentDirection: null,
         gameResult: null,
         hoveredSkill: null,
         error: null,
@@ -485,7 +495,8 @@ function handleGameEvent(
         // 로컬 이동 상태 초기화
         useRPGCoopStore.setState({
           localHeroPosition: null,
-          localTargetPosition: null,
+          localMoveDirection: null,
+          lastSentDirection: null,
         });
       }
       break;
@@ -497,7 +508,8 @@ function handleGameEvent(
         // 부활 위치로 로컬 상태 초기화
         useRPGCoopStore.setState({
           localHeroPosition: { x: event.x, y: event.y },
-          localTargetPosition: null,
+          localMoveDirection: null,
+          lastSentDirection: null,
         });
       }
       effectManager.createEffect('heal', event.x, event.y);

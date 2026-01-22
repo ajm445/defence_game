@@ -120,7 +120,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       break;
 
     case 'COOP_HERO_MOVE':
-      handleCoopHeroMove(playerId, message.targetX, message.targetY);
+      handleCoopHeroMove(playerId, message.direction);
       break;
 
     case 'COOP_USE_SKILL':
@@ -262,13 +262,13 @@ function handleKickCoopPlayer(hostPlayerId: string, targetPlayerId: string): voi
   kickCoopPlayer(hostPlayerId, targetPlayerId);
 }
 
-function handleCoopHeroMove(playerId: string, targetX: number, targetY: number): void {
+function handleCoopHeroMove(playerId: string, direction: { x: number; y: number } | null): void {
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
 
   const room = coopGameRooms.get(player.roomId);
   if (room) {
-    room.handleHeroMove(playerId, targetX, targetY);
+    room.handleHeroMoveDirection(playerId, direction);
   }
 }
 
