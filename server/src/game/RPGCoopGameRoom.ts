@@ -41,12 +41,28 @@ const CONFIG = {
     SPAWN_OFFSET: 100,
   },
 
-  // 난이도 스케일링
+  // 난이도 스케일링 (HP)
   DIFFICULTY_SCALING: {
     1: 1.0,
     2: 1.5,
     3: 2.0,
     4: 2.5,
+  } as Record<number, number>,
+
+  // 공격력 스케일링 (인원수에 따른 적 공격력 증가)
+  ATTACK_SCALING: {
+    1: 1.0,
+    2: 1.1,   // 10% 증가
+    3: 1.2,   // 20% 증가
+    4: 1.3,   // 30% 증가
+  } as Record<number, number>,
+
+  // 적 수 스케일링 (인원수에 따른 적 수 증가)
+  ENEMY_COUNT_SCALING: {
+    1: 1.0,
+    2: 1.3,   // 30% 더 많은 적
+    3: 1.6,   // 60% 더 많은 적
+    4: 2.0,   // 100% 더 많은 적 (인원 비례)
   } as Record<number, number>,
 
   // 버프 공유
@@ -753,33 +769,40 @@ export class RPGCoopGameRoom {
     const isBossWave = waveNumber % 10 === 0;
     const enemies: { type: UnitType; count: number }[] = [];
 
+    // 플레이어 수에 따른 적 수 스케일링
+    const playerCount = this.playerIds.length;
+    const enemyCountMultiplier = CONFIG.ENEMY_COUNT_SCALING[playerCount] || 1.0;
+
+    // 적 수 스케일링 적용 함수 (보스 제외)
+    const scaleCount = (count: number) => Math.floor(count * enemyCountMultiplier);
+
     if (isBossWave) {
-      enemies.push({ type: 'boss', count: 1 });
-      enemies.push({ type: 'melee', count: Math.floor(waveNumber / 2) });
+      enemies.push({ type: 'boss', count: 1 });  // 보스는 스케일링하지 않음 (항상 1마리)
+      enemies.push({ type: 'melee', count: scaleCount(Math.floor(waveNumber / 2)) });
     } else if (waveNumber <= 3) {
-      enemies.push({ type: 'melee', count: 3 + waveNumber * 2 });
+      enemies.push({ type: 'melee', count: scaleCount(3 + waveNumber * 2) });
     } else if (waveNumber <= 6) {
-      enemies.push({ type: 'melee', count: 3 + waveNumber });
-      enemies.push({ type: 'ranged', count: Math.floor(waveNumber / 2) });
+      enemies.push({ type: 'melee', count: scaleCount(3 + waveNumber) });
+      enemies.push({ type: 'ranged', count: scaleCount(Math.floor(waveNumber / 2)) });
     } else if (waveNumber <= 9) {
-      enemies.push({ type: 'melee', count: 2 + waveNumber });
-      enemies.push({ type: 'ranged', count: Math.floor(waveNumber / 2) });
-      enemies.push({ type: 'knight', count: Math.floor(waveNumber / 3) });
+      enemies.push({ type: 'melee', count: scaleCount(2 + waveNumber) });
+      enemies.push({ type: 'ranged', count: scaleCount(Math.floor(waveNumber / 2)) });
+      enemies.push({ type: 'knight', count: scaleCount(Math.floor(waveNumber / 3)) });
     } else {
       const cycleWave = ((waveNumber - 1) % 10) + 1;
       const multiplier = Math.floor(waveNumber / 10) + 1;
 
       if (cycleWave <= 3) {
-        enemies.push({ type: 'melee', count: (3 + cycleWave * 2) * multiplier });
+        enemies.push({ type: 'melee', count: scaleCount((3 + cycleWave * 2) * multiplier) });
       } else if (cycleWave <= 6) {
-        enemies.push({ type: 'melee', count: (3 + cycleWave) * multiplier });
-        enemies.push({ type: 'ranged', count: Math.floor(cycleWave / 2) * multiplier });
+        enemies.push({ type: 'melee', count: scaleCount((3 + cycleWave) * multiplier) });
+        enemies.push({ type: 'ranged', count: scaleCount(Math.floor(cycleWave / 2) * multiplier) });
       } else {
-        enemies.push({ type: 'melee', count: (2 + cycleWave) * multiplier });
-        enemies.push({ type: 'ranged', count: Math.floor(cycleWave / 2) * multiplier });
-        enemies.push({ type: 'knight', count: Math.floor(cycleWave / 3) * multiplier });
+        enemies.push({ type: 'melee', count: scaleCount((2 + cycleWave) * multiplier) });
+        enemies.push({ type: 'ranged', count: scaleCount(Math.floor(cycleWave / 2) * multiplier) });
+        enemies.push({ type: 'knight', count: scaleCount(Math.floor(cycleWave / 3) * multiplier) });
         if (waveNumber >= 20) {
-          enemies.push({ type: 'mage', count: Math.floor(multiplier / 2) });
+          enemies.push({ type: 'mage', count: scaleCount(Math.floor(multiplier / 2)) });
         }
       }
     }
@@ -796,6 +819,7 @@ export class RPGCoopGameRoom {
     // 난이도 스케일링 (플레이어 수에 따른 체력 배율)
     const playerCount = this.playerIds.length;
     const hpMultiplier = CONFIG.DIFFICULTY_SCALING[playerCount] || 1.0;
+    const attackMultiplier = CONFIG.ATTACK_SCALING[playerCount] || 1.0;
 
     // 웨이브별 스탯 배율
     const waveStatMultiplier = 1 + Math.floor(this.currentWave / 10) * 0.3;
@@ -810,7 +834,7 @@ export class RPGCoopGameRoom {
       expReward: CONFIG.EXP_TABLE[type] || 10,
       buffs: [],
       attackCooldown: 0,
-      attackDamage: Math.floor(aiConfig.attackDamage * waveStatMultiplier),
+      attackDamage: Math.floor(aiConfig.attackDamage * waveStatMultiplier * attackMultiplier),
       attackSpeed: aiConfig.attackSpeed,  // 싱글플레이와 동일 - 공격속도 스케일링 없음
       attackRange: aiConfig.attackRange,
       moveSpeed: aiConfig.moveSpeed,

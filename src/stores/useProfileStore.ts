@@ -70,6 +70,9 @@ interface ProfileActions {
 
   // 마지막 결과 초기화
   clearLastGameResult: () => void;
+
+  // 전체 초기화 (로그아웃 시)
+  reset: () => void;
 }
 
 interface ProfileStore extends ProfileState, ProfileActions {}
@@ -213,6 +216,17 @@ export const useProfileStore = create<ProfileStore>()(
     // 마지막 게임 결과 초기화
     clearLastGameResult: () => {
       set({ lastGameResult: null });
+    },
+
+    // 전체 초기화 (로그아웃 시)
+    reset: () => {
+      set({
+        classProgress: [],
+        gameHistory: [],
+        stats: null,
+        lastGameResult: null,
+        isLoading: false,
+      });
     },
   }))
 );

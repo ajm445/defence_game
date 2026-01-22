@@ -18,13 +18,13 @@ export const Notification: React.FC = () => {
 
   return (
     <div
-      className="absolute top-28 left-1/2 -translate-x-1/2 z-50
-                 animate-[fadeInOut_2.5s_ease-in-out]"
+      className="absolute top-28 inset-x-0 flex justify-center z-50
+                 animate-[fadeInOut_2.5s_ease-in-out] pointer-events-none"
     >
       <div className="glass-dark rounded-xl px-6 py-3 border border-neon-cyan/50 shadow-neon-cyan">
         <div className="flex items-center gap-3">
           <div className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />
-          <span className="text-neon-cyan font-medium">{notification}</span>
+          <span className="text-neon-cyan font-medium whitespace-nowrap">{notification}</span>
           <div className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />
         </div>
       </div>

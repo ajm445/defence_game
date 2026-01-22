@@ -155,6 +155,7 @@ export const RPGClassSelectScreen: React.FC = () => {
     if (!isCharacterUnlocked(heroClass, playerLevel, isGuest)) {
       return;
     }
+    soundManager.init();
     soundManager.play('ui_click');
     selectClass(heroClass);
   }, [selectClass, playerLevel, isGuest]);
@@ -165,6 +166,7 @@ export const RPGClassSelectScreen: React.FC = () => {
     if (!isCharacterUnlocked(selectedClass, playerLevel, isGuest)) {
       return;
     }
+    soundManager.init();
     soundManager.play('ui_click');
     resetGameUI();
     setGameMode('rpg');
@@ -172,6 +174,7 @@ export const RPGClassSelectScreen: React.FC = () => {
   }, [selectedClass, resetGameUI, setGameMode, setScreen, playerLevel, isGuest]);
 
   const handleBack = useCallback(() => {
+    soundManager.init();
     soundManager.play('ui_click');
     setScreen('rpgPlayTypeSelect');
   }, [setScreen]);

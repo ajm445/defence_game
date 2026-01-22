@@ -213,11 +213,10 @@ export function useRPGGameLoop() {
         effectManager.createEffect('attack_melee', updatedHero.x, updatedHero.y);
         soundManager.play('attack_melee');
 
-        // 게임 오버 체크
+        // 게임 오버 체크 (RPGModeScreen에서 자체 게임 오버 모달 표시)
         const heroAfterDamage = useRPGStore.getState().hero;
         if (!heroAfterDamage || heroAfterDamage.hp <= 0) {
           useRPGStore.getState().setGameOver(false);
-          useUIStore.getState().setScreen('gameover');
           soundManager.play('defeat');
           return;
         }
@@ -410,18 +409,23 @@ export function useRPGGameLoop() {
         if (nextWave % 10 === 0) {
           showNotification(`⚠️ 보스 웨이브 ${nextWave} 시작!`);
           // 레벨업 사운드와 중복 방지 (지연 재생)
+          // 보스 웨이브에만 경고음 + 보스 등장 사운드 재생
           if (levelUpThisFrameRef.current) {
-            setTimeout(() => soundManager.play('boss_spawn'), 800);
+            setTimeout(() => {
+              soundManager.play('warning');
+              soundManager.play('boss_spawn');
+            }, 800);
           } else {
+            soundManager.play('warning');
             soundManager.play('boss_spawn');
           }
         } else {
           showNotification(`웨이브 ${nextWave} 시작!`);
-          // 레벨업 사운드와 중복 방지 (지연 재생)
+          // 일반 웨이브는 간단한 웨이브 시작 사운드만 재생
           if (levelUpThisFrameRef.current) {
-            setTimeout(() => soundManager.play('warning'), 800);
+            setTimeout(() => soundManager.play('wave_start'), 800);
           } else {
-            soundManager.play('warning');
+            soundManager.play('wave_start');
           }
         }
 

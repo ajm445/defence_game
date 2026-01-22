@@ -9,16 +9,19 @@ export const RPGPlayTypeSelectScreen: React.FC = () => {
   const isGuest = useAuthIsGuest();
 
   const handleSinglePlayer = () => {
+    soundManager.init();
     soundManager.play('ui_click');
     setScreen('rpgClassSelect');
   };
 
   const handleMultiplayer = () => {
+    soundManager.init();
     soundManager.play('ui_click');
     setScreen('rpgCoopLobby');
   };
 
   const handleProfile = () => {
+    soundManager.init();
     soundManager.play('ui_click');
     setScreen('profile');
   };
@@ -124,6 +127,7 @@ export const RPGPlayTypeSelectScreen: React.FC = () => {
         {/* 뒤로 가기 */}
         <button
           onClick={() => {
+            soundManager.init();
             soundManager.play('ui_click');
             setScreen('gameTypeSelect');
           }}

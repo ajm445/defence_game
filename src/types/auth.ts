@@ -44,21 +44,25 @@ export const CHARACTER_UNLOCK_LEVELS: Record<HeroClass, number> = {
   mage: 70,
 } as const;
 
-// 경험치 계산 함수들
+// 경험치 계산 함수들 (50% 감소 적용)
 export const calculatePlayerExp = (
   waveReached: number,
   victory: boolean,
   mode: 'single' | 'coop'
 ): number => {
   if (mode === 'single') {
-    return waveReached * 10 + (victory ? 50 : 0);
+    // 기존: waveReached * 10 + (victory ? 50 : 0)
+    return waveReached * 5 + (victory ? 25 : 0);
   } else {
-    return waveReached * 15 + (victory ? 75 : 0);
+    // 기존: waveReached * 15 + (victory ? 75 : 0)
+    return waveReached * 8 + (victory ? 40 : 0);
   }
 };
 
+// 직업 경험치 (50% 감소)
 export const calculateClassExp = (waveReached: number, kills: number): number => {
-  return waveReached * 5 + kills * 2;
+  // 기존: waveReached * 5 + kills * 2
+  return waveReached * 3 + kills * 1;
 };
 
 // 레벨업 요구 경험치

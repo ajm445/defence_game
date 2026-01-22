@@ -12,6 +12,7 @@ import {
   onAuthStateChange,
 } from '../services/authService';
 import { isSupabaseConfigured } from '../services/supabase';
+import { useProfileStore } from './useProfileStore';
 
 interface AuthState {
   // 인증 상태
@@ -170,6 +171,9 @@ export const useAuthStore = create<AuthStore>()(
       set({ isLoading: true });
 
       await authSignOut();
+
+      // ProfileStore 초기화
+      useProfileStore.getState().reset();
 
       set({
         status: 'unauthenticated',

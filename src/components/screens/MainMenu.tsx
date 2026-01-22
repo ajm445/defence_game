@@ -1,4 +1,4 @@
-import React from 'react';
+import React, { useEffect } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthProfile, useAuthStatus } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
@@ -8,23 +8,35 @@ export const MainMenu: React.FC = () => {
   const authStatus = useAuthStatus();
   const profile = useAuthProfile();
   const signOut = useAuthStore((state) => state.signOut);
+  const soundVolume = useUIStore((state) => state.soundVolume);
+  const soundMuted = useUIStore((state) => state.soundMuted);
+
+  // 앱 시작 시 사운드 설정 동기화
+  useEffect(() => {
+    soundManager.setVolume(soundVolume);
+    soundManager.setMuted(soundMuted);
+  }, [soundVolume, soundMuted]);
 
   const handleStartGame = () => {
+    soundManager.init();
     soundManager.play('ui_click');
     setScreen('gameTypeSelect');
   };
 
   const handleLogin = () => {
+    soundManager.init();
     soundManager.play('ui_click');
     setScreen('login');
   };
 
   const handleProfile = () => {
+    soundManager.init();
     soundManager.play('ui_click');
     setScreen('profile');
   };
 
   const handleLogout = async () => {
+    soundManager.init();
     soundManager.play('ui_click');
     await signOut();
   };

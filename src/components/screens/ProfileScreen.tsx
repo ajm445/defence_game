@@ -85,6 +85,7 @@ const ClassProgressCard: React.FC<{
 
 export const ProfileScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
+  const goBack = useUIStore((state) => state.goBack);
   const signOut = useAuthStore((state) => state.signOut);
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
@@ -103,11 +104,13 @@ export const ProfileScreen: React.FC = () => {
   const expProgress = getPlayerExpProgress();
 
   const handleBack = useCallback(() => {
+    soundManager.init();
     soundManager.play('ui_click');
-    setScreen('menu');
-  }, [setScreen]);
+    goBack();
+  }, [goBack]);
 
   const handleSignOut = useCallback(async () => {
+    soundManager.init();
     soundManager.play('ui_click');
     await signOut();
     setScreen('menu');
@@ -151,6 +154,8 @@ export const ProfileScreen: React.FC = () => {
           프로필
         </h1>
 
+        <div style={{ height: '30px' }} />
+
         {/* 프로필 카드 */}
         <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6">
           <div className="flex items-center gap-4 mb-6">
@@ -190,6 +195,8 @@ export const ProfileScreen: React.FC = () => {
             </div>
           </div>
 
+          <div style={{ height: '30px' }} />
+          
           {/* 게스트 안내 */}
           {isGuest && (
             <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
@@ -202,6 +209,8 @@ export const ProfileScreen: React.FC = () => {
           )}
         </div>
 
+        <div style={{ height: '30px' }} />
+
         {/* 통계 섹션 */}
         {!isGuest && stats && (
           <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6">
@@ -213,10 +222,6 @@ export const ProfileScreen: React.FC = () => {
                 <div className="text-center">
                   <p className="text-2xl text-white font-bold">{stats.totalGames}</p>
                   <p className="text-gray-400 text-sm">총 게임</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl text-green-400 font-bold">{stats.totalWins}</p>
-                  <p className="text-gray-400 text-sm">승리</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl text-red-400 font-bold">{stats.totalKills}</p>
@@ -250,6 +255,8 @@ export const ProfileScreen: React.FC = () => {
           </div>
         )}
 
+        <div style={{ height: '30px' }} />
+
         {/* 클래스 진행 상황 */}
         <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6">
           <h3 className="text-lg text-white font-bold mb-4">🎮 클래스 진행</h3>
@@ -270,6 +277,8 @@ export const ProfileScreen: React.FC = () => {
           </div>
         </div>
 
+        <div style={{ height: '30px' }} />
+
         {/* 해금 안내 */}
         <div className="w-full bg-gray-800/30 rounded-lg p-4 mb-6">
           <h4 className="text-gray-400 text-sm mb-2">🔓 캐릭터 해금 조건</h4>
@@ -288,6 +297,8 @@ export const ProfileScreen: React.FC = () => {
           </div>
         </div>
 
+        <div style={{ height: '30px' }} />
+        
         {/* 뒤로 가기 */}
         <button
           onClick={handleBack}

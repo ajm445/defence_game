@@ -14,6 +14,7 @@ import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import { useProfileStore, useLastGameResult } from '../../stores/useProfileStore';
 import { SkillType } from '../../types/rpg';
 import { LevelUpResult, calculatePlayerExp, calculateClassExp } from '../../types/auth';
+import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { soundManager } from '../../services/SoundManager';
 
 export const RPGModeScreen: React.FC = () => {
@@ -206,18 +207,22 @@ export const RPGModeScreen: React.FC = () => {
               </div>
             </div>
 
-            {/* 계정 경험치 (비게스트만 표시) */}
-            {!isGuest && lastGameResult && (
+            {/* 계정 경험치 (비게스트만 표시 - 즉시 계산하여 표시) */}
+            {!isGuest && (
               <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
                 <h4 className="text-purple-400 font-bold text-sm mb-2">계정 경험치 획득</h4>
                 <div className="space-y-2 text-sm">
                   <div className="flex justify-between">
                     <span className="text-gray-400">플레이어 EXP</span>
-                    <span className="text-yellow-400 font-bold">+{lastGameResult.playerExpGained}</span>
+                    <span className="text-yellow-400 font-bold">
+                      +{lastGameResult?.playerExpGained ?? calculatePlayerExp(result.waveReached, result.victory, 'single')}
+                    </span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">클래스 EXP</span>
-                    <span className="text-cyan-400 font-bold">+{lastGameResult.classExpGained}</span>
+                    <span className="text-gray-400">클래스 EXP ({CLASS_CONFIGS[result.heroClass]?.name || result.heroClass})</span>
+                    <span className="text-cyan-400 font-bold">
+                      +{lastGameResult?.classExpGained ?? calculateClassExp(result.waveReached, result.totalKills)}
+                    </span>
                   </div>
                 </div>
               </div>

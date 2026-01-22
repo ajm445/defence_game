@@ -26,6 +26,7 @@ export const LoginScreen: React.FC = () => {
   const supabaseEnabled = isSupabaseConfigured();
 
   const handleModeChange = useCallback((newMode: AuthMode) => {
+    soundManager.init();
     soundManager.play('ui_click');
     setMode(newMode);
     clearError();
@@ -34,6 +35,7 @@ export const LoginScreen: React.FC = () => {
 
   const handleLogin = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    soundManager.init();
     soundManager.play('ui_click');
     clearError();
 
@@ -50,6 +52,7 @@ export const LoginScreen: React.FC = () => {
 
   const handleSignUp = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
+    soundManager.init();
     soundManager.play('ui_click');
     clearError();
 
@@ -85,6 +88,7 @@ export const LoginScreen: React.FC = () => {
   }, [email, password, confirmPassword, nickname, signUp, setScreen, setError, clearError]);
 
   const handleGuestLogin = useCallback(async () => {
+    soundManager.init();
     soundManager.play('ui_click');
     clearError();
 
@@ -97,6 +101,7 @@ export const LoginScreen: React.FC = () => {
   }, [nickname, signInGuest, setScreen, clearError]);
 
   const handleBack = useCallback(() => {
+    soundManager.init();
     soundManager.play('ui_click');
     setScreen('menu');
   }, [setScreen]);

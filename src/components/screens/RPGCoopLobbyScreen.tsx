@@ -1,11 +1,13 @@
 import React, { useEffect, useState } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRPGCoopStore, useCoopPlayers, useCoopRoomCode } from '../../stores/useRPGCoopStore';
+import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked } from '../../types/auth';
 import type { HeroClass } from '../../types/rpg';
 
-const CLASS_LIST: HeroClass[] = ['warrior', 'archer', 'knight', 'mage'];
+const CLASS_LIST: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
 
 export const RPGCoopLobbyScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -35,6 +37,11 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const players = useCoopPlayers();
   const roomCode = useCoopRoomCode();
 
+  // 프로필 및 직업 해금 확인용
+  const profile = useAuthProfile();
+  const isGuest = useAuthIsGuest();
+  const playerLevel = profile?.playerLevel ?? 1;
+
   const [inputName, setInputName] = useState(playerName || '');
   const [isConnecting, setIsConnecting] = useState(false);
   const [showJoinInput, setShowJoinInput] = useState(false);
@@ -46,6 +53,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       setScreen('rpgCoopGame');
     }
   }, [connectionState, setScreen]);
+
+  // 현재 선택된 직업이 잠겨있으면 궁수로 변경
+  useEffect(() => {
+    if (!isCharacterUnlocked(selectedClass, playerLevel, isGuest)) {
+      setSelectedClass('archer');
+    }
+  }, [playerLevel, isGuest, selectedClass, setSelectedClass]);
 
   // 에러 자동 클리어
   useEffect(() => {
@@ -107,6 +121,11 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   };
 
   const handleClassSelect = (heroClass: HeroClass) => {
+    // 직업 해금 확인
+    if (!isCharacterUnlocked(heroClass, playerLevel, isGuest)) {
+      useRPGCoopStore.setState({ error: '해금되지 않은 직업입니다.' });
+      return;
+    }
     soundManager.play('ui_click');
     setSelectedClass(heroClass);
   };
@@ -222,18 +241,29 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             {CLASS_LIST.map((heroClass) => {
               const config = CLASS_CONFIGS[heroClass];
               const isSelected = selectedClass === heroClass;
+              const isLocked = !isCharacterUnlocked(heroClass, playerLevel, isGuest);
+              const requiredLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
               return (
                 <button
                   key={heroClass}
                   onClick={() => handleClassSelect(heroClass)}
-                  className={`px-4 py-2 rounded-lg border transition-all cursor-pointer ${
-                    isSelected
-                      ? 'bg-neon-cyan/30 border-neon-cyan text-neon-cyan'
-                      : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                  disabled={isLocked}
+                  className={`relative px-4 py-2 rounded-lg border transition-all ${
+                    isLocked
+                      ? 'border-gray-700 text-gray-600 cursor-not-allowed opacity-50'
+                      : isSelected
+                        ? 'bg-neon-cyan/30 border-neon-cyan text-neon-cyan cursor-pointer'
+                        : 'border-gray-600 text-gray-400 hover:border-gray-400 cursor-pointer'
                   }`}
+                  title={isLocked ? `레벨 ${requiredLevel} 필요` : config.name}
                 >
                   <span className="text-lg">{config.emoji}</span>
                   <span className="ml-1 text-sm">{config.name}</span>
+                  {isLocked && (
+                    <span className="absolute -top-1 -right-1 text-xs bg-gray-700 px-1 rounded">
+                      🔒{requiredLevel}
+                    </span>
+                  )}
                 </button>
               );
             })}
@@ -347,18 +377,29 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             {CLASS_LIST.map((heroClass) => {
               const config = CLASS_CONFIGS[heroClass];
               const isSelected = selectedClass === heroClass;
+              const isLocked = !isCharacterUnlocked(heroClass, playerLevel, isGuest);
+              const requiredLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
               return (
                 <button
                   key={heroClass}
                   onClick={() => handleClassSelect(heroClass)}
-                  className={`px-3 py-1 rounded-lg border transition-all cursor-pointer text-sm ${
-                    isSelected
-                      ? 'bg-neon-cyan/30 border-neon-cyan text-neon-cyan'
-                      : 'border-gray-600 text-gray-400 hover:border-gray-400'
+                  disabled={isLocked}
+                  className={`relative px-3 py-1 rounded-lg border transition-all text-sm ${
+                    isLocked
+                      ? 'border-gray-700 text-gray-600 cursor-not-allowed opacity-50'
+                      : isSelected
+                        ? 'bg-neon-cyan/30 border-neon-cyan text-neon-cyan cursor-pointer'
+                        : 'border-gray-600 text-gray-400 hover:border-gray-400 cursor-pointer'
                   }`}
+                  title={isLocked ? `레벨 ${requiredLevel} 필요` : config.name}
                 >
                   <span>{config.emoji}</span>
                   <span className="ml-1">{config.name}</span>
+                  {isLocked && (
+                    <span className="absolute -top-1 -right-1 text-[10px] bg-gray-700 px-0.5 rounded">
+                      🔒
+                    </span>
+                  )}
                 </button>
               );
             })}

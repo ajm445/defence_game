@@ -5,6 +5,7 @@ export type PlacementMode = 'none' | 'wall';
 
 interface UIState {
   currentScreen: GameScreen;
+  previousScreen: GameScreen | null; // 이전 화면 추적 (프로필 등에서 뒤로 가기용)
   notification: string | null;
   notificationKey: number;
   placementMode: PlacementMode;
@@ -17,6 +18,7 @@ interface UIState {
 
 interface UIActions {
   setScreen: (screen: GameScreen) => void;
+  goBack: () => void; // 이전 화면으로 돌아가기
   showNotification: (message: string) => void;
   clearNotification: () => void;
   setPlacementMode: (mode: PlacementMode) => void;
@@ -32,8 +34,9 @@ interface UIActions {
 
 interface UIStore extends UIState, UIActions {}
 
-export const useUIStore = create<UIStore>((set) => ({
+export const useUIStore = create<UIStore>((set, get) => ({
   currentScreen: 'menu',
+  previousScreen: null,
   notification: null,
   notificationKey: 0,
   placementMode: 'none',
@@ -43,7 +46,15 @@ export const useUIStore = create<UIStore>((set) => ({
   soundVolume: 0.5, // 기본 볼륨 50%
   soundMuted: false,
 
-  setScreen: (screen) => set({ currentScreen: screen }),
+  setScreen: (screen) => set((state) => ({
+    currentScreen: screen,
+    previousScreen: state.currentScreen, // 이전 화면 저장
+  })),
+
+  goBack: () => set((state) => ({
+    currentScreen: state.previousScreen || 'menu',
+    previousScreen: null,
+  })),
 
   showNotification: (message) =>
     set((state) => ({

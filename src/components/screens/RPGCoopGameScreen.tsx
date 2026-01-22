@@ -9,8 +9,10 @@ import { RPGGameTimer } from '../ui/RPGGameTimer';
 import { Notification } from '../ui/Notification';
 import { useRPGCoopStore, useMyCoopHero, useCoopWaveInfo } from '../../stores/useRPGCoopStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { useAuthIsGuest } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 import { CLASS_CONFIGS, CLASS_SKILLS } from '../../constants/rpgConfig';
+import { calculatePlayerExp, calculateClassExp } from '../../types/auth';
 import type { SkillType } from '../../types/rpg';
 
 export const RPGCoopGameScreen: React.FC = () => {
@@ -22,6 +24,7 @@ export const RPGCoopGameScreen: React.FC = () => {
   const leaveRoom = useRPGCoopStore((state) => state.leaveRoom);
   const useSkill = useRPGCoopStore((state) => state.useSkill);
   const setScreen = useUIStore((state) => state.setScreen);
+  const isGuest = useAuthIsGuest();
 
   const myHero = useMyCoopHero();
   const waveInfo = useCoopWaveInfo();
@@ -143,6 +146,8 @@ export const RPGCoopGameScreen: React.FC = () => {
       {gameResult && (
         <GameOverModal
           result={gameResult}
+          isGuest={isGuest}
+          myHeroClass={myHero?.heroClass}
           onBackToLobby={handleBackToLobby}
           onBackToMenu={handleBackToMenu}
         />
@@ -360,12 +365,20 @@ const CoopSkillBar: React.FC<{ onUseSkill: (skillType: SkillType) => void }> = (
 // 게임 오버 모달
 interface GameOverModalProps {
   result: ReturnType<typeof useRPGCoopStore.getState>['gameResult'];
+  isGuest: boolean;
+  myHeroClass?: string;
   onBackToLobby: () => void;
   onBackToMenu: () => void;
 }
 
-const GameOverModal: React.FC<GameOverModalProps> = ({ result, onBackToLobby, onBackToMenu }) => {
+const GameOverModal: React.FC<GameOverModalProps> = ({ result, isGuest, myHeroClass, onBackToLobby, onBackToMenu }) => {
   if (!result) return null;
+
+  // 내 캐릭터의 킬 수 (내 직업과 같은 플레이어 찾기)
+  const myResult = myHeroClass
+    ? result.playerResults.find(p => p.heroClass === myHeroClass)
+    : result.playerResults[0];
+  const myKills = myResult?.kills || 0;
 
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-50">
@@ -382,6 +395,36 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ result, onBackToLobby, on
             플레이 시간: {Math.floor(result.totalGameTime / 60)}:{String(Math.floor(result.totalGameTime % 60)).padStart(2, '0')}
           </div>
         </div>
+
+        {/* 계정 경험치 (비게스트만 표시 - 즉시 계산하여 표시) */}
+        {!isGuest && myHeroClass && (
+          <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+            <h4 className="text-purple-400 font-bold text-sm mb-2">계정 경험치 획득</h4>
+            <div className="space-y-2 text-sm">
+              <div className="flex justify-between">
+                <span className="text-gray-400">플레이어 EXP</span>
+                <span className="text-yellow-400 font-bold">
+                  +{calculatePlayerExp(result.waveReached, result.victory, 'coop')}
+                </span>
+              </div>
+              <div className="flex justify-between">
+                <span className="text-gray-400">클래스 EXP ({CLASS_CONFIGS[myHeroClass as keyof typeof CLASS_CONFIGS]?.name || myHeroClass})</span>
+                <span className="text-cyan-400 font-bold">
+                  +{calculateClassExp(result.waveReached, myKills)}
+                </span>
+              </div>
+            </div>
+          </div>
+        )}
+
+        {/* 게스트 안내 */}
+        {isGuest && (
+          <div className="mb-6 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <p className="text-yellow-300 text-xs text-center">
+              게스트 모드에서는 진행 상황이 저장되지 않습니다.
+            </p>
+          </div>
+        )}
 
         {/* 플레이어별 결과 */}
         <div className="space-y-2 mb-6">

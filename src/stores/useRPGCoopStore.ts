@@ -239,7 +239,13 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
         break;
 
       case 'COOP_WAVE_START':
-        soundManager.play('wave_start');
+        // 보스 웨이브(10의 배수)에만 경고음 재생
+        if (message.waveNumber % 10 === 0) {
+          soundManager.play('warning');
+          soundManager.play('boss_spawn');
+        } else {
+          soundManager.play('wave_start');
+        }
         break;
 
       case 'COOP_WAVE_CLEAR':
