@@ -6,6 +6,11 @@ import { isSupabaseConfigured } from '../../services/supabase';
 
 type AuthMode = 'login' | 'signup' | 'guest';
 
+// 아이디를 내부 이메일 형식으로 변환
+const usernameToEmail = (username: string): string => {
+  return `${username.toLowerCase()}@defence.game`;
+};
+
 export const LoginScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
   const signIn = useAuthStore((state) => state.signIn);
@@ -17,7 +22,7 @@ export const LoginScreen: React.FC = () => {
   const isLoading = useAuthIsLoading();
 
   const [mode, setMode] = useState<AuthMode>('login');
-  const [email, setEmail] = useState('');
+  const [username, setUsername] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [nickname, setNickname] = useState('');
@@ -39,16 +44,17 @@ export const LoginScreen: React.FC = () => {
     soundManager.play('ui_click');
     clearError();
 
-    if (!email || !password) {
-      setError('이메일과 비밀번호를 입력해주세요.');
+    if (!username || !password) {
+      setError('아이디와 비밀번호를 입력해주세요.');
       return;
     }
 
+    const email = usernameToEmail(username);
     const success = await signIn(email, password);
     if (success) {
       setScreen('menu');
     }
-  }, [email, password, signIn, setScreen, setError, clearError]);
+  }, [username, password, signIn, setScreen, setError, clearError]);
 
   const handleSignUp = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
@@ -56,8 +62,19 @@ export const LoginScreen: React.FC = () => {
     soundManager.play('ui_click');
     clearError();
 
-    if (!email || !password || !nickname) {
+    if (!username || !password || !nickname) {
       setError('모든 필드를 입력해주세요.');
+      return;
+    }
+
+    // 아이디 유효성 검사
+    if (username.length < 4 || username.length > 20) {
+      setError('아이디는 4~20자 사이여야 합니다.');
+      return;
+    }
+
+    if (!/^[a-zA-Z0-9_]+$/.test(username)) {
+      setError('아이디는 영문, 숫자, 밑줄(_)만 사용할 수 있습니다.');
       return;
     }
 
@@ -76,16 +93,18 @@ export const LoginScreen: React.FC = () => {
       return;
     }
 
+    const email = usernameToEmail(username);
     const result = await signUp(email, password, nickname);
     if (result.success) {
       if (result.needsEmailConfirmation) {
-        setSuccessMessage('이메일로 인증 링크가 전송되었습니다. 이메일을 확인해주세요.');
+        // 이메일 인증이 필요한 경우에도 바로 로그인 가능하도록 안내
+        setSuccessMessage('회원가입이 완료되었습니다. 로그인해주세요.');
         setMode('login');
       } else {
         setScreen('menu');
       }
     }
-  }, [email, password, confirmPassword, nickname, signUp, setScreen, setError, clearError]);
+  }, [username, password, confirmPassword, nickname, signUp, setScreen, setError, clearError]);
 
   const handleGuestLogin = useCallback(async () => {
     soundManager.init();
@@ -188,14 +207,14 @@ export const LoginScreen: React.FC = () => {
         {supabaseEnabled && mode === 'login' && (
           <form onSubmit={handleLogin} className="w-full space-y-5">
             <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">이메일</label>
+              <label className="block text-gray-300 text-sm font-medium mb-2">아이디</label>
               <div style={{ height: '3px' }} />
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-4 bg-gray-800/60 border border-gray-600 rounded-md text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all"
-                placeholder="email@example.com"
+                placeholder="아이디 입력"
                 disabled={isLoading}
               />
             </div>
@@ -234,14 +253,14 @@ export const LoginScreen: React.FC = () => {
         {supabaseEnabled && mode === 'signup' && (
           <form onSubmit={handleSignUp} className="w-full space-y-5">
             <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">닉네임</label>
+              <label className="block text-gray-300 text-sm font-medium mb-2">아이디</label>
               <div style={{ height: '3px' }} />
               <input
                 type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                value={username}
+                onChange={(e) => setUsername(e.target.value)}
                 className="w-full px-4 py-4 bg-gray-800/60 border border-gray-600 rounded-md text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all"
-                placeholder="2~20자"
+                placeholder="4~20자, 영문/숫자/밑줄"
                 maxLength={20}
                 disabled={isLoading}
               />
@@ -250,14 +269,15 @@ export const LoginScreen: React.FC = () => {
             <div style={{ height: '10px' }} />
 
             <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">이메일</label>
+              <label className="block text-gray-300 text-sm font-medium mb-2">닉네임</label>
               <div style={{ height: '3px' }} />
               <input
-                type="email"
-                value={email}
-                onChange={(e) => setEmail(e.target.value)}
+                type="text"
+                value={nickname}
+                onChange={(e) => setNickname(e.target.value)}
                 className="w-full px-4 py-4 bg-gray-800/60 border border-gray-600 rounded-md text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all"
-                placeholder="email@example.com"
+                placeholder="게임에서 표시될 이름 (2~20자)"
+                maxLength={20}
                 disabled={isLoading}
               />
             </div>
