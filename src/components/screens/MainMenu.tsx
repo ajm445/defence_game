@@ -1,14 +1,35 @@
-import React, { useState } from 'react';
+import React from 'react';
 import { useUIStore } from '../../stores/useUIStore';
-import { HelpModal } from '../ui/HelpModal';
+import { useAuthStore, useAuthProfile, useAuthStatus } from '../../stores/useAuthStore';
+import { soundManager } from '../../services/SoundManager';
 
 export const MainMenu: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
-  const [showHelp, setShowHelp] = useState(false);
+  const authStatus = useAuthStatus();
+  const profile = useAuthProfile();
+  const signOut = useAuthStore((state) => state.signOut);
 
   const handleStartGame = () => {
+    soundManager.play('ui_click');
     setScreen('gameTypeSelect');
   };
+
+  const handleLogin = () => {
+    soundManager.play('ui_click');
+    setScreen('login');
+  };
+
+  const handleProfile = () => {
+    soundManager.play('ui_click');
+    setScreen('profile');
+  };
+
+  const handleLogout = async () => {
+    soundManager.play('ui_click');
+    await signOut();
+  };
+
+  const isAuthenticated = authStatus === 'authenticated' && profile;
 
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
@@ -50,6 +71,7 @@ export const MainMenu: React.FC = () => {
 
         {/* 버튼 그룹 */}
         <div className="flex flex-col gap-4 mt-4">
+          {/* 게임 시작 버튼 */}
           <button
             onClick={handleStartGame}
             className="group relative py-4 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
@@ -68,17 +90,77 @@ export const MainMenu: React.FC = () => {
             </span>
           </button>
 
-          <button
-            onClick={() => setShowHelp(true)}
-            className="group relative px-12 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
-            style={{ paddingLeft: '25px', paddingRight: '25px', paddingTop: '10px', paddingBottom: '10px' }}
-          >
-            <div className="absolute inset-0 bg-dark-700/50 group-hover:bg-dark-600/50 transition-all duration-300 pointer-events-none" />
-            <div className="absolute inset-0 border border-dark-400 rounded-lg group-hover:border-gray-500 transition-all duration-300 pointer-events-none" />
-            <span className="relative font-korean text-lg text-gray-400 group-hover:text-white transition-colors duration-300">
-              도움말
-            </span>
-          </button>
+          {/* 로그인 상태에 따른 버튼 */}
+          {isAuthenticated ? (
+            <>
+              {/* 프로필 버튼 */}
+              <button
+                onClick={handleProfile}
+                className="group relative py-4 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+                style={{ paddingLeft: '25px', paddingRight: '25px', paddingTop: '10px', paddingBottom: '10px' }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-yellow-500/20 to-orange-500/20 group-hover:from-yellow-500/30 group-hover:to-orange-500/30 transition-all duration-300 pointer-events-none" />
+                <div className="absolute inset-0 border border-yellow-500/50 rounded-lg group-hover:border-yellow-400 group-hover:shadow-[0_0_10px_rgba(234,179,8,0.3)] transition-all duration-300 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-[scanline_2s_linear_infinite] pointer-events-none" />
+                <div className="relative flex items-center justify-center gap-3">
+                  <div className="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-xs">
+                    {profile.isGuest ? '👤' : '⭐'}
+                  </div>
+                  <span className="font-game text-xl tracking-wider text-yellow-400 group-hover:text-white transition-colors duration-300">
+                    {profile.nickname}
+                  </span>
+                  <span className="text-yellow-500/70 text-sm">Lv.{profile.playerLevel}</span>
+                  {profile.isGuest && (
+                    <span className="px-2 py-0.5 bg-gray-700/50 rounded text-xs text-gray-400">
+                      게스트
+                    </span>
+                  )}
+                </div>
+              </button>
+
+              {/* 로그아웃 버튼 */}
+              <button
+                onClick={handleLogout}
+                className="group relative px-12 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+                style={{ paddingLeft: '25px', paddingRight: '25px', paddingTop: '10px', paddingBottom: '10px' }}
+              >
+                <div className="absolute inset-0 bg-dark-700/50 group-hover:bg-red-900/30 transition-all duration-300 pointer-events-none" />
+                <div className="absolute inset-0 border border-dark-400 rounded-lg group-hover:border-red-500/50 transition-all duration-300 pointer-events-none" />
+                <span className="relative font-korean text-lg text-gray-400 group-hover:text-red-400 transition-colors duration-300">
+                  로그아웃
+                </span>
+              </button>
+            </>
+          ) : (
+            <>
+              {/* 로그인 버튼 */}
+              <button
+                onClick={handleLogin}
+                className="group relative py-4 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+                style={{ paddingLeft: '25px', paddingRight: '25px', paddingTop: '10px', paddingBottom: '10px' }}
+              >
+                <div className="absolute inset-0 bg-gradient-to-r from-purple-500/20 to-purple-600/20 group-hover:from-purple-500/30 group-hover:to-purple-600/30 transition-all duration-300 pointer-events-none" />
+                <div className="absolute inset-0 border border-purple-500/50 rounded-lg group-hover:border-purple-400 group-hover:shadow-[0_0_10px_rgba(168,85,247,0.3)] transition-all duration-300 pointer-events-none" />
+                <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-[scanline_2s_linear_infinite] pointer-events-none" />
+                <span className="relative font-game text-xl tracking-wider text-purple-400 group-hover:text-white transition-colors duration-300">
+                  로그인
+                </span>
+              </button>
+
+              {/* 회원가입 버튼 */}
+              <button
+                onClick={handleLogin}
+                className="group relative px-12 py-3 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+                style={{ paddingLeft: '25px', paddingRight: '25px', paddingTop: '10px', paddingBottom: '10px' }}
+              >
+                <div className="absolute inset-0 bg-dark-700/50 group-hover:bg-dark-600/50 transition-all duration-300 pointer-events-none" />
+                <div className="absolute inset-0 border border-dark-400 rounded-lg group-hover:border-gray-500 transition-all duration-300 pointer-events-none" />
+                <span className="relative font-korean text-lg text-gray-400 group-hover:text-white transition-colors duration-300">
+                  회원가입
+                </span>
+              </button>
+            </>
+          )}
         </div>
       </div>
 
@@ -101,9 +183,6 @@ export const MainMenu: React.FC = () => {
       <div className="absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 border-neon-cyan/30" />
       <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-neon-cyan/30" />
       <div className="absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 border-neon-cyan/30" />
-
-      {/* 도움말 모달 */}
-      {showHelp && <HelpModal onClose={() => setShowHelp(false)} />}
     </div>
   );
 };

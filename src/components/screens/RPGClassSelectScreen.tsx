@@ -2,17 +2,22 @@ import React, { useCallback } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRPGStore } from '../../stores/useRPGStore';
 import { useGameStore } from '../../stores/useGameStore';
+import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { HeroClass } from '../../types/rpg';
+import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked } from '../../types/auth';
 import { soundManager } from '../../services/SoundManager';
 
 interface ClassCardProps {
   heroClass: HeroClass;
   isSelected: boolean;
+  isLocked: boolean;
+  unlockLevel: number;
+  isGuest: boolean;
   onSelect: () => void;
 }
 
-const ClassCard: React.FC<ClassCardProps> = ({ heroClass, isSelected, onSelect }) => {
+const ClassCard: React.FC<ClassCardProps> = ({ heroClass, isSelected, isLocked, unlockLevel, isGuest, onSelect }) => {
   const config = CLASS_CONFIGS[heroClass];
 
   const classColors: Record<HeroClass, { gradient: string; border: string; glow: string }> = {
@@ -40,37 +45,60 @@ const ClassCard: React.FC<ClassCardProps> = ({ heroClass, isSelected, onSelect }
 
   const colors = classColors[heroClass];
 
+  const handleClick = () => {
+    if (!isLocked) {
+      onSelect();
+    }
+  };
+
   return (
     <button
-      onClick={onSelect}
+      onClick={handleClick}
+      disabled={isLocked}
       className={`
         group relative w-52 h-80 rounded-xl overflow-hidden
-        transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer
-        ${isSelected ? `${colors.glow} scale-105` : ''}
+        transition-all duration-300
+        ${isLocked
+          ? 'cursor-not-allowed opacity-70'
+          : 'hover:scale-105 active:scale-95 cursor-pointer'}
+        ${isSelected && !isLocked ? `${colors.glow} scale-105` : ''}
       `}
     >
       {/* 배경 그라데이션 */}
-      <div className={`absolute inset-0 bg-gradient-to-b ${colors.gradient} group-hover:opacity-150 transition-all duration-300`} />
+      <div className={`absolute inset-0 bg-gradient-to-b ${colors.gradient} ${!isLocked ? 'group-hover:opacity-150' : ''} transition-all duration-300`} />
 
       {/* 테두리 */}
       <div className={`
         absolute inset-0 border-2 rounded-xl transition-all duration-300
-        ${isSelected ? colors.border : 'border-gray-600'}
-        ${isSelected ? colors.glow : ''}
-        group-hover:${colors.border}
+        ${isLocked ? 'border-gray-700' : isSelected ? colors.border : 'border-gray-600'}
+        ${isSelected && !isLocked ? colors.glow : ''}
+        ${!isLocked ? `group-hover:${colors.border}` : ''}
       `} />
 
+      {/* 잠금 오버레이 */}
+      {isLocked && (
+        <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-10 rounded-xl">
+          <span className="text-4xl mb-2">🔒</span>
+          <p className="text-gray-300 text-sm font-bold">
+            {isGuest ? '회원 전용' : `Lv.${unlockLevel} 필요`}
+          </p>
+          {isGuest && (
+            <p className="text-gray-400 text-xs mt-1">회원가입 후 이용 가능</p>
+          )}
+        </div>
+      )}
+
       {/* 선택 표시 */}
-      {isSelected && (
-        <div className="absolute top-3 right-3 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center">
+      {isSelected && !isLocked && (
+        <div className="absolute top-3 right-3 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center z-20">
           <span className="text-white text-lg">✓</span>
         </div>
       )}
 
       {/* 컨텐츠 */}
-      <div className="relative h-full flex flex-col items-center justify-center p-6">
+      <div className={`relative h-full flex flex-col items-center justify-center p-6 ${isLocked ? 'opacity-50' : ''}`}>
         {/* 이모지 아이콘 */}
-        <div className="text-7xl mb-4 transform group-hover:scale-110 transition-transform">
+        <div className={`text-7xl mb-4 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
           {config.emoji}
         </div>
 
@@ -117,26 +145,38 @@ export const RPGClassSelectScreen: React.FC = () => {
   const selectClass = useRPGStore((state) => state.selectClass);
   const selectedClass = useRPGStore((state) => state.selectedClass);
   const setGameMode = useGameStore((state) => state.setGameMode);
+  const profile = useAuthProfile();
+  const isGuest = useAuthIsGuest();
+
+  const playerLevel = profile?.playerLevel ?? 1;
 
   const handleSelectClass = useCallback((heroClass: HeroClass) => {
+    // 해금 확인
+    if (!isCharacterUnlocked(heroClass, playerLevel, isGuest)) {
+      return;
+    }
     soundManager.play('ui_click');
     selectClass(heroClass);
-  }, [selectClass]);
+  }, [selectClass, playerLevel, isGuest]);
 
   const handleStartGame = useCallback(() => {
     if (!selectedClass) return;
+    // 선택된 클래스가 해금되었는지 확인
+    if (!isCharacterUnlocked(selectedClass, playerLevel, isGuest)) {
+      return;
+    }
     soundManager.play('ui_click');
     resetGameUI();
     setGameMode('rpg');
     setScreen('game');
-  }, [selectedClass, resetGameUI, setGameMode, setScreen]);
+  }, [selectedClass, resetGameUI, setGameMode, setScreen, playerLevel, isGuest]);
 
   const handleBack = useCallback(() => {
     soundManager.play('ui_click');
     setScreen('rpgPlayTypeSelect');
   }, [setScreen]);
 
-  const heroClasses: HeroClass[] = ['warrior', 'archer', 'knight', 'mage'];
+  const heroClasses: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
 
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
@@ -158,14 +198,21 @@ export const RPGClassSelectScreen: React.FC = () => {
 
         {/* 직업 카드들 */}
         <div className="flex gap-6 mb-8">
-          {heroClasses.map((heroClass) => (
-            <ClassCard
-              key={heroClass}
-              heroClass={heroClass}
-              isSelected={selectedClass === heroClass}
-              onSelect={() => handleSelectClass(heroClass)}
-            />
-          ))}
+          {heroClasses.map((heroClass) => {
+            const unlockLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
+            const isLocked = !isCharacterUnlocked(heroClass, playerLevel, isGuest);
+            return (
+              <ClassCard
+                key={heroClass}
+                heroClass={heroClass}
+                isSelected={selectedClass === heroClass}
+                isLocked={isLocked}
+                unlockLevel={unlockLevel}
+                isGuest={isGuest}
+                onSelect={() => handleSelectClass(heroClass)}
+              />
+            );
+          })}
         </div>
         
         <div style={{ height: '30px' }} />

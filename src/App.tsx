@@ -1,6 +1,7 @@
 import { useEffect } from 'react';
 import { useUIStore } from './stores/useUIStore';
 import { useGameStore } from './stores/useGameStore';
+import { useAuthStore } from './stores/useAuthStore';
 import { MainMenu } from './components/screens/MainMenu';
 import { GameTypeSelectScreen } from './components/screens/GameTypeSelectScreen';
 import { ModeSelectScreen } from './components/screens/ModeSelectScreen';
@@ -13,6 +14,8 @@ import { RPGClassSelectScreen } from './components/screens/RPGClassSelectScreen'
 import { RPGPlayTypeSelectScreen } from './components/screens/RPGPlayTypeSelectScreen';
 import { RPGCoopLobbyScreen } from './components/screens/RPGCoopLobbyScreen';
 import { RPGCoopGameScreen } from './components/screens/RPGCoopGameScreen';
+import { LoginScreen } from './components/screens/LoginScreen';
+import { ProfileScreen } from './components/screens/ProfileScreen';
 import { GameOverScreen } from './components/screens/GameOverScreen';
 import { PauseScreen } from './components/screens/PauseScreen';
 import { preloadGameEmojis } from './utils/canvasEmoji';
@@ -21,6 +24,7 @@ import { preloadAllUnitImages } from './utils/unitImages';
 function App() {
   const currentScreen = useUIStore((state) => state.currentScreen);
   const gameMode = useGameStore((state) => state.gameMode);
+  const initializeAuth = useAuthStore((state) => state.initialize);
 
   // 앱 시작 시 게임에서 사용하는 이모지 및 유닛 이미지 미리 로드
   useEffect(() => {
@@ -28,12 +32,19 @@ function App() {
     preloadAllUnitImages();
   }, []);
 
+  // 앱 시작 시 인증 상태 초기화
+  useEffect(() => {
+    initializeAuth();
+  }, [initializeAuth]);
+
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900">
       {currentScreen === 'menu' && <MainMenu />}
       {currentScreen === 'gameTypeSelect' && <GameTypeSelectScreen />}
       {currentScreen === 'modeSelect' && <ModeSelectScreen />}
       {currentScreen === 'difficultySelect' && <DifficultySelectScreen />}
+      {currentScreen === 'login' && <LoginScreen />}
+      {currentScreen === 'profile' && <ProfileScreen />}
       {currentScreen === 'rpgPlayTypeSelect' && <RPGPlayTypeSelectScreen />}
       {currentScreen === 'rpgClassSelect' && <RPGClassSelectScreen />}
       {currentScreen === 'rpgCoopLobby' && <RPGCoopLobbyScreen />}

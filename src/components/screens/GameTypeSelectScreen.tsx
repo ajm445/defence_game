@@ -1,9 +1,11 @@
 import React from 'react';
 import { useUIStore } from '../../stores/useUIStore';
+import { useAuthStore, useAuthStatus } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 
 export const GameTypeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
+  const authStatus = useAuthStatus();
 
   const handleRTSMode = () => {
     soundManager.init();
@@ -14,7 +16,12 @@ export const GameTypeSelectScreen: React.FC = () => {
   const handleRPGMode = () => {
     soundManager.init();
     soundManager.play('ui_click');
-    setScreen('rpgPlayTypeSelect');
+    // 인증되지 않은 경우 로그인 화면으로 이동
+    if (authStatus !== 'authenticated') {
+      setScreen('login');
+    } else {
+      setScreen('rpgPlayTypeSelect');
+    }
   };
 
   return (

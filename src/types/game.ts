@@ -41,7 +41,7 @@ export interface GameState {
   bossSpawned: boolean; // 보스 소환 여부
 }
 
-export type GameScreen = 'menu' | 'gameTypeSelect' | 'modeSelect' | 'difficultySelect' | 'lobby' | 'countdown' | 'game' | 'gameover' | 'paused' | 'rpgPlayTypeSelect' | 'rpgClassSelect' | 'rpgCoopLobby' | 'rpgCoopGame';
+export type GameScreen = 'menu' | 'gameTypeSelect' | 'modeSelect' | 'difficultySelect' | 'lobby' | 'countdown' | 'game' | 'gameover' | 'paused' | 'rpgPlayTypeSelect' | 'rpgClassSelect' | 'rpgCoopLobby' | 'rpgCoopGame' | 'login' | 'profile';
 
 export type GameMode = 'ai' | 'multiplayer' | 'tutorial' | 'rpg';
 

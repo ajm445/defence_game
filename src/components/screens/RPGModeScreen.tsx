@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { useRPGGameLoop } from '../../hooks/useRPGGameLoop';
 import { useRPGKeyboard } from '../../hooks/useRPGInput';
 import { RPGCanvas } from '../canvas/RPGCanvas';
@@ -7,9 +7,13 @@ import { RPGSkillBar } from '../ui/RPGSkillBar';
 import { RPGWaveInfo } from '../ui/RPGWaveInfo';
 import { RPGGameTimer } from '../ui/RPGGameTimer';
 import { Notification } from '../ui/Notification';
+import { LevelUpNotification } from '../ui/LevelUpNotification';
 import { useRPGStore, useRPGGameOver, useRPGResult } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
+import { useProfileStore, useLastGameResult } from '../../stores/useProfileStore';
 import { SkillType } from '../../types/rpg';
+import { LevelUpResult, calculatePlayerExp, calculateClassExp } from '../../types/auth';
 import { soundManager } from '../../services/SoundManager';
 
 export const RPGModeScreen: React.FC = () => {
@@ -21,6 +25,16 @@ export const RPGModeScreen: React.FC = () => {
   const result = useRPGResult();
   const resetGame = useRPGStore((state) => state.resetGame);
   const setScreen = useUIStore((state) => state.setScreen);
+  const profile = useAuthProfile();
+  const isGuest = useAuthIsGuest();
+  const handleGameEnd = useProfileStore((state) => state.handleGameEnd);
+  const lastGameResult = useLastGameResult();
+  const clearLastGameResult = useProfileStore((state) => state.clearLastGameResult);
+
+  // 레벨업 알림 상태
+  const [levelUpResult, setLevelUpResult] = useState<LevelUpResult | null>(null);
+  const [showLevelUp, setShowLevelUp] = useState(false);
+  const expSavedRef = useRef(false);
 
   // 게임 초기화 (이미 실행 중이면 초기화하지 않음)
   useEffect(() => {
@@ -29,9 +43,34 @@ export const RPGModeScreen: React.FC = () => {
     if (!state.hero) {
       useRPGStore.getState().initGame();
     }
+    // 게임 시작 시 레퍼런스 초기화
+    expSavedRef.current = false;
 
     // 언마운트 시 정리하지 않음 - 메인 메뉴로 돌아갈 때만 PauseScreen에서 resetGame 호출
   }, []);
+
+  // 게임 오버 시 경험치 저장
+  useEffect(() => {
+    if (gameOver && result && profile && !expSavedRef.current) {
+      expSavedRef.current = true;
+
+      // 경험치 저장 (게스트가 아닌 경우에만 실제 저장)
+      handleGameEnd({
+        mode: 'single',
+        classUsed: result.heroClass,
+        waveReached: result.waveReached,
+        kills: result.totalKills,
+        playTime: result.timePlayed,
+        victory: result.victory,
+      }).then((levelResult) => {
+        if (levelResult && (levelResult.playerLeveledUp || levelResult.classLeveledUp)) {
+          setLevelUpResult(levelResult);
+          setShowLevelUp(true);
+          soundManager.play('level_up');
+        }
+      });
+    }
+  }, [gameOver, result, profile, handleGameEnd]);
 
   // 스킬 사용 핸들러
   const handleUseSkill = useCallback(
@@ -77,13 +116,25 @@ export const RPGModeScreen: React.FC = () => {
   // 게임 오버 시 결과 화면으로 이동
   const handleBackToMenu = useCallback(() => {
     resetGame();
-    setScreen('modeSelect');
-  }, [resetGame, setScreen]);
+    clearLastGameResult();
+    setLevelUpResult(null);
+    setShowLevelUp(false);
+    setScreen('rpgPlayTypeSelect');
+  }, [resetGame, clearLastGameResult, setScreen]);
 
   const handleRetry = useCallback(() => {
     resetGame();
+    clearLastGameResult();
+    setLevelUpResult(null);
+    setShowLevelUp(false);
+    expSavedRef.current = false;
     useRPGStore.getState().initGame();
-  }, [resetGame]);
+  }, [resetGame, clearLastGameResult]);
+
+  // 레벨업 알림 닫기
+  const handleCloseLevelUp = useCallback(() => {
+    setShowLevelUp(false);
+  }, []);
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-dark-900">
@@ -144,7 +195,7 @@ export const RPGModeScreen: React.FC = () => {
                 <span className="text-red-400 font-bold">{result.totalKills}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
-                <span className="text-gray-400">획득 경험치</span>
+                <span className="text-gray-400">획득 경험치 (게임)</span>
                 <span className="text-blue-400 font-bold">{result.totalExp}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
@@ -155,23 +206,57 @@ export const RPGModeScreen: React.FC = () => {
               </div>
             </div>
 
+            {/* 계정 경험치 (비게스트만 표시) */}
+            {!isGuest && lastGameResult && (
+              <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
+                <h4 className="text-purple-400 font-bold text-sm mb-2">계정 경험치 획득</h4>
+                <div className="space-y-2 text-sm">
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">플레이어 EXP</span>
+                    <span className="text-yellow-400 font-bold">+{lastGameResult.playerExpGained}</span>
+                  </div>
+                  <div className="flex justify-between">
+                    <span className="text-gray-400">클래스 EXP</span>
+                    <span className="text-cyan-400 font-bold">+{lastGameResult.classExpGained}</span>
+                  </div>
+                </div>
+              </div>
+            )}
+
+            {/* 게스트 안내 */}
+            {isGuest && (
+              <div className="mb-6 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+                <p className="text-yellow-300 text-xs text-center">
+                  게스트 모드에서는 진행 상황이 저장되지 않습니다.
+                </p>
+              </div>
+            )}
+
             {/* 버튼 */}
             <div className="flex gap-3">
               <button
                 onClick={handleRetry}
-                className="flex-1 px-6 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan rounded-lg font-bold transition-colors"
+                className="flex-1 px-6 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan rounded-lg font-bold transition-colors cursor-pointer"
               >
                 다시 시작
               </button>
               <button
                 onClick={handleBackToMenu}
-                className="flex-1 px-6 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold transition-colors"
+                className="flex-1 px-6 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold transition-colors cursor-pointer"
               >
                 메뉴로
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {/* 레벨업 알림 */}
+      {showLevelUp && levelUpResult && (
+        <LevelUpNotification
+          result={levelUpResult}
+          onClose={handleCloseLevelUp}
+        />
       )}
 
       {/* 하단 코너 장식 */}

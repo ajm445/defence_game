@@ -1,9 +1,12 @@
 import React from 'react';
 import { useUIStore } from '../../stores/useUIStore';
+import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 
 export const RPGPlayTypeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
+  const profile = useAuthProfile();
+  const isGuest = useAuthIsGuest();
 
   const handleSinglePlayer = () => {
     soundManager.play('ui_click');
@@ -15,6 +18,11 @@ export const RPGPlayTypeSelectScreen: React.FC = () => {
     setScreen('rpgCoopLobby');
   };
 
+  const handleProfile = () => {
+    soundManager.play('ui_click');
+    setScreen('profile');
+  };
+
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
       {/* 배경 효과 */}
@@ -22,6 +30,29 @@ export const RPGPlayTypeSelectScreen: React.FC = () => {
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse-slow" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-orange-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
       </div>
+
+      {/* 프로필 배지 (상단 우측) */}
+      {profile && (
+        <div className="absolute top-4 right-4 z-20">
+          <button
+            onClick={handleProfile}
+            className="flex items-center gap-3 px-4 py-2 bg-gray-800/80 hover:bg-gray-700/80 border border-gray-600 hover:border-yellow-500/50 rounded-lg transition-all cursor-pointer"
+          >
+            <div className="w-8 h-8 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-sm">
+              {isGuest ? '👤' : '⭐'}
+            </div>
+            <div className="text-left">
+              <p className="text-white text-sm font-bold">{profile.nickname}</p>
+              <p className="text-yellow-400 text-xs">Lv.{profile.playerLevel}</p>
+            </div>
+            {isGuest && (
+              <span className="px-2 py-0.5 bg-gray-700 rounded text-xs text-gray-400">
+                게스트
+              </span>
+            )}
+          </button>
+        </div>
+      )}
 
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 flex flex-col items-center animate-fade-in">

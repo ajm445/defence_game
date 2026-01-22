@@ -1,7 +1,7 @@
 {
   "name": "defence_game",
   "private": true,
-  "version": "1.12.2",
+  "version": "1.13.0",
   "type": "module",
   "workspaces": [
     "server"
@@ -16,6 +16,7 @@
     "preview": "vite preview"
   },
   "dependencies": {
+    "@supabase/supabase-js": "^2.91.0",
     "react": "^19.2.0",
     "react-dom": "^19.2.0",
     "twemoji": "^14.0.2",
