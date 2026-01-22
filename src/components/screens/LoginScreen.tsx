@@ -168,6 +168,8 @@ export const LoginScreen: React.FC = () => {
           </div>
         )}
 
+        <div style={{ height: '10px' }} />
+        
         {/* 에러 메시지 */}
         {error && (
           <div className="w-full mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-md text-red-300 text-sm text-center">
