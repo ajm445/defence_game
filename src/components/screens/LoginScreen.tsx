@@ -2,9 +2,13 @@ import React, { useState, useCallback } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthError, useAuthIsLoading } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
-import { isSupabaseConfigured } from '../../services/supabase';
 
 type AuthMode = 'login' | 'signup' | 'guest';
+
+// API 설정 확인 (VITE_API_URL이 설정되어 있으면 인증 기능 사용 가능)
+const isApiConfigured = (): boolean => {
+  return Boolean(import.meta.env.VITE_API_URL) || true; // 기본값이 localhost:8080이므로 항상 true
+};
 
 // 아이디를 내부 이메일 형식으로 변환
 const usernameToEmail = (username: string): string => {
@@ -28,7 +32,7 @@ export const LoginScreen: React.FC = () => {
   const [nickname, setNickname] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
-  const supabaseEnabled = isSupabaseConfigured();
+  const apiEnabled = isApiConfigured();
 
   const handleModeChange = useCallback((newMode: AuthMode) => {
     soundManager.init();
@@ -147,7 +151,7 @@ export const LoginScreen: React.FC = () => {
         <div style={{ height: '20px' }} />
 
         {/* 탭 버튼 */}
-        {supabaseEnabled && (
+        {apiEnabled && (
           <div className="flex gap-4 mb-8 w-full">
             <button
               onClick={() => handleModeChange('login')}
@@ -204,7 +208,7 @@ export const LoginScreen: React.FC = () => {
         <div style={{ height: '20px' }} />
 
         {/* 로그인 폼 */}
-        {supabaseEnabled && mode === 'login' && (
+        {apiEnabled && mode === 'login' && (
           <form onSubmit={handleLogin} className="w-full space-y-5">
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">아이디</label>
@@ -250,7 +254,7 @@ export const LoginScreen: React.FC = () => {
         )}
 
         {/* 회원가입 폼 */}
-        {supabaseEnabled && mode === 'signup' && (
+        {apiEnabled && mode === 'signup' && (
           <form onSubmit={handleSignUp} className="w-full space-y-5">
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">아이디</label>
@@ -327,7 +331,7 @@ export const LoginScreen: React.FC = () => {
         )}
 
         {/* 게스트 로그인 */}
-        {(mode === 'guest' || !supabaseEnabled) && (
+        {(mode === 'guest' || !apiEnabled) && (
           <div className="w-full space-y-5">
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-md p-5">
               <p className="text-yellow-300 text-sm text-center leading-relaxed">

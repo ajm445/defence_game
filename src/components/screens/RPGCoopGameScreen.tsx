@@ -1,4 +1,4 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useRPGCoopGameLoop } from '../../hooks/useRPGCoopGameLoop';
 import { RPGCoopCanvas } from '../canvas/RPGCoopCanvas';
 import { RPGCoopHeroPanel } from '../ui/RPGCoopHeroPanel';
@@ -10,10 +10,11 @@ import { Notification } from '../ui/Notification';
 import { useRPGCoopStore, useMyCoopHero, useCoopWaveInfo } from '../../stores/useRPGCoopStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthIsGuest } from '../../stores/useAuthStore';
+import { useProfileStore } from '../../stores/useProfileStore';
 import { soundManager } from '../../services/SoundManager';
 import { CLASS_CONFIGS, CLASS_SKILLS } from '../../constants/rpgConfig';
 import { calculatePlayerExp, calculateClassExp } from '../../types/auth';
-import type { SkillType } from '../../types/rpg';
+import type { HeroClass, SkillType } from '../../types/rpg';
 
 export const RPGCoopGameScreen: React.FC = () => {
   // 게임 루프 시작
@@ -25,9 +26,41 @@ export const RPGCoopGameScreen: React.FC = () => {
   const useSkill = useRPGCoopStore((state) => state.useSkill);
   const setScreen = useUIStore((state) => state.setScreen);
   const isGuest = useAuthIsGuest();
+  const handleGameEnd = useProfileStore((state) => state.handleGameEnd);
 
   const myHero = useMyCoopHero();
   const waveInfo = useCoopWaveInfo();
+
+  // 경험치 저장 중복 방지를 위한 ref
+  const expSavedRef = useRef(false);
+
+  // 게임 종료 시 경험치 저장
+  useEffect(() => {
+    if (gameResult && myHero && !isGuest && !expSavedRef.current) {
+      expSavedRef.current = true;
+
+      // 내 캐릭터의 킬 수 찾기
+      const myResult = gameResult.playerResults.find(
+        (p) => p.heroClass === myHero.heroClass
+      );
+      const myKills = myResult?.kills || 0;
+
+      // 경험치 저장
+      handleGameEnd({
+        mode: 'coop',
+        classUsed: myHero.heroClass as HeroClass,
+        waveReached: gameResult.waveReached,
+        kills: myKills,
+        playTime: gameResult.totalGameTime,
+        victory: gameResult.victory,
+      });
+    }
+
+    // 게임이 리셋되면 ref도 초기화
+    if (!gameResult) {
+      expSavedRef.current = false;
+    }
+  }, [gameResult, myHero, isGuest, handleGameEnd]);
 
   // 스킬 사용 핸들러
   const handleUseSkill = useCallback(

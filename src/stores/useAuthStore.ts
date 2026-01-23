@@ -1,21 +1,27 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import type { User } from '@supabase/supabase-js';
 import { PlayerProfile, AuthStatus, ClassProgress } from '../types/auth';
 import {
   signUpWithEmail,
   signInWithEmail,
   signInAsGuest,
   signOut as authSignOut,
-  getCurrentSession,
   getPlayerProfile,
   onAuthStateChange,
   updateSoundSettings,
+  updateNickname as authUpdateNickname,
+  deleteAccount as authDeleteAccount,
 } from '../services/authService';
-import { isSupabaseConfigured } from '../services/supabase';
 import { useProfileStore } from './useProfileStore';
 import { useUIStore } from './useUIStore';
 import { soundManager } from '../services/SoundManager';
+
+// 사용자 타입 정의
+interface User {
+  id: string;
+  email?: string;
+  isGuest?: boolean;
+}
 
 interface AuthState {
   // 인증 상태
@@ -43,6 +49,8 @@ interface AuthActions {
   refreshProfile: () => Promise<void>;
   updateLocalProfile: (updates: Partial<PlayerProfile>) => void;
   updateClassProgress: (progress: ClassProgress) => void;
+  updateNickname: (newNickname: string) => Promise<{ success: boolean; error?: string }>;
+  deleteAccount: () => Promise<{ success: boolean; error?: string }>;
 
   // 사운드 설정
   saveSoundSettings: (volume: number, muted: boolean) => Promise<void>;
@@ -92,6 +100,40 @@ const clearSoundSettingsFromStorage = () => {
     localStorage.removeItem(SOUND_SETTINGS_KEY);
   } catch (e) {
     console.error('Failed to clear sound settings from localStorage:', e);
+  }
+};
+
+// 세션 저장 키
+const SESSION_KEY = 'defence_game_session';
+
+// localStorage에 세션 저장
+const saveSessionToStorage = (user: { id: string; email?: string; isGuest?: boolean }, profile: PlayerProfile) => {
+  try {
+    localStorage.setItem(SESSION_KEY, JSON.stringify({ user, profile }));
+  } catch (e) {
+    console.error('Failed to save session to localStorage:', e);
+  }
+};
+
+// localStorage에서 세션 로드
+const loadSessionFromStorage = (): { user: { id: string; email?: string; isGuest?: boolean }; profile: PlayerProfile } | null => {
+  try {
+    const stored = localStorage.getItem(SESSION_KEY);
+    if (stored) {
+      return JSON.parse(stored);
+    }
+  } catch (e) {
+    console.error('Failed to load session from localStorage:', e);
+  }
+  return null;
+};
+
+// localStorage에서 세션 삭제
+const clearSessionFromStorage = () => {
+  try {
+    localStorage.removeItem(SESSION_KEY);
+  } catch (e) {
+    console.error('Failed to clear session from localStorage:', e);
   }
 };
 
@@ -173,6 +215,7 @@ export const useAuthStore = create<AuthStore>()(
         const profile = await getPlayerProfile(result.user.id);
         if (profile) {
           syncSoundSettings(profile);
+          saveSessionToStorage(result.user, profile);
         }
         set({
           status: 'authenticated',
@@ -197,9 +240,10 @@ export const useAuthStore = create<AuthStore>()(
       }
 
       if (result.user) {
-        const profile = await getPlayerProfile(result.user.id);
+        const profile = result.profile || await getPlayerProfile(result.user.id);
         if (profile) {
           syncSoundSettings(profile);
+          saveSessionToStorage(result.user, profile);
         }
         set({
           status: 'authenticated',
@@ -216,45 +260,22 @@ export const useAuthStore = create<AuthStore>()(
     signInGuest: async (nickname) => {
       set({ isLoading: true, error: null });
 
-      if (!isSupabaseConfigured()) {
-        // Supabase 없이 로컬 게스트 모드
-        const localProfile = createLocalGuestProfile(nickname);
-        syncSoundSettings(localProfile);
-        set({
-          status: 'authenticated',
-          user: { id: localProfile.id } as User,
-          profile: localProfile,
-          isLoading: false,
-        });
-        return true;
-      }
-
       const result = await signInAsGuest(nickname);
 
-      if (!result.success) {
-        // Supabase 오류 시에도 로컬 게스트 모드로 진행
-        const localProfile = createLocalGuestProfile(nickname);
-        syncSoundSettings(localProfile);
-        set({
-          status: 'authenticated',
-          user: { id: localProfile.id } as User,
-          profile: localProfile,
-          isLoading: false,
-        });
-        return true;
-      }
+      // API 결과에 프로필이 포함되어 있으면 사용, 아니면 로컬 프로필 생성
+      const profile = result.profile || createLocalGuestProfile(nickname);
+      const user = result.user || { id: profile.id, isGuest: true };
 
-      if (result.user) {
-        const profile = await getPlayerProfile(result.user.id) || createLocalGuestProfile(nickname);
-        const guestProfile = { ...profile, isGuest: true };
-        syncSoundSettings(guestProfile);
-        set({
-          status: 'authenticated',
-          user: result.user,
-          profile: guestProfile,
-          isLoading: false,
-        });
-      }
+      syncSoundSettings(profile);
+      set({
+        status: 'authenticated',
+        user,
+        profile,
+        isLoading: false,
+      });
+
+      // 로컬스토리지에 세션 저장
+      saveSessionToStorage(user, profile);
 
       return true;
     },
@@ -268,6 +289,9 @@ export const useAuthStore = create<AuthStore>()(
 
       // ProfileStore 초기화
       useProfileStore.getState().reset();
+
+      // 세션 삭제
+      clearSessionFromStorage();
 
       // 게스트 로그아웃 시 localStorage 사운드 설정 삭제
       if (profile?.isGuest) {
@@ -288,29 +312,31 @@ export const useAuthStore = create<AuthStore>()(
     initialize: async () => {
       set({ isLoading: true });
 
-      if (!isSupabaseConfigured()) {
-        // Supabase가 설정되지 않은 경우 비인증 상태로 시작
-        set({
-          status: 'unauthenticated',
-          isLoading: false,
-        });
-        return;
-      }
-
       try {
-        const session = await getCurrentSession();
+        // localStorage에서 세션 복원
+        const storedSession = loadSessionFromStorage();
 
-        if (session?.user) {
-          const profile = await getPlayerProfile(session.user.id);
+        if (storedSession?.user && storedSession?.profile) {
+          // 저장된 세션이 있으면 서버에서 프로필 확인
+          const profile = await getPlayerProfile(storedSession.user.id);
+
           if (profile) {
+            // 프로필이 존재하면 세션 유효
             syncSoundSettings(profile);
+            set({
+              status: 'authenticated',
+              user: storedSession.user,
+              profile,
+              isLoading: false,
+            });
+          } else {
+            // 프로필이 없으면 세션 무효 (탈퇴된 계정 등)
+            clearSessionFromStorage();
+            set({
+              status: 'unauthenticated',
+              isLoading: false,
+            });
           }
-          set({
-            status: 'authenticated',
-            user: session.user,
-            profile,
-            isLoading: false,
-          });
         } else {
           set({
             status: 'unauthenticated',
@@ -318,7 +344,7 @@ export const useAuthStore = create<AuthStore>()(
           });
         }
 
-        // 인증 상태 변화 구독
+        // 인증 상태 변화 구독 (현재는 사용하지 않음)
         onAuthStateChange(async (user) => {
           if (user) {
             const profile = await getPlayerProfile(user.id);
@@ -418,6 +444,84 @@ export const useAuthStore = create<AuthStore>()(
     isGuest: () => {
       const { profile } = get();
       return profile?.isGuest ?? true;
+    },
+
+    // 닉네임 변경
+    updateNickname: async (newNickname) => {
+      const { user, profile } = get();
+      if (!user || !profile) {
+        return { success: false, error: '로그인이 필요합니다.' };
+      }
+
+      set({ isLoading: true, error: null });
+
+      // 로컬 프로필(게스트) 처리
+      if (profile.isGuest) {
+        set({
+          profile: { ...profile, nickname: newNickname },
+          isLoading: false,
+        });
+        return { success: true };
+      }
+
+      const result = await authUpdateNickname(user.id, newNickname);
+
+      if (result.success) {
+        set({
+          profile: { ...profile, nickname: newNickname },
+          isLoading: false,
+        });
+      } else {
+        set({ isLoading: false, error: result.error });
+      }
+
+      return result;
+    },
+
+    // 회원 탈퇴
+    deleteAccount: async () => {
+      const { user, profile } = get();
+      if (!user || !profile) {
+        return { success: false, error: '로그인이 필요합니다.' };
+      }
+
+      set({ isLoading: true, error: null });
+
+      // 게스트는 단순 로그아웃 처리
+      if (profile.isGuest) {
+        useProfileStore.getState().reset();
+        clearSessionFromStorage();
+        clearSoundSettingsFromStorage();
+        set({
+          status: 'unauthenticated',
+          user: null,
+          profile: null,
+          classProgress: [],
+          isLoading: false,
+          error: null,
+        });
+        return { success: true };
+      }
+
+      const result = await authDeleteAccount(user.id);
+
+      if (result.success) {
+        useProfileStore.getState().reset();
+        clearSessionFromStorage();
+        clearSoundSettingsFromStorage();
+        set({
+          status: 'unauthenticated',
+          user: null,
+          profile: null,
+          classProgress: [],
+          isLoading: false,
+          error: null,
+        });
+      } else {
+        set({ isLoading: false, error: result.error });
+      }
+
+      return result;
     },
   }))
 );

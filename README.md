@@ -4,7 +4,7 @@
 
 **RTS 모드**와 **RPG 모드**를 모두 즐길 수 있는 종합 전략 게임입니다.
 
-**Version: 1.13.2**
+**Version: 1.13.3**
 
 ---
 
@@ -47,12 +47,14 @@
 | Zustand | 5.x | 상태 관리 |
 | Tailwind CSS | 4.x | 스타일링 |
 
-### 서버 (멀티플레이어)
+### 서버 (멀티플레이어 + API)
 
 | 기술 | 버전 | 용도 |
 |------|------|------|
 | Node.js | 22.x | 런타임 |
+| Express | 4.x | REST API 서버 |
 | ws | 8.x | WebSocket 서버 |
+| Supabase | 2.x | 인증 및 데이터베이스 (Admin API) |
 | TypeScript | 5.x | 타입 안정성 |
 
 ---
@@ -275,10 +277,12 @@ defence_game/
 │   └── utils/               # 유틸리티 함수
 ├── server/                   # 멀티플레이어 서버 (Node.js)
 │   └── src/
+│       ├── api/             # REST API 라우터 (인증 등)
 │       ├── game/            # 서버 게임 로직 (GameRoom)
 │       ├── room/            # 방 관리 (RoomManager)
+│       ├── services/        # Supabase Admin 클라이언트
 │       ├── state/           # 서버 상태 관리
-│       └── websocket/       # WebSocket 서버 및 메시지 핸들러
+│       └── websocket/       # WebSocket + Express 서버
 └── shared/                   # 공유 타입
     └── types/               # 네트워크 메시지 및 게임 타입
 ```
@@ -325,7 +329,34 @@ defence_game/
 
 ## 버전 히스토리
 
-### V1.13.2 (현재)
+### V1.13.3 (현재)
+- **인증 아키텍처 개선**
+  - 프론트엔드 → 백엔드 API → Supabase 흐름으로 변경
+  - 프론트엔드에서 Supabase 직접 호출 완전 제거
+  - 서버에 Express REST API 추가 (인증/프로필 엔드포인트)
+  - Supabase Admin API를 통한 서버 측 인증 처리
+- **프론트엔드 Supabase 의존성 제거**
+  - `@supabase/supabase-js` 패키지 제거 (프론트엔드)
+  - `src/services/supabase.ts` 파일 삭제
+  - `authService.ts`, `profileService.ts` API 호출 방식으로 변경
+- **RPG 협동 모드 경험치 저장 버그 수정**
+  - 멀티플레이어 게임 종료 시 경험치가 저장되지 않던 문제 해결
+  - `RPGCoopGameScreen`에서 `handleGameEnd` 호출 추가
+- **회원탈퇴 기능 수정**
+  - 회원탈퇴 시 Supabase Auth 계정도 완전 삭제
+  - 기존 문제: 프로필만 삭제되고 Auth 계정 잔류
+  - Admin API의 `deleteUser`로 완전 삭제 구현
+- **세션 관리 개선**
+  - localStorage 기반 세션 관리로 변경
+  - 로그인 시 세션 저장, 로그아웃/탈퇴 시 세션 삭제
+  - 앱 시작 시 저장된 세션 복원 및 유효성 검증
+- **서버 패키지 추가**
+  - express, cors, dotenv, @supabase/supabase-js 의존성 추가
+  - 환경변수: `SUPABASE_URL`, `SUPABASE_ANON_KEY`, `SUPABASE_SERVICE_ROLE_KEY`
+- **프론트엔드 환경변수 추가**
+  - `VITE_API_URL`: 백엔드 API 서버 주소
+
+### V1.13.2
 - **로그인 시스템 변경**
   - 이메일 방식에서 아이디/비밀번호 방식으로 변경
   - 아이디: 4~20자, 영문/숫자/밑줄만 허용
