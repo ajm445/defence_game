@@ -137,7 +137,7 @@ export const RPGModeScreen: React.FC = () => {
     clearLastGameResult();
     setLevelUpResult(null);
     setShowLevelUp(false);
-    setScreen('rpgPlayTypeSelect');
+    setScreen('gameTypeSelect');
   }, [resetGame, clearLastGameResult, setScreen]);
 
   const handleRetry = useCallback(() => {
