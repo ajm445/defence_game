@@ -90,9 +90,18 @@ export const UPGRADE_CONFIG = {
     perLevel: 25,          // 레벨당 +25 최대 HP
     description: '최대 HP',
   },
+  attackSpeed: {
+    perLevel: 0.03,        // 레벨당 -0.03초 공격속도 (더 빠른 공격)
+    description: '공격속도',
+  },
   goldRate: {
     perLevel: 2,           // 레벨당 +2 추가 골드
     description: '추가 골드',
+  },
+  range: {
+    perLevel: 8,           // 레벨당 +8 사거리
+    description: '사거리',
+    maxLevel: 10,          // 최대 10레벨 (80 사거리 증가)
   },
 } as const;
 
@@ -524,6 +533,16 @@ export const RPG_CONFIG = {
 
   // 스폰 위치 (맵 가장자리)
   SPAWN_MARGIN: 50, // 맵 가장자리에서의 거리
+
+  // 부활 시스템 (싱글/멀티플레이 공통)
+  REVIVE: {
+    BASE_TIME: 10,           // 기본 10초
+    TIME_PER_WAVE: 2,        // 웨이브당 +2초
+    MAX_TIME: 30,            // 최대 30초
+    REVIVE_HP_PERCENT: 1.0,  // HP 100%로 부활 (풀피)
+    SPAWN_OFFSET: 100,       // 넥서스 근처 100px 내 랜덤 위치
+    INVINCIBLE_DURATION: 2.0, // 부활 후 무적 시간 (초)
+  },
 } as const;
 
 // 웨이브 설정 생성 함수
@@ -631,14 +650,7 @@ export const COOP_CONFIG = {
   MIN_PLAYERS: 2,
   COUNTDOWN_SECONDS: 3,
 
-  // 부활 시스템
-  REVIVE: {
-    BASE_TIME: 10,           // 기본 10초
-    TIME_PER_WAVE: 2,        // 웨이브당 +2초
-    MAX_TIME: 30,            // 최대 30초
-    REVIVE_HP_PERCENT: 0.5,  // HP 50%로 부활
-    SPAWN_OFFSET: 100,       // 아군 근처 100px 내 랜덤 위치
-  },
+  // 부활 시스템은 RPG_CONFIG.REVIVE 사용
 
   // 난이도 스케일링 (플레이어 수에 따른 적 체력 배율)
   DIFFICULTY_SCALING: {

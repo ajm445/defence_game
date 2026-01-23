@@ -16,25 +16,32 @@ import {
 } from '../game/rpg/skillSystem';
 import {
   updateAllEnemiesAINexus,
+  updateAllEnemiesAINexusMultiplayer,
   calculateDamageAfterReduction,
   applyStunToEnemy,
 } from '../game/rpg/enemyAI';
 import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
-import { SkillType, PendingSkill, SkillEffect } from '../types/rpg';
+import { SkillType, PendingSkill, SkillEffect, HeroUnit, Buff } from '../types/rpg';
 import { distance } from '../utils/math';
 import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy } from '../game/rpg/nexusSpawnSystem';
 import { createBosses, areAllBossesDead, hasBosses } from '../game/rpg/bossSystem';
+import { useNetworkSync, shareHostBuffToAllies } from './useNetworkSync';
+import { wsClient } from '../services/WebSocketClient';
 
 export function useRPGGameLoop() {
   const lastTimeRef = useRef<number>(0);
   const animationIdRef = useRef<number>(0);
   const pendingSkillRef = useRef<SkillType | null>(null);
   const bossesSpawnedRef = useRef<boolean>(false);
+  const lastBroadcastTimeRef = useRef<number>(0);
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
   const gameOver = useRPGStore((state) => state.gameOver);
+
+  // 네트워크 동기화 훅 (멀티플레이용)
+  const { broadcastGameState, processRemoteInputs } = useNetworkSync();
 
   const tick = useCallback((timestamp: number) => {
     const state = useRPGStore.getState();
@@ -47,11 +54,101 @@ export function useRPGGameLoop() {
     const deltaTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1);
     lastTimeRef.current = timestamp;
 
+    // ============================================
+    // 멀티플레이어: 클라이언트는 게임 로직 스킵
+    // 호스트만 게임 로직 실행, 클라이언트는 상태를 받아서 렌더링만
+    // ============================================
+    const { isMultiplayer, isHost } = state.multiplayer;
+
+    if (isMultiplayer && !isHost) {
+      // 클라이언트: 이펙트 업데이트 + 로컬 영웅 이동 예측
+      effectManager.update(deltaTime);
+
+      const clientHero = useRPGStore.getState().hero;
+
+      // 사망 체크: HP가 0 이하면 이동 불가 및 사망 상태 처리
+      if (clientHero && clientHero.hp <= 0) {
+        // 이동 방향 초기화 (사망 시 이동 중지)
+        if (clientHero.moveDirection) {
+          useRPGStore.getState().setMoveDirection(undefined);
+        }
+        // 카메라는 계속 따라가도록 (관전 모드)
+        if (useRPGStore.getState().camera.followHero) {
+          useRPGStore.getState().setCamera(clientHero.x, clientHero.y);
+        }
+        animationIdRef.current = requestAnimationFrame(tick);
+        return;
+      }
+
+      // 클라이언트도 자신의 영웅 이동을 로컬에서 처리 (부드러운 움직임)
+      if (clientHero && clientHero.moveDirection) {
+        const dir = clientHero.moveDirection;
+        if (dir.x !== 0 || dir.y !== 0) {
+          const speed = clientHero.config.speed || clientHero.baseSpeed || 200;
+          const moveDistance = speed * deltaTime * 60;
+
+          // 방향 정규화
+          const dirLength = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
+          const normalizedX = dir.x / dirLength;
+          const normalizedY = dir.y / dirLength;
+
+          const newX = clientHero.x + normalizedX * moveDistance;
+          const newY = clientHero.y + normalizedY * moveDistance;
+
+          // 맵 범위 제한 (30px 마진)
+          const clampedX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, newX));
+          const clampedY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, newY));
+
+          useRPGStore.getState().updateHeroPosition(clampedX, clampedY);
+        }
+      }
+
+      // 카메라가 내 영웅을 따라가도록 설정
+      const updatedHero = useRPGStore.getState().hero;
+      if (useRPGStore.getState().camera.followHero && updatedHero) {
+        useRPGStore.getState().setCamera(updatedHero.x, updatedHero.y);
+      }
+
+      animationIdRef.current = requestAnimationFrame(tick);
+      return;
+    }
+
+    // 멀티플레이어 호스트: 원격 입력 처리
+    if (isMultiplayer && isHost) {
+      processRemoteInputs();
+
+      // 다른 플레이어 영웅 부활 체크
+      updateOtherHeroesRevive(state.gameTime);
+
+      // 다른 플레이어 영웅 이동 업데이트
+      updateOtherHeroesMovement(deltaTime);
+
+      // 다른 플레이어 영웅 자동 공격 처리
+      updateOtherHeroesAutoAttack(deltaTime, state.enemies, state.gameTime);
+    }
+
     // 게임 시간 업데이트
     useRPGStore.getState().updateGameTime(deltaTime);
 
     // 영웅 없으면 스킵
     if (!state.hero) {
+      animationIdRef.current = requestAnimationFrame(tick);
+      return;
+    }
+
+    // 부활 체크 (사망 후 일정 시간 경과 시 부활)
+    if (state.hero.hp <= 0 && state.hero.deathTime) {
+      const timeSinceDeath = state.gameTime - state.hero.deathTime;
+      const reviveTime = RPG_CONFIG.REVIVE.BASE_TIME;
+
+      if (timeSinceDeath >= reviveTime) {
+        useRPGStore.getState().reviveHero();
+        soundManager.play('hero_revive');
+        const showNotification = useUIStore.getState().showNotification;
+        showNotification('부활했습니다! (2초간 무적)');
+      }
+
+      // 사망 상태에서는 게임 로직 스킵 (카메라/렌더링만)
       animationIdRef.current = requestAnimationFrame(tick);
       return;
     }
@@ -231,29 +328,124 @@ export function useRPGGameLoop() {
     const currentHeroState = useRPGStore.getState().hero;
     const currentEnemies = useRPGStore.getState().enemies;
     const currentNexus = useRPGStore.getState().nexus;
+    const currentOtherHeroes = useRPGStore.getState().otherHeroes;
 
     if (currentHeroState) {
-      const { updatedEnemies, totalHeroDamage: rawDamage, totalNexusDamage } = updateAllEnemiesAINexus(
-        currentEnemies,
-        currentHeroState,
-        currentNexus,
-        deltaTime,
-        state.gameTime
-      );
+      // 멀티플레이어 모드: 모든 영웅 수집
+      const allHeroes: HeroUnit[] = [currentHeroState];
+      if (isMultiplayer && currentOtherHeroes.size > 0) {
+        currentOtherHeroes.forEach(hero => {
+          if (hero.hp > 0) {
+            allHeroes.push(hero);
+          }
+        });
+      }
 
-      // 영웅 데미지 적용 (데미지 감소 버프 적용)
-      if (rawDamage > 0) {
-        const finalDamage = calculateDamageAfterReduction(rawDamage, currentHeroState);
-        useRPGStore.getState().damageHero(finalDamage);
-        effectManager.createEffect('attack_melee', updatedHero.x, updatedHero.y);
-        soundManager.play('attack_melee');
+      let updatedEnemies: typeof currentEnemies;
+      let totalNexusDamage = 0;
 
-        // 게임 오버 체크 (플레이어 사망)
+      if (isMultiplayer && allHeroes.length > 1) {
+        // 멀티플레이어: 모든 영웅을 고려한 AI
+        const result = updateAllEnemiesAINexusMultiplayer(
+          currentEnemies,
+          allHeroes,
+          currentNexus,
+          deltaTime,
+          state.gameTime
+        );
+
+        updatedEnemies = result.updatedEnemies;
+        totalNexusDamage = result.totalNexusDamage;
+
+        // 각 영웅에게 데미지 적용
+        result.heroDamages.forEach((rawDamage, heroId) => {
+          if (rawDamage <= 0) return;
+
+          const targetHero = heroId === currentHeroState.id
+            ? currentHeroState
+            : currentOtherHeroes.get(heroId);
+
+          if (!targetHero) return;
+
+          const finalDamage = calculateDamageAfterReduction(rawDamage, targetHero);
+
+          if (heroId === currentHeroState.id) {
+            // 호스트 영웅 데미지
+            useRPGStore.getState().damageHero(finalDamage);
+            effectManager.createEffect('attack_melee', currentHeroState.x, currentHeroState.y);
+          } else {
+            // 다른 플레이어 영웅 데미지
+            const otherHero = currentOtherHeroes.get(heroId);
+            if (otherHero) {
+              const newHp = Math.max(0, otherHero.hp - finalDamage);
+              const wasDead = otherHero.hp <= 0;
+              const isDead = newHp <= 0;
+
+              // 사망 시 deathTime 설정 (부활 시스템용)
+              if (isDead && !wasDead && !otherHero.deathTime) {
+                useRPGStore.getState().updateOtherHero(heroId, {
+                  hp: newHp,
+                  deathTime: state.gameTime,
+                  moveDirection: undefined,  // 이동 중지
+                });
+                soundManager.play('hero_death');
+              } else {
+                useRPGStore.getState().updateOtherHero(heroId, { hp: newHp });
+              }
+              effectManager.createEffect('attack_melee', otherHero.x, otherHero.y);
+            }
+          }
+          soundManager.play('attack_melee');
+        });
+
+        // 게임 오버 체크 (모든 플레이어 사망 시)
         const heroAfterDamage = useRPGStore.getState().hero;
-        if (!heroAfterDamage || heroAfterDamage.hp <= 0) {
+        const otherHeroesAfterDamage = useRPGStore.getState().otherHeroes;
+
+        // 호스트 생존 여부
+        const hostAlive = heroAfterDamage && heroAfterDamage.hp > 0;
+
+        // 다른 플레이어들 생존 여부
+        let anyOtherAlive = false;
+        otherHeroesAfterDamage.forEach((otherHero) => {
+          if (otherHero.hp > 0) {
+            anyOtherAlive = true;
+          }
+        });
+
+        // 모든 플레이어가 사망했을 때만 게임 오버
+        if (!hostAlive && !anyOtherAlive) {
           useRPGStore.getState().setGameOver(false);
           soundManager.play('defeat');
           return;
+        }
+      } else {
+        // 싱글플레이어: 기존 로직
+        const result = updateAllEnemiesAINexus(
+          currentEnemies,
+          currentHeroState,
+          currentNexus,
+          deltaTime,
+          state.gameTime
+        );
+
+        updatedEnemies = result.updatedEnemies;
+        totalNexusDamage = result.totalNexusDamage;
+
+        // 영웅 데미지 적용 (데미지 감소 버프 적용)
+        if (result.totalHeroDamage > 0) {
+          const finalDamage = calculateDamageAfterReduction(result.totalHeroDamage, currentHeroState);
+          useRPGStore.getState().damageHero(finalDamage);
+          effectManager.createEffect('attack_melee', updatedHero.x, updatedHero.y);
+          soundManager.play('attack_melee');
+
+          // 사망 체크 (부활 시스템으로 처리됨 - gameOver 설정하지 않음)
+          const heroAfterDamage = useRPGStore.getState().hero;
+          if (heroAfterDamage && heroAfterDamage.hp <= 0 && heroAfterDamage.deathTime) {
+            soundManager.play('hero_death');
+            const showNotification = useUIStore.getState().showNotification;
+            showNotification(`사망! ${RPG_CONFIG.REVIVE.BASE_TIME}초 후 부활합니다.`);
+          }
         }
       }
 
@@ -264,9 +456,8 @@ export function useRPGGameLoop() {
         // 넥서스 파괴 체크
         const nexusAfterDamage = useRPGStore.getState().nexus;
         if (!nexusAfterDamage || nexusAfterDamage.hp <= 0) {
+          useRPGStore.getState().setGameOver(false);
           soundManager.play('defeat');
-          const showNotification = useUIStore.getState().showNotification;
-          showNotification('넥서스가 파괴되었습니다!');
           return;
         }
       }
@@ -399,8 +590,16 @@ export function useRPGGameLoop() {
       useRPGStore.getState().removeSkillEffect(expiredEffects[i]);
     }
 
+    // ============================================
+    // 멀티플레이어: 호스트 상태 브로드캐스트
+    // ============================================
+    const finalState = useRPGStore.getState();
+    if (finalState.multiplayer.isMultiplayer && finalState.multiplayer.isHost) {
+      broadcastGameState();
+    }
+
     animationIdRef.current = requestAnimationFrame(tick);
-  }, []);
+  }, [broadcastGameState, processRemoteInputs]);
 
   // 스킬 결과 처리 공통 함수
   const processSkillResult = useCallback(
@@ -431,6 +630,12 @@ export function useRPGGameLoop() {
       // 버프 적용
       if (result.buff) {
         useRPGStore.getState().addBuff(result.buff);
+
+        // 멀티플레이어: 아군에게 버프 공유 (광전사, 철벽 방어)
+        const currentHero = useRPGStore.getState().hero;
+        if (currentHero) {
+          shareHostBuffToAllies(result.buff, currentHero);
+        }
       }
 
       // 보류 스킬 (운석 낙하 등)
@@ -598,4 +803,242 @@ export function useRPGGameLoop() {
   }, [running, paused, gameOver, tick]);
 
   return { requestSkill };
+}
+
+/**
+ * 다른 플레이어 영웅들의 이동 업데이트 (호스트에서 실행)
+ */
+/**
+ * 다른 플레이어 영웅들의 부활 체크 (호스트에서 실행)
+ */
+function updateOtherHeroesRevive(gameTime: number) {
+  const state = useRPGStore.getState();
+  const reviveTime = RPG_CONFIG.REVIVE.BASE_TIME;
+
+  state.otherHeroes.forEach((hero, heroId) => {
+    // 사망 상태이고 deathTime이 설정된 경우만 체크
+    if (hero.hp <= 0 && hero.deathTime) {
+      const timeSinceDeath = gameTime - hero.deathTime;
+
+      if (timeSinceDeath >= reviveTime) {
+        // 넥서스 근처에서 부활
+        const nexus = state.nexus;
+        const nexusX = nexus?.x || RPG_CONFIG.MAP_WIDTH / 2;
+        const nexusY = nexus?.y || RPG_CONFIG.MAP_HEIGHT / 2;
+        const offsetX = (Math.random() - 0.5) * RPG_CONFIG.REVIVE.SPAWN_OFFSET * 2;
+        const offsetY = (Math.random() - 0.5) * RPG_CONFIG.REVIVE.SPAWN_OFFSET * 2;
+
+        // 무적 버프 생성
+        const invincibleBuff: Buff = {
+          type: 'invincible',
+          duration: RPG_CONFIG.REVIVE.INVINCIBLE_DURATION,
+          startTime: gameTime,
+        };
+
+        // 영웅 부활 처리
+        state.updateOtherHero(heroId, {
+          hp: hero.maxHp * RPG_CONFIG.REVIVE.REVIVE_HP_PERCENT,
+          x: nexusX + offsetX,
+          y: nexusY + offsetY,
+          deathTime: undefined,
+          moveDirection: undefined,
+          state: 'idle',
+          buffs: [...(hero.buffs || []), invincibleBuff],
+        });
+
+        console.log(`[GameLoop] 플레이어 부활: ${heroId}`);
+      }
+    }
+  });
+}
+
+function updateOtherHeroesMovement(deltaTime: number) {
+  const state = useRPGStore.getState();
+
+  state.otherHeroes.forEach((hero, heroId) => {
+    // 사망 상태면 이동 스킵
+    if (hero.hp <= 0) return;
+    if (!hero.moveDirection) return;
+
+    const { x: dirX, y: dirY } = hero.moveDirection;
+    const speed = hero.config.speed || hero.baseSpeed || 200;
+
+    // 방향 정규화
+    const length = Math.sqrt(dirX * dirX + dirY * dirY);
+    if (length === 0) return;
+
+    const normalizedX = dirX / length;
+    const normalizedY = dirY / length;
+
+    // 새 위치 계산 (speed는 60fps 기준이므로 * 60 필요)
+    const moveDistance = speed * deltaTime * 60;
+    const newX = hero.x + normalizedX * moveDistance;
+    const newY = hero.y + normalizedY * moveDistance;
+
+    // 맵 범위 제한
+    const mapWidth = RPG_CONFIG.MAP_WIDTH;
+    const mapHeight = RPG_CONFIG.MAP_HEIGHT;
+    const clampedX = Math.max(0, Math.min(mapWidth, newX));
+    const clampedY = Math.max(0, Math.min(mapHeight, newY));
+
+    // 영웅 위치 업데이트
+    state.updateOtherHero(heroId, {
+      x: clampedX,
+      y: clampedY,
+      facingRight: dirX >= 0,
+      facingAngle: Math.atan2(dirY, dirX),
+    });
+  });
+}
+
+/**
+ * 다른 플레이어 영웅들의 자동 공격 처리 (호스트에서 실행)
+ */
+function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<typeof useRPGStore.getState>['enemies'], _gameTime: number) {
+  const state = useRPGStore.getState();
+
+  state.otherHeroes.forEach((hero, heroId) => {
+    // 사망한 영웅은 스킵
+    if (hero.hp <= 0) return;
+    // 돌진 중이면 스킵
+    if (hero.dashState) return;
+
+    // 스킬 쿨다운 업데이트
+    const updatedSkills = hero.skills.map(skill => ({
+      ...skill,
+      currentCooldown: Math.max(0, skill.currentCooldown - deltaTime),
+    }));
+
+    // 스킬 업데이트 적용
+    state.updateOtherHero(heroId, { skills: updatedSkills });
+
+    // Q 스킬 찾기
+    const heroClass = hero.heroClass;
+    const qSkillType = CLASS_SKILLS[heroClass].q.type;
+    const qSkill = updatedSkills.find(s => s.type === qSkillType);
+
+    if (!qSkill || qSkill.currentCooldown > 0) return;
+
+    // 공격 사거리 내 가장 가까운 적 찾기
+    const attackRange = hero.config.range || 80;
+    const nearestEnemy = findNearestEnemyForHero(hero, enemies);
+
+    let attackedTarget = false;
+
+    if (nearestEnemy) {
+      const dist = distance(hero.x, hero.y, nearestEnemy.x, nearestEnemy.y);
+      if (dist <= attackRange) {
+        // 적 공격 - 해당 플레이어의 업그레이드 레벨 사용
+        const baseDamage = hero.baseAttack;
+        const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
+        const attackBonus = playerUpgrades.attack * 5;
+        const totalDamage = baseDamage + attackBonus;
+
+        // killerHeroId를 전달하여 해당 플레이어에게 골드 지급
+        const killed = state.damageEnemy(nearestEnemy.id, totalDamage, heroId);
+        if (killed) {
+          state.removeEnemy(nearestEnemy.id);
+          effectManager.createEffect('attack_melee', nearestEnemy.x, nearestEnemy.y);
+        }
+
+        // Q 스킬 쿨다운 리셋
+        const skillsWithCooldown = updatedSkills.map(s =>
+          s.type === qSkillType ? { ...s, currentCooldown: s.cooldown } : s
+        );
+        state.updateOtherHero(heroId, {
+          skills: skillsWithCooldown,
+          facingAngle: Math.atan2(nearestEnemy.y - hero.y, nearestEnemy.x - hero.x),
+        });
+
+        // 사운드 재생
+        if (heroClass === 'archer' || heroClass === 'mage') {
+          soundManager.play('attack_ranged');
+        } else {
+          soundManager.play('attack_melee');
+        }
+
+        attackedTarget = true;
+      }
+    }
+
+    // 적이 사거리 내에 없으면 적 기지 공격 시도
+    if (!attackedTarget) {
+      const enemyBases = state.enemyBases;
+      const nearestBase = findNearestBaseForHero(hero, enemyBases);
+
+      if (nearestBase) {
+        const baseDist = distance(hero.x, hero.y, nearestBase.x, nearestBase.y);
+        const baseAttackRange = attackRange + 50;
+        if (baseDist <= baseAttackRange) {
+          // 기지 공격 - 해당 플레이어의 업그레이드 레벨 사용
+          const baseDamage = hero.baseAttack;
+          const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
+          const attackBonus = playerUpgrades.attack * 5;
+          const totalDamage = baseDamage + attackBonus;
+
+          const destroyed = state.damageBase(nearestBase.id, totalDamage);
+
+          // Q 스킬 쿨다운 리셋
+          const skillsWithCooldown = updatedSkills.map(s =>
+            s.type === qSkillType ? { ...s, currentCooldown: s.cooldown } : s
+          );
+          state.updateOtherHero(heroId, {
+            skills: skillsWithCooldown,
+            facingAngle: Math.atan2(nearestBase.y - hero.y, nearestBase.x - hero.x),
+          });
+
+          effectManager.createEffect('attack_melee', nearestBase.x, nearestBase.y);
+          if (heroClass === 'archer' || heroClass === 'mage') {
+            soundManager.play('attack_ranged');
+          } else {
+            soundManager.play('attack_melee');
+          }
+
+          if (destroyed) {
+            const showNotification = useUIStore.getState().showNotification;
+            showNotification(`적 기지 파괴!`);
+            soundManager.play('victory');
+          }
+        }
+      }
+    }
+  });
+}
+
+/**
+ * 특정 영웅 기준 가장 가까운 적 찾기
+ */
+function findNearestEnemyForHero(hero: HeroUnit, enemies: ReturnType<typeof useRPGStore.getState>['enemies']) {
+  let nearest: typeof enemies[0] | null = null;
+  let minDist = Infinity;
+
+  for (const enemy of enemies) {
+    if (enemy.hp <= 0) continue;
+    const dist = distance(hero.x, hero.y, enemy.x, enemy.y);
+    if (dist < minDist) {
+      minDist = dist;
+      nearest = enemy;
+    }
+  }
+
+  return nearest;
+}
+
+/**
+ * 특정 영웅 기준 가장 가까운 적 기지 찾기
+ */
+function findNearestBaseForHero(hero: HeroUnit, bases: ReturnType<typeof useRPGStore.getState>['enemyBases']) {
+  let nearest: typeof bases[0] | null = null;
+  let minDist = Infinity;
+
+  for (const base of bases) {
+    if (base.destroyed) continue;
+    const dist = distance(hero.x, hero.y, base.x, base.y);
+    if (dist < minDist) {
+      minDist = dist;
+      nearest = base;
+    }
+  }
+
+  return nearest;
 }

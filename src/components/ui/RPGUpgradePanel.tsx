@@ -1,21 +1,25 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useMemo } from 'react';
 import { useRPGStore, useGold, useUpgradeLevels, useHero } from '../../stores/useRPGStore';
-import { getUpgradeCost, UpgradeType } from '../../game/rpg/goldSystem';
+import { getUpgradeCost, UpgradeType, getRangeMaxLevel } from '../../game/rpg/goldSystem';
+import { UPGRADE_CONFIG } from '../../constants/rpgConfig';
 
 // 업그레이드 타입별 정보
 const UPGRADE_INFO: Record<UpgradeType, { key: string; icon: string; label: string; color: string }> = {
   attack: { key: '1', icon: '⚔️', label: '공격', color: 'from-red-500/30 to-orange-500/30' },
   speed: { key: '2', icon: '👟', label: '속도', color: 'from-blue-500/30 to-cyan-500/30' },
   hp: { key: '3', icon: '❤️', label: 'HP', color: 'from-green-500/30 to-emerald-500/30' },
-  goldRate: { key: '4', icon: '💰', label: '골드', color: 'from-yellow-500/30 to-amber-500/30' },
+  attackSpeed: { key: '4', icon: '⚡', label: '공속', color: 'from-purple-500/30 to-violet-500/30' },
+  goldRate: { key: '5', icon: '💰', label: '골드', color: 'from-yellow-500/30 to-amber-500/30' },
+  range: { key: '6', icon: '🎯', label: '사거리', color: 'from-pink-500/30 to-rose-500/30' },
 };
 
 interface UpgradeButtonProps {
   type: UpgradeType;
   currentLevel: number;
-  maxLevel: number;
+  maxLevel: number | null;  // null = 무제한
   gold: number;
   onUpgrade: () => void;
+  isHidden?: boolean;
 }
 
 const UpgradeButton: React.FC<UpgradeButtonProps> = ({
@@ -24,11 +28,14 @@ const UpgradeButton: React.FC<UpgradeButtonProps> = ({
   maxLevel,
   gold,
   onUpgrade,
+  isHidden,
 }) => {
+  if (isHidden) return null;
+
   const info = UPGRADE_INFO[type];
   const cost = getUpgradeCost(currentLevel);
   const canAfford = gold >= cost;
-  const isMaxed = currentLevel >= maxLevel;
+  const isMaxed = maxLevel !== null && currentLevel >= maxLevel;
   const isDisabled = isMaxed || !canAfford;
 
   return (
@@ -71,7 +78,7 @@ const UpgradeButton: React.FC<UpgradeButtonProps> = ({
         <div className="bg-dark-800/95 border border-dark-500 rounded-lg px-3 py-2 whitespace-nowrap text-center min-w-[100px]">
           <div className="font-bold text-white">{info.label} 업그레이드</div>
           <div className="text-xs text-gray-400 mt-1">
-            레벨: {currentLevel}/{maxLevel}
+            레벨: {currentLevel}{maxLevel !== null ? `/${maxLevel}` : ''}
           </div>
           {!isMaxed && (
             <div className={`text-xs mt-1 ${canAfford ? 'text-yellow-400' : 'text-red-400'}`}>
@@ -90,7 +97,20 @@ export const RPGUpgradePanel: React.FC = () => {
   const hero = useHero();
   const upgradeHeroStat = useRPGStore((state) => state.upgradeHeroStat);
 
-  const characterLevel = hero?.characterLevel || 1;
+  const heroClass = hero?.heroClass;
+  const isRangedClass = heroClass === 'archer' || heroClass === 'mage';
+
+  // 사거리 업그레이드 최대 레벨
+  const rangeMaxLevel = getRangeMaxLevel();
+
+  // 표시할 업그레이드 목록 (사거리는 원거리 캐릭터만)
+  const upgradeTypes = useMemo(() => {
+    const baseTypes: UpgradeType[] = ['attack', 'speed', 'hp', 'attackSpeed', 'goldRate'];
+    if (isRangedClass) {
+      baseTypes.push('range');
+    }
+    return baseTypes;
+  }, [isRangedClass]);
 
   const handleUpgrade = useCallback((type: UpgradeType) => {
     upgradeHeroStat(type);
@@ -115,18 +135,34 @@ export const RPGUpgradePanel: React.FC = () => {
           handleUpgrade('hp');
           break;
         case '4':
+          handleUpgrade('attackSpeed');
+          break;
+        case '5':
           handleUpgrade('goldRate');
+          break;
+        case '6':
+          if (isRangedClass) {
+            handleUpgrade('range');
+          }
           break;
       }
     };
 
     window.addEventListener('keydown', handleKeyDown);
     return () => window.removeEventListener('keydown', handleKeyDown);
-  }, [handleUpgrade]);
+  }, [handleUpgrade, isRangedClass]);
+
+  // 업그레이드별 최대 레벨 결정 (사거리만 제한, 나머지는 무제한)
+  const getMaxLevel = (type: UpgradeType): number | null => {
+    if (type === 'range') {
+      return rangeMaxLevel;
+    }
+    return null;  // 무제한
+  };
 
   return (
     <>
-      {(['attack', 'speed', 'hp', 'goldRate'] as UpgradeType[]).map((type) => (
+      {upgradeTypes.map((type) => (
         <div key={type} className="flex flex-col items-center gap-1">
           <div className="text-[10px] text-gray-400 font-medium">
             {UPGRADE_INFO[type].label}
@@ -134,7 +170,7 @@ export const RPGUpgradePanel: React.FC = () => {
           <UpgradeButton
             type={type}
             currentLevel={upgradeLevels[type]}
-            maxLevel={characterLevel}
+            maxLevel={getMaxLevel(type)}
             gold={gold}
             onUpgrade={() => handleUpgrade(type)}
           />

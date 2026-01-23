@@ -23,16 +23,26 @@ export function getUpgradeCost(currentLevel: number): number {
 /**
  * 업그레이드 가능 여부 확인
  * - 충분한 골드가 있는지
- * - 캐릭터 레벨 상한에 도달하지 않았는지
+ * - 사거리 업그레이드의 경우 최대 레벨 확인
  */
 export function canUpgrade(
   gold: number,
   currentLevel: number,
-  characterLevel: number
+  _characterLevel: number,  // 레벨 제한 해제로 사용하지 않음
+  upgradeType?: UpgradeType,
+  heroClass?: string
 ): boolean {
-  // 캐릭터 레벨이 최대 레벨
-  if (currentLevel >= characterLevel) {
-    return false;
+  // 사거리 업그레이드는 궁수/마법사만 가능하고 최대 레벨 있음
+  if (upgradeType === 'range') {
+    // 궁수/마법사가 아니면 불가
+    if (heroClass !== 'archer' && heroClass !== 'mage') {
+      return false;
+    }
+    // 최대 레벨 체크
+    const maxLevel = UPGRADE_CONFIG.range.maxLevel;
+    if (currentLevel >= maxLevel) {
+      return false;
+    }
   }
 
   // 골드 확인
@@ -60,13 +70,17 @@ export function calculateAllUpgradeBonuses(upgradeLevels: UpgradeLevels): {
   attackBonus: number;
   speedBonus: number;
   hpBonus: number;
+  attackSpeedBonus: number;
   goldRateBonus: number;
+  rangeBonus: number;
 } {
   return {
     attackBonus: getUpgradeBonus('attack', upgradeLevels.attack),
     speedBonus: getUpgradeBonus('speed', upgradeLevels.speed),
     hpBonus: getUpgradeBonus('hp', upgradeLevels.hp),
+    attackSpeedBonus: getUpgradeBonus('attackSpeed', upgradeLevels.attackSpeed),
     goldRateBonus: getUpgradeBonus('goldRate', upgradeLevels.goldRate),
+    rangeBonus: getUpgradeBonus('range', upgradeLevels.range),
   };
 }
 
@@ -78,7 +92,9 @@ export function createInitialUpgradeLevels(): UpgradeLevels {
     attack: 0,
     speed: 0,
     hp: 0,
+    attackSpeed: 0,
     goldRate: 0,
+    range: 0,
   };
 }
 
@@ -90,7 +106,7 @@ export function getUpgradeDescription(upgradeType: UpgradeType, currentLevel: nu
   const currentBonus = getUpgradeBonus(upgradeType, currentLevel);
   const nextBonus = getUpgradeBonus(upgradeType, currentLevel + 1);
 
-  if (upgradeType === 'speed') {
+  if (upgradeType === 'speed' || upgradeType === 'attackSpeed') {
     return `${config.description}: +${currentBonus.toFixed(2)} → +${nextBonus.toFixed(2)}`;
   } else {
     return `${config.description}: +${currentBonus} → +${nextBonus}`;
@@ -103,9 +119,16 @@ export function getUpgradeDescription(upgradeType: UpgradeType, currentLevel: nu
 export function getCurrentBonusText(upgradeType: UpgradeType, level: number): string {
   const bonus = getUpgradeBonus(upgradeType, level);
 
-  if (upgradeType === 'speed') {
+  if (upgradeType === 'speed' || upgradeType === 'attackSpeed') {
     return `+${bonus.toFixed(2)}`;
   } else {
     return `+${bonus}`;
   }
+}
+
+/**
+ * 사거리 업그레이드 최대 레벨 확인
+ */
+export function getRangeMaxLevel(): number {
+  return UPGRADE_CONFIG.range.maxLevel;
 }

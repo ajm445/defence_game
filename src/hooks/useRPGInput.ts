@@ -4,6 +4,7 @@ import { useUIStore } from '../stores/useUIStore';
 import { RPG_CONFIG } from '../constants/rpgConfig';
 import { soundManager } from '../services/SoundManager';
 import { SkillType } from '../types/rpg';
+import { sendMoveDirection, sendSkillUse } from './useNetworkSync';
 
 const ZOOM_SPEED = 0.1;
 
@@ -20,7 +21,6 @@ interface UseRPGInputReturn {
   handleMouseMove: (e: React.MouseEvent) => void;
   handleMouseUp: (e: React.MouseEvent) => void;
   handleContextMenu: (e: React.MouseEvent) => void;
-  handleWheel: (e: React.WheelEvent) => void;
 }
 
 export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): UseRPGInputReturn {
@@ -93,12 +93,13 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
     e.preventDefault();
   }, []);
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
+  // 휠 이벤트는 passive: false로 네이티브 이벤트 리스너 사용 (preventDefault 허용)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
 
       const state = useRPGStore.getState();
       const currentZoom = state.camera.zoom;
@@ -111,16 +112,20 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
       );
 
       useRPGStore.getState().setZoom(newZoom);
-    },
-    [canvasRef]
-  );
+    };
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [canvasRef]);
 
   return {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
     handleContextMenu,
-    handleWheel,
   };
 }
 
@@ -139,6 +144,18 @@ function calculateMoveDirection(): { x: number; y: number } | undefined {
   }
 
   return { x, y };
+}
+
+// 이동 방향 업데이트 및 네트워크 전송
+function updateMoveDirection() {
+  const direction = calculateMoveDirection();
+  useRPGStore.getState().setMoveDirection(direction);
+
+  // 멀티플레이 모드에서 네트워크 전송
+  const { isMultiplayer, isHost } = useRPGStore.getState().multiplayer;
+  if (isMultiplayer && !isHost) {
+    sendMoveDirection(direction || null);
+  }
 }
 
 /**
@@ -162,18 +179,38 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
         return;
       }
 
-      // WASD 이동 처리 (게임 진행 중에만)
+      // WASD 처리
       if (state.running && !state.paused && !state.gameOver && state.hero) {
         if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
           keyState[key as 'w' | 'a' | 's' | 'd'] = true;
-          const direction = calculateMoveDirection();
-          useRPGStore.getState().setMoveDirection(direction);
+
+          // 생존 상태: 캐릭터 이동
+          if (state.hero.hp > 0) {
+            updateMoveDirection();
+          } else {
+            // 사망 상태: 카메라 이동 (관전 모드)
+            const cameraSpeed = 15;
+            let dx = 0, dy = 0;
+            if (keyState.w) dy -= cameraSpeed;
+            if (keyState.s) dy += cameraSpeed;
+            if (keyState.a) dx -= cameraSpeed;
+            if (keyState.d) dx += cameraSpeed;
+
+            if (dx !== 0 || dy !== 0) {
+              const camera = state.camera;
+              useRPGStore.getState().setCamera(camera.x + dx, camera.y + dy);
+              // 카메라 추적 해제
+              if (camera.followHero) {
+                useRPGStore.getState().toggleFollowHero();
+              }
+            }
+          }
           return;
         }
       }
 
       if (!state.running || state.paused || state.gameOver) return;
-      if (!state.hero) return;
+      if (!state.hero || state.hero.hp <= 0) return;
 
       const heroClass = state.hero.heroClass;
       const skills = state.hero.skills;
@@ -187,6 +224,11 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
             if (wSkill && wSkill.currentCooldown <= 0) {
               if (requestSkill?.(wSkill.type)) {
                 soundManager.play('attack_melee');
+                // 멀티플레이 모드에서 네트워크 전송
+                const { isMultiplayer, isHost } = state.multiplayer;
+                if (isMultiplayer && !isHost) {
+                  sendSkillUse('W', state.mousePosition.x, state.mousePosition.y);
+                }
               }
             }
           }
@@ -202,6 +244,11 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
                   soundManager.play('heal');
                 } else {
                   soundManager.play('attack_ranged');
+                }
+                // 멀티플레이 모드에서 네트워크 전송
+                const { isMultiplayer, isHost } = state.multiplayer;
+                if (isMultiplayer && !isHost) {
+                  sendSkillUse('E', state.mousePosition.x, state.mousePosition.y);
                 }
               }
             }
@@ -239,8 +286,7 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
       // WASD 키 해제
       if (key === 'w' || key === 'a' || key === 's' || key === 'd') {
         keyState[key as 'w' | 'a' | 's' | 'd'] = false;
-        const direction = calculateMoveDirection();
-        useRPGStore.getState().setMoveDirection(direction);
+        updateMoveDirection();
       }
     };
 

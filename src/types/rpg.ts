@@ -81,7 +81,9 @@ export interface UpgradeLevels {
   attack: number;
   speed: number;
   hp: number;
+  attackSpeed: number;
   goldRate: number;
+  range: number;  // 궁수/마법사 전용
 }
 
 // RPG 게임 진행 단계
@@ -141,6 +143,7 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   facingAngle: number;       // 실제 바라보는 방향 각도 (라디안, 스킬 방향용)
   dashState?: DashState;     // 돌진 중일 때의 상태 정보
   passiveGrowth: PassiveGrowthState; // 패시브 성장 상태
+  deathTime?: number;        // 사망 시간 (부활 타이머용)
 }
 
 // 웨이브 설정
@@ -169,6 +172,10 @@ export interface RPGEnemy extends Unit {
   fromBase?: 'left' | 'right'; // 스폰된 기지 (넥서스 디펜스용)
   aggroOnHero: boolean;    // 영웅에게 어그로가 끌렸는지 (공격당하면 true)
   aggroExpireTime?: number; // 어그로 만료 시간 (게임 시간 기준)
+  // 멀티플레이어 동기화용
+  targetHeroId?: string;   // 타겟 영웅 ID
+  isStunned?: boolean;     // 스턴 상태
+  stunEndTime?: number;    // 스턴 종료 시간
 }
 
 // 시야 시스템 설정

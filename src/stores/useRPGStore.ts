@@ -2,10 +2,13 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, UpgradeLevels, RPGGamePhase } from '../types/rpg';
 import { UnitType } from '../types/unit';
-import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
 import { createInitialUpgradeLevels, getUpgradeCost, canUpgrade, getGoldReward, calculateAllUpgradeBonuses, UpgradeType } from '../game/rpg/goldSystem';
 import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '../types/auth';
+import type { MultiplayerState, PlayerInput, SerializedGameState, SerializedHero, SerializedEnemy } from '../../shared/types/hostBasedNetwork';
+import type { CoopPlayerInfo } from '../../shared/types/rpgNetwork';
+import { wsClient } from '../services/WebSocketClient';
 
 interface RPGState extends RPGGameState {
   // 활성 스킬 효과
@@ -26,6 +29,17 @@ interface RPGState extends RPGGameState {
     range: number;                            // 사거리/거리
     radius?: number;                          // AoE 반경 (범위 스킬용)
   } | null;
+
+  // ============================================
+  // 멀티플레이 상태 (호스트 기반 통합 시스템)
+  // ============================================
+  multiplayer: MultiplayerState;
+
+  // 다른 플레이어 영웅들 (멀티플레이 시)
+  otherHeroes: Map<string, HeroUnit>;
+  // 다른 플레이어별 골드 및 업그레이드 (멀티플레이 시 각자 별개)
+  otherPlayersGold: Map<string, number>;
+  otherPlayersUpgrades: Map<string, UpgradeLevels>;
 }
 
 interface RPGActions {
@@ -43,6 +57,7 @@ interface RPGActions {
   setAttackTarget: (targetId: string | undefined) => void;
   damageHero: (amount: number) => void;
   healHero: (amount: number) => void;
+  reviveHero: () => void;
   updateHeroPosition: (x: number, y: number) => void;
   updateHeroState: (heroUpdate: Partial<HeroUnit>) => void;
 
@@ -74,7 +89,7 @@ interface RPGActions {
   // 적 관리
   addEnemy: (enemy: RPGEnemy) => void;
   removeEnemy: (enemyId: string) => void;
-  damageEnemy: (enemyId: string, amount: number) => boolean; // returns true if killed
+  damageEnemy: (enemyId: string, amount: number, killerHeroId?: string) => boolean; // returns true if killed, killerHeroId for multiplayer gold
   updateEnemies: (enemies: RPGEnemy[]) => void;
 
   // 넥서스/기지
@@ -111,6 +126,38 @@ interface RPGActions {
 
   // 호버된 스킬 사거리 설정
   setHoveredSkillRange: (range: RPGState['hoveredSkillRange']) => void;
+
+  // ============================================
+  // 멀티플레이 액션 (호스트 기반 통합 시스템)
+  // ============================================
+
+  // 멀티플레이 상태 설정
+  setMultiplayerState: (state: Partial<MultiplayerState>) => void;
+  resetMultiplayerState: () => void;
+
+  // 멀티플레이 게임 초기화 (호스트용)
+  initMultiplayerGame: (players: CoopPlayerInfo[], _isHost: boolean) => void;
+
+  // 다른 플레이어 영웅 관리
+  addOtherHero: (hero: HeroUnit) => void;
+  updateOtherHero: (heroId: string, update: Partial<HeroUnit>) => void;
+  removeOtherHero: (heroId: string) => void;
+  clearOtherHeroes: () => void;
+
+  // 다른 플레이어 골드/업그레이드 관리 (멀티플레이)
+  addGoldToOtherPlayer: (heroId: string, amount: number) => void;
+  getOtherPlayerGold: (heroId: string) => number;
+  upgradeOtherHeroStat: (heroId: string, stat: UpgradeType) => boolean;
+  getOtherPlayerUpgrades: (heroId: string) => UpgradeLevels;
+
+  // 원격 입력 큐 관리 (호스트용)
+  addRemoteInput: (input: PlayerInput) => void;
+  popRemoteInput: () => PlayerInput | undefined;
+  clearRemoteInputs: () => void;
+
+  // 게임 상태 직렬화/역직렬화
+  serializeGameState: () => SerializedGameState;
+  applySerializedState: (state: SerializedGameState, myHeroId: string | null) => void;
 }
 
 interface RPGStore extends RPGState, RPGActions {}
@@ -199,6 +246,24 @@ const initialState: RPGState = {
   mousePosition: { x: NEXUS_CONFIG.position.x, y: NEXUS_CONFIG.position.y },
   showAttackRange: false,
   hoveredSkillRange: null,
+
+  // 멀티플레이 초기 상태
+  multiplayer: {
+    isMultiplayer: false,
+    isHost: false,
+    roomCode: null,
+    roomId: null,
+    hostPlayerId: null,
+    myPlayerId: null,
+    myHeroId: null,
+    players: [],
+    remoteInputQueue: [],
+    connectionState: 'disconnected',
+    countdown: null,
+  },
+  otherHeroes: new Map(),
+  otherPlayersGold: new Map(),
+  otherPlayersUpgrades: new Map(),
 };
 
 // 직업별 스킬 생성
@@ -248,6 +313,7 @@ function createHeroUnit(
   const attackBonus = getStatBonus('attack', upgrades.attack);
   const speedBonus = getStatBonus('speed', upgrades.speed);
   const hpBonus = getStatBonus('hp', upgrades.hp);
+  const attackSpeedBonus = getStatBonus('attackSpeed', upgrades.attackSpeed);
   const rangeBonus = getStatBonus('range', upgrades.range);
   // hpRegen은 게임 루프에서 적용됨
 
@@ -255,6 +321,8 @@ function createHeroUnit(
   const finalHp = classConfig.hp + hpBonus;
   const finalAttack = classConfig.attack + attackBonus;
   const finalSpeed = classConfig.speed + speedBonus;
+  // 공격속도는 감소할수록 좋음 (빠른 공격), 최소 0.3초 보장
+  const finalAttackSpeed = Math.max(0.3, classConfig.attackSpeed - attackSpeedBonus);
   const finalRange = classConfig.range + rangeBonus;
 
   return {
@@ -267,7 +335,7 @@ function createHeroUnit(
       cost: {},
       hp: finalHp,
       attack: finalAttack,
-      attackSpeed: classConfig.attackSpeed,
+      attackSpeed: finalAttackSpeed,
       speed: finalSpeed,
       range: finalRange,
       type: 'combat',
@@ -283,7 +351,7 @@ function createHeroUnit(
     skills: createClassSkills(heroClass),
     baseAttack: finalAttack,
     baseSpeed: finalSpeed,
-    baseAttackSpeed: classConfig.attackSpeed,
+    baseAttackSpeed: finalAttackSpeed,
     buffs: [],
     facingRight: true,   // 기본적으로 오른쪽을 바라봄 (이미지 반전용)
     facingAngle: 0,      // 기본적으로 오른쪽 방향 (0 라디안)
@@ -423,10 +491,15 @@ export const useRPGStore = create<RPGStore>()(
         const newHp = Math.max(0, state.hero.hp - amount);
         const isDead = newHp <= 0;
 
+        // 사망 시 deathTime 설정 (부활 시스템용) - gameOver는 설정하지 않음
+        if (isDead && !state.hero.deathTime) {
+          return {
+            hero: { ...state.hero, hp: newHp, deathTime: state.gameTime },
+          };
+        }
+
         return {
           hero: { ...state.hero, hp: newHp },
-          gameOver: isDead,
-          victory: false,
         };
       });
     },
@@ -437,6 +510,38 @@ export const useRPGStore = create<RPGStore>()(
         const newHp = Math.min(state.hero.maxHp, state.hero.hp + amount);
         return {
           hero: { ...state.hero, hp: newHp },
+        };
+      });
+    },
+
+    reviveHero: () => {
+      set((state) => {
+        if (!state.hero) return state;
+
+        // 넥서스 근처에서 부활
+        const nexusX = state.nexus?.x || RPG_CONFIG.MAP_WIDTH / 2;
+        const nexusY = state.nexus?.y || RPG_CONFIG.MAP_HEIGHT / 2;
+        const offsetX = (Math.random() - 0.5) * RPG_CONFIG.REVIVE.SPAWN_OFFSET * 2;
+        const offsetY = (Math.random() - 0.5) * RPG_CONFIG.REVIVE.SPAWN_OFFSET * 2;
+
+        // 풀 HP로 부활 + 무적 버프 추가
+        const invincibleBuff: Buff = {
+          type: 'invincible',
+          duration: RPG_CONFIG.REVIVE.INVINCIBLE_DURATION,
+          startTime: state.gameTime,
+        };
+
+        return {
+          hero: {
+            ...state.hero,
+            hp: state.hero.maxHp * RPG_CONFIG.REVIVE.REVIVE_HP_PERCENT,
+            x: nexusX + offsetX,
+            y: nexusY + offsetY,
+            deathTime: undefined,
+            moveDirection: undefined,
+            state: 'idle',
+            buffs: [...(state.hero.buffs || []), invincibleBuff],
+          },
         };
       });
     },
@@ -494,11 +599,36 @@ export const useRPGStore = create<RPGStore>()(
     // 영웅 스탯 업그레이드
     upgradeHeroStat: (stat: UpgradeType) => {
       const state = get();
+      const { isMultiplayer, isHost } = state.multiplayer;
+      const heroClass = state.hero?.heroClass;
+
+      // 멀티플레이어 클라이언트(호스트가 아닌 플레이어): 네트워크로 업그레이드 요청
+      if (isMultiplayer && !isHost) {
+        const currentLevel = state.upgradeLevels[stat];
+        const characterLevel = state.hero?.characterLevel || 1;
+
+        // 로컬에서 업그레이드 가능 여부만 확인 (실제 처리는 호스트에서)
+        if (!canUpgrade(state.gold, currentLevel, characterLevel, stat, heroClass)) {
+          return false;
+        }
+
+        // 호스트에게 업그레이드 요청 전송
+        const input: PlayerInput = {
+          playerId: state.multiplayer.myPlayerId || '',
+          moveDirection: null,
+          upgradeRequested: stat,
+          timestamp: Date.now(),
+        };
+        wsClient.hostSendPlayerInput(input);
+        return true;  // 요청 전송 성공 (실제 결과는 호스트에서 처리)
+      }
+
+      // 싱글플레이 또는 호스트: 로컬에서 바로 처리
       const currentLevel = state.upgradeLevels[stat];
       const characterLevel = state.hero?.characterLevel || 1;
 
       // 업그레이드 가능 여부 확인
-      if (!canUpgrade(state.gold, currentLevel, characterLevel)) {
+      if (!canUpgrade(state.gold, currentLevel, characterLevel, stat, heroClass)) {
         return false;
       }
 
@@ -510,17 +640,47 @@ export const useRPGStore = create<RPGStore>()(
           [stat]: prevState.upgradeLevels[stat] + 1,
         };
 
-        // HP 업그레이드 시 영웅 최대 HP도 증가
+        // 영웅 스탯 업데이트
         let heroUpdate = {};
-        if (stat === 'hp' && prevState.hero) {
-          const hpBonus = UPGRADE_CONFIG.hp.perLevel;
-          heroUpdate = {
-            hero: {
-              ...prevState.hero,
-              maxHp: prevState.hero.maxHp + hpBonus,
-              hp: Math.min(prevState.hero.hp + hpBonus, prevState.hero.maxHp + hpBonus),
-            },
-          };
+        if (prevState.hero) {
+          let updatedHero = { ...prevState.hero };
+
+          // HP 업그레이드 시 영웅 최대 HP도 증가
+          if (stat === 'hp') {
+            const hpBonus = UPGRADE_CONFIG.hp.perLevel;
+            updatedHero = {
+              ...updatedHero,
+              maxHp: updatedHero.maxHp + hpBonus,
+              hp: Math.min(updatedHero.hp + hpBonus, updatedHero.maxHp + hpBonus),
+            };
+          }
+
+          // 공격속도 업그레이드 시 영웅 공격속도 감소 (더 빠른 공격)
+          if (stat === 'attackSpeed') {
+            const attackSpeedBonus = UPGRADE_CONFIG.attackSpeed.perLevel;
+            const currentAttackSpeed = updatedHero.config.attackSpeed || updatedHero.baseAttackSpeed || 1;
+            updatedHero = {
+              ...updatedHero,
+              config: {
+                ...updatedHero.config,
+                attackSpeed: Math.max(0.3, currentAttackSpeed - attackSpeedBonus),
+              },
+            };
+          }
+
+          // 사거리 업그레이드 시 영웅 사거리 증가 (궁수/마법사만)
+          if (stat === 'range' && (prevState.hero.heroClass === 'archer' || prevState.hero.heroClass === 'mage')) {
+            const rangeBonus = UPGRADE_CONFIG.range.perLevel;
+            updatedHero = {
+              ...updatedHero,
+              config: {
+                ...updatedHero.config,
+                range: (updatedHero.config.range || 0) + rangeBonus,
+              },
+            };
+          }
+
+          heroUpdate = { hero: updatedHero };
         }
 
         return {
@@ -601,7 +761,7 @@ export const useRPGStore = create<RPGStore>()(
       }));
     },
 
-    damageEnemy: (enemyId, amount) => {
+    damageEnemy: (enemyId, amount, killerHeroId?) => {
       let killed = false;
       let goldReward = 0;
       let isBoss = false;
@@ -618,12 +778,13 @@ export const useRPGStore = create<RPGStore>()(
               isBoss = enemy.type === 'boss';
               return { ...enemy, hp: 0 };
             }
-            // 피해를 입으면 어그로 설정
+            // 피해를 입으면 어그로 설정 (킬러 영웅 ID도 저장)
             return {
               ...enemy,
               hp: newHp,
               aggroOnHero: true,
               aggroExpireTime: gameTime + AGGRO_DURATION,
+              targetHeroId: killerHeroId,
             };
           }
           return enemy;
@@ -633,7 +794,17 @@ export const useRPGStore = create<RPGStore>()(
 
       // 처치 시 골드 획득 및 통계 업데이트
       if (killed && goldReward > 0) {
-        get().addGold(goldReward);
+        const state = get();
+        const myHeroId = state.multiplayer.myHeroId;
+
+        // 멀티플레이어에서 다른 플레이어가 처치한 경우
+        if (killerHeroId && state.multiplayer.isMultiplayer && killerHeroId !== myHeroId) {
+          state.addGoldToOtherPlayer(killerHeroId, goldReward);
+        } else {
+          // 호스트가 처치하거나 싱글플레이어
+          get().addGold(goldReward);
+        }
+
         get().incrementKills();
         if (isBoss) {
           get().incrementBossesKilled();
@@ -917,8 +1088,545 @@ export const useRPGStore = create<RPGStore>()(
         };
       });
     },
+
+    // ============================================
+    // 멀티플레이 액션 구현
+    // ============================================
+
+    setMultiplayerState: (newState: Partial<MultiplayerState>) => {
+      set((state) => ({
+        multiplayer: { ...state.multiplayer, ...newState },
+      }));
+    },
+
+    resetMultiplayerState: () => {
+      set({
+        multiplayer: {
+          isMultiplayer: false,
+          isHost: false,
+          roomCode: null,
+          roomId: null,
+          hostPlayerId: null,
+          myPlayerId: null,
+          myHeroId: null,
+          players: [],
+          remoteInputQueue: [],
+          connectionState: 'disconnected',
+          countdown: null,
+        },
+        otherHeroes: new Map(),
+        otherPlayersGold: new Map(),
+        otherPlayersUpgrades: new Map(),
+      });
+    },
+
+    initMultiplayerGame: (players: CoopPlayerInfo[], _isHost: boolean) => {
+      const state = get();
+
+      // 각 플레이어에 대한 영웅 생성
+      const otherHeroes = new Map<string, HeroUnit>();
+      const otherPlayersGold = new Map<string, number>();
+      const otherPlayersUpgrades = new Map<string, UpgradeLevels>();
+      const spawnPositions = getMultiplayerSpawnPositions(players.length);
+
+      players.forEach((player, index) => {
+        const heroId = `hero_${player.id}`;
+
+        if (player.id === state.multiplayer.myPlayerId) {
+          // 내 영웅은 기존 hero에 설정
+          const hero = createHeroUnit(
+            player.heroClass,
+            player.characterLevel || 1,
+            player.statUpgrades
+          );
+          hero.x = spawnPositions[index].x;
+          hero.y = spawnPositions[index].y;
+          hero.id = heroId;
+
+          set({
+            hero,
+            multiplayer: {
+              ...state.multiplayer,
+              myHeroId: hero.id,
+            },
+          });
+        } else {
+          // 다른 플레이어 영웅
+          const hero = createHeroUnit(
+            player.heroClass,
+            player.characterLevel || 1,
+            player.statUpgrades
+          );
+          hero.x = spawnPositions[index].x;
+          hero.y = spawnPositions[index].y;
+          hero.id = heroId;
+          otherHeroes.set(hero.id, hero);
+
+          // 각 플레이어별 골드와 업그레이드 초기화
+          otherPlayersGold.set(heroId, GOLD_CONFIG.STARTING_GOLD);
+          otherPlayersUpgrades.set(heroId, createInitialUpgradeLevels());
+        }
+      });
+
+      set({
+        otherHeroes,
+        otherPlayersGold,
+        otherPlayersUpgrades,
+        running: true,
+        nexus: createInitialNexus(),
+        enemyBases: createInitialEnemyBases(),
+        gamePhase: 'playing',
+        gold: GOLD_CONFIG.STARTING_GOLD,
+        upgradeLevels: createInitialUpgradeLevels(),
+      });
+    },
+
+    addOtherHero: (hero: HeroUnit) => {
+      set((state) => {
+        const newOtherHeroes = new Map(state.otherHeroes);
+        newOtherHeroes.set(hero.id, hero);
+        return { otherHeroes: newOtherHeroes };
+      });
+    },
+
+    updateOtherHero: (heroId: string, update: Partial<HeroUnit>) => {
+      set((state) => {
+        const hero = state.otherHeroes.get(heroId);
+        if (!hero) return state;
+        const newOtherHeroes = new Map(state.otherHeroes);
+        newOtherHeroes.set(heroId, { ...hero, ...update });
+        return { otherHeroes: newOtherHeroes };
+      });
+    },
+
+    removeOtherHero: (heroId: string) => {
+      set((state) => {
+        const newOtherHeroes = new Map(state.otherHeroes);
+        newOtherHeroes.delete(heroId);
+        return { otherHeroes: newOtherHeroes };
+      });
+    },
+
+    clearOtherHeroes: () => {
+      set({ otherHeroes: new Map() });
+    },
+
+    // 다른 플레이어 골드 추가
+    addGoldToOtherPlayer: (heroId: string, amount: number) => {
+      set((state) => {
+        const currentGold = state.otherPlayersGold.get(heroId) || 0;
+        const newOtherPlayersGold = new Map(state.otherPlayersGold);
+        newOtherPlayersGold.set(heroId, currentGold + amount);
+        return { otherPlayersGold: newOtherPlayersGold };
+      });
+    },
+
+    // 다른 플레이어 골드 조회
+    getOtherPlayerGold: (heroId: string) => {
+      return get().otherPlayersGold.get(heroId) || 0;
+    },
+
+    // 다른 플레이어 업그레이드
+    upgradeOtherHeroStat: (heroId: string, stat: UpgradeType) => {
+      const state = get();
+      const playerGold = state.otherPlayersGold.get(heroId) || 0;
+      const playerUpgrades = state.otherPlayersUpgrades.get(heroId) || createInitialUpgradeLevels();
+      const currentLevel = playerUpgrades[stat];
+      const otherHero = state.otherHeroes.get(heroId);
+      const characterLevel = otherHero?.characterLevel || 1;
+      const heroClass = otherHero?.heroClass;
+
+      // 업그레이드 가능 여부 확인
+      if (!canUpgrade(playerGold, currentLevel, characterLevel, stat, heroClass)) {
+        return false;
+      }
+
+      const cost = getUpgradeCost(currentLevel);
+
+      // 골드 차감 및 업그레이드 적용
+      const newOtherPlayersGold = new Map(state.otherPlayersGold);
+      newOtherPlayersGold.set(heroId, playerGold - cost);
+
+      const newUpgrades = { ...playerUpgrades, [stat]: currentLevel + 1 };
+      const newOtherPlayersUpgrades = new Map(state.otherPlayersUpgrades);
+      newOtherPlayersUpgrades.set(heroId, newUpgrades);
+
+      // 영웅 스탯 업데이트
+      if (otherHero) {
+        let updatedHero = { ...otherHero };
+
+        // HP 업그레이드 시 최대 HP 증가
+        if (stat === 'hp') {
+          const hpBonus = UPGRADE_CONFIG.hp.perLevel;
+          updatedHero = {
+            ...updatedHero,
+            maxHp: updatedHero.maxHp + hpBonus,
+            hp: Math.min(updatedHero.hp + hpBonus, updatedHero.maxHp + hpBonus),
+          };
+        }
+
+        // 공격속도 업그레이드 시 공격속도 감소 (더 빠른 공격)
+        if (stat === 'attackSpeed') {
+          const attackSpeedBonus = UPGRADE_CONFIG.attackSpeed.perLevel;
+          const currentAttackSpeed = updatedHero.config.attackSpeed || updatedHero.baseAttackSpeed || 1;
+          updatedHero = {
+            ...updatedHero,
+            config: {
+              ...updatedHero.config,
+              attackSpeed: Math.max(0.3, currentAttackSpeed - attackSpeedBonus),
+            },
+          };
+        }
+
+        // 사거리 업그레이드 시 사거리 증가 (궁수/마법사만)
+        if (stat === 'range' && (heroClass === 'archer' || heroClass === 'mage')) {
+          const rangeBonus = UPGRADE_CONFIG.range.perLevel;
+          updatedHero = {
+            ...updatedHero,
+            config: {
+              ...updatedHero.config,
+              range: (updatedHero.config.range || 0) + rangeBonus,
+            },
+          };
+        }
+
+        const newOtherHeroes = new Map(state.otherHeroes);
+        newOtherHeroes.set(heroId, updatedHero);
+
+        set({
+          otherPlayersGold: newOtherPlayersGold,
+          otherPlayersUpgrades: newOtherPlayersUpgrades,
+          otherHeroes: newOtherHeroes,
+        });
+      } else {
+        set({
+          otherPlayersGold: newOtherPlayersGold,
+          otherPlayersUpgrades: newOtherPlayersUpgrades,
+        });
+      }
+
+      return true;
+    },
+
+    // 다른 플레이어 업그레이드 레벨 조회
+    getOtherPlayerUpgrades: (heroId: string) => {
+      return get().otherPlayersUpgrades.get(heroId) || createInitialUpgradeLevels();
+    },
+
+    addRemoteInput: (input: PlayerInput) => {
+      set((state) => ({
+        multiplayer: {
+          ...state.multiplayer,
+          remoteInputQueue: [...state.multiplayer.remoteInputQueue, input],
+        },
+      }));
+    },
+
+    popRemoteInput: () => {
+      const state = get();
+      if (state.multiplayer.remoteInputQueue.length === 0) return undefined;
+      const [input, ...rest] = state.multiplayer.remoteInputQueue;
+      set({
+        multiplayer: {
+          ...state.multiplayer,
+          remoteInputQueue: rest,
+        },
+      });
+      return input;
+    },
+
+    clearRemoteInputs: () => {
+      set((state) => ({
+        multiplayer: {
+          ...state.multiplayer,
+          remoteInputQueue: [],
+        },
+      }));
+    },
+
+    serializeGameState: (): SerializedGameState => {
+      const state = get();
+
+      // 모든 영웅 직렬화 (내 영웅 + 다른 영웅들)
+      const heroes: SerializedHero[] = [];
+
+      if (state.hero) {
+        // 호스트 영웅: 호스트의 골드와 업그레이드 사용
+        heroes.push(serializeHeroToNetwork(state.hero, state.gold, state.upgradeLevels));
+      }
+
+      state.otherHeroes.forEach((hero) => {
+        // 다른 플레이어: 해당 플레이어의 골드와 업그레이드 사용
+        const playerGold = state.otherPlayersGold.get(hero.id) || 0;
+        const playerUpgrades = state.otherPlayersUpgrades.get(hero.id) || createInitialUpgradeLevels();
+        heroes.push(serializeHeroToNetwork(hero, playerGold, playerUpgrades));
+      });
+
+      // 적 직렬화
+      const enemies: SerializedEnemy[] = state.enemies.map((enemy) => ({
+        id: enemy.id,
+        type: enemy.type,
+        x: enemy.x,
+        y: enemy.y,
+        hp: enemy.hp,
+        maxHp: enemy.maxHp,
+        goldReward: enemy.goldReward || 0,
+        targetHeroId: enemy.targetHeroId,
+        aggroOnHero: enemy.aggroOnHero || false,
+        aggroExpireTime: enemy.aggroExpireTime,
+        fromBase: enemy.fromBase,
+        buffs: enemy.buffs || [],
+        isStunned: enemy.isStunned || false,
+        stunEndTime: enemy.stunEndTime,
+      }));
+
+      return {
+        gameTime: state.gameTime,
+        gamePhase: state.gamePhase,
+        heroes,
+        enemies,
+        nexus: state.nexus || createInitialNexus(),
+        enemyBases: state.enemyBases,
+        gold: state.gold,
+        upgradeLevels: state.upgradeLevels,
+        activeSkillEffects: state.activeSkillEffects,
+        pendingSkills: state.pendingSkills,
+        running: state.running,
+        paused: state.paused,
+        gameOver: state.gameOver,
+        victory: state.victory,
+        lastSpawnTime: state.lastSpawnTime,
+        stats: state.stats,
+      };
+    },
+
+    applySerializedState: (serializedState: SerializedGameState, myHeroId: string | null) => {
+      const currentState = get();
+      const newOtherHeroes = new Map<string, HeroUnit>();
+      const newOtherPlayersGold = new Map<string, number>();
+      const newOtherPlayersUpgrades = new Map<string, UpgradeLevels>();
+      let myHero: HeroUnit | null = null;
+      let myGold = 0;
+      let myUpgrades = createInitialUpgradeLevels();
+
+      // 영웅 상태 적용
+      serializedState.heroes.forEach((serializedHero) => {
+        const hero = deserializeHeroFromNetwork(serializedHero);
+        if (serializedHero.id === myHeroId) {
+          // 내 영웅: 로컬 상태 우선 유지, HP/스킬 쿨다운만 서버에서 동기화
+          if (currentState.hero) {
+            const localHero = currentState.hero;
+
+            myHero = {
+              ...localHero,
+              // 서버에서만 동기화해야 하는 상태 (데미지, 힐, 스킬 쿨다운, 사망 시간, 업그레이드된 스탯)
+              hp: hero.hp,
+              maxHp: hero.maxHp,
+              skills: hero.skills,
+              buffs: hero.buffs,
+              deathTime: hero.deathTime,  // 사망 시간 동기화 (부활 타이머용)
+              // 업그레이드로 변경될 수 있는 config 스탯 동기화 (공격속도, 사거리)
+              config: {
+                ...localHero.config,
+                hp: hero.maxHp,
+                attackSpeed: hero.config.attackSpeed,
+                range: hero.config.range,
+              },
+              baseAttackSpeed: hero.baseAttackSpeed,
+              // 나머지는 모두 로컬 유지 (위치, 이동, 상태 등)
+            };
+          } else {
+            // 첫 생성 시에만 서버 위치 사용
+            myHero = hero;
+          }
+          // 내 골드와 업그레이드 추출
+          myGold = serializedHero.gold;
+          myUpgrades = serializedHero.upgradeLevels;
+        } else {
+          newOtherHeroes.set(hero.id, hero);
+          // 다른 플레이어의 골드와 업그레이드 저장
+          newOtherPlayersGold.set(hero.id, serializedHero.gold);
+          newOtherPlayersUpgrades.set(hero.id, serializedHero.upgradeLevels);
+        }
+      });
+
+      // 적 상태 적용
+      const enemies: RPGEnemy[] = serializedState.enemies.map((se) => {
+        const aiConfig = ENEMY_AI_CONFIGS[se.type] || ENEMY_AI_CONFIGS.melee;
+        return {
+          id: se.id,
+          type: se.type,
+          x: se.x,
+          y: se.y,
+          hp: se.hp,
+          maxHp: se.maxHp,
+          goldReward: se.goldReward,
+          targetHeroId: se.targetHeroId,
+          aggroOnHero: se.aggroOnHero,
+          aggroExpireTime: se.aggroExpireTime,
+          fromBase: se.fromBase,
+          buffs: se.buffs,
+          isStunned: se.isStunned,
+          stunEndTime: se.stunEndTime,
+          team: 'enemy' as const,
+          // RPGEnemy 필수 속성 추가
+          targetHero: se.aggroOnHero,
+          aiConfig,
+          config: {
+            name: se.type,
+            cost: {},
+            hp: se.maxHp,
+            attack: aiConfig.attackDamage,
+            attackSpeed: aiConfig.attackSpeed,
+            speed: aiConfig.moveSpeed,
+            range: aiConfig.attackRange,
+            type: 'combat' as const,
+          },
+          state: 'idle' as const,
+          attackCooldown: 0,
+        };
+      });
+
+      // myHero가 null이면 (서버에서 내 영웅을 보내지 않은 경우) 기존 로컬 영웅 유지
+      const heroToSet = myHero !== null ? myHero : currentState.hero;
+
+      set({
+        gameTime: serializedState.gameTime,
+        gamePhase: serializedState.gamePhase,
+        hero: heroToSet,
+        otherHeroes: newOtherHeroes,
+        otherPlayersGold: newOtherPlayersGold,
+        otherPlayersUpgrades: newOtherPlayersUpgrades,
+        enemies,
+        nexus: serializedState.nexus,
+        enemyBases: serializedState.enemyBases,
+        gold: myGold,  // 내 골드 적용
+        upgradeLevels: myUpgrades,  // 내 업그레이드 적용
+        activeSkillEffects: serializedState.activeSkillEffects,
+        pendingSkills: serializedState.pendingSkills,
+        running: serializedState.running,
+        paused: serializedState.paused,
+        gameOver: serializedState.gameOver,
+        victory: serializedState.victory,
+        lastSpawnTime: serializedState.lastSpawnTime,
+        stats: serializedState.stats,
+      });
+    },
   }))
 );
+
+// 멀티플레이어 스폰 위치 계산
+function getMultiplayerSpawnPositions(count: number): { x: number; y: number }[] {
+  const centerX = NEXUS_CONFIG.position.x;
+  const centerY = NEXUS_CONFIG.position.y + 100;
+  const offset = 80;
+
+  switch (count) {
+    case 1:
+      return [{ x: centerX, y: centerY }];
+    case 2:
+      return [
+        { x: centerX - offset, y: centerY },
+        { x: centerX + offset, y: centerY },
+      ];
+    case 3:
+      return [
+        { x: centerX, y: centerY - offset },
+        { x: centerX - offset, y: centerY + offset * 0.5 },
+        { x: centerX + offset, y: centerY + offset * 0.5 },
+      ];
+    case 4:
+      return [
+        { x: centerX - offset, y: centerY - offset },
+        { x: centerX + offset, y: centerY - offset },
+        { x: centerX - offset, y: centerY + offset },
+        { x: centerX + offset, y: centerY + offset },
+      ];
+    default:
+      return [{ x: centerX, y: centerY }];
+  }
+}
+
+// 영웅 직렬화 헬퍼
+function serializeHeroToNetwork(hero: HeroUnit, gold: number, upgradeLevels: UpgradeLevels): SerializedHero {
+  return {
+    id: hero.id,
+    playerId: (hero as any).playerId || hero.id,
+    heroClass: hero.heroClass,
+    x: hero.x,
+    y: hero.y,
+    hp: hero.hp,
+    maxHp: hero.maxHp,
+    attack: hero.config.attack || 0,
+    attackSpeed: hero.config.attackSpeed || 1,
+    speed: hero.config.speed,
+    range: hero.config.range || 0,
+    gold,
+    upgradeLevels,
+    isDead: hero.hp <= 0,
+    reviveTimer: (hero as any).reviveTimer || 0,
+    deathTime: hero.deathTime,  // 사망 시간 동기화
+    facingRight: hero.facingRight,
+    facingAngle: hero.facingAngle,
+    buffs: hero.buffs,
+    passiveGrowth: hero.passiveGrowth,
+    skillCooldowns: {
+      Q: hero.skills[0]?.currentCooldown || 0,
+      W: hero.skills[1]?.currentCooldown || 0,
+      E: hero.skills[2]?.currentCooldown || 0,
+    },
+    moveDirection: hero.moveDirection || null,
+    characterLevel: hero.characterLevel,
+    dashState: hero.dashState,
+    statUpgrades: hero.statUpgrades,
+  };
+}
+
+// 영웅 역직렬화 헬퍼
+function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
+  const classConfig = CLASS_CONFIGS[serialized.heroClass];
+  const classSkills = CLASS_SKILLS[serialized.heroClass];
+
+  return {
+    id: serialized.id,
+    type: 'hero',
+    heroClass: serialized.heroClass,
+    characterLevel: serialized.characterLevel,
+    config: {
+      name: classConfig.name,
+      cost: {},
+      hp: serialized.maxHp,
+      attack: serialized.attack,
+      attackSpeed: serialized.attackSpeed,
+      speed: serialized.speed,
+      range: serialized.range,
+      type: 'combat',
+    },
+    x: serialized.x,
+    y: serialized.y,
+    hp: serialized.hp,
+    maxHp: serialized.maxHp,
+    state: serialized.moveDirection ? 'moving' : 'idle',
+    attackCooldown: 0,
+    team: 'player',
+    skills: [
+      { ...classSkills.q, currentCooldown: serialized.skillCooldowns.Q, level: 1 },
+      { ...classSkills.w, currentCooldown: serialized.skillCooldowns.W, level: 1 },
+      { ...classSkills.e, currentCooldown: serialized.skillCooldowns.E, level: 1 },
+    ],
+    baseAttack: serialized.attack,
+    baseSpeed: serialized.speed,
+    baseAttackSpeed: serialized.attackSpeed,
+    buffs: serialized.buffs,
+    facingRight: serialized.facingRight,
+    facingAngle: serialized.facingAngle,
+    passiveGrowth: serialized.passiveGrowth,
+    moveDirection: serialized.moveDirection || undefined,
+    dashState: serialized.dashState,
+    statUpgrades: serialized.statUpgrades,
+    deathTime: serialized.deathTime,  // 사망 시간 동기화
+  };
+}
 
 // 선택자 훅
 export const useHero = () => useRPGStore((state) => state.hero);
@@ -942,3 +1650,15 @@ export const useEnemyBases = () => useRPGStore((state) => state.enemyBases);
 export const useRPGGamePhase = () => useRPGStore((state) => state.gamePhase);
 export const useGameTime = () => useRPGStore((state) => state.gameTime);
 export const useFiveMinuteRewardClaimed = () => useRPGStore((state) => state.fiveMinuteRewardClaimed);
+
+// 멀티플레이 훅
+export const useMultiplayer = () => useRPGStore((state) => state.multiplayer);
+export const useIsMultiplayer = () => useRPGStore((state) => state.multiplayer.isMultiplayer);
+export const useIsHost = () => useRPGStore((state) => state.multiplayer.isHost);
+export const useOtherHeroes = () => useRPGStore((state) => state.otherHeroes);
+export const useAllHeroes = () => useRPGStore((state) => {
+  const heroes: HeroUnit[] = [];
+  if (state.hero) heroes.push(state.hero);
+  state.otherHeroes.forEach((hero) => heroes.push(hero));
+  return heroes;
+});

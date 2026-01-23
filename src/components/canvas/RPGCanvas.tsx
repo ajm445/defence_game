@@ -6,7 +6,7 @@ import { renderRPG } from '../../renderer/rpgRenderer';
 
 export const RPGCanvas: React.FC = () => {
   const { canvasRef, dimensions, getContext } = useCanvas();
-  const { handleMouseDown, handleMouseMove, handleMouseUp, handleContextMenu, handleWheel } =
+  const { handleMouseDown, handleMouseMove, handleMouseUp, handleContextMenu } =
     useRPGInput(canvasRef);
   const animationRef = useRef<number>(0);
 
@@ -38,7 +38,6 @@ export const RPGCanvas: React.FC = () => {
       onMouseUp={handleMouseUp}
       onMouseLeave={handleMouseUp}
       onContextMenu={handleContextMenu}
-      onWheel={handleWheel}
     />
   );
 };

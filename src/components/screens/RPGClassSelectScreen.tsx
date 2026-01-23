@@ -1,12 +1,13 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRPGStore } from '../../stores/useRPGStore';
-import { useGameStore } from '../../stores/useGameStore';
-import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
+import { useAuthProfile, useAuthIsGuest, useAuthStore } from '../../stores/useAuthStore';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { HeroClass } from '../../types/rpg';
-import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked } from '../../types/auth';
+import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked, createDefaultStatUpgrades } from '../../types/auth';
 import { soundManager } from '../../services/SoundManager';
+import { wsClient } from '../../services/WebSocketClient';
+import { createMultiplayerRoom, joinMultiplayerRoom } from '../../hooks/useNetworkSync';
 
 interface ClassCardProps {
   heroClass: HeroClass;
@@ -147,14 +148,24 @@ const ClassCard: React.FC<ClassCardProps> = ({ heroClass, isSelected, isLocked, 
 
 export const RPGClassSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
-  const resetGameUI = useUIStore((state) => state.resetGameUI);
   const selectClass = useRPGStore((state) => state.selectClass);
   const selectedClass = useRPGStore((state) => state.selectedClass);
-  const setGameMode = useGameStore((state) => state.setGameMode);
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
+  const [isCreatingRoom, setIsCreatingRoom] = useState(false);
+  const [showJoinInput, setShowJoinInput] = useState(false);
+  const [inputRoomCode, setInputRoomCode] = useState('');
+  const [isJoiningRoom, setIsJoiningRoom] = useState(false);
+  const [error, setError] = useState<string | null>(null);
 
   const playerLevel = profile?.playerLevel ?? 1;
+
+  // 기본 클래스 설정 (궁수)
+  useEffect(() => {
+    if (!selectedClass) {
+      selectClass('archer');
+    }
+  }, [selectedClass, selectClass]);
 
   const handleSelectClass = useCallback((heroClass: HeroClass) => {
     // 해금 확인
@@ -166,24 +177,89 @@ export const RPGClassSelectScreen: React.FC = () => {
     selectClass(heroClass);
   }, [selectClass, playerLevel, isGuest]);
 
-  const handleStartGame = useCallback(() => {
+  const handleCreateRoom = useCallback(async () => {
     if (!selectedClass) return;
     // 선택된 클래스가 해금되었는지 확인
     if (!isCharacterUnlocked(selectedClass, playerLevel, isGuest)) {
       return;
     }
+
     soundManager.init();
     soundManager.play('ui_click');
-    resetGameUI();
-    setGameMode('rpg');
-    setScreen('game');
-  }, [selectedClass, resetGameUI, setGameMode, setScreen, playerLevel, isGuest]);
+    setIsCreatingRoom(true);
+
+    try {
+      // WebSocket 연결
+      await wsClient.connect();
+
+      // 플레이어 정보 가져오기
+      const playerName = profile?.nickname || '플레이어';
+
+      // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
+      const classProgress = useAuthStore.getState().classProgress;
+      const progress = classProgress.find(p => p.className === selectedClass);
+      const characterLevel = progress?.classLevel || 1;
+      const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+
+      // 방 생성
+      createMultiplayerRoom(playerName, selectedClass, characterLevel, statUpgrades);
+
+      // 로비로 이동
+      setScreen('rpgCoopLobby');
+    } catch (error) {
+      console.error('방 생성 실패:', error);
+      setIsCreatingRoom(false);
+    }
+  }, [selectedClass, profile, playerLevel, isGuest, setScreen]);
+
+  const handleJoinRoom = useCallback(async () => {
+    if (!selectedClass) return;
+    if (inputRoomCode.trim().length !== 6) {
+      setError('6자리 초대 코드를 입력하세요.');
+      return;
+    }
+
+    soundManager.init();
+    soundManager.play('ui_click');
+    setIsJoiningRoom(true);
+    setError(null);
+
+    try {
+      // WebSocket 연결
+      await wsClient.connect();
+
+      // 플레이어 정보 가져오기
+      const playerName = profile?.nickname || '플레이어';
+
+      // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
+      const classProgress = useAuthStore.getState().classProgress;
+      const progress = classProgress.find(p => p.className === selectedClass);
+      const characterLevel = progress?.classLevel || 1;
+      const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+
+      // 방 참가
+      joinMultiplayerRoom(inputRoomCode.trim().toUpperCase(), playerName, selectedClass, characterLevel, statUpgrades);
+
+      // 로비로 이동
+      setScreen('rpgCoopLobby');
+    } catch (err) {
+      console.error('방 참가 실패:', err);
+      setError('서버 연결 실패');
+      setIsJoiningRoom(false);
+    }
+  }, [selectedClass, inputRoomCode, profile, setScreen]);
 
   const handleBack = useCallback(() => {
     soundManager.init();
     soundManager.play('ui_click');
-    setScreen('rpgPlayTypeSelect');
-  }, [setScreen]);
+    if (showJoinInput) {
+      setShowJoinInput(false);
+      setInputRoomCode('');
+      setError(null);
+    } else {
+      setScreen('rpgPlayTypeSelect');
+    }
+  }, [setScreen, showJoinInput]);
 
   const heroClasses: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
 
@@ -227,29 +303,86 @@ export const RPGClassSelectScreen: React.FC = () => {
         <div style={{ height: '30px' }} />
 
         {/* 버튼들 */}
-        <div className="flex gap-4">
-          <button
-            onClick={handleBack}
-            className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
-            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
-          >
-            뒤로 가기
-          </button>
-          <button
-            onClick={handleStartGame}
-            disabled={!selectedClass}
-            className={`
-              px-8 py-3 rounded-lg font-bold transition-all cursor-pointer
-              ${selectedClass
-                ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-400 hover:to-orange-400'
-                : 'bg-gray-700 text-gray-500 cursor-not-allowed'
-              }
-            `}
-            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
-          >
-            게임 시작
-          </button>
-        </div>
+        {!showJoinInput ? (
+          <div className="flex gap-4">
+            <button
+              onClick={handleBack}
+              className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+              style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+            >
+              뒤로 가기
+            </button>
+            <button
+              onClick={handleCreateRoom}
+              disabled={!selectedClass || isCreatingRoom}
+              className={`
+                px-8 py-3 rounded-lg font-bold transition-all cursor-pointer
+                ${selectedClass && !isCreatingRoom
+                  ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-400 hover:to-orange-400'
+                  : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                }
+              `}
+              style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+            >
+              {isCreatingRoom ? '방 생성 중...' : '방 생성하기'}
+            </button>
+            <button
+              onClick={() => {
+                soundManager.init();
+                soundManager.play('ui_click');
+                setShowJoinInput(true);
+              }}
+              disabled={!selectedClass}
+              className={`
+                px-8 py-3 rounded-lg font-bold transition-all cursor-pointer
+                ${selectedClass
+                  ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400'
+                  : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                }
+              `}
+              style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+            >
+              방 입장하기
+            </button>
+          </div>
+        ) : (
+          <div className="flex flex-col items-center gap-4">
+            <p className="text-gray-300 text-sm">6자리 초대 코드를 입력하세요</p>
+            <input
+              type="text"
+              value={inputRoomCode}
+              onChange={(e) => setInputRoomCode(e.target.value.toUpperCase().slice(0, 6))}
+              placeholder="XXXXXX"
+              className="px-4 py-2 rounded-lg bg-gray-800 border border-gray-600 text-white text-center text-xl tracking-widest font-mono focus:border-cyan-500 focus:outline-none"
+              style={{ width: '150px' }}
+              maxLength={6}
+            />
+            {error && <p className="text-red-400 text-sm">{error}</p>}
+            <div className="flex gap-4">
+              <button
+                onClick={handleBack}
+                className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+                style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+              >
+                뒤로 가기
+              </button>
+              <button
+                onClick={handleJoinRoom}
+                disabled={inputRoomCode.length !== 6 || isJoiningRoom}
+                className={`
+                  px-8 py-3 rounded-lg font-bold transition-all cursor-pointer
+                  ${inputRoomCode.length === 6 && !isJoiningRoom
+                    ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400'
+                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                  }
+                `}
+                style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+              >
+                {isJoiningRoom ? '입장 중...' : '입장하기'}
+              </button>
+            </div>
+          </div>
+        )}
       </div>
 
       {/* 코너 장식 */}

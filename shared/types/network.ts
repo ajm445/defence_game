@@ -127,3 +127,15 @@ export type {
   NetworkCoopEnemy,
 } from './rpgNetwork';
 export { COOP_CONFIG } from './rpgNetwork';
+
+// Re-export host-based network types
+export type {
+  PlayerInput,
+  SerializedHero,
+  SerializedEnemy,
+  SerializedGameState,
+  MultiplayerState,
+  HostBasedClientMessage,
+  HostBasedServerMessage,
+} from './hostBasedNetwork';
+export { HOST_BASED_CONFIG, initialMultiplayerState } from './hostBasedNetwork';

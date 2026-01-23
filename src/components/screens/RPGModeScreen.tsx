@@ -43,9 +43,10 @@ export const RPGModeScreen: React.FC = () => {
   // 게임 초기화 (이미 실행 중이면 초기화하지 않음)
   useEffect(() => {
     const state = useRPGStore.getState();
+    // 멀티플레이어 모드면 initMultiplayerGame이 이미 호출됨 - 초기화 스킵
     // 이미 영웅이 있고 게임이 실행 중이면 (일시정지에서 돌아온 경우) 초기화하지 않음
-    if (!state.hero) {
-      // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
+    if (!state.hero && !state.multiplayer.isMultiplayer) {
+      // 싱글플레이어 모드: 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
       const heroClass = state.selectedClass || 'warrior';
       const classProgress = classProgressList.find(p => p.className === heroClass);
       const characterLevel = classProgress?.classLevel ?? 1;
@@ -167,7 +168,7 @@ export const RPGModeScreen: React.FC = () => {
       <RPGCanvas />
 
       {/* 상단 중앙 타이머 */}
-      <RPGGameTimer mode="single" />
+      <RPGGameTimer />
 
       {/* 상단 UI */}
       <div className="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none">

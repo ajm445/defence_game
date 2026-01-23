@@ -19,6 +19,7 @@ export interface CharacterStatUpgrades {
   attack: number;      // 공격력 (모든 캐릭터)
   speed: number;       // 이동속도 (모든 캐릭터)
   hp: number;          // 체력 (모든 캐릭터)
+  attackSpeed: number; // 공격속도 (모든 캐릭터)
   range: number;       // 사거리 (원거리: archer, mage)
   hpRegen: number;     // 체력 재생 (근거리: warrior, knight)
 }
@@ -163,6 +164,7 @@ export const createDefaultStatUpgrades = (): CharacterStatUpgrades => ({
   attack: 0,
   speed: 0,
   hp: 0,
+  attackSpeed: 0,
   range: 0,
   hpRegen: 0,
 });
@@ -172,12 +174,12 @@ export type StatUpgradeType = keyof CharacterStatUpgrades;
 
 // 캐릭터별 업그레이드 가능한 스탯
 export const getUpgradeableStats = (heroClass: HeroClass): StatUpgradeType[] => {
-  // 근거리 캐릭터: 공격력, 이동속도, 체력, 체력 재생
+  // 근거리 캐릭터: 공격력, 이동속도, 체력, 공격속도, 체력 재생
   if (heroClass === 'warrior' || heroClass === 'knight') {
-    return ['attack', 'speed', 'hp', 'hpRegen'];
+    return ['attack', 'speed', 'hp', 'attackSpeed', 'hpRegen'];
   }
-  // 원거리 캐릭터: 공격력, 이동속도, 체력, 사거리
-  return ['attack', 'speed', 'hp', 'range'];
+  // 원거리 캐릭터: 공격력, 이동속도, 체력, 공격속도, 사거리
+  return ['attack', 'speed', 'hp', 'attackSpeed', 'range'];
 };
 
 // 스탯 업그레이드 정보
@@ -210,6 +212,13 @@ export const STAT_UPGRADE_CONFIG: Record<StatUpgradeType, {
     unit: '',
     maxLevel: Infinity,
   },
+  attackSpeed: {
+    name: '공격속도',
+    icon: '⚡',
+    perLevel: 0.05,   // 레벨당 +0.05초 공격속도 감소 (더 빠른 공격)
+    unit: '초',
+    maxLevel: Infinity,
+  },
   range: {
     name: '사거리',
     icon: '🎯',
@@ -233,5 +242,5 @@ export const getStatBonus = (upgradeType: StatUpgradeType, level: number): numbe
 
 // 사용한 총 SP 계산 (모든 스탯 레벨의 합)
 export const getTotalSpentSP = (statUpgrades: CharacterStatUpgrades): number => {
-  return statUpgrades.attack + statUpgrades.speed + statUpgrades.hp + statUpgrades.range + statUpgrades.hpRegen;
+  return statUpgrades.attack + statUpgrades.speed + statUpgrades.hp + statUpgrades.attackSpeed + statUpgrades.range + statUpgrades.hpRegen;
 };

@@ -20,9 +20,9 @@ interface WaitingCoopRoom {
 const waitingCoopRooms = new Map<string, WaitingCoopRoom>();  // roomId -> WaitingCoopRoom
 const coopRoomCodeMap = new Map<string, string>();            // code -> roomId
 
-// 협동 설정
+// 협동 설정 (호스트 기반 통합 시스템 - 1인도 시작 가능)
 const MAX_PLAYERS = 4;
-const MIN_PLAYERS = 2;
+const MIN_PLAYERS = 1;
 
 // 6자리 초대 코드 생성 (혼동되는 문자 제외)
 const CHARSET = 'ABCDEFGHJKMNPQRSTUVWXYZ23456789';
@@ -179,6 +179,7 @@ export function joinCoopRoom(
   sendToPlayer(playerId, {
     type: 'COOP_ROOM_JOINED',
     roomId,
+    roomCode: room.code,
     players: playersArray,
     yourIndex: playerIndex,
   });
@@ -368,17 +369,19 @@ export function startCoopGame(hostPlayerId: string): void {
     return;
   }
 
-  // 모든 플레이어가 준비됐는지 확인 (호스트 제외)
-  let allReady = true;
-  room.players.forEach((p, id) => {
-    if (id !== hostPlayerId && !p.isReady) {
-      allReady = false;
-    }
-  });
+  // 모든 플레이어가 준비됐는지 확인 (호스트 제외, 혼자일 때는 스킵)
+  if (room.players.size > 1) {
+    let allReady = true;
+    room.players.forEach((p, id) => {
+      if (id !== hostPlayerId && !p.isReady) {
+        allReady = false;
+      }
+    });
 
-  if (!allReady) {
-    sendToPlayer(hostPlayerId, { type: 'COOP_ROOM_ERROR', message: '모든 플레이어가 준비되지 않았습니다.' });
-    return;
+    if (!allReady) {
+      sendToPlayer(hostPlayerId, { type: 'COOP_ROOM_ERROR', message: '모든 플레이어가 준비되지 않았습니다.' });
+      return;
+    }
   }
 
   room.state = 'countdown';
