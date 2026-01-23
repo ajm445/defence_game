@@ -193,7 +193,8 @@ export const ProfileScreen: React.FC = () => {
         <div style={{ height: '15px' }} />
 
         {/* 프로필 카드 */}
-        <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6">
+        <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6"
+        style={{ paddingTop: '5px', paddingBottom: '7px', paddingLeft: '5px', paddingRight: '5px' }}>
           <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-3xl">
               {isGuest ? '👤' : '⭐'}
@@ -212,6 +213,7 @@ export const ProfileScreen: React.FC = () => {
             <button
               onClick={handleSignOut}
               className="px-4 py-2 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-all cursor-pointer text-sm"
+              style={{ paddingLeft: '5px', paddingRight: '5px' }}
             >
               로그아웃
             </button>
@@ -219,7 +221,8 @@ export const ProfileScreen: React.FC = () => {
 
           {/* 경험치 바 */}
           <div className="mb-2">
-            <div className="flex justify-between text-sm text-gray-400 mb-1">
+            <div className="flex justify-between text-sm text-gray-400 mb-1"
+            style={{ paddingLeft: '5px', paddingRight: '5px' }}>
               <span>플레이어 경험치</span>
               <span>{expProgress.current} / {expProgress.required}</span>
             </div>
@@ -235,7 +238,8 @@ export const ProfileScreen: React.FC = () => {
 
           {/* 게스트 안내 */}
           {isGuest && (
-            <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg"
+            style={{ paddingLeft: '5px', paddingRight: '5px' }}>
               <p className="text-yellow-300 text-sm text-center">
                 ⚠️ 게스트 모드에서는 진행 상황이 저장되지 않습니다.
                 <br />
@@ -290,9 +294,12 @@ export const ProfileScreen: React.FC = () => {
         <div style={{ height: '15px' }} />
 
         {/* 클래스 진행 상황 */}
-        <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6">
+        <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6"
+        style={{ paddingTop: '5px', paddingBottom: '8px', paddingLeft: '5px', paddingRight: '5px' }}>
           <h3 className="text-lg text-white font-bold mb-4">🎮 클래스 진행</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div style={{ height: '5px' }} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          style={{ paddingLeft: '5px', paddingRight: '5px' }}>
             {heroClasses.map((heroClass) => {
               const progressData = getClassProgressData(heroClass);
               return (

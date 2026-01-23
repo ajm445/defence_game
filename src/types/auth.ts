@@ -206,14 +206,14 @@ export const STAT_UPGRADE_CONFIG: Record<StatUpgradeType, {
   hp: {
     name: '체력',
     icon: '❤️',
-    perLevel: 30,     // 레벨당 +30 체력
+    perLevel: 20,     // 레벨당 +20 체력
     unit: '',
     maxLevel: Infinity,
   },
   range: {
     name: '사거리',
     icon: '🎯',
-    perLevel: 10,     // 레벨당 +10 사거리
+    perLevel: 1,     // 레벨당 +1 사거리
     unit: '',
     maxLevel: Infinity,
   },

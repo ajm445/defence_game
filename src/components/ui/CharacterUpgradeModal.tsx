@@ -108,7 +108,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
-        <div className="flex items-center gap-4 mb-6">
+        <div className="flex items-center gap-4 mb-6" style={{ paddingLeft: '5px', paddingRight: '5px' }}>
           <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${classColors[heroClass]} flex items-center justify-center text-4xl`}>
             {config.emoji}
           </div>
@@ -141,7 +141,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
         )}
 
         {/* 기본 스탯 */}
-        <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
+        <div className="bg-gray-800/50 rounded-lg p-4 mb-4" style={{ paddingLeft: '5px', paddingRight: '5px' }}>
           <h3 className="text-white font-bold mb-3">기본 스탯</h3>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex justify-between">
@@ -170,7 +170,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
         <div style={{ height: '10px' }} />
 
         {/* 패시브 정보 */}
-        <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
+        <div className="bg-gray-800/50 rounded-lg p-4 mb-4" style={{ paddingLeft: '5px', paddingRight: '5px' }}>
           <h3 className="text-white font-bold mb-2">
             패시브
             {progress.classLevel >= PASSIVE_UNLOCK_LEVEL ? (
@@ -197,7 +197,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
         <div style={{ height: '10px' }} />
 
         {/* SP 업그레이드 */}
-        <div className="bg-gray-800/50 rounded-lg p-4">
+        <div className="bg-gray-800/50 rounded-lg p-4" style={{ paddingLeft: '5px', paddingRight: '5px' }}>
           <div className="flex items-center justify-between mb-3">
             <h3 className="text-white font-bold">
               스탯 업그레이드
@@ -253,46 +253,56 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
               const nextBonus = getStatBonus(statType, currentLevel + 1);
               const isMaxed = currentLevel >= statConfig.maxLevel;
               const canUpgrade = canUpgradeStat(heroClass, statType);
+              const bonusDisplay = statType === 'speed' ? currentBonus.toFixed(1) : currentBonus;
+              const perLevelDisplay = statType === 'speed' ? statConfig.perLevel.toFixed(1) : statConfig.perLevel;
 
               return (
                 <div
                   key={statType}
                   className="flex items-center justify-between bg-gray-700/50 rounded-lg p-3"
+                  style={{ paddingRight: '5px' }}
                 >
                   <div className="flex items-center gap-3">
                     <span className="text-2xl">{statConfig.icon}</span>
                     <div>
-                      <div className="text-white font-medium">{statConfig.name}</div>
-                      <div className="text-xs text-gray-400">
-                        Lv.{currentLevel}
+                      <div className="flex items-center gap-2">
+                        <span className="text-white font-medium">{statConfig.name}</span>
                         {currentLevel > 0 && (
-                          <span className="ml-2 text-green-400">
-                            +{statType === 'speed' ? currentBonus.toFixed(1) : currentBonus}{statConfig.unit}
+                          <span className="text-green-400 font-bold">
+                            +{bonusDisplay}{statConfig.unit}
                           </span>
                         )}
+                      </div>
+                      <div className="text-xs text-gray-400">
+                        Lv.{currentLevel}
+                        <span className="ml-2 text-gray-500">
+                          (레벨당 +{perLevelDisplay}{statConfig.unit})
+                        </span>
                       </div>
                     </div>
                   </div>
 
-                  {isMaxed ? (
-                    <span className="px-3 py-1 bg-yellow-500/20 rounded text-yellow-400 text-sm font-bold">
-                      MAX
-                    </span>
-                  ) : (
-                    <button
-                      onClick={() => handleUpgrade(statType)}
-                      disabled={!canUpgrade}
-                      className={`
-                        px-3 py-1 rounded text-sm font-bold transition-all
-                        ${canUpgrade
-                          ? 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/30 cursor-pointer'
-                          : 'bg-gray-600/50 text-gray-500 cursor-not-allowed'
-                        }
-                      `}
-                    >
-                      +{statType === 'speed' ? statConfig.perLevel.toFixed(1) : statConfig.perLevel}{statConfig.unit}
-                    </button>
-                  )}
+                  <div className="ml-4 mr-2">
+                    {isMaxed ? (
+                      <span className="px-3 py-1 bg-yellow-500/20 rounded text-yellow-400 text-sm font-bold">
+                        MAX
+                      </span>
+                    ) : (
+                      <button
+                        onClick={() => handleUpgrade(statType)}
+                        disabled={!canUpgrade}
+                        className={`
+                          w-8 h-8 rounded-md text-xl font-bold transition-all flex items-center justify-center
+                          ${canUpgrade
+                            ? 'bg-cyan-500/20 text-cyan-400 hover:bg-cyan-500/40 hover:scale-105 cursor-pointer border border-cyan-500/50'
+                            : 'bg-gray-600/50 text-gray-500 cursor-not-allowed border border-gray-600'
+                          }
+                        `}
+                      >
+                        +
+                      </button>
+                    )}
+                  </div>
                 </div>
               );
             })}

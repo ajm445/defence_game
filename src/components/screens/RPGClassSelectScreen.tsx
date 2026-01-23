@@ -94,22 +94,28 @@ const ClassCard: React.FC<ClassCardProps> = ({ heroClass, isSelected, isLocked, 
           <span className="text-white text-lg">✓</span>
         </div>
       )}
-
       {/* 컨텐츠 */}
-      <div className={`relative h-full flex flex-col items-center justify-center p-6 ${isLocked ? 'opacity-50' : ''}`}>
+      <div className={`relative h-full flex flex-col items-center justify-center p-6 ${isLocked ? 'opacity-50' : ''}`}
+      style={{ paddingLeft: '5px', paddingRight: '5px' }}>
         {/* 이모지 아이콘 */}
         <div className={`text-7xl mb-4 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
           {config.emoji}
         </div>
 
+        <div style={{ height: '30px' }} />
+
         {/* 직업명 */}
         <h2 className="font-game text-2xl text-white mb-1">{config.name}</h2>
         <p className="text-gray-400 text-sm mb-4">{config.nameEn}</p>
+
+        <div style={{ height: '10px' }} />
 
         {/* 설명 */}
         <p className="text-gray-300 text-xs text-center mb-4 px-2">
           {config.description}
         </p>
+
+        <div style={{ height: '10px' }} />
 
         {/* 스탯 미리보기 */}
         <div className="w-full space-y-1 text-xs">
