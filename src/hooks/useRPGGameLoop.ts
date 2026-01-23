@@ -563,6 +563,20 @@ export function useRPGGameLoop() {
         bossesSpawnedRef.current = true;
       }
     } else if (latestState.gamePhase === 'boss_phase') {
+      // 보스 단계 진입 시 보스 스폰 (아직 스폰 안됐으면)
+      if (!bossesSpawnedRef.current) {
+        showNotification('🔥 모든 기지 파괴! 보스 출현!');
+        soundManager.play('warning');
+        soundManager.play('boss_spawn');
+
+        // 보스 2마리 스폰
+        const bosses = createBosses(latestState.enemyBases, latestState.gameTime);
+        for (const boss of bosses) {
+          useRPGStore.getState().addEnemy(boss);
+        }
+        bossesSpawnedRef.current = true;
+      }
+
       // 보스 단계: 모든 보스 처치 시 승리
       if (bossesSpawnedRef.current && areAllBossesDead(latestState.enemies)) {
         useRPGStore.getState().setGameOver(true);
