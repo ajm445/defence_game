@@ -174,7 +174,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     useRPGStore.getState().resetMultiplayerState();
     setShowJoinInput(false);
     setInputRoomCode('');
-    setScreen('rpgPlayTypeSelect');
+    setScreen('rpgClassSelect');
   }, [multiplayer.connectionState, setScreen]);
 
   const handleLeaveRoom = useCallback(() => {

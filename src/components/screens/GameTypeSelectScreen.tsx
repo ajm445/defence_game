@@ -20,7 +20,7 @@ export const GameTypeSelectScreen: React.FC = () => {
     if (authStatus !== 'authenticated') {
       setScreen('login');
     } else {
-      setScreen('rpgPlayTypeSelect');
+      setScreen('rpgClassSelect');
     }
   };
 

@@ -55,9 +55,9 @@ export interface GameRecord {
 // 캐릭터 해금 조건 (필요 플레이어 레벨)
 export const CHARACTER_UNLOCK_LEVELS: Record<HeroClass, number> = {
   archer: 1,    // 기본 캐릭터
-  warrior: 15,
-  knight: 40,
-  mage: 70,
+  warrior: 10,
+  knight: 25,
+  mage: 50,
 } as const;
 
 // 플레이어 경험치 계산 (넥서스 디펜스)

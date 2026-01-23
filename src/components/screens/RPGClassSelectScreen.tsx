@@ -257,7 +257,7 @@ export const RPGClassSelectScreen: React.FC = () => {
       setInputRoomCode('');
       setError(null);
     } else {
-      setScreen('rpgPlayTypeSelect');
+      setScreen('gameTypeSelect');
     }
   }, [setScreen, showJoinInput]);
 
