@@ -228,13 +228,18 @@ function drawVisibleArea(
  * 미니맵 컴포넌트 설정 가져오기
  */
 export function getMinimapConfig(canvasWidth: number, canvasHeight: number): MinimapConfig {
-  const minimapSize = 180;
   const margin = 20;
 
+  // 맵 비율에 맞춰 미니맵 크기 계산
+  const mapAspect = RPG_CONFIG.MAP_WIDTH / RPG_CONFIG.MAP_HEIGHT; // 3000/2000 = 1.5
+  const baseHeight = 120;  // 높이 기준
+  const minimapHeight = baseHeight;
+  const minimapWidth = baseHeight * mapAspect;  // 180 (1.5 * 120)
+
   return {
-    x: canvasWidth - minimapSize - margin,
-    y: canvasHeight - minimapSize - margin,
-    width: minimapSize,
-    height: minimapSize,
+    x: canvasWidth - minimapWidth - margin,
+    y: canvasHeight - minimapHeight - margin,
+    width: minimapWidth,
+    height: minimapHeight,
   };
 }

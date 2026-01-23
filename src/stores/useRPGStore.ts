@@ -5,6 +5,7 @@ import { UnitType } from '../types/unit';
 import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
 import { createInitialUpgradeLevels, getUpgradeCost, canUpgrade, getGoldReward, calculateAllUpgradeBonuses, UpgradeType } from '../game/rpg/goldSystem';
+import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '../types/auth';
 
 interface RPGState extends RPGGameState {
   // 활성 스킬 효과
@@ -29,14 +30,14 @@ interface RPGState extends RPGGameState {
 
 interface RPGActions {
   // 게임 초기화
-  initGame: (characterLevel?: number) => void;
+  initGame: (characterLevel?: number, statUpgrades?: CharacterStatUpgrades) => void;
   resetGame: () => void;
 
   // 직업 선택
   selectClass: (heroClass: HeroClass) => void;
 
   // 영웅 관련
-  createHero: (heroClass: HeroClass, characterLevel?: number) => void;
+  createHero: (heroClass: HeroClass, characterLevel?: number, statUpgrades?: CharacterStatUpgrades) => void;
   moveHero: (x: number, y: number) => void;
   setMoveDirection: (direction: { x: number; y: number } | undefined) => void;
   setAttackTarget: (targetId: string | undefined) => void;
@@ -232,11 +233,29 @@ function createClassSkills(heroClass: HeroClass): Skill[] {
 }
 
 // 영웅 생성 (직업별)
-function createHeroUnit(heroClass: HeroClass, characterLevel: number = 1): HeroUnit {
+function createHeroUnit(
+  heroClass: HeroClass,
+  characterLevel: number = 1,
+  statUpgrades?: CharacterStatUpgrades
+): HeroUnit {
   const classConfig = CLASS_CONFIGS[heroClass];
 
   // 캐릭터 레벨이 5 이상이면 패시브 활성화
   const passiveState = getPassiveFromCharacterLevel(heroClass, characterLevel) || createInitialPassiveState();
+
+  // SP 스탯 업그레이드 적용
+  const upgrades = statUpgrades || createDefaultStatUpgrades();
+  const attackBonus = getStatBonus('attack', upgrades.attack);
+  const speedBonus = getStatBonus('speed', upgrades.speed);
+  const hpBonus = getStatBonus('hp', upgrades.hp);
+  const rangeBonus = getStatBonus('range', upgrades.range);
+  // hpRegen은 게임 루프에서 적용됨
+
+  // 최종 스탯 계산
+  const finalHp = classConfig.hp + hpBonus;
+  const finalAttack = classConfig.attack + attackBonus;
+  const finalSpeed = classConfig.speed + speedBonus;
+  const finalRange = classConfig.range + rangeBonus;
 
   return {
     id: 'hero',
@@ -246,29 +265,31 @@ function createHeroUnit(heroClass: HeroClass, characterLevel: number = 1): HeroU
     config: {
       name: classConfig.name,
       cost: {},
-      hp: classConfig.hp,
-      attack: classConfig.attack,
+      hp: finalHp,
+      attack: finalAttack,
       attackSpeed: classConfig.attackSpeed,
-      speed: classConfig.speed,
-      range: classConfig.range,
+      speed: finalSpeed,
+      range: finalRange,
       type: 'combat',
     },
     x: NEXUS_CONFIG.position.x,  // 넥서스 근처에서 시작
     y: NEXUS_CONFIG.position.y + 100,
-    hp: classConfig.hp,
-    maxHp: classConfig.hp,
+    hp: finalHp,
+    maxHp: finalHp,
     state: 'idle',
     attackCooldown: 0,
     team: 'player',
 
     skills: createClassSkills(heroClass),
-    baseAttack: classConfig.attack,
-    baseSpeed: classConfig.speed,
+    baseAttack: finalAttack,
+    baseSpeed: finalSpeed,
     baseAttackSpeed: classConfig.attackSpeed,
     buffs: [],
     facingRight: true,   // 기본적으로 오른쪽을 바라봄 (이미지 반전용)
     facingAngle: 0,      // 기본적으로 오른쪽 방향 (0 라디안)
     passiveGrowth: passiveState,
+    // SP 업그레이드 저장 (hpRegen 적용용)
+    statUpgrades: upgrades,
   };
 }
 
@@ -276,11 +297,11 @@ export const useRPGStore = create<RPGStore>()(
   subscribeWithSelector((set, get) => ({
     ...initialState,
 
-    initGame: (characterLevel: number = 1) => {
+    initGame: (characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades) => {
       const state = get();
       // 선택된 직업이 없으면 기본값 warrior 사용
       const heroClass = state.selectedClass || 'warrior';
-      const hero = createHeroUnit(heroClass, characterLevel);
+      const hero = createHeroUnit(heroClass, characterLevel, statUpgrades);
       set({
         ...initialState,
         running: true,
@@ -326,8 +347,8 @@ export const useRPGStore = create<RPGStore>()(
       set({ selectedClass: heroClass });
     },
 
-    createHero: (heroClass: HeroClass, characterLevel: number = 1) => {
-      const hero = createHeroUnit(heroClass, characterLevel);
+    createHero: (heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades) => {
+      const hero = createHeroUnit(heroClass, characterLevel, statUpgrades);
       set({ hero, selectedClass: heroClass });
     },
 
@@ -454,11 +475,12 @@ export const useRPGStore = create<RPGStore>()(
       });
     },
 
-    // 골드 추가 (goldRate 보너스 적용)
+    // 골드 추가 (추가 골드 보너스 적용)
     addGold: (amount) => {
       set((state) => {
-        const goldRateBonus = calculateAllUpgradeBonuses(state.upgradeLevels).goldRateBonus;
-        const actualAmount = Math.floor(amount * (1 + goldRateBonus));
+        // 추가 골드 = 레벨 * perLevel (레벨당 +2)
+        const bonusGold = calculateAllUpgradeBonuses(state.upgradeLevels).goldRateBonus;
+        const actualAmount = amount + bonusGold;
         return {
           gold: state.gold + actualAmount,
           stats: {

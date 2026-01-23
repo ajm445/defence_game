@@ -3,6 +3,8 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTutorialStore } from '../../stores/useTutorialStore';
 import { useRPGStore } from '../../stores/useRPGStore';
+import { useProfileStore } from '../../stores/useProfileStore';
+import { createDefaultStatUpgrades } from '../../types/auth';
 import { soundManager } from '../../services/SoundManager';
 
 export const PauseScreen: React.FC = () => {
@@ -51,8 +53,15 @@ export const PauseScreen: React.FC = () => {
     resetGameUI(); // UI 상태 초기화
     if (isRPG) {
       // RPG 모드 재시작
+      const rpgState = useRPGStore.getState();
+      const heroClass = rpgState.selectedClass || 'warrior';
+      const classProgressList = useProfileStore.getState().classProgress;
+      const classProgress = classProgressList.find(p => p.className === heroClass);
+      const characterLevel = classProgress?.classLevel ?? 1;
+      const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
+
       useRPGStore.getState().resetGame();
-      useRPGStore.getState().initGame();
+      useRPGStore.getState().initGame(characterLevel, statUpgrades);
       setScreen('game');
     } else if (isTutorial) {
       // 튜토리얼 재시작

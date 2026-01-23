@@ -9,12 +9,12 @@ import { RPGGameTimer } from '../ui/RPGGameTimer';
 import { RPGUpgradePanel } from '../ui/RPGUpgradePanel';
 import { Notification } from '../ui/Notification';
 import { LevelUpNotification } from '../ui/LevelUpNotification';
-import { useRPGStore, useRPGGameOver, useRPGResult } from '../../stores/useRPGStore';
+import { useRPGStore, useRPGGameOver, useRPGResult, useSelectedClass } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
-import { useProfileStore, useLastGameResult } from '../../stores/useProfileStore';
+import { useProfileStore, useLastGameResult, useClassProgress } from '../../stores/useProfileStore';
 import { SkillType } from '../../types/rpg';
-import { LevelUpResult, calculatePlayerExp, calculateClassExp } from '../../types/auth';
+import { LevelUpResult, calculatePlayerExp, calculateClassExp, createDefaultStatUpgrades } from '../../types/auth';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { soundManager } from '../../services/SoundManager';
 
@@ -32,6 +32,8 @@ export const RPGModeScreen: React.FC = () => {
   const handleGameEnd = useProfileStore((state) => state.handleGameEnd);
   const lastGameResult = useLastGameResult();
   const clearLastGameResult = useProfileStore((state) => state.clearLastGameResult);
+  const selectedClass = useSelectedClass();
+  const classProgressList = useClassProgress();
 
   // 레벨업 알림 상태
   const [levelUpResult, setLevelUpResult] = useState<LevelUpResult | null>(null);
@@ -43,13 +45,19 @@ export const RPGModeScreen: React.FC = () => {
     const state = useRPGStore.getState();
     // 이미 영웅이 있고 게임이 실행 중이면 (일시정지에서 돌아온 경우) 초기화하지 않음
     if (!state.hero) {
-      useRPGStore.getState().initGame();
+      // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
+      const heroClass = state.selectedClass || 'warrior';
+      const classProgress = classProgressList.find(p => p.className === heroClass);
+      const characterLevel = classProgress?.classLevel ?? 1;
+      const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
+
+      useRPGStore.getState().initGame(characterLevel, statUpgrades);
     }
     // 게임 시작 시 레퍼런스 초기화
     expSavedRef.current = false;
 
     // 언마운트 시 정리하지 않음 - 메인 메뉴로 돌아갈 때만 PauseScreen에서 resetGame 호출
-  }, []);
+  }, [classProgressList]);
 
   // 게임 오버 시 경험치 저장
   useEffect(() => {
@@ -131,8 +139,16 @@ export const RPGModeScreen: React.FC = () => {
     setLevelUpResult(null);
     setShowLevelUp(false);
     expSavedRef.current = false;
-    useRPGStore.getState().initGame();
-  }, [resetGame, clearLastGameResult]);
+
+    // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
+    const state = useRPGStore.getState();
+    const heroClass = state.selectedClass || 'warrior';
+    const classProgress = classProgressList.find(p => p.className === heroClass);
+    const characterLevel = classProgress?.classLevel ?? 1;
+    const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
+
+    useRPGStore.getState().initGame(characterLevel, statUpgrades);
+  }, [resetGame, clearLastGameResult, classProgressList]);
 
   // 레벨업 알림 닫기
   const handleCloseLevelUp = useCallback(() => {
@@ -163,17 +179,19 @@ export const RPGModeScreen: React.FC = () => {
       {/* 알림 */}
       <Notification />
 
-      {/* 하단 UI - 스킬바 */}
+      {/* 하단 UI - 스킬바 + 업그레이드 패널 (한 줄로 통합) */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto">
-        <RPGSkillBar onUseSkill={handleUseSkill} />
-      </div>
+        <div className="flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
+          {/* 스킬바 */}
+          <RPGSkillBar onUseSkill={handleUseSkill} />
 
-      {/* 우측 하단 업그레이드 패널 - 게임 진행 중에만 표시 */}
-      {!gameOver && (
-        <div className="absolute bottom-8 right-4 pointer-events-auto">
-          <RPGUpgradePanel />
+          {/* 구분선 */}
+          {!gameOver && <div className="w-px bg-dark-500/50 my-1" />}
+
+          {/* 업그레이드 패널 */}
+          {!gameOver && <RPGUpgradePanel />}
         </div>
-      )}
+      </div>
 
       {/* 조작법 안내 */}
       <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">

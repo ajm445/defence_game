@@ -91,8 +91,8 @@ export const UPGRADE_CONFIG = {
     description: '최대 HP',
   },
   goldRate: {
-    perLevel: 0.15,        // 레벨당 +15% 골드 획득
-    description: '골드 획득',
+    perLevel: 2,           // 레벨당 +2 추가 골드
+    description: '추가 골드',
   },
 } as const;
 
@@ -102,8 +102,8 @@ export const UPGRADE_CONFIG = {
 
 export const NEXUS_CONFIG = {
   position: {
-    x: 1000,  // 맵 중앙
-    y: 1000,
+    x: 1500,  // 맵 중앙 (MAP_WIDTH / 2)
+    y: 1000,  // 맵 중앙 (MAP_HEIGHT / 2)
   },
   hp: 5000,
   radius: 80,  // 넥서스 크기
@@ -111,17 +111,28 @@ export const NEXUS_CONFIG = {
 
 export const ENEMY_BASE_CONFIG = {
   left: {
-    x: 200,
-    y: 1000,
+    x: 150,    // 왼쪽 끝
+    y: 1000,   // 중앙 레인
     hp: 3000,
     radius: 60,
   },
   right: {
-    x: 1800,
-    y: 1000,
+    x: 2850,   // 오른쪽 끝
+    y: 1000,   // 중앙 레인
     hp: 3000,
     radius: 60,
   },
+} as const;
+
+// 레인 설정 (적이 이동하는 경로)
+export const LANE_CONFIG = {
+  // 레인 폭 (시각적 표시용)
+  width: 200,
+  // 레인 중심 Y 좌표
+  centerY: 1000,
+  // 레인 색상
+  color: 'rgba(50, 40, 30, 0.4)',  // 어두운 길 색상
+  borderColor: 'rgba(100, 80, 60, 0.3)',
 } as const;
 
 // 스폰 설정
@@ -398,10 +409,10 @@ export const CLASS_SKILLS = {
 };
 
 export const RPG_CONFIG = {
-  // 맵 설정
-  MAP_WIDTH: 2000,
+  // 맵 설정 (넓은 맵 - 양쪽 레인 형태)
+  MAP_WIDTH: 3000,
   MAP_HEIGHT: 2000,
-  MAP_CENTER_X: 1000,
+  MAP_CENTER_X: 1500,
   MAP_CENTER_Y: 1000,
 
   // 시야 설정

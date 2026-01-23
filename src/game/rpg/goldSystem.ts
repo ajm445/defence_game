@@ -90,9 +90,7 @@ export function getUpgradeDescription(upgradeType: UpgradeType, currentLevel: nu
   const currentBonus = getUpgradeBonus(upgradeType, currentLevel);
   const nextBonus = getUpgradeBonus(upgradeType, currentLevel + 1);
 
-  if (upgradeType === 'goldRate') {
-    return `${config.description}: +${(currentBonus * 100).toFixed(0)}% → +${(nextBonus * 100).toFixed(0)}%`;
-  } else if (upgradeType === 'speed') {
+  if (upgradeType === 'speed') {
     return `${config.description}: +${currentBonus.toFixed(2)} → +${nextBonus.toFixed(2)}`;
   } else {
     return `${config.description}: +${currentBonus} → +${nextBonus}`;
@@ -105,9 +103,7 @@ export function getUpgradeDescription(upgradeType: UpgradeType, currentLevel: nu
 export function getCurrentBonusText(upgradeType: UpgradeType, level: number): string {
   const bonus = getUpgradeBonus(upgradeType, level);
 
-  if (upgradeType === 'goldRate') {
-    return `+${(bonus * 100).toFixed(0)}%`;
-  } else if (upgradeType === 'speed') {
+  if (upgradeType === 'speed') {
     return `+${bonus.toFixed(2)}`;
   } else {
     return `+${bonus}`;

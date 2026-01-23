@@ -1,5 +1,5 @@
 import { RPGGameState } from '../types/rpg';
-import { RPG_CONFIG } from '../constants/rpgConfig';
+import { RPG_CONFIG, LANE_CONFIG, NEXUS_CONFIG, ENEMY_BASE_CONFIG } from '../constants/rpgConfig';
 import { drawGrid } from './drawGrid';
 import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange, drawSkillRange } from './drawHero';
 import { effectManager } from '../effects';
@@ -42,6 +42,9 @@ export function renderRPG(
 
   // 배경 그리드
   drawGrid(ctx, camera, scaledWidth, scaledHeight);
+
+  // 레인 (적 이동 경로) 렌더링
+  drawLanes(ctx, camera, scaledWidth, scaledHeight);
 
   // 맵 경계 표시
   drawMapBoundary(ctx, camera, scaledWidth, scaledHeight);
@@ -237,4 +240,92 @@ function drawPausedOverlay(
   ctx.fillText('일시정지', centerX, centerY + 60);
 
   ctx.restore();
+}
+
+/**
+ * 레인 (적 이동 경로) 렌더링
+ */
+function drawLanes(
+  ctx: CanvasRenderingContext2D,
+  camera: { x: number; y: number },
+  _canvasWidth: number,
+  canvasHeight: number
+) {
+  ctx.save();
+
+  const laneY = LANE_CONFIG.centerY;
+  const laneHalfWidth = LANE_CONFIG.width / 2;
+  const nexusX = NEXUS_CONFIG.position.x;
+  const leftBaseX = ENEMY_BASE_CONFIG.left.x;
+  const rightBaseX = ENEMY_BASE_CONFIG.right.x;
+
+  // 화면에 보이는지 확인
+  const screenTop = camera.y;
+  const screenBottom = camera.y + canvasHeight;
+
+  // 레인이 화면에 보이지 않으면 그리지 않음
+  if (laneY + laneHalfWidth < screenTop || laneY - laneHalfWidth > screenBottom) {
+    ctx.restore();
+    return;
+  }
+
+  // 왼쪽 레인 (왼쪽 기지 → 넥서스)
+  drawLanePath(ctx, camera, leftBaseX, nexusX, laneY, laneHalfWidth);
+
+  // 오른쪽 레인 (오른쪽 기지 → 넥서스)
+  drawLanePath(ctx, camera, nexusX, rightBaseX, laneY, laneHalfWidth);
+
+  ctx.restore();
+}
+
+/**
+ * 레인 경로 그리기
+ */
+function drawLanePath(
+  ctx: CanvasRenderingContext2D,
+  camera: { x: number; y: number },
+  startX: number,
+  endX: number,
+  centerY: number,
+  halfWidth: number
+) {
+  const screenStartX = startX - camera.x;
+  const screenEndX = endX - camera.x;
+  const screenY = centerY - camera.y;
+
+  // 레인 배경 (길)
+  ctx.fillStyle = LANE_CONFIG.color;
+  ctx.fillRect(
+    screenStartX,
+    screenY - halfWidth,
+    screenEndX - screenStartX,
+    halfWidth * 2
+  );
+
+  // 레인 테두리 (상단)
+  ctx.fillStyle = LANE_CONFIG.borderColor;
+  ctx.fillRect(
+    screenStartX,
+    screenY - halfWidth,
+    screenEndX - screenStartX,
+    4
+  );
+
+  // 레인 테두리 (하단)
+  ctx.fillRect(
+    screenStartX,
+    screenY + halfWidth - 4,
+    screenEndX - screenStartX,
+    4
+  );
+
+  // 중앙 점선 (가이드라인)
+  ctx.strokeStyle = 'rgba(80, 70, 60, 0.3)';
+  ctx.lineWidth = 2;
+  ctx.setLineDash([20, 20]);
+  ctx.beginPath();
+  ctx.moveTo(screenStartX, screenY);
+  ctx.lineTo(screenEndX, screenY);
+  ctx.stroke();
+  ctx.setLineDash([]);
 }

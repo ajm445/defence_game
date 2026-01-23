@@ -117,32 +117,55 @@ export function createNexusEnemy(
 }
 
 /**
- * 기지별 스폰 처리
- * 양쪽 기지에서 번갈아가며 스폰
+ * 스폰 결과 타입
+ */
+export interface SpawnResult {
+  shouldSpawn: boolean;
+  spawns: { baseId: 'left' | 'right'; count: number }[];
+}
+
+/**
+ * 양쪽 기지에서 동시에 스폰
+ * 시간이 지날수록 더 많은 적이 스폰됨
  */
 export function shouldSpawnEnemy(
   gameTime: number,
   lastSpawnTime: number,
   bases: EnemyBase[]
-): { shouldSpawn: boolean; baseId: 'left' | 'right' | null } {
+): SpawnResult {
   const config = getSpawnConfig(gameTime);
   const timeSinceLastSpawn = gameTime - lastSpawnTime;
 
   if (timeSinceLastSpawn < config.spawnInterval) {
-    return { shouldSpawn: false, baseId: null };
+    return { shouldSpawn: false, spawns: [] };
   }
 
-  // 파괴되지 않은 기지 중 하나 선택
+  // 파괴되지 않은 기지 목록
   const activeBases = bases.filter(b => !b.destroyed);
   if (activeBases.length === 0) {
-    return { shouldSpawn: false, baseId: null };
+    return { shouldSpawn: false, spawns: [] };
   }
 
-  // 번갈아가며 스폰 (시간 기반)
-  const spawnIndex = Math.floor(gameTime / config.spawnInterval) % activeBases.length;
-  const selectedBase = activeBases[spawnIndex];
+  const minutes = gameTime / 60;
 
-  return { shouldSpawn: true, baseId: selectedBase.id };
+  // 시간에 따른 스폰 수 (기본 1, 시간이 지날수록 증가)
+  // 0-2분: 1마리, 2-4분: 1-2마리, 4-6분: 2마리, 6분+: 2-3마리
+  let baseSpawnCount = 1;
+  if (minutes >= 6) {
+    baseSpawnCount = Math.random() < 0.5 ? 2 : 3;
+  } else if (minutes >= 4) {
+    baseSpawnCount = 2;
+  } else if (minutes >= 2) {
+    baseSpawnCount = Math.random() < 0.5 ? 1 : 2;
+  }
+
+  // 각 활성 기지에서 스폰
+  const spawns = activeBases.map(base => ({
+    baseId: base.id,
+    count: baseSpawnCount,
+  }));
+
+  return { shouldSpawn: true, spawns };
 }
 
 /**

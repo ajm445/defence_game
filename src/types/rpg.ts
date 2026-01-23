@@ -1,5 +1,6 @@
 import { Position } from './game';
 import { Unit, UnitType } from './unit';
+import { CharacterStatUpgrades } from './auth';
 
 // 영웅 직업 타입
 export type HeroClass = 'warrior' | 'archer' | 'knight' | 'mage';
@@ -127,6 +128,7 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   type: 'hero';
   heroClass: HeroClass;      // 영웅 직업
   characterLevel: number;    // 계정 캐릭터 레벨 (프로필에서 가져옴)
+  statUpgrades?: CharacterStatUpgrades; // SP로 업그레이드한 스탯
   skills: Skill[];           // 보유 스킬
   targetPosition?: Position; // 이동 목표 위치 (구 방식 - 사용 안함)
   moveDirection?: Position;  // WASD 이동 방향 (신 방식)

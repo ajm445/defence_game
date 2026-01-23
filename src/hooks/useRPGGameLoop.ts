@@ -2,6 +2,7 @@ import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
 import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG } from '../constants/rpgConfig';
+import { getStatBonus } from '../types/auth';
 import { updateHeroUnit, findNearestEnemy, findNearestEnemyBase } from '../game/rpg/heroUnit';
 import {
   executeDash,
@@ -193,13 +194,25 @@ export function useRPGGameLoop() {
       useRPGStore.getState().setCamera(updatedHero.x, updatedHero.y);
     }
 
-    // 패시브 HP 재생 (기사: 캐릭터 레벨 5 이상 시 패시브 활성화)
+    // HP 재생 처리 (기사: 패시브, 전사/기사: SP hpRegen 업그레이드)
     const heroForRegen = useRPGStore.getState().hero;
-    if (heroForRegen && heroForRegen.heroClass === 'knight' && heroForRegen.hp < heroForRegen.maxHp) {
-      const classConfig = CLASS_CONFIGS[heroForRegen.heroClass];
-      const baseRegen = heroForRegen.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.hpRegen || 0) : 0;
-      const growthRegen = heroForRegen.passiveGrowth.currentValue;
-      const totalRegen = baseRegen + growthRegen;
+    if (heroForRegen && heroForRegen.hp < heroForRegen.maxHp) {
+      const heroClass = heroForRegen.heroClass;
+      let totalRegen = 0;
+
+      // 기사 패시브 HP 재생 (캐릭터 레벨 5 이상 시 활성화)
+      if (heroClass === 'knight') {
+        const classConfig = CLASS_CONFIGS[heroClass];
+        const baseRegen = heroForRegen.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.hpRegen || 0) : 0;
+        const growthRegen = heroForRegen.passiveGrowth.currentValue;
+        totalRegen += baseRegen + growthRegen;
+      }
+
+      // SP hpRegen 업그레이드 보너스 (전사, 기사만)
+      if ((heroClass === 'warrior' || heroClass === 'knight') && heroForRegen.statUpgrades) {
+        const hpRegenBonus = getStatBonus('hpRegen', heroForRegen.statUpgrades.hpRegen);
+        totalRegen += hpRegenBonus;
+      }
 
       if (totalRegen > 0) {
         const regenAmount = totalRegen * deltaTime;
@@ -315,19 +328,25 @@ export function useRPGGameLoop() {
 
     // 게임 단계에 따른 처리
     if (latestState.gamePhase === 'playing') {
-      // 적 기지에서 연속 스폰
+      // 적 기지에서 동시 스폰 (양쪽에서 여러 마리)
       const enemyBases = latestState.enemyBases;
       const spawnResult = shouldSpawnEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases);
 
-      if (spawnResult.shouldSpawn && spawnResult.baseId) {
-        const base = enemyBases.find(b => b.id === spawnResult.baseId);
-        if (base) {
-          const enemy = createEnemyFromBase(base, latestState.gameTime);
-          if (enemy) {
-            useRPGStore.getState().addEnemy(enemy);
-            useRPGStore.getState().setLastSpawnTime(latestState.gameTime);
+      if (spawnResult.shouldSpawn && spawnResult.spawns.length > 0) {
+        // 각 기지에서 스폰
+        for (const spawn of spawnResult.spawns) {
+          const base = enemyBases.find(b => b.id === spawn.baseId);
+          if (base && !base.destroyed) {
+            // 해당 기지에서 count만큼 적 생성
+            for (let i = 0; i < spawn.count; i++) {
+              const enemy = createEnemyFromBase(base, latestState.gameTime);
+              if (enemy) {
+                useRPGStore.getState().addEnemy(enemy);
+              }
+            }
           }
         }
+        useRPGStore.getState().setLastSpawnTime(latestState.gameTime);
       }
 
       // 5분 마일스톤 보상 체크
