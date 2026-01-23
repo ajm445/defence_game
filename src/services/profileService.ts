@@ -3,10 +3,14 @@ import {
   ClassProgress,
   GameRecord,
   LevelUpResult,
+  CharacterStatUpgrades,
   calculatePlayerExp,
   calculateClassExp,
   getRequiredPlayerExp,
   getRequiredClassExp,
+  createDefaultStatUpgrades,
+  SP_PER_CLASS_LEVEL,
+  StatUpgradeType,
 } from '../types/auth';
 import { HeroClass } from '../types/rpg';
 
@@ -76,7 +80,12 @@ export const getClassProgress = async (playerId: string): Promise<ClassProgress[
 export const upsertClassProgress = async (
   playerId: string,
   className: HeroClass,
-  updates: { classLevel: number; classExp: number }
+  updates: {
+    classLevel: number;
+    classExp: number;
+    sp?: number;
+    statUpgrades?: CharacterStatUpgrades;
+  }
 ): Promise<boolean> => {
   try {
     const data = await apiRequest<{ success: boolean }>('/api/profile/class-progress', {
@@ -86,6 +95,8 @@ export const upsertClassProgress = async (
         className,
         classLevel: updates.classLevel,
         classExp: updates.classExp,
+        sp: updates.sp ?? 0,
+        statUpgrades: updates.statUpgrades ?? createDefaultStatUpgrades(),
       }),
     });
 
@@ -93,6 +104,86 @@ export const upsertClassProgress = async (
   } catch (err) {
     console.error('Upsert class progress error:', err);
     return false;
+  }
+};
+
+// SP 사용하여 스탯 업그레이드
+export const upgradeCharacterStat = async (
+  playerId: string,
+  className: HeroClass,
+  statType: StatUpgradeType,
+  currentProgress: ClassProgress
+): Promise<ClassProgress | null> => {
+  if (currentProgress.sp <= 0) {
+    console.error('Not enough SP');
+    return null;
+  }
+
+  const newStatUpgrades = {
+    ...currentProgress.statUpgrades,
+    [statType]: currentProgress.statUpgrades[statType] + 1,
+  };
+
+  const newSp = currentProgress.sp - 1;
+
+  try {
+    await upsertClassProgress(playerId, className, {
+      classLevel: currentProgress.classLevel,
+      classExp: currentProgress.classExp,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
+    });
+
+    return {
+      ...currentProgress,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
+    };
+  } catch (err) {
+    console.error('Upgrade character stat error:', err);
+    return null;
+  }
+};
+
+// SP 초기화 (스탯 리셋)
+export const resetCharacterStats = async (
+  playerId: string,
+  className: HeroClass,
+  currentProgress: ClassProgress
+): Promise<ClassProgress | null> => {
+  // 사용한 SP 계산
+  const spentSP =
+    currentProgress.statUpgrades.attack +
+    currentProgress.statUpgrades.speed +
+    currentProgress.statUpgrades.hp +
+    currentProgress.statUpgrades.range +
+    currentProgress.statUpgrades.hpRegen;
+
+  // 이미 0이면 리셋할 필요 없음
+  if (spentSP === 0) {
+    return currentProgress;
+  }
+
+  // SP 반환 및 스탯 초기화
+  const newSp = currentProgress.sp + spentSP;
+  const newStatUpgrades = createDefaultStatUpgrades();
+
+  try {
+    await upsertClassProgress(playerId, className, {
+      classLevel: currentProgress.classLevel,
+      classExp: currentProgress.classExp,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
+    });
+
+    return {
+      ...currentProgress,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
+    };
+  } catch (err) {
+    console.error('Reset character stats error:', err);
+    return null;
   }
 };
 
@@ -188,12 +279,22 @@ export const processGameResult = async (
   let newClassLevel = existingProgress?.classLevel ?? 1;
   let newClassExp = (existingProgress?.classExp ?? 0) + classExpGained;
   let classLeveledUp = false;
+  let spGained = 0;
+  const previousLevel = newClassLevel;
 
   while (newClassExp >= getRequiredClassExp(newClassLevel)) {
     newClassExp -= getRequiredClassExp(newClassLevel);
     newClassLevel++;
     classLeveledUp = true;
+    spGained += SP_PER_CLASS_LEVEL; // 레벨당 SP 획득
   }
+
+  // 기존 SP + 새로 획득한 SP
+  const existingSp = existingProgress?.sp ?? 0;
+  const newSp = existingSp + spGained;
+
+  // 기존 스탯 업그레이드 유지
+  const existingStatUpgrades = existingProgress?.statUpgrades ?? createDefaultStatUpgrades();
 
   // 새 프로필 데이터
   const newProfile: PlayerProfile = {
@@ -208,6 +309,8 @@ export const processGameResult = async (
     className: gameData.classUsed,
     classLevel: newClassLevel,
     classExp: newClassExp,
+    sp: newSp,
+    statUpgrades: existingStatUpgrades,
   };
 
   // 레벨업 결과
@@ -217,6 +320,7 @@ export const processGameResult = async (
     classLeveledUp,
     newClassLevel: classLeveledUp ? newClassLevel : undefined,
     className: classLeveledUp ? gameData.classUsed : undefined,
+    spGained: spGained > 0 ? spGained : undefined,
   };
 
   // 게스트가 아닌 경우 DB에 저장 (백엔드 API 통해)
@@ -231,6 +335,8 @@ export const processGameResult = async (
     await upsertClassProgress(playerId, gameData.classUsed, {
       classLevel: newClassLevel,
       classExp: newClassExp,
+      sp: newSp,
+      statUpgrades: existingStatUpgrades,
     });
 
     // 게임 기록 저장

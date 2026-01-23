@@ -14,6 +14,15 @@ export interface PlayerProfile {
   updatedAt?: string;
 }
 
+// 캐릭터 스탯 업그레이드 (SP 투자)
+export interface CharacterStatUpgrades {
+  attack: number;      // 공격력 (모든 캐릭터)
+  speed: number;       // 이동속도 (모든 캐릭터)
+  hp: number;          // 체력 (모든 캐릭터)
+  range: number;       // 사거리 (원거리: archer, mage)
+  hpRegen: number;     // 체력 재생 (근거리: warrior, knight)
+}
+
 // 클래스 진행 상황
 export interface ClassProgress {
   id?: string;
@@ -21,6 +30,8 @@ export interface ClassProgress {
   className: HeroClass;
   classLevel: number;
   classExp: number;
+  sp: number;                         // 사용 가능한 스킬 포인트
+  statUpgrades: CharacterStatUpgrades; // 스탯 업그레이드
   createdAt?: string;
   updatedAt?: string;
 }
@@ -141,4 +152,85 @@ export interface LevelUpResult {
   classLeveledUp: boolean;
   newClassLevel?: number;
   className?: HeroClass;
+  spGained?: number;
 }
+
+// SP 시스템 상수
+export const SP_PER_CLASS_LEVEL = 1; // 클래스 레벨당 SP 획득
+
+// 기본 스탯 업그레이드 생성
+export const createDefaultStatUpgrades = (): CharacterStatUpgrades => ({
+  attack: 0,
+  speed: 0,
+  hp: 0,
+  range: 0,
+  hpRegen: 0,
+});
+
+// 스탯 업그레이드 타입 (캐릭터별)
+export type StatUpgradeType = keyof CharacterStatUpgrades;
+
+// 캐릭터별 업그레이드 가능한 스탯
+export const getUpgradeableStats = (heroClass: HeroClass): StatUpgradeType[] => {
+  // 근거리 캐릭터: 공격력, 이동속도, 체력, 체력 재생
+  if (heroClass === 'warrior' || heroClass === 'knight') {
+    return ['attack', 'speed', 'hp', 'hpRegen'];
+  }
+  // 원거리 캐릭터: 공격력, 이동속도, 체력, 사거리
+  return ['attack', 'speed', 'hp', 'range'];
+};
+
+// 스탯 업그레이드 정보
+export const STAT_UPGRADE_CONFIG: Record<StatUpgradeType, {
+  name: string;
+  icon: string;
+  perLevel: number;
+  unit: string;
+  maxLevel: number;
+}> = {
+  attack: {
+    name: '공격력',
+    icon: '⚔️',
+    perLevel: 5,      // 레벨당 +5 공격력
+    unit: '',
+    maxLevel: 20,
+  },
+  speed: {
+    name: '이동속도',
+    icon: '👟',
+    perLevel: 0.1,    // 레벨당 +0.1 이동속도
+    unit: '',
+    maxLevel: 15,
+  },
+  hp: {
+    name: '체력',
+    icon: '❤️',
+    perLevel: 30,     // 레벨당 +30 체력
+    unit: '',
+    maxLevel: 20,
+  },
+  range: {
+    name: '사거리',
+    icon: '🎯',
+    perLevel: 10,     // 레벨당 +10 사거리
+    unit: '',
+    maxLevel: 10,
+  },
+  hpRegen: {
+    name: '체력 재생',
+    icon: '💚',
+    perLevel: 2,      // 레벨당 +2/초 체력 재생
+    unit: '/초',
+    maxLevel: 15,
+  },
+};
+
+// 특정 스탯의 총 보너스 계산
+export const getStatBonus = (upgradeType: StatUpgradeType, level: number): number => {
+  return STAT_UPGRADE_CONFIG[upgradeType].perLevel * level;
+};
+
+// 사용한 총 SP 계산 (모든 스탯 레벨의 합)
+export const getTotalSpentSP = (statUpgrades: CharacterStatUpgrades): number => {
+  return statUpgrades.attack + statUpgrades.speed + statUpgrades.hp + statUpgrades.range + statUpgrades.hpRegen;
+};

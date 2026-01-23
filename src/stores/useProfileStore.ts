@@ -4,10 +4,15 @@ import {
   ClassProgress,
   GameRecord,
   LevelUpResult,
+  StatUpgradeType,
   getRequiredPlayerExp,
   getRequiredClassExp,
   calculatePlayerExp,
   calculateClassExp,
+  createDefaultStatUpgrades,
+  SP_PER_CLASS_LEVEL,
+  STAT_UPGRADE_CONFIG,
+  getUpgradeableStats,
 } from '../types/auth';
 import { HeroClass } from '../types/rpg';
 import {
@@ -15,6 +20,8 @@ import {
   getGameHistory,
   processGameResult,
   getPlayerStats,
+  upgradeCharacterStat,
+  resetCharacterStats,
 } from '../services/profileService';
 import { useAuthStore } from './useAuthStore';
 
@@ -83,6 +90,18 @@ interface ProfileActions {
 
   // 마지막 결과 초기화
   clearLastGameResult: () => void;
+
+  // SP 스탯 업그레이드
+  upgradeCharacterStatAction: (
+    className: HeroClass,
+    statType: StatUpgradeType
+  ) => Promise<boolean>;
+
+  // 업그레이드 가능 여부 확인
+  canUpgradeStat: (className: HeroClass, statType: StatUpgradeType) => boolean;
+
+  // SP 초기화 (스탯 리셋)
+  resetCharacterStatsAction: (className: HeroClass) => Promise<boolean>;
 
   // 전체 초기화 (로그아웃 시)
   reset: () => void;
@@ -227,12 +246,21 @@ export const useProfileStore = create<ProfileStore>()(
       let newClassLevel = existingProgress?.classLevel ?? 1;
       let newClassExp = (existingProgress?.classExp ?? 0) + classExpGained;
       let classLeveledUp = false;
+      let spGained = 0;
 
       while (newClassExp >= getRequiredClassExp(newClassLevel)) {
         newClassExp -= getRequiredClassExp(newClassLevel);
         newClassLevel++;
         classLeveledUp = true;
+        spGained += SP_PER_CLASS_LEVEL;
       }
+
+      // 기존 SP + 새로 획득한 SP
+      const existingSp = existingProgress?.sp ?? 0;
+      const newSp = existingSp + spGained;
+
+      // 기존 스탯 업그레이드 유지
+      const existingStatUpgrades = existingProgress?.statUpgrades ?? createDefaultStatUpgrades();
 
       // 로컬 상태 업데이트
       set({
@@ -245,6 +273,7 @@ export const useProfileStore = create<ProfileStore>()(
             classLeveledUp,
             newClassLevel: classLeveledUp ? newClassLevel : undefined,
             className: classLeveledUp ? gameData.classUsed : undefined,
+            spGained: spGained > 0 ? spGained : undefined,
           },
         },
       });
@@ -262,6 +291,8 @@ export const useProfileStore = create<ProfileStore>()(
         className: gameData.classUsed,
         classLevel: newClassLevel,
         classExp: newClassExp,
+        sp: newSp,
+        statUpgrades: existingStatUpgrades,
       };
 
       const existingIndex = classProgress.findIndex(
@@ -282,6 +313,7 @@ export const useProfileStore = create<ProfileStore>()(
         classLeveledUp,
         newClassLevel: classLeveledUp ? newClassLevel : undefined,
         className: classLeveledUp ? gameData.classUsed : undefined,
+        spGained: spGained > 0 ? spGained : undefined,
       };
     },
 
@@ -330,6 +362,102 @@ export const useProfileStore = create<ProfileStore>()(
     // 마지막 게임 결과 초기화
     clearLastGameResult: () => {
       set({ lastGameResult: null });
+    },
+
+    // SP 스탯 업그레이드
+    upgradeCharacterStatAction: async (className, statType) => {
+      const authState = useAuthStore.getState();
+      const profile = authState.profile;
+
+      if (!profile || profile.isGuest) return false;
+
+      const { classProgress } = get();
+      const progress = classProgress.find((p) => p.className === className);
+
+      if (!progress || progress.sp <= 0) return false;
+
+      // 업그레이드 가능 여부 확인
+      if (!get().canUpgradeStat(className, statType)) return false;
+
+      // API 호출
+      const updatedProgress = await upgradeCharacterStat(
+        profile.id,
+        className,
+        statType,
+        progress
+      );
+
+      if (!updatedProgress) return false;
+
+      // 로컬 상태 업데이트
+      const updatedList = classProgress.map((p) =>
+        p.className === className ? updatedProgress : p
+      );
+      set({ classProgress: updatedList });
+
+      return true;
+    },
+
+    // 업그레이드 가능 여부 확인
+    canUpgradeStat: (className, statType) => {
+      const { classProgress } = get();
+      const progress = classProgress.find((p) => p.className === className);
+
+      if (!progress || progress.sp <= 0) return false;
+
+      // statUpgrades가 없으면 업그레이드 불가
+      if (!progress.statUpgrades) return false;
+
+      // 해당 캐릭터가 이 스탯을 업그레이드할 수 있는지 확인
+      const upgradeableStats = getUpgradeableStats(className);
+      if (!upgradeableStats.includes(statType)) return false;
+
+      // 최대 레벨 확인
+      const currentLevel = progress.statUpgrades[statType] ?? 0;
+      const maxLevel = STAT_UPGRADE_CONFIG[statType].maxLevel;
+      if (currentLevel >= maxLevel) return false;
+
+      return true;
+    },
+
+    // SP 초기화 (스탯 리셋)
+    resetCharacterStatsAction: async (className) => {
+      const authState = useAuthStore.getState();
+      const profile = authState.profile;
+
+      if (!profile || profile.isGuest) return false;
+
+      const { classProgress } = get();
+      const progress = classProgress.find((p) => p.className === className);
+
+      if (!progress) return false;
+
+      // 사용한 SP가 없으면 리셋할 필요 없음
+      const spentSP =
+        progress.statUpgrades.attack +
+        progress.statUpgrades.speed +
+        progress.statUpgrades.hp +
+        progress.statUpgrades.range +
+        progress.statUpgrades.hpRegen;
+
+      if (spentSP === 0) return false;
+
+      // API 호출
+      const updatedProgress = await resetCharacterStats(
+        profile.id,
+        className,
+        progress
+      );
+
+      if (!updatedProgress) return false;
+
+      // 로컬 상태 업데이트
+      const updatedList = classProgress.map((p) =>
+        p.className === className ? updatedProgress : p
+      );
+      set({ classProgress: updatedList });
+
+      return true;
     },
 
     // 전체 초기화 (로그아웃 시)
