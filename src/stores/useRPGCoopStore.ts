@@ -307,18 +307,20 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
 
     createRoom: () => {
       const { playerName, selectedClass } = get();
-      // 선택된 클래스의 캐릭터 레벨 가져오기
+      // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
       const classProgress = useProfileStore.getState().classProgress.find(p => p.className === selectedClass);
       const characterLevel = classProgress?.classLevel ?? 1;
-      wsClient.createCoopRoom(playerName || 'Player', selectedClass, characterLevel);
+      const statUpgrades = classProgress?.statUpgrades;
+      wsClient.createCoopRoom(playerName || 'Player', selectedClass, characterLevel, statUpgrades);
     },
 
     joinRoom: (roomCode: string) => {
       const { playerName, selectedClass } = get();
-      // 선택된 클래스의 캐릭터 레벨 가져오기
+      // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
       const classProgress = useProfileStore.getState().classProgress.find(p => p.className === selectedClass);
       const characterLevel = classProgress?.classLevel ?? 1;
-      wsClient.joinCoopRoom(roomCode, playerName || 'Player', selectedClass, characterLevel);
+      const statUpgrades = classProgress?.statUpgrades;
+      wsClient.joinCoopRoom(roomCode, playerName || 'Player', selectedClass, characterLevel, statUpgrades);
     },
 
     leaveRoom: () => {
@@ -341,10 +343,11 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
 
       // 로비에 있으면 서버에도 알림
       if (connectionState === 'in_coop_lobby') {
-        // 새 클래스의 캐릭터 레벨 가져오기
+        // 새 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
         const classProgress = useProfileStore.getState().classProgress.find(p => p.className === heroClass);
         const characterLevel = classProgress?.classLevel ?? 1;
-        wsClient.changeCoopClass(heroClass, characterLevel);
+        const statUpgrades = classProgress?.statUpgrades;
+        wsClient.changeCoopClass(heroClass, characterLevel, statUpgrades);
       }
     },
 

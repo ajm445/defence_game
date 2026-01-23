@@ -12,6 +12,7 @@ import type {
   NetworkCoopEnemy,
   COOP_CONFIG,
 } from '../../../shared/types/rpgNetwork';
+import { getStatBonus, createDefaultStatUpgrades, type CharacterStatUpgrades } from '../../../src/types/auth';
 
 // 게임 단계 타입
 type CoopGamePhase = 'playing' | 'boss_phase' | 'victory' | 'defeat';
@@ -206,6 +207,8 @@ interface ServerHero extends Omit<NetworkCoopHero, 'moveDirection'> {
   };
   // 캐릭터 레벨 (플레이어 프로필에서, 업그레이드 최대 레벨 결정)
   characterLevel: number;
+  // SP 스탯 업그레이드 (hpRegen 등 적용용)
+  statUpgrades?: CharacterStatUpgrades;
 }
 
 // 서버측 적 상태
@@ -375,6 +378,23 @@ export class RPGCoopGameRoom {
       // 플레이어 정보에서 캐릭터 레벨 가져오기 (없으면 기본값 1)
       const characterLevel = playerInfo.characterLevel ?? 1;
 
+      // SP 스탯 업그레이드 가져오기 (싱글플레이와 동일하게 적용)
+      const statUpgrades = playerInfo.statUpgrades ?? createDefaultStatUpgrades();
+
+      // SP 스탯 보너스 계산 (싱글플레이와 동일한 공식)
+      const attackBonus = getStatBonus('attack', statUpgrades.attack);
+      const speedBonus = getStatBonus('speed', statUpgrades.speed);
+      const hpBonus = getStatBonus('hp', statUpgrades.hp);
+      const rangeBonus = getStatBonus('range', statUpgrades.range);
+
+      // 최종 스탯 계산
+      const finalHp = classConfig.hp + hpBonus;
+      const finalAttack = classConfig.attack + attackBonus;
+      const finalSpeed = classConfig.speed + speedBonus;
+      const finalRange = classConfig.range + rangeBonus;
+
+      console.log(`[Coop] 영웅 생성: ${heroClass} (Lv.${characterLevel}) SP: atk+${attackBonus}, spd+${speedBonus}, hp+${hpBonus}, range+${rangeBonus}`);
+
       const heroId = uuidv4();
       const hero: ServerHero = {
         id: heroId,
@@ -382,12 +402,12 @@ export class RPGCoopGameRoom {
         heroClass,
         x: pos.x,
         y: pos.y,
-        hp: classConfig.hp,
-        maxHp: classConfig.hp,
-        attack: classConfig.attack,
+        hp: finalHp,
+        maxHp: finalHp,
+        attack: finalAttack,
         attackSpeed: classConfig.attackSpeed,
-        speed: classConfig.speed,
-        range: classConfig.range,
+        speed: finalSpeed,
+        range: finalRange,
         // 골드 시스템
         gold: CONFIG.GOLD.STARTING,
         upgradeLevels: { attack: 0, speed: 0, hp: 0, goldRate: 0 },
@@ -404,11 +424,13 @@ export class RPGCoopGameRoom {
         passiveGrowth: { level: 0, currentValue: 0, overflowBonus: 0 },
         skillCooldowns: { Q: 0, W: 0, E: 0 },
         attackCooldown: 0,
-        baseAttack: classConfig.attack,
-        baseSpeed: classConfig.speed,
+        baseAttack: finalAttack,
+        baseSpeed: finalSpeed,
         baseAttackSpeed: classConfig.attackSpeed,
-        baseMaxHp: classConfig.hp,
+        baseMaxHp: finalHp,
         moveDirection: null,
+        // SP 스탯 업그레이드 저장 (hpRegen 적용용)
+        statUpgrades,
       };
 
       this.heroes.set(heroId, hero);
@@ -531,11 +553,23 @@ export class RPGCoopGameRoom {
       hero.x = Math.max(0, Math.min(CONFIG.MAP_WIDTH, hero.x));
       hero.y = Math.max(0, Math.min(CONFIG.MAP_HEIGHT, hero.y));
 
-      // 패시브 HP 재생 (기사)
-      if (hero.heroClass === 'knight' && hero.hp < hero.maxHp) {
-        const baseRegen = hero.characterLevel >= CONFIG.PASSIVE_UNLOCK_LEVEL ? (CONFIG.BASE_PASSIVES.knight.hpRegen || 0) : 0;
-        const growthRegen = hero.passiveGrowth.currentValue;
-        const totalRegen = baseRegen + growthRegen;
+      // HP 재생 처리 (싱글플레이어와 동일)
+      if (hero.hp < hero.maxHp) {
+        let totalRegen = 0;
+
+        // 기사 패시브 HP 재생
+        if (hero.heroClass === 'knight') {
+          const baseRegen = hero.characterLevel >= CONFIG.PASSIVE_UNLOCK_LEVEL ? (CONFIG.BASE_PASSIVES.knight.hpRegen || 0) : 0;
+          const growthRegen = hero.passiveGrowth.currentValue;
+          totalRegen += baseRegen + growthRegen;
+        }
+
+        // SP hpRegen 업그레이드 보너스 (전사, 기사만 적용 - 싱글플레이어와 동일)
+        if ((hero.heroClass === 'warrior' || hero.heroClass === 'knight') && hero.statUpgrades) {
+          const hpRegenBonus = getStatBonus('hpRegen', hero.statUpgrades.hpRegen);
+          totalRegen += hpRegenBonus;
+        }
+
         if (totalRegen > 0) {
           const hpRegen = totalRegen * deltaTime;
           hero.hp = Math.min(hero.maxHp, hero.hp + hpRegen);

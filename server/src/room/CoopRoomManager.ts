@@ -4,6 +4,7 @@ import { addCoopRoom } from '../websocket/MessageHandler';
 import { RPGCoopGameRoom } from '../game/RPGCoopGameRoom';
 import type { HeroClass } from '../../../src/types/rpg';
 import type { CoopPlayerInfo, COOP_CONFIG } from '../../../shared/types/rpgNetwork';
+import type { CharacterStatUpgrades } from '../../../src/types/auth';
 
 // 대기 중인 협동 방 정보
 interface WaitingCoopRoom {
@@ -42,7 +43,8 @@ export function createCoopRoom(
   hostPlayerId: string,
   playerName: string,
   heroClass: HeroClass,
-  characterLevel: number = 1
+  characterLevel: number = 1,
+  statUpgrades?: CharacterStatUpgrades
 ): WaitingCoopRoom | null {
   const player = players.get(hostPlayerId);
   if (!player) {
@@ -67,6 +69,7 @@ export function createCoopRoom(
     isReady: false,
     connected: true,
     characterLevel,
+    statUpgrades,
   };
 
   const room: WaitingCoopRoom = {
@@ -101,7 +104,8 @@ export function joinCoopRoom(
   playerId: string,
   playerName: string,
   heroClass: HeroClass,
-  characterLevel: number = 1
+  characterLevel: number = 1,
+  statUpgrades?: CharacterStatUpgrades
 ): boolean {
   const player = players.get(playerId);
   if (!player) {
@@ -149,6 +153,7 @@ export function joinCoopRoom(
     isReady: false,
     connected: true,
     characterLevel,
+    statUpgrades,
   };
 
   room.players.set(playerId, playerInfo);
@@ -264,7 +269,7 @@ export function setCoopReady(playerId: string, isReady: boolean): void {
 }
 
 // 직업 변경
-export function changeCoopClass(playerId: string, heroClass: HeroClass, characterLevel: number = 1): void {
+export function changeCoopClass(playerId: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
 
@@ -276,6 +281,7 @@ export function changeCoopClass(playerId: string, heroClass: HeroClass, characte
 
   playerInfo.heroClass = heroClass;
   playerInfo.characterLevel = characterLevel;  // 캐릭터 레벨도 업데이트
+  playerInfo.statUpgrades = statUpgrades;  // SP 스탯 업그레이드도 업데이트
   // 직업 변경 시 준비 상태 해제
   playerInfo.isReady = false;
 

@@ -6,6 +6,7 @@ import type {
 import type { UnitType } from '@shared/types/game';
 import type { HeroClass, SkillType } from '../types/rpg';
 import type { UpgradeType } from '../game/rpg/goldSystem';
+import type { CharacterStatUpgrades } from '../types/auth';
 
 type MessageHandler = (message: ServerMessage) => void;
 
@@ -169,12 +170,12 @@ class WebSocketClient {
   // 협동 모드 메서드
   // ============================================
 
-  public createCoopRoom(playerName: string, heroClass: HeroClass, characterLevel: number = 1): void {
-    this.send({ type: 'CREATE_COOP_ROOM', playerName, heroClass, characterLevel });
+  public createCoopRoom(playerName: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
+    this.send({ type: 'CREATE_COOP_ROOM', playerName, heroClass, characterLevel, statUpgrades });
   }
 
-  public joinCoopRoom(roomCode: string, playerName: string, heroClass: HeroClass, characterLevel: number = 1): void {
-    this.send({ type: 'JOIN_COOP_ROOM', roomCode, playerName, heroClass, characterLevel });
+  public joinCoopRoom(roomCode: string, playerName: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
+    this.send({ type: 'JOIN_COOP_ROOM', roomCode, playerName, heroClass, characterLevel, statUpgrades });
   }
 
   public leaveCoopRoom(): void {
@@ -189,8 +190,8 @@ class WebSocketClient {
     this.send({ type: 'COOP_UNREADY' });
   }
 
-  public changeCoopClass(heroClass: HeroClass, characterLevel: number = 1): void {
-    this.send({ type: 'CHANGE_COOP_CLASS', heroClass, characterLevel });
+  public changeCoopClass(heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
+    this.send({ type: 'CHANGE_COOP_CLASS', heroClass, characterLevel, statUpgrades });
   }
 
   public startCoopGame(): void {
