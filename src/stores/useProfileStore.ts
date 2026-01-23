@@ -205,117 +205,58 @@ export const useProfileStore = create<ProfileStore>()(
     },
 
     // 협동 모드 게임 종료 처리 (넥서스 디펜스)
+    // 싱글플레이와 동일하게 processGameResult를 사용하여 서버에 저장
     handleCoopGameEnd: async (gameData) => {
       const authState = useAuthStore.getState();
       const profile = authState.profile;
 
+      // 게스트인 경우 경험치 저장하지 않음
       if (!profile || profile.isGuest) return null;
 
       const { classProgress } = get();
 
-      // 협동 모드 경험치 계산 (싱글플레이와 동일한 공식 + 협동 보너스)
-      const playerExpGained = calculatePlayerExp(
-        gameData.basesDestroyed,
-        gameData.bossesKilled,
-        gameData.kills,
-        gameData.playTime,
-        gameData.victory,
-        'coop'  // 협동 모드 1.2배 보너스 적용
+      // 협동 모드: processGameResult 호출 (서버에 저장됨)
+      const result = await processGameResult(
+        profile.id,
+        profile,
+        classProgress,
+        {
+          mode: 'coop',  // 협동 모드 1.2배 보너스 적용
+          classUsed: gameData.classUsed,
+          basesDestroyed: gameData.basesDestroyed,
+          bossesKilled: gameData.bossesKilled,
+          kills: gameData.kills,
+          playTime: gameData.playTime,
+          victory: gameData.victory,
+        }
       );
-      const classExpGained = calculateClassExp(
-        gameData.basesDestroyed,
-        gameData.bossesKilled,
-        gameData.kills
-      );
-
-      // 플레이어 레벨업 계산
-      let newPlayerLevel = profile.playerLevel;
-      let newPlayerExp = profile.playerExp + playerExpGained;
-      let playerLeveledUp = false;
-
-      while (newPlayerExp >= getRequiredPlayerExp(newPlayerLevel)) {
-        newPlayerExp -= getRequiredPlayerExp(newPlayerLevel);
-        newPlayerLevel++;
-        playerLeveledUp = true;
-      }
-
-      // 클래스 레벨업 계산
-      const existingProgress = classProgress.find(
-        (p) => p.className === gameData.classUsed
-      );
-
-      let newClassLevel = existingProgress?.classLevel ?? 1;
-      let newClassExp = (existingProgress?.classExp ?? 0) + classExpGained;
-      let classLeveledUp = false;
-      let spGained = 0;
-
-      while (newClassExp >= getRequiredClassExp(newClassLevel)) {
-        newClassExp -= getRequiredClassExp(newClassLevel);
-        newClassLevel++;
-        classLeveledUp = true;
-        spGained += SP_PER_CLASS_LEVEL;
-      }
-
-      // 기존 SP + 새로 획득한 SP
-      const existingSp = existingProgress?.sp ?? 0;
-      const newSp = existingSp + spGained;
-
-      // 기존 스탯 업그레이드 유지
-      const existingStatUpgrades = existingProgress?.statUpgrades ?? createDefaultStatUpgrades();
 
       // 로컬 상태 업데이트
       set({
         lastGameResult: {
-          playerExpGained,
-          classExpGained,
-          levelUpResult: {
-            playerLeveledUp,
-            newPlayerLevel: playerLeveledUp ? newPlayerLevel : undefined,
-            classLeveledUp,
-            newClassLevel: classLeveledUp ? newClassLevel : undefined,
-            className: classLeveledUp ? gameData.classUsed : undefined,
-            spGained: spGained > 0 ? spGained : undefined,
-          },
+          playerExpGained: result.playerExpGained,
+          classExpGained: result.classExpGained,
+          levelUpResult: result.levelUpResult,
         },
       });
 
       // 인증 스토어의 프로필 업데이트
-      authState.updateLocalProfile({
-        ...profile,
-        playerLevel: newPlayerLevel,
-        playerExp: newPlayerExp,
-      });
+      authState.updateLocalProfile(result.newProfile);
 
       // 클래스 진행 상황 업데이트
-      const newClassProgress: ClassProgress = {
-        playerId: profile.id,
-        className: gameData.classUsed,
-        classLevel: newClassLevel,
-        classExp: newClassExp,
-        sp: newSp,
-        statUpgrades: existingStatUpgrades,
-      };
-
       const existingIndex = classProgress.findIndex(
         (p) => p.className === gameData.classUsed
       );
 
       if (existingIndex >= 0) {
         const updated = [...classProgress];
-        updated[existingIndex] = newClassProgress;
+        updated[existingIndex] = result.newClassProgress;
         set({ classProgress: updated });
       } else {
-        set({ classProgress: [...classProgress, newClassProgress] });
+        set({ classProgress: [...classProgress, result.newClassProgress] });
       }
 
-      return {
-        playerLeveledUp,
-        newPlayerLevel: playerLeveledUp ? newPlayerLevel : undefined,
-        classLeveledUp,
-        newClassLevel: classLeveledUp ? newClassLevel : undefined,
-        className: classLeveledUp ? gameData.classUsed : undefined,
-        spGained: spGained > 0 ? spGained : undefined,
-      };
+      return result.levelUpResult;
     },
 
     // 특정 클래스 진행 상황 가져오기
