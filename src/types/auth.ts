@@ -213,7 +213,7 @@ export const STAT_UPGRADE_CONFIG: Record<StatUpgradeType, {
   range: {
     name: '사거리',
     icon: '🎯',
-    perLevel: 1,     // 레벨당 +1 사거리
+    perLevel: 5,     // 레벨당 +5 사거리
     unit: '',
     maxLevel: Infinity,
   },
