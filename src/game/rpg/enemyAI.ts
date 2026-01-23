@@ -1,16 +1,155 @@
-import { RPGEnemy, HeroUnit, Buff } from '../../types/rpg';
+import { RPGEnemy, HeroUnit, Buff, Nexus } from '../../types/rpg';
 import { UnitType } from '../../types/unit';
-import { ENEMY_AI_CONFIGS, RPG_CONFIG } from '../../constants/rpgConfig';
+import { ENEMY_AI_CONFIGS, RPG_CONFIG, NEXUS_CONFIG } from '../../constants/rpgConfig';
 import { distance, clamp } from '../../utils/math';
 
 export interface EnemyAIResult {
   enemy: RPGEnemy;
   heroDamage?: number;
+  nexusDamage?: number;
   isAttacking: boolean;
+  isAttackingNexus: boolean;
+}
+
+// 어그로 지속 시간 (초)
+const AGGRO_DURATION = 5;
+
+/**
+ * 적 AI 업데이트 - 넥서스 디펜스용
+ *
+ * 기본 행동: 넥서스를 향해 이동하고 공격
+ * 어그로 행동: 영웅에게 공격당하면 해당 영웅을 추적하고 공격
+ *
+ * 우선순위:
+ * 1. 어그로가 있으면 영웅 추적/공격
+ * 2. 어그로가 없으면 넥서스 추적/공격
+ */
+export function updateEnemyAINexus(
+  enemy: RPGEnemy,
+  hero: HeroUnit,
+  nexus: Nexus | null,
+  deltaTime: number,
+  gameTime: number
+): EnemyAIResult {
+  // 기절 상태면 아무것도 하지 않음
+  const isStunned = enemy.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+  if (isStunned) {
+    return {
+      enemy: {
+        ...enemy,
+        state: 'idle',
+        buffs: updateBuffs(enemy.buffs, deltaTime),
+      },
+      isAttacking: false,
+      isAttackingNexus: false,
+    };
+  }
+
+  const aiConfig = enemy.aiConfig;
+  const heroX = hero.x;
+  const heroY = hero.y;
+
+  // 영웅과의 거리 계산
+  const distToHero = distance(enemy.x, enemy.y, heroX, heroY);
+
+  // 넥서스와의 거리 계산
+  const nexusX = nexus?.x || NEXUS_CONFIG.position.x;
+  const nexusY = nexus?.y || NEXUS_CONFIG.position.y;
+  const distToNexus = distance(enemy.x, enemy.y, nexusX, nexusY);
+
+  let updatedEnemy = { ...enemy };
+  let heroDamage: number | undefined;
+  let nexusDamage: number | undefined;
+  let isAttacking = false;
+  let isAttackingNexus = false;
+
+  // 쿨다운 감소
+  if (updatedEnemy.attackCooldown > 0) {
+    updatedEnemy.attackCooldown -= deltaTime;
+  }
+
+  // 어그로 만료 체크
+  const hasAggro = updatedEnemy.aggroOnHero &&
+    (!updatedEnemy.aggroExpireTime || gameTime < updatedEnemy.aggroExpireTime);
+
+  // 어그로 만료 시 초기화
+  if (updatedEnemy.aggroOnHero && updatedEnemy.aggroExpireTime && gameTime >= updatedEnemy.aggroExpireTime) {
+    updatedEnemy.aggroOnHero = false;
+    updatedEnemy.aggroExpireTime = undefined;
+  }
+
+  // AI 행동 결정
+  if (hasAggro) {
+    // 어그로 상태: 영웅 추적/공격
+    if (distToHero <= aiConfig.attackRange) {
+      // 영웅 공격 범위 내: 공격
+      if (updatedEnemy.attackCooldown <= 0) {
+        heroDamage = aiConfig.attackDamage;
+        updatedEnemy.attackCooldown = aiConfig.attackSpeed;
+        updatedEnemy.state = 'attacking';
+        isAttacking = true;
+      } else {
+        updatedEnemy.state = 'idle';
+      }
+    } else {
+      // 영웅 방향으로 이동
+      const angle = Math.atan2(heroY - enemy.y, heroX - enemy.x);
+      const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
+      const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
+
+      updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);
+      updatedEnemy.y = clamp(enemy.y + moveY, 30, RPG_CONFIG.MAP_HEIGHT - 30);
+      updatedEnemy.state = 'moving';
+    }
+  } else {
+    // 기본 상태: 넥서스 추적/공격
+    if (distToNexus <= aiConfig.attackRange) {
+      // 넥서스 공격 범위 내: 공격
+      if (updatedEnemy.attackCooldown <= 0) {
+        nexusDamage = aiConfig.attackDamage;
+        updatedEnemy.attackCooldown = aiConfig.attackSpeed;
+        updatedEnemy.state = 'attacking';
+        isAttackingNexus = true;
+      } else {
+        updatedEnemy.state = 'idle';
+      }
+    } else {
+      // 넥서스 방향으로 이동
+      const angle = Math.atan2(nexusY - enemy.y, nexusX - enemy.x);
+      const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
+      const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
+
+      updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);
+      updatedEnemy.y = clamp(enemy.y + moveY, 30, RPG_CONFIG.MAP_HEIGHT - 30);
+      updatedEnemy.state = 'moving';
+    }
+  }
+
+  // 버프 업데이트
+  updatedEnemy.buffs = updateBuffs(enemy.buffs, deltaTime);
+
+  return {
+    enemy: updatedEnemy,
+    heroDamage,
+    nexusDamage,
+    isAttacking,
+    isAttackingNexus,
+  };
 }
 
 /**
- * 적 AI 업데이트 - 개선된 버전
+ * 적에게 어그로 설정 (영웅이 공격했을 때 호출)
+ */
+export function setEnemyAggro(enemy: RPGEnemy, gameTime: number): RPGEnemy {
+  return {
+    ...enemy,
+    aggroOnHero: true,
+    aggroExpireTime: gameTime + AGGRO_DURATION,
+  };
+}
+
+/**
+ * 적 AI 업데이트 - 기존 버전 (영웅만 타겟)
  */
 export function updateEnemyAI(
   enemy: RPGEnemy,
@@ -28,6 +167,7 @@ export function updateEnemyAI(
         buffs: updateBuffs(enemy.buffs, deltaTime),
       },
       isAttacking: false,
+      isAttackingNexus: false,
     };
   }
 
@@ -77,6 +217,7 @@ export function updateEnemyAI(
     enemy: updatedEnemy,
     heroDamage,
     isAttacking,
+    isAttackingNexus: false,
   };
 }
 
@@ -114,7 +255,41 @@ export function applyStunToEnemy(
 }
 
 /**
- * 적 그룹 AI 업데이트
+ * 적 그룹 AI 업데이트 - 넥서스 디펜스용
+ */
+export function updateAllEnemiesAINexus(
+  enemies: RPGEnemy[],
+  hero: HeroUnit,
+  nexus: Nexus | null,
+  deltaTime: number,
+  gameTime: number
+): { updatedEnemies: RPGEnemy[]; totalHeroDamage: number; totalNexusDamage: number } {
+  let totalHeroDamage = 0;
+  let totalNexusDamage = 0;
+  const updatedEnemies: RPGEnemy[] = [];
+
+  for (const enemy of enemies) {
+    if (enemy.hp <= 0) {
+      updatedEnemies.push(enemy);
+      continue;
+    }
+
+    const result = updateEnemyAINexus(enemy, hero, nexus, deltaTime, gameTime);
+    updatedEnemies.push(result.enemy);
+
+    if (result.heroDamage) {
+      totalHeroDamage += result.heroDamage;
+    }
+    if (result.nexusDamage) {
+      totalNexusDamage += result.nexusDamage;
+    }
+  }
+
+  return { updatedEnemies, totalHeroDamage, totalNexusDamage };
+}
+
+/**
+ * 적 그룹 AI 업데이트 - 기존 버전
  */
 export function updateAllEnemiesAI(
   enemies: RPGEnemy[],

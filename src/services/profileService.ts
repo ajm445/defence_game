@@ -133,7 +133,7 @@ export const getGameHistory = async (
   }
 };
 
-// 게임 결과 처리 및 경험치 적용
+// 게임 결과 처리 및 경험치 적용 (넥서스 디펜스)
 export const processGameResult = async (
   playerId: string,
   profile: PlayerProfile,
@@ -141,9 +141,10 @@ export const processGameResult = async (
   gameData: {
     mode: 'single' | 'coop';
     classUsed: HeroClass;
-    waveReached: number;
+    basesDestroyed: number;
+    bossesKilled: number;
     kills: number;
-    playTime: number;
+    playTime: number;  // 초 단위
     victory: boolean;
   }
 ): Promise<{
@@ -153,9 +154,20 @@ export const processGameResult = async (
   newProfile: PlayerProfile;
   newClassProgress: ClassProgress;
 }> => {
-  // 경험치 계산
-  const playerExpGained = calculatePlayerExp(gameData.waveReached, gameData.victory, gameData.mode);
-  const classExpGained = calculateClassExp(gameData.waveReached, gameData.kills);
+  // 경험치 계산 (넥서스 디펜스)
+  const playerExpGained = calculatePlayerExp(
+    gameData.basesDestroyed,
+    gameData.bossesKilled,
+    gameData.kills,
+    gameData.playTime,
+    gameData.victory,
+    gameData.mode
+  );
+  const classExpGained = calculateClassExp(
+    gameData.basesDestroyed,
+    gameData.bossesKilled,
+    gameData.kills
+  );
 
   // 플레이어 레벨업 계산
   let newPlayerLevel = profile.playerLevel;
@@ -226,7 +238,8 @@ export const processGameResult = async (
       playerId,
       mode: gameData.mode,
       classUsed: gameData.classUsed,
-      waveReached: gameData.waveReached,
+      basesDestroyed: gameData.basesDestroyed,
+      bossesKilled: gameData.bossesKilled,
       kills: gameData.kills,
       playTime: gameData.playTime,
       victory: gameData.victory,

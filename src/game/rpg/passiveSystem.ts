@@ -1,19 +1,41 @@
 import { HeroClass, PassiveGrowthState } from '../../types/rpg';
 import {
-  PASSIVE_UNLOCK_WAVE,
-  PASSIVE_GROWTH_INTERVAL,
+  PASSIVE_UNLOCK_LEVEL,
   PASSIVE_GROWTH_CONFIGS,
 } from '../../constants/rpgConfig';
 
 /**
- * 웨이브 번호로 패시브 레벨 계산
- * 웨이브 10 클리어 시 레벨 1, 이후 10웨이브마다 +1
+ * 캐릭터 레벨에서 패시브 레벨 계산
+ * 캐릭터 레벨 5 이상에서 활성화, 레벨 5 = 패시브 레벨 1
  */
-export function calculatePassiveLevel(clearedWave: number): number {
-  if (clearedWave < PASSIVE_UNLOCK_WAVE) {
+export function calculatePassiveLevelFromCharacter(characterLevel: number): number {
+  if (characterLevel < PASSIVE_UNLOCK_LEVEL) {
     return 0;
   }
-  return Math.floor(clearedWave / PASSIVE_GROWTH_INTERVAL);
+  return characterLevel - PASSIVE_UNLOCK_LEVEL + 1;
+}
+
+/**
+ * 캐릭터 레벨에서 패시브 상태 가져오기
+ * 게임 시작 시 캐릭터 레벨에 따라 패시브 초기화
+ */
+export function getPassiveFromCharacterLevel(
+  heroClass: HeroClass,
+  characterLevel: number
+): PassiveGrowthState | null {
+  const passiveLevel = calculatePassiveLevelFromCharacter(characterLevel);
+
+  if (passiveLevel <= 0) {
+    return null; // 패시브 미활성화
+  }
+
+  const { currentValue, overflowBonus } = calculatePassiveValue(heroClass, passiveLevel);
+
+  return {
+    level: passiveLevel,
+    currentValue,
+    overflowBonus,
+  };
 }
 
 /**
@@ -92,29 +114,8 @@ export function createInitialPassiveState(): PassiveGrowthState {
   };
 }
 
-/**
- * 패시브 업그레이드 (웨이브 클리어 시 호출)
- */
-export function upgradePassiveState(
-  current: PassiveGrowthState,
-  heroClass: HeroClass,
-  clearedWave: number
-): PassiveGrowthState {
-  const newLevel = calculatePassiveLevel(clearedWave);
-
-  // 레벨이 변경되지 않으면 현재 상태 유지
-  if (newLevel === current.level) {
-    return current;
-  }
-
-  const { currentValue, overflowBonus } = calculatePassiveValue(heroClass, newLevel);
-
-  return {
-    level: newLevel,
-    currentValue,
-    overflowBonus,
-  };
-}
+// 패시브 업그레이드는 더 이상 웨이브 기반이 아님
+// 캐릭터 레벨 기반으로 게임 시작 시 고정됨
 
 /**
  * 패시브 설명 텍스트 생성
@@ -133,9 +134,13 @@ export function getPassiveDescription(heroClass: HeroClass): string {
 /**
  * 패시브 상태 포맷팅 (UI 표시용)
  */
-export function formatPassiveValue(heroClass: HeroClass, state: PassiveGrowthState): string {
+export function formatPassiveValue(heroClass: HeroClass, state: PassiveGrowthState, characterLevel: number = 1): string {
   if (state.level === 0) {
-    return '비활성 (웨이브 10 클리어 시 활성화)';
+    const levelsNeeded = PASSIVE_UNLOCK_LEVEL - characterLevel;
+    if (levelsNeeded > 0) {
+      return `비활성 (캐릭터 레벨 ${PASSIVE_UNLOCK_LEVEL} 도달 시 활성화, ${levelsNeeded}레벨 필요)`;
+    }
+    return `비활성 (캐릭터 레벨 ${PASSIVE_UNLOCK_LEVEL} 도달 시 활성화)`;
   }
 
   const config = PASSIVE_GROWTH_CONFIGS[heroClass];
@@ -160,4 +165,11 @@ export function formatPassiveValue(heroClass: HeroClass, state: PassiveGrowthSta
   }
 
   return valueText;
+}
+
+/**
+ * 패시브 활성화 여부 확인
+ */
+export function isPassiveActive(characterLevel: number): boolean {
+  return characterLevel >= PASSIVE_UNLOCK_LEVEL;
 }

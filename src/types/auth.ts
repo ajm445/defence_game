@@ -25,15 +25,16 @@ export interface ClassProgress {
   updatedAt?: string;
 }
 
-// 게임 기록
+// 게임 기록 (넥서스 디펜스)
 export interface GameRecord {
   id?: string;
   playerId: string;
   mode: 'single' | 'coop';
   classUsed: HeroClass;
-  waveReached: number;
+  basesDestroyed: number;  // 파괴한 적 기지 수 (0-2)
+  bossesKilled: number;    // 처치한 보스 수 (0-2)
   kills: number;
-  playTime: number;
+  playTime: number;        // 초 단위
   victory: boolean;
   expEarned: number;
   playedAt?: string;
@@ -47,23 +48,63 @@ export const CHARACTER_UNLOCK_LEVELS: Record<HeroClass, number> = {
   mage: 70,
 } as const;
 
-// 플레이어 경험치 계산
+// 플레이어 경험치 계산 (넥서스 디펜스)
 export const calculatePlayerExp = (
-  waveReached: number,
+  basesDestroyed: number,
+  bossesKilled: number,
+  kills: number,
+  playTimeSeconds: number,
   victory: boolean,
   mode: 'single' | 'coop'
 ): number => {
-  if (mode === 'single') {
-    // 싱글: 웨이브 × 10 + 승리 보너스 50
-    return waveReached * 10 + (victory ? 50 : 0);
-  } else {
-    // 협동: 웨이브 × 15 + 승리 보너스 75
-    return waveReached * 15 + (victory ? 75 : 0);
-  }
+  // 기지 파괴: 각 30점
+  const baseExp = basesDestroyed * 30;
+  // 보스 처치: 각 50점
+  const bossExp = bossesKilled * 50;
+  // 킬당: 1점
+  const killExp = kills;
+  // 5분 생존 보너스: 30점
+  const survivalBonus = playTimeSeconds >= 300 ? 30 : 0;
+  // 승리 보너스: 50점
+  const victoryBonus = victory ? 50 : 0;
+
+  const totalExp = baseExp + bossExp + killExp + survivalBonus + victoryBonus;
+
+  // 협동 모드: 1.2배
+  return mode === 'coop' ? Math.floor(totalExp * 1.2) : totalExp;
 };
 
-// 직업 경험치 계산
-export const calculateClassExp = (waveReached: number, kills: number): number => {
+// 직업 경험치 계산 (넥서스 디펜스)
+export const calculateClassExp = (
+  basesDestroyed: number,
+  bossesKilled: number,
+  kills: number
+): number => {
+  // 기지 파괴: 각 15점
+  const baseExp = basesDestroyed * 15;
+  // 보스 처치: 각 25점
+  const bossExp = bossesKilled * 25;
+  // 킬당: 1점
+  const killExp = kills;
+
+  return baseExp + bossExp + killExp;
+};
+
+// ============================================
+// 협동 모드용 레거시 경험치 계산 (웨이브 기반)
+// ============================================
+
+// 협동 모드 플레이어 경험치 계산 (웨이브 기반)
+export const calculateCoopPlayerExp = (
+  waveReached: number,
+  victory: boolean
+): number => {
+  // 웨이브 × 15 + 승리 보너스 75
+  return waveReached * 15 + (victory ? 75 : 0);
+};
+
+// 협동 모드 직업 경험치 계산 (웨이브 기반)
+export const calculateCoopClassExp = (waveReached: number, kills: number): number => {
   // 웨이브 × 5 + 킬 × 2
   return waveReached * 5 + kills * 2;
 };

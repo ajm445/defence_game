@@ -5,6 +5,7 @@ import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange, drawSkill
 import { effectManager } from '../effects';
 import { drawRPGMinimap, getMinimapConfig } from './drawRPGMinimap';
 import { useRPGStore } from '../stores/useRPGStore';
+import { drawNexus, drawAllEnemyBases } from './drawNexusEntities';
 
 /**
  * RPG 모드 렌더링
@@ -44,6 +45,17 @@ export function renderRPG(
 
   // 맵 경계 표시
   drawMapBoundary(ctx, camera, scaledWidth, scaledHeight);
+
+  // 넥서스 디펜스 엔티티 렌더링
+  if (state.nexus) {
+    const nexusCamera = { x: state.camera.x, y: state.camera.y, zoom: state.camera.zoom };
+    drawNexus(ctx, state.nexus, nexusCamera, scaledWidth, scaledHeight);
+  }
+
+  if (state.enemyBases && state.enemyBases.length > 0) {
+    const baseCamera = { x: state.camera.x, y: state.camera.y, zoom: state.camera.zoom };
+    drawAllEnemyBases(ctx, state.enemyBases, baseCamera, scaledWidth, scaledHeight);
+  }
 
   // 스킬 이펙트 렌더링
   for (const effect of state.activeSkillEffects) {

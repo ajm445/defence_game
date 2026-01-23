@@ -6,6 +6,7 @@ import { RPGHeroPanel } from '../ui/RPGHeroPanel';
 import { RPGSkillBar } from '../ui/RPGSkillBar';
 import { RPGWaveInfo } from '../ui/RPGWaveInfo';
 import { RPGGameTimer } from '../ui/RPGGameTimer';
+import { RPGUpgradePanel } from '../ui/RPGUpgradePanel';
 import { Notification } from '../ui/Notification';
 import { LevelUpNotification } from '../ui/LevelUpNotification';
 import { useRPGStore, useRPGGameOver, useRPGResult } from '../../stores/useRPGStore';
@@ -59,7 +60,8 @@ export const RPGModeScreen: React.FC = () => {
       handleGameEnd({
         mode: 'single',
         classUsed: result.heroClass,
-        waveReached: result.waveReached,
+        basesDestroyed: result.basesDestroyed,
+        bossesKilled: result.bossesKilled,
         kills: result.totalKills,
         playTime: result.timePlayed,
         victory: result.victory,
@@ -166,6 +168,13 @@ export const RPGModeScreen: React.FC = () => {
         <RPGSkillBar onUseSkill={handleUseSkill} />
       </div>
 
+      {/* 우측 하단 업그레이드 패널 - 게임 진행 중에만 표시 */}
+      {!gameOver && (
+        <div className="absolute bottom-8 right-4 pointer-events-auto">
+          <RPGUpgradePanel />
+        </div>
+      )}
+
       {/* 조작법 안내 */}
       <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">
         <div>WASD: 이동 | 자동 공격 | Shift: 스킬 | R: 궁극기 | C: 사거리 | Space: 카메라</div>
@@ -181,23 +190,32 @@ export const RPGModeScreen: React.FC = () => {
                 {result.victory ? '🏆 승리!' : '💀 게임 오버'}
               </div>
               <div className="text-gray-400">
-                웨이브 {result.waveReached}까지 도달
+                {result.victory
+                  ? '모든 보스를 처치했습니다!'
+                  : result.basesDestroyed > 0
+                    ? `${result.basesDestroyed}개 기지 파괴`
+                    : '넥서스가 파괴되었습니다'
+                }
               </div>
             </div>
 
             {/* 통계 */}
             <div className="space-y-3 mb-6">
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
-                <span className="text-gray-400">최종 레벨</span>
-                <span className="text-yellow-400 font-bold">Lv.{result.heroLevel}</span>
+                <span className="text-gray-400">기지 파괴</span>
+                <span className="text-red-400 font-bold">{result.basesDestroyed}/2</span>
+              </div>
+              <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
+                <span className="text-gray-400">보스 처치</span>
+                <span className="text-purple-400 font-bold">{result.bossesKilled}/2</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">총 처치</span>
                 <span className="text-red-400 font-bold">{result.totalKills}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
-                <span className="text-gray-400">획득 경험치 (게임)</span>
-                <span className="text-blue-400 font-bold">{result.totalExp}</span>
+                <span className="text-gray-400">획득 골드</span>
+                <span className="text-yellow-400 font-bold">{result.totalGoldEarned}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">플레이 시간</span>
@@ -215,13 +233,24 @@ export const RPGModeScreen: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-400">플레이어 EXP</span>
                     <span className="text-yellow-400 font-bold">
-                      +{lastGameResult?.playerExpGained ?? calculatePlayerExp(result.waveReached, result.victory, 'single')}
+                      +{lastGameResult?.playerExpGained ?? calculatePlayerExp(
+                        result.basesDestroyed,
+                        result.bossesKilled,
+                        result.totalKills,
+                        result.timePlayed,
+                        result.victory,
+                        'single'
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">클래스 EXP ({CLASS_CONFIGS[result.heroClass]?.name || result.heroClass})</span>
                     <span className="text-cyan-400 font-bold">
-                      +{lastGameResult?.classExpGained ?? calculateClassExp(result.waveReached, result.totalKills)}
+                      +{lastGameResult?.classExpGained ?? calculateClassExp(
+                        result.basesDestroyed,
+                        result.bossesKilled,
+                        result.totalKills
+                      )}
                     </span>
                   </div>
                 </div>

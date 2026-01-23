@@ -5,6 +5,7 @@ import type {
 } from '@shared/types/network';
 import type { UnitType } from '@shared/types/game';
 import type { HeroClass, SkillType } from '../types/rpg';
+import type { UpgradeType } from '../game/rpg/goldSystem';
 
 type MessageHandler = (message: ServerMessage) => void;
 
@@ -206,6 +207,10 @@ class WebSocketClient {
 
   public coopUseSkill(skillType: SkillType, targetX: number, targetY: number): void {
     this.send({ type: 'COOP_USE_SKILL', skillType, targetX, targetY });
+  }
+
+  public coopUpgradeHeroStat(upgradeType: UpgradeType): void {
+    this.send({ type: 'COOP_UPGRADE_HERO_STAT', upgradeType } as any);
   }
 }
 

@@ -11,7 +11,8 @@ import type {
   NetworkCoopHero,
   NetworkCoopEnemy,
 } from '@shared/types/rpgNetwork';
-import type { HeroClass, SkillEffect } from '../types/rpg';
+import type { HeroClass, SkillEffect, Nexus, EnemyBase, UpgradeLevels, RPGGamePhase } from '../types/rpg';
+import type { UpgradeType } from '../game/rpg/goldSystem';
 import { wsClient } from '../services/WebSocketClient';
 import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
@@ -63,6 +64,7 @@ interface RPGCoopState {
   kickPlayer: (playerId: string) => void;
   setMoveDirection: (direction: { x: number; y: number } | null) => void;
   useSkill: (skillSlot: 'Q' | 'W' | 'E', targetX: number, targetY: number) => void;
+  upgradeHeroStat: (upgradeType: UpgradeType) => void;
   reset: () => void;
 
   // 상태 조회
@@ -401,6 +403,17 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
       wsClient.coopUseSkill(skillType, targetX, targetY);
     },
 
+    upgradeHeroStat: (upgradeType: UpgradeType) => {
+      const { gameState, myHeroId } = get();
+      if (!gameState || !myHeroId) return;
+
+      const myHero = gameState.heroes.find(h => h.id === myHeroId);
+      if (!myHero || myHero.isDead) return;
+
+      // 서버로 업그레이드 요청 전송
+      wsClient.coopUpgradeHeroStat(upgradeType);
+    },
+
     reset: () => {
       set({
         roomInfo: null,
@@ -581,10 +594,12 @@ function handleGameEvent(
   }
 }
 
-// 빈 배열 상수 (참조 안정성)
+// 빈 배열/객체 상수 (참조 안정성)
 const EMPTY_HEROES: NetworkCoopHero[] = [];
 const EMPTY_ENEMIES: NetworkCoopEnemy[] = [];
 const EMPTY_PLAYERS: CoopPlayerInfo[] = [];
+const EMPTY_ENEMY_BASES: EnemyBase[] = [];
+const DEFAULT_UPGRADE_LEVELS: UpgradeLevels = { attack: 0, speed: 0, hp: 0, goldRate: 0 };
 
 // 편의 훅들
 export const useMyCoopHero = (): NetworkCoopHero | null => {
@@ -623,4 +638,39 @@ export const useCoopPlayers = () => {
 
 export const useCoopRoomCode = () => {
   return useRPGCoopStore((state) => state.roomInfo?.roomCode ?? '');
+};
+
+// 넥서스 디펜스 관련 셀렉터
+export const useCoopNexus = (): Nexus | null => {
+  return useRPGCoopStore((state) => state.gameState?.nexus ?? null);
+};
+
+export const useCoopEnemyBases = (): EnemyBase[] => {
+  return useRPGCoopStore((state) => state.gameState?.enemyBases ?? EMPTY_ENEMY_BASES);
+};
+
+export const useCoopGold = (): number => {
+  return useRPGCoopStore((state) => state.gameState?.gold ?? 0);
+};
+
+export const useCoopGamePhase = (): RPGGamePhase => {
+  return useRPGCoopStore((state) => state.gameState?.gamePhase ?? 'playing');
+};
+
+export const useMyCoopUpgradeLevels = (): UpgradeLevels => {
+  const myHeroId = useRPGCoopStore((state) => state.myHeroId);
+  const heroes = useRPGCoopStore((state) => state.gameState?.heroes);
+
+  if (!heroes || !myHeroId) return DEFAULT_UPGRADE_LEVELS;
+  const myHero = heroes.find(h => h.id === myHeroId);
+  return myHero?.upgradeLevels ?? DEFAULT_UPGRADE_LEVELS;
+};
+
+export const useMyCoopGold = (): number => {
+  const myHeroId = useRPGCoopStore((state) => state.myHeroId);
+  const heroes = useRPGCoopStore((state) => state.gameState?.heroes);
+
+  if (!heroes || !myHeroId) return 0;
+  const myHero = heroes.find(h => h.id === myHeroId);
+  return myHero?.gold ?? 0;
 };

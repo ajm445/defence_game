@@ -1,5 +1,5 @@
 import { RPGGameState, VisibilityState } from '../types/rpg';
-import { RPG_CONFIG } from '../constants/rpgConfig';
+import { RPG_CONFIG, NEXUS_CONFIG, ENEMY_BASE_CONFIG } from '../constants/rpgConfig';
 
 interface MinimapConfig {
   x: number;
@@ -43,6 +43,51 @@ export function drawRPGMinimap(
   // 시야 범위 렌더링 (밝은 영역)
   if (state.hero) {
     drawVisibleArea(ctx, state, x, y, scaleX, scaleY);
+  }
+
+  // 넥서스 표시 (항상 표시 - 파란색)
+  if (state.nexus) {
+    const nexusX = x + state.nexus.x * scaleX;
+    const nexusY = y + state.nexus.y * scaleY;
+
+    // 넥서스 글로우
+    ctx.fillStyle = 'rgba(0, 200, 255, 0.3)';
+    ctx.beginPath();
+    ctx.arc(nexusX, nexusY, 8, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 넥서스 코어
+    ctx.fillStyle = '#00d4ff';
+    ctx.beginPath();
+    ctx.arc(nexusX, nexusY, 5, 0, Math.PI * 2);
+    ctx.fill();
+  }
+
+  // 적 기지 표시 (빨강/회색)
+  if (state.enemyBases) {
+    for (const base of state.enemyBases) {
+      const baseX = x + base.x * scaleX;
+      const baseY = y + base.y * scaleY;
+
+      if (base.destroyed) {
+        // 파괴된 기지 - 회색
+        ctx.fillStyle = '#666666';
+      } else {
+        // 활성 기지 - 빨강
+        ctx.fillStyle = '#ff4444';
+      }
+
+      ctx.beginPath();
+      ctx.arc(baseX, baseY, 4, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 기지 테두리
+      ctx.strokeStyle = base.destroyed ? '#888888' : '#ff6666';
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(baseX, baseY, 4, 0, Math.PI * 2);
+      ctx.stroke();
+    }
   }
 
   // 적 표시 (시야 내 적만)

@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { players, sendToPlayer } from '../state/players';
 import { removeCoopRoom } from '../websocket/MessageHandler';
-import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, PendingSkill } from '../../../src/types/rpg';
+import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, PendingSkill, UpgradeLevels } from '../../../src/types/rpg';
 import type { UnitType } from '../../../src/types/unit';
 import type {
   CoopPlayerInfo,
@@ -13,6 +13,9 @@ import type {
   COOP_CONFIG,
 } from '../../../shared/types/rpgNetwork';
 
+// 게임 단계 타입
+type CoopGamePhase = 'playing' | 'boss_phase' | 'victory' | 'defeat';
+
 // 서버측 협동 모드 설정
 const CONFIG = {
   MAP_WIDTH: 2000,
@@ -21,21 +24,72 @@ const CONFIG = {
   MAP_CENTER_Y: 1000,
   SPAWN_MARGIN: 50,
 
+  // 넥서스 설정
+  NEXUS: {
+    X: 1000,
+    Y: 1000,
+    HP: 5000,
+    RADIUS: 80,
+  },
+
+  // 적 기지 설정
+  ENEMY_BASES: {
+    left: { x: 200, y: 1000, hp: 3000, radius: 60 },
+    right: { x: 1800, y: 1000, hp: 3000, radius: 60 },
+  },
+
+  // 골드 설정
+  GOLD: {
+    STARTING: 0,
+    REWARDS: {
+      melee: 5,
+      ranged: 8,
+      knight: 15,
+      mage: 20,
+      boss: 200,
+    } as Record<string, number>,
+    UPGRADE_BASE_COST: 50,
+    UPGRADE_COST_MULTIPLIER: 1.5,
+  },
+
+  // 업그레이드 설정 (레벨당 보너스)
+  UPGRADE: {
+    attack: { perLevel: 3 },
+    speed: { perLevel: 0.08 },
+    hp: { perLevel: 25 },
+    goldRate: { perLevel: 0.15 },
+  },
+
+  // 스폰 설정
+  SPAWN: {
+    BASE_INTERVAL: 4,
+    INTERVAL_DECREASE_PER_MINUTE: 0.2,
+    MIN_INTERVAL: 1.5,
+    STAT_MULTIPLIER_PER_MINUTE: 0.1,
+  },
+
+  // 보스 설정
+  BOSS: {
+    HP_MULTIPLIER: 5,
+    DAMAGE_MULTIPLIER: 2,
+    GOLD_REWARD: 200,
+  },
+
   // 패시브 시스템
-  PASSIVE_UNLOCK_LEVEL: 5,  // 기본 패시브 활성화 레벨
+  PASSIVE_UNLOCK_LEVEL: 5,
 
   // 직업별 기본 패시브
   BASE_PASSIVES: {
-    warrior: { lifesteal: 0.15 },      // 15% 피해흡혈
-    archer: { multiTarget: 3, baseChance: 0.2 },  // 3명 동시 공격, 20% 기본 확률
-    knight: { hpRegen: 5 },             // 초당 5 HP 재생
-    mage: { damageBonus: 0.25 },        // 25% 데미지 증가
+    warrior: { lifesteal: 0.15 },
+    archer: { multiTarget: 3, baseChance: 0.2 },
+    knight: { hpRegen: 5 },
+    mage: { damageBonus: 0.25 },
   } as Record<HeroClass, any>,
 
   // 부활 시스템
   REVIVE: {
     BASE_TIME: 10,
-    TIME_PER_WAVE: 2,
+    TIME_PER_MINUTE: 2,
     MAX_TIME: 30,
     REVIVE_HP_PERCENT: 0.5,
     SPAWN_OFFSET: 100,
@@ -52,17 +106,9 @@ const CONFIG = {
   // 공격력 스케일링 (인원수에 따른 적 공격력 증가)
   ATTACK_SCALING: {
     1: 1.0,
-    2: 1.1,   // 10% 증가
-    3: 1.2,   // 20% 증가
-    4: 1.3,   // 30% 증가
-  } as Record<number, number>,
-
-  // 적 수 스케일링 (인원수에 따른 적 수 증가)
-  ENEMY_COUNT_SCALING: {
-    1: 1.0,
-    2: 1.3,   // 30% 더 많은 적
-    3: 1.6,   // 60% 더 많은 적
-    4: 2.0,   // 100% 더 많은 적 (인원 비례)
+    2: 1.1,
+    3: 1.2,
+    4: 1.3,
   } as Record<number, number>,
 
   // 버프 공유
@@ -73,26 +119,12 @@ const CONFIG = {
     WARRIOR_BERSERKER_ATK_BONUS: 0.2,
   },
 
-  // 어그로 시스템 (싱글플레이와 유사 - 가장 가까운 타겟, 근접 영웅 우선)
+  // 어그로 시스템
   AGGRO: {
-    MELEE_HERO_BONUS: 1.5,  // 근접 영웅(전사, 기사) 우선순위 보너스
-    CURRENT_TARGET_BONUS: 1.1,  // 현재 타겟 유지 보너스 (작게 설정)
+    DURATION: 5,  // 어그로 지속 시간 (초)
+    MELEE_HERO_BONUS: 1.5,
+    CURRENT_TARGET_BONUS: 1.1,
   },
-
-  // 경험치
-  EXP: {
-    BASE: 50,
-    MULTIPLIER: 30,
-    DEAD_PLAYER_RATIO: 0.5,
-  },
-
-  EXP_TABLE: {
-    melee: 10,
-    ranged: 15,
-    knight: 25,
-    mage: 30,
-    boss: 200,
-  } as Record<string, number>,
 
   // 직업별 설정
   CLASS_CONFIGS: {
@@ -101,14 +133,6 @@ const CONFIG = {
     knight: { hp: 450, attack: 30, attackSpeed: 1.3, speed: 2.1, range: 80 },
     mage: { hp: 220, attack: 55, attackSpeed: 1.8, speed: 2.85, range: 190 },
   } as Record<HeroClass, { hp: number; attack: number; attackSpeed: number; speed: number; range: number }>,
-
-  // 직업별 레벨업 보너스 (싱글플레이어와 동일 - CLASS_LEVEL_UP_BONUS 기준)
-  LEVEL_UP_BONUS: {
-    warrior: { hp: 30, attack: 5, speed: 0.05 },
-    archer: { hp: 30, attack: 5, speed: 0.05 },
-    knight: { hp: 50, attack: 5, speed: 0.05 },  // 기사는 HP +50 (싱글플레이 CLASS_LEVEL_UP_BONUS와 동일)
-    mage: { hp: 30, attack: 5, speed: 0.05 },
-  } as Record<HeroClass, { hp: number; attack: number; speed: number }>,
 
   // 적 AI 설정
   ENEMY_AI: {
@@ -142,19 +166,34 @@ const CONFIG = {
       e: { cooldown: 40, damageMultiplier: 3.0, radius: 150, delay: 3.0 },
     },
   } as Record<HeroClass, Record<string, any>>,
-
-  // 웨이브 사이 대기 시간
-  WAVE_DELAY: 5,
 };
 
-// 서버측 영웅 상태
+// 넥서스 인터페이스
+interface ServerNexus {
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+}
+
+// 적 기지 인터페이스
+interface ServerEnemyBase {
+  id: 'left' | 'right';
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  destroyed: boolean;
+}
+
+// 서버측 영웅 상태 (골드 시스템으로 변경)
 interface ServerHero extends Omit<NetworkCoopHero, 'moveDirection'> {
   attackCooldown: number;
   baseAttack: number;
   baseSpeed: number;
   baseAttackSpeed: number;
-  skillPoints: number;
-  moveDirection: { x: number; y: number } | null;  // 이동 방향 (정규화됨)
+  baseMaxHp: number;
+  moveDirection: { x: number; y: number } | null;
   dashState?: {
     startX: number;
     startY: number;
@@ -165,6 +204,8 @@ interface ServerHero extends Omit<NetworkCoopHero, 'moveDirection'> {
     dirX: number;
     dirY: number;
   };
+  // 캐릭터 레벨 (플레이어 프로필에서, 업그레이드 최대 레벨 결정)
+  characterLevel: number;
 }
 
 // 서버측 적 상태
@@ -178,8 +219,14 @@ interface ServerEnemy extends NetworkCoopEnemy {
   targetPosition?: { x: number; y: number };
   isStunned: boolean;
   stunDuration: number;
-  lastAttackerId?: string;      // 마지막으로 공격한 영웅 ID
-  lastAttackedTime?: number;    // 마지막 공격받은 시간
+  // 어그로 시스템
+  aggroOnHero: boolean;
+  aggroExpireTime?: number;
+  aggroTargetHeroId?: string;
+  // 골드 보상
+  goldReward: number;
+  // 스폰 기지
+  fromBase?: 'left' | 'right';
 }
 
 // 플레이어 통계
@@ -188,7 +235,9 @@ interface PlayerStats {
   deaths: number;
   damageDealt: number;
   damageTaken: number;
-  expGained: number;
+  goldEarned: number;
+  basesDestroyed: number;
+  bossesKilled: number;
 }
 
 export class RPGCoopGameRoom {
@@ -197,6 +246,7 @@ export class RPGCoopGameRoom {
   private playerInfos: CoopPlayerInfo[];
 
   private gameState: 'waiting' | 'countdown' | 'playing' | 'ended' = 'waiting';
+  private gamePhase: CoopGamePhase = 'playing';
   private gameTime: number = 0;
   private gameLoopInterval: NodeJS.Timeout | null = null;
   private countdownTimer: NodeJS.Timeout | null = null;
@@ -205,12 +255,11 @@ export class RPGCoopGameRoom {
   private playerHeroMap: Map<string, string> = new Map();  // playerId -> heroId
   private enemies: ServerEnemy[] = [];
 
-  private currentWave: number = 0;
-  private waveInProgress: boolean = false;
-  private enemiesRemaining: number = 0;
-  private spawnQueue: { type: UnitType; delay: number }[] = [];
+  // 넥서스 디펜스 시스템
+  private nexus: ServerNexus;
+  private enemyBases: ServerEnemyBase[];
+  private bossesSpawned: boolean = false;
   private lastSpawnTime: number = 0;
-  private waveDelayTimer: number = 0;
 
   private activeSkillEffects: SkillEffect[] = [];
   private pendingSkills: PendingSkill[] = [];
@@ -224,6 +273,34 @@ export class RPGCoopGameRoom {
     this.playerIds = playerIds;
     this.playerInfos = playerInfos;
 
+    // 넥서스 초기화
+    this.nexus = {
+      x: CONFIG.NEXUS.X,
+      y: CONFIG.NEXUS.Y,
+      hp: CONFIG.NEXUS.HP,
+      maxHp: CONFIG.NEXUS.HP,
+    };
+
+    // 적 기지 초기화
+    this.enemyBases = [
+      {
+        id: 'left',
+        x: CONFIG.ENEMY_BASES.left.x,
+        y: CONFIG.ENEMY_BASES.left.y,
+        hp: CONFIG.ENEMY_BASES.left.hp,
+        maxHp: CONFIG.ENEMY_BASES.left.hp,
+        destroyed: false,
+      },
+      {
+        id: 'right',
+        x: CONFIG.ENEMY_BASES.right.x,
+        y: CONFIG.ENEMY_BASES.right.y,
+        hp: CONFIG.ENEMY_BASES.right.hp,
+        maxHp: CONFIG.ENEMY_BASES.right.hp,
+        destroyed: false,
+      },
+    ];
+
     // 플레이어 통계 초기화
     playerIds.forEach(id => {
       this.playerStats.set(id, {
@@ -231,7 +308,9 @@ export class RPGCoopGameRoom {
         deaths: 0,
         damageDealt: 0,
         damageTaken: 0,
-        expGained: 0,
+        goldEarned: 0,
+        basesDestroyed: 0,
+        bossesKilled: 0,
       });
     });
   }
@@ -256,12 +335,15 @@ export class RPGCoopGameRoom {
 
   private startGame(): void {
     this.gameState = 'playing';
+    this.gamePhase = 'playing';
     this.gameTime = 0;
+    this.bossesSpawned = false;
+    this.lastSpawnTime = 0;
 
     // 영웅 생성
     this.initializeHeroes();
 
-    console.log(`[Coop] 게임 시작: Room ${this.id} (${this.playerIds.length}명)`);
+    console.log(`[Coop] 넥서스 디펜스 게임 시작: Room ${this.id} (${this.playerIds.length}명)`);
 
     // 초기 상태 전송 (각 플레이어에게 자신의 heroId 포함)
     const initialState = this.getNetworkGameState();
@@ -278,9 +360,6 @@ export class RPGCoopGameRoom {
     this.gameLoopInterval = setInterval(() => {
       this.update(1 / 60);
     }, 1000 / 60);
-
-    // 첫 웨이브 시작
-    this.waveDelayTimer = 3;  // 3초 후 첫 웨이브
   }
 
   private initializeHeroes(): void {
@@ -292,6 +371,9 @@ export class RPGCoopGameRoom {
       const heroClass = playerInfo.heroClass;
       const classConfig = CONFIG.CLASS_CONFIGS[heroClass];
       const pos = spawnPositions[index];
+
+      // TODO: 실제 캐릭터 레벨을 플레이어 프로필에서 가져와야 함
+      const characterLevel = 10;  // 기본값
 
       const heroId = uuidv4();
       const hero: ServerHero = {
@@ -306,9 +388,14 @@ export class RPGCoopGameRoom {
         attackSpeed: classConfig.attackSpeed,
         speed: classConfig.speed,
         range: classConfig.range,
-        level: 1,
+        // 골드 시스템
+        gold: CONFIG.GOLD.STARTING,
+        upgradeLevels: { attack: 0, speed: 0, hp: 0, goldRate: 0 },
+        characterLevel,
+        // UI 호환성을 위한 레거시 필드 (실제 레벨업 안함)
+        level: characterLevel,
         exp: 0,
-        expToNextLevel: this.calculateExpToNextLevel(1),
+        expToNextLevel: 100,
         isDead: false,
         reviveTimer: 0,
         facingRight: true,
@@ -320,7 +407,7 @@ export class RPGCoopGameRoom {
         baseAttack: classConfig.attack,
         baseSpeed: classConfig.speed,
         baseAttackSpeed: classConfig.attackSpeed,
-        skillPoints: 0,
+        baseMaxHp: classConfig.hp,
         moveDirection: null,
       };
 
@@ -330,8 +417,9 @@ export class RPGCoopGameRoom {
   }
 
   private getSpawnPositions(count: number): { x: number; y: number }[] {
-    const centerX = CONFIG.MAP_CENTER_X;
-    const centerY = CONFIG.MAP_CENTER_Y;
+    // 넥서스 근처에서 스폰
+    const centerX = CONFIG.NEXUS.X;
+    const centerY = CONFIG.NEXUS.Y + 100;  // 넥서스 약간 아래
     const offset = 80;
 
     switch (count) {
@@ -378,11 +466,11 @@ export class RPGCoopGameRoom {
     // 버프 공유 처리
     this.updateBuffSharing(deltaTime);
 
-    // 웨이브 처리
-    this.updateWave(deltaTime);
+    // 스폰 처리 (연속 스폰)
+    this.updateSpawning(deltaTime);
 
-    // 게임 오버 체크
-    this.checkGameOver();
+    // 게임 페이즈 체크
+    this.checkGamePhase();
 
     // 50ms마다 전체 상태 동기화
     if (this.gameTime - this.lastFullSync >= 0.05) {
@@ -403,7 +491,6 @@ export class RPGCoopGameRoom {
       }
 
       // 쿨다운 감소
-      // 광전사 버프 활성화 시 Q스킬 쿨다운 30% 빠르게 감소 (싱글플레이와 동일)
       const berserkerBuff = hero.buffs.find(b => b.type === 'berserker');
       const attackSpeedMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
 
@@ -423,22 +510,19 @@ export class RPGCoopGameRoom {
           hero.y = hero.dashState.targetY;
           hero.dashState = undefined;
         } else {
-          // easeOutQuad
           const t = hero.dashState.progress;
           const eased = t * (2 - t);
           hero.x = hero.dashState.startX + (hero.dashState.targetX - hero.dashState.startX) * eased;
           hero.y = hero.dashState.startY + (hero.dashState.targetY - hero.dashState.startY) * eased;
         }
       } else if (hero.moveDirection) {
-        // 방향 기반 이동 (싱글플레이와 동일한 공식: speed * deltaTime * 60)
         const baseSpeed = this.getEffectiveSpeed(hero);
-        const moveDistance = baseSpeed * deltaTime * 60;  // 싱글플레이 공식
+        const moveDistance = baseSpeed * deltaTime * 60;
         const moveX = hero.moveDirection.x * moveDistance;
         const moveY = hero.moveDirection.y * moveDistance;
         hero.x += moveX;
         hero.y += moveY;
 
-        // 바라보는 방향 업데이트
         hero.facingRight = hero.moveDirection.x >= 0;
         hero.facingAngle = Math.atan2(hero.moveDirection.y, hero.moveDirection.x);
       }
@@ -447,9 +531,9 @@ export class RPGCoopGameRoom {
       hero.x = Math.max(0, Math.min(CONFIG.MAP_WIDTH, hero.x));
       hero.y = Math.max(0, Math.min(CONFIG.MAP_HEIGHT, hero.y));
 
-      // 패시브 HP 재생 (기사: 기본 패시브 레벨 5 이상 + 패시브 성장)
+      // 패시브 HP 재생 (기사)
       if (hero.heroClass === 'knight' && hero.hp < hero.maxHp) {
-        const baseRegen = hero.level >= CONFIG.PASSIVE_UNLOCK_LEVEL ? (CONFIG.BASE_PASSIVES.knight.hpRegen || 0) : 0;
+        const baseRegen = hero.characterLevel >= CONFIG.PASSIVE_UNLOCK_LEVEL ? (CONFIG.BASE_PASSIVES.knight.hpRegen || 0) : 0;
         const growthRegen = hero.passiveGrowth.currentValue;
         const totalRegen = baseRegen + growthRegen;
         if (totalRegen > 0) {
@@ -492,28 +576,28 @@ export class RPGCoopGameRoom {
       // 쿨다운 감소
       enemy.attackCooldown = Math.max(0, enemy.attackCooldown - deltaTime);
 
-      // 타겟 영웅 선택 (어그로 시스템)
-      const targetHero = this.selectEnemyTarget(enemy);
+      // 어그로 만료 체크
+      if (enemy.aggroOnHero && enemy.aggroExpireTime && this.gameTime >= enemy.aggroExpireTime) {
+        enemy.aggroOnHero = false;
+        enemy.aggroExpireTime = undefined;
+        enemy.aggroTargetHeroId = undefined;
+      }
 
-      if (targetHero) {
-        enemy.targetHeroId = targetHero.id;
-        const dx = targetHero.x - enemy.x;
-        const dy = targetHero.y - enemy.y;
-        const dist = Math.sqrt(dx * dx + dy * dy);
-
-        if (dist <= enemy.attackRange) {
-          // 공격
-          if (enemy.attackCooldown <= 0) {
-            this.damageHero(targetHero.id, enemy.attackDamage, enemy.id);
-            enemy.attackCooldown = enemy.attackSpeed;
-          }
+      // AI 행동 결정
+      if (enemy.aggroOnHero && enemy.aggroTargetHeroId) {
+        // 어그로 상태: 공격한 영웅 추적
+        const targetHero = this.heroes.get(enemy.aggroTargetHeroId);
+        if (targetHero && !targetHero.isDead) {
+          this.moveAndAttackTarget(enemy, targetHero.x, targetHero.y, 'hero', targetHero.id, deltaTime);
         } else {
-          // 이동 (싱글플레이와 동일 - 웨이브 스케일링 없음)
-          enemy.x += (dx / dist) * enemy.moveSpeed;
-          enemy.y += (dy / dist) * enemy.moveSpeed;
+          // 어그로 타겟이 사망하면 넥서스로 전환
+          enemy.aggroOnHero = false;
+          enemy.aggroTargetHeroId = undefined;
+          this.moveAndAttackTarget(enemy, this.nexus.x, this.nexus.y, 'nexus', undefined, deltaTime);
         }
       } else {
-        enemy.targetHeroId = undefined;
+        // 기본 행동: 넥서스를 향해 이동하고 공격
+        this.moveAndAttackTarget(enemy, this.nexus.x, this.nexus.y, 'nexus', undefined, deltaTime);
       }
 
       // 사망 체크
@@ -526,77 +610,57 @@ export class RPGCoopGameRoom {
     enemiesToRemove.forEach(enemyId => {
       const enemy = this.enemies.find(e => e.id === enemyId);
       if (enemy) {
-        this.distributeExp(enemy.expReward);
+        // 골드 분배 (마지막 공격자에게)
+        this.distributeGold(enemy);
+
         this.broadcastEvent({
           event: 'ENEMY_DIED',
           enemyId,
-          expReward: enemy.expReward,
-          killerHeroId: '',  // TODO: 마지막 타격자 추적
+          expReward: enemy.goldReward,  // 골드로 변경됨
+          killerHeroId: '',
         });
         this.enemies = this.enemies.filter(e => e.id !== enemyId);
-        this.enemiesRemaining--;
+
+        // 보스 처치 확인
+        if (enemy.type === 'boss') {
+          // 모든 플레이어 통계 업데이트
+          this.playerStats.forEach(stats => {
+            stats.bossesKilled++;
+          });
+        }
       }
     });
   }
 
-  private selectEnemyTarget(enemy: ServerEnemy): ServerHero | null {
-    const aliveHeroes = Array.from(this.heroes.values()).filter(h => !h.isDead);
-    if (aliveHeroes.length === 0) return null;
+  private moveAndAttackTarget(
+    enemy: ServerEnemy,
+    targetX: number,
+    targetY: number,
+    targetType: 'hero' | 'nexus',
+    heroId: string | undefined,
+    deltaTime: number
+  ): void {
+    const dx = targetX - enemy.x;
+    const dy = targetY - enemy.y;
+    const dist = Math.sqrt(dx * dx + dy * dy);
 
-    // 각 영웅까지의 거리 계산
-    const heroDistances = aliveHeroes.map(hero => ({
-      hero,
-      dist: this.getDistance(enemy.x, enemy.y, hero.x, hero.y),
-      isMelee: hero.heroClass === 'warrior' || hero.heroClass === 'knight',
-    }));
-
-    // 가장 가까운 영웅 거리
-    const closestDist = Math.min(...heroDistances.map(h => h.dist));
-
-    // 공격자 정보 (최근 3초 이내 공격한 영웅)
-    const AGGRO_DURATION = 3.0;
-    const lastAttacker = enemy.lastAttackerId && enemy.lastAttackedTime &&
-      (this.gameTime - enemy.lastAttackedTime) < AGGRO_DURATION
-      ? this.heroes.get(enemy.lastAttackerId)
-      : null;
-    const attackerIsAlive = lastAttacker && !lastAttacker.isDead;
-
-    let bestTarget: ServerHero | null = null;
-    let bestScore = -Infinity;
-
-    // 근접 영웅 우선 거리 범위 (가장 가까운 영웅보다 이 거리 이내면 근접 우선)
-    const MELEE_PRIORITY_RANGE = 150;
-
-    heroDistances.forEach(({ hero, dist, isMelee }) => {
-      // 기본 점수 = 거리 기반 (가까울수록 높음) - 가장 중요한 요소
-      let score = 10000 - dist;
-
-      // 1. 근접 영웅 우선순위 (비슷한 거리일 때만)
-      // 가장 가까운 영웅과 거리 차이가 MELEE_PRIORITY_RANGE 이내일 때만 근접 보너스
-      if (isMelee && dist <= closestDist + MELEE_PRIORITY_RANGE) {
-        score += 200;  // 작은 보너스 (거리 차이보다 작아야 함)
-      }
-
-      // 2. 공격자 우선순위 (반격)
-      // 공격받고 있을 때, 가장 가까운 영웅과 비슷한 거리면 공격자 우선
-      if (attackerIsAlive && hero.id === lastAttacker!.id) {
-        if (dist <= closestDist + 100) {
-          score += 150;  // 공격자가 가까우면 반격
+    if (dist <= enemy.attackRange) {
+      // 공격 범위 내: 공격
+      if (enemy.attackCooldown <= 0) {
+        if (targetType === 'hero' && heroId) {
+          this.damageHero(heroId, enemy.attackDamage, enemy.id);
+        } else if (targetType === 'nexus') {
+          this.damageNexus(enemy.attackDamage);
         }
+        enemy.attackCooldown = enemy.attackSpeed;
       }
-
-      // 3. 현재 타겟 유지 보너스 (타겟 변경이 너무 잦지 않도록)
-      if (enemy.targetHeroId === hero.id) {
-        score += 50;
-      }
-
-      if (score > bestScore) {
-        bestScore = score;
-        bestTarget = hero;
-      }
-    });
-
-    return bestTarget;
+    } else {
+      // 이동
+      const moveX = (dx / dist) * enemy.moveSpeed;
+      const moveY = (dy / dist) * enemy.moveSpeed;
+      enemy.x += moveX;
+      enemy.y += moveY;
+    }
   }
 
   private updateSkillEffects(deltaTime: number): void {
@@ -624,7 +688,7 @@ export class RPGCoopGameRoom {
     });
 
     triggeredSkills.forEach(skill => {
-      // 스킬 발동 (범위 내 적에게 데미지)
+      // 범위 내 적에게 데미지
       this.enemies.forEach(enemy => {
         const dist = this.getDistance(skill.position.x, skill.position.y, enemy.x, enemy.y);
         if (dist <= skill.radius) {
@@ -653,11 +717,11 @@ export class RPGCoopGameRoom {
   private updateBuffSharing(deltaTime: number): void {
     const aliveHeroes = Array.from(this.heroes.values()).filter(h => !h.isDead);
 
-    // 기사 HP 재생 공유 (기본 패시브 레벨 5 이상 + 패시브 성장)
+    // 기사 HP 재생 공유
     aliveHeroes.forEach(knight => {
       if (knight.heroClass !== 'knight') return;
 
-      const baseRegen = knight.level >= CONFIG.PASSIVE_UNLOCK_LEVEL ? (CONFIG.BASE_PASSIVES.knight.hpRegen || 0) : 0;
+      const baseRegen = knight.characterLevel >= CONFIG.PASSIVE_UNLOCK_LEVEL ? (CONFIG.BASE_PASSIVES.knight.hpRegen || 0) : 0;
       const growthRegen = knight.passiveGrowth.currentValue;
       const totalRegen = baseRegen + growthRegen;
       if (totalRegen <= 0) return;
@@ -685,13 +749,11 @@ export class RPGCoopGameRoom {
 
         const dist = this.getDistance(warrior.x, warrior.y, ally.x, ally.y);
         if (dist <= CONFIG.BUFF_SHARE.WARRIOR_BERSERKER_RANGE) {
-          // 범위 내 아군에게 공격력 버프
-          // 이미 버프가 있으면 갱신
           const existingBuff = ally.buffs.find(b => b.type === 'berserker');
           if (!existingBuff) {
             ally.buffs.push({
               type: 'berserker',
-              duration: 0.1,  // 매 프레임 갱신
+              duration: 0.1,
               startTime: this.gameTime,
               attackBonus: CONFIG.BUFF_SHARE.WARRIOR_BERSERKER_ATK_BONUS,
             });
@@ -703,144 +765,107 @@ export class RPGCoopGameRoom {
     });
   }
 
-  private updateWave(deltaTime: number): void {
-    // 웨이브 대기 타이머
-    if (this.waveDelayTimer > 0) {
-      this.waveDelayTimer -= deltaTime;
-      if (this.waveDelayTimer <= 0) {
-        this.startNextWave();
-      }
-      return;
-    }
+  private updateSpawning(deltaTime: number): void {
+    // 보스 페이즈에서는 스폰하지 않음
+    if (this.gamePhase !== 'playing') return;
 
-    // 스폰 큐 처리
-    if (this.spawnQueue.length > 0 && this.gameTime - this.lastSpawnTime >= this.spawnQueue[0].delay) {
-      const spawn = this.spawnQueue.shift()!;
-      this.spawnEnemy(spawn.type);
-      this.lastSpawnTime = this.gameTime;
-    }
+    // 파괴되지 않은 기지에서만 스폰
+    const activeBases = this.enemyBases.filter(b => !b.destroyed);
+    if (activeBases.length === 0) return;
 
-    // 웨이브 클리어 체크
-    if (this.waveInProgress && this.enemiesRemaining === 0 && this.spawnQueue.length === 0) {
-      this.waveInProgress = false;
-      this.broadcast({
-        type: 'COOP_WAVE_CLEAR',
-        waveNumber: this.currentWave,
-        nextWaveIn: CONFIG.WAVE_DELAY,
-      });
-      this.waveDelayTimer = CONFIG.WAVE_DELAY;
+    // 스폰 간격 계산 (시간이 지날수록 빨라짐)
+    const minutes = this.gameTime / 60;
+    const spawnInterval = Math.max(
+      CONFIG.SPAWN.MIN_INTERVAL,
+      CONFIG.SPAWN.BASE_INTERVAL - minutes * CONFIG.SPAWN.INTERVAL_DECREASE_PER_MINUTE
+    );
 
-      // 패시브 성장 (10웨이브마다)
-      if (this.currentWave % 10 === 0) {
-        this.updatePassiveGrowth();
-      }
-    }
+    // 스폰 시간 체크
+    if (this.gameTime - this.lastSpawnTime < spawnInterval) return;
+
+    // 번갈아가며 기지에서 스폰
+    const spawnIndex = Math.floor(this.gameTime / spawnInterval) % activeBases.length;
+    const selectedBase = activeBases[spawnIndex];
+
+    this.spawnEnemy(selectedBase);
+    this.lastSpawnTime = this.gameTime;
   }
 
-  private startNextWave(): void {
-    this.currentWave++;
-    this.waveInProgress = true;
-
-    const waveConfig = this.generateWaveConfig(this.currentWave);
-    this.enemiesRemaining = waveConfig.enemies.reduce((sum, e) => sum + e.count, 0);
-
-    // 스폰 큐 생성
-    this.spawnQueue = [];
-    waveConfig.enemies.forEach(enemyConfig => {
-      for (let i = 0; i < enemyConfig.count; i++) {
-        this.spawnQueue.push({
-          type: enemyConfig.type,
-          delay: waveConfig.spawnInterval,
-        });
-      }
-    });
-    this.lastSpawnTime = this.gameTime - waveConfig.spawnInterval;  // 즉시 첫 스폰
-
-    this.broadcast({
-      type: 'COOP_WAVE_START',
-      waveNumber: this.currentWave,
-      enemyCount: this.enemiesRemaining,
-    });
-
-    console.log(`[Coop] 웨이브 ${this.currentWave} 시작 (적 ${this.enemiesRemaining}마리)`);
-  }
-
-  private generateWaveConfig(waveNumber: number): { enemies: { type: UnitType; count: number }[]; spawnInterval: number } {
-    const isBossWave = waveNumber % 10 === 0;
-    const enemies: { type: UnitType; count: number }[] = [];
-
-    // 플레이어 수에 따른 적 수 스케일링
-    const playerCount = this.playerIds.length;
-    const enemyCountMultiplier = CONFIG.ENEMY_COUNT_SCALING[playerCount] || 1.0;
-
-    // 적 수 스케일링 적용 함수 (보스 제외)
-    const scaleCount = (count: number) => Math.floor(count * enemyCountMultiplier);
-
-    if (isBossWave) {
-      enemies.push({ type: 'boss', count: 1 });  // 보스는 스케일링하지 않음 (항상 1마리)
-      enemies.push({ type: 'melee', count: scaleCount(Math.floor(waveNumber / 2)) });
-    } else if (waveNumber <= 3) {
-      enemies.push({ type: 'melee', count: scaleCount(3 + waveNumber * 2) });
-    } else if (waveNumber <= 6) {
-      enemies.push({ type: 'melee', count: scaleCount(3 + waveNumber) });
-      enemies.push({ type: 'ranged', count: scaleCount(Math.floor(waveNumber / 2)) });
-    } else if (waveNumber <= 9) {
-      enemies.push({ type: 'melee', count: scaleCount(2 + waveNumber) });
-      enemies.push({ type: 'ranged', count: scaleCount(Math.floor(waveNumber / 2)) });
-      enemies.push({ type: 'knight', count: scaleCount(Math.floor(waveNumber / 3)) });
+  private getEnemyTypesForTime(minutes: number): { type: UnitType; weight: number }[] {
+    if (minutes < 2) {
+      return [{ type: 'melee', weight: 1 }];
+    } else if (minutes < 4) {
+      return [
+        { type: 'melee', weight: 3 },
+        { type: 'ranged', weight: 1 },
+      ];
+    } else if (minutes < 6) {
+      return [
+        { type: 'melee', weight: 2 },
+        { type: 'ranged', weight: 2 },
+        { type: 'knight', weight: 1 },
+      ];
     } else {
-      const cycleWave = ((waveNumber - 1) % 10) + 1;
-      const multiplier = Math.floor(waveNumber / 10) + 1;
+      return [
+        { type: 'melee', weight: 2 },
+        { type: 'ranged', weight: 2 },
+        { type: 'knight', weight: 2 },
+        { type: 'mage', weight: 1 },
+      ];
+    }
+  }
 
-      if (cycleWave <= 3) {
-        enemies.push({ type: 'melee', count: scaleCount((3 + cycleWave * 2) * multiplier) });
-      } else if (cycleWave <= 6) {
-        enemies.push({ type: 'melee', count: scaleCount((3 + cycleWave) * multiplier) });
-        enemies.push({ type: 'ranged', count: scaleCount(Math.floor(cycleWave / 2) * multiplier) });
-      } else {
-        enemies.push({ type: 'melee', count: scaleCount((2 + cycleWave) * multiplier) });
-        enemies.push({ type: 'ranged', count: scaleCount(Math.floor(cycleWave / 2) * multiplier) });
-        enemies.push({ type: 'knight', count: scaleCount(Math.floor(cycleWave / 3) * multiplier) });
-        if (waveNumber >= 20) {
-          enemies.push({ type: 'mage', count: scaleCount(Math.floor(multiplier / 2)) });
-        }
+  private selectRandomEnemyType(enemyTypes: { type: UnitType; weight: number }[]): UnitType {
+    const totalWeight = enemyTypes.reduce((sum, e) => sum + e.weight, 0);
+    let random = Math.random() * totalWeight;
+
+    for (const enemy of enemyTypes) {
+      random -= enemy.weight;
+      if (random <= 0) {
+        return enemy.type;
       }
     }
 
-    const spawnInterval = Math.max(0.5, 2 - waveNumber * 0.1);
-
-    return { enemies, spawnInterval };
+    return enemyTypes[0].type;
   }
 
-  private spawnEnemy(type: UnitType): void {
-    const pos = this.getRandomSpawnPosition();
+  private spawnEnemy(base: ServerEnemyBase): void {
+    const minutes = this.gameTime / 60;
+    const enemyTypes = this.getEnemyTypesForTime(minutes);
+    const type = this.selectRandomEnemyType(enemyTypes);
+
     const aiConfig = CONFIG.ENEMY_AI[type] || CONFIG.ENEMY_AI.melee;
 
-    // 난이도 스케일링 (플레이어 수에 따른 체력 배율)
+    // 난이도 스케일링
     const playerCount = this.playerIds.length;
     const hpMultiplier = CONFIG.DIFFICULTY_SCALING[playerCount] || 1.0;
     const attackMultiplier = CONFIG.ATTACK_SCALING[playerCount] || 1.0;
+    const statMultiplier = 1 + minutes * CONFIG.SPAWN.STAT_MULTIPLIER_PER_MINUTE;
 
-    // 웨이브별 스탯 배율
-    const waveStatMultiplier = 1 + Math.floor(this.currentWave / 10) * 0.3;
+    // 스폰 위치에 약간의 랜덤 오프셋
+    const offsetX = (Math.random() - 0.5) * 60;
+    const offsetY = (Math.random() - 0.5) * 60;
 
     const enemy: ServerEnemy = {
       id: uuidv4(),
       type,
-      x: pos.x,
-      y: pos.y,
-      hp: Math.floor(aiConfig.hp * hpMultiplier * waveStatMultiplier),
-      maxHp: Math.floor(aiConfig.hp * hpMultiplier * waveStatMultiplier),
-      expReward: CONFIG.EXP_TABLE[type] || 10,
+      x: base.x + offsetX,
+      y: base.y + offsetY,
+      hp: Math.floor(aiConfig.hp * hpMultiplier * statMultiplier),
+      maxHp: Math.floor(aiConfig.hp * hpMultiplier * statMultiplier),
+      expReward: 0,  // 골드 시스템으로 변경
+      goldReward: Math.floor((CONFIG.GOLD.REWARDS[type] || 5) * statMultiplier),
       buffs: [],
       attackCooldown: 0,
-      attackDamage: Math.floor(aiConfig.attackDamage * waveStatMultiplier * attackMultiplier),
-      attackSpeed: aiConfig.attackSpeed,  // 싱글플레이와 동일 - 공격속도 스케일링 없음
+      attackDamage: Math.floor(aiConfig.attackDamage * statMultiplier * attackMultiplier),
+      attackSpeed: aiConfig.attackSpeed,
       attackRange: aiConfig.attackRange,
       moveSpeed: aiConfig.moveSpeed,
       detectionRange: aiConfig.detectionRange,
       isStunned: false,
       stunDuration: 0,
+      aggroOnHero: false,
+      fromBase: base.id,
     };
 
     this.enemies.push(enemy);
@@ -850,113 +875,119 @@ export class RPGCoopGameRoom {
     });
   }
 
-  private getRandomSpawnPosition(): { x: number; y: number } {
-    const margin = CONFIG.SPAWN_MARGIN;
-    const side = Math.floor(Math.random() * 4);
+  private spawnBosses(): void {
+    if (this.bossesSpawned) return;
+    this.bossesSpawned = true;
 
-    switch (side) {
-      case 0:  // 상
-        return { x: margin + Math.random() * (CONFIG.MAP_WIDTH - margin * 2), y: margin };
-      case 1:  // 하
-        return { x: margin + Math.random() * (CONFIG.MAP_WIDTH - margin * 2), y: CONFIG.MAP_HEIGHT - margin };
-      case 2:  // 좌
-        return { x: margin, y: margin + Math.random() * (CONFIG.MAP_HEIGHT - margin * 2) };
-      case 3:  // 우
-      default:
-        return { x: CONFIG.MAP_WIDTH - margin, y: margin + Math.random() * (CONFIG.MAP_HEIGHT - margin * 2) };
-    }
-  }
+    const playerCount = this.playerIds.length;
+    const hpMultiplier = CONFIG.DIFFICULTY_SCALING[playerCount] || 1.0;
+    const attackMultiplier = CONFIG.ATTACK_SCALING[playerCount] || 1.0;
+    const minutes = this.gameTime / 60;
+    const timeMultiplier = 1 + minutes * 0.1;
 
-  private distributeExp(expReward: number): void {
-    const aliveHeroes = Array.from(this.heroes.values()).filter(h => !h.isDead);
-    const deadHeroes = Array.from(this.heroes.values()).filter(h => h.isDead);
+    const aiConfig = CONFIG.ENEMY_AI.boss;
 
-    // 경험치 공유: 싱글플레이와 동일하게 모든 플레이어가 동일한 경험치 획득 (분배 X)
-    const expForAlive = expReward;  // 살아있는 플레이어는 전체 경험치 획득
-    const expForDead = Math.floor(expReward * CONFIG.EXP.DEAD_PLAYER_RATIO);  // 죽은 플레이어는 50%
+    // 각 파괴된 기지 위치에서 보스 스폰
+    this.enemyBases.forEach(base => {
+      if (!base.destroyed) return;
 
-    // 살아있는 플레이어 (전체 경험치)
-    aliveHeroes.forEach(hero => {
-      this.addExp(hero.id, expForAlive);
-    });
+      const boss: ServerEnemy = {
+        id: `boss_${base.id}_${uuidv4()}`,
+        type: 'boss',
+        x: base.x,
+        y: base.y,
+        hp: Math.floor(aiConfig.hp * CONFIG.BOSS.HP_MULTIPLIER * hpMultiplier * timeMultiplier),
+        maxHp: Math.floor(aiConfig.hp * CONFIG.BOSS.HP_MULTIPLIER * hpMultiplier * timeMultiplier),
+        expReward: 0,
+        goldReward: CONFIG.BOSS.GOLD_REWARD,
+        buffs: [],
+        attackCooldown: 0,
+        attackDamage: Math.floor(aiConfig.attackDamage * CONFIG.BOSS.DAMAGE_MULTIPLIER * timeMultiplier * attackMultiplier),
+        attackSpeed: aiConfig.attackSpeed * 1.2,
+        attackRange: aiConfig.attackRange,
+        moveSpeed: aiConfig.moveSpeed * 0.8,
+        detectionRange: aiConfig.detectionRange,
+        isStunned: false,
+        stunDuration: 0,
+        aggroOnHero: false,
+        fromBase: base.id,
+      };
 
-    // 죽은 플레이어 (50%)
-    deadHeroes.forEach(hero => {
-      this.addExp(hero.id, expForDead);
-    });
-  }
-
-  private addExp(heroId: string, amount: number): void {
-    const hero = this.heroes.get(heroId);
-    if (!hero) return;
-
-    hero.exp += amount;
-
-    // 플레이어 통계 업데이트
-    const stats = this.playerStats.get(hero.playerId);
-    if (stats) {
-      stats.expGained += amount;
-    }
-
-    this.broadcastEvent({
-      event: 'HERO_EXP_GAINED',
-      heroId,
-      exp: amount,
-      totalExp: hero.exp,
-    });
-
-    // 레벨업 체크
-    while (hero.exp >= hero.expToNextLevel) {
-      hero.exp -= hero.expToNextLevel;
-      hero.level++;
-      hero.skillPoints++;
-
-      const bonus = CONFIG.LEVEL_UP_BONUS[hero.heroClass];
-      hero.maxHp += bonus.hp;
-      hero.hp = hero.maxHp;  // 레벨업 시 풀힐
-      hero.baseAttack += bonus.attack;
-      hero.attack = hero.baseAttack;
-      hero.baseSpeed += bonus.speed;
-      hero.speed = hero.baseSpeed;
-      hero.expToNextLevel = this.calculateExpToNextLevel(hero.level);
-
+      this.enemies.push(boss);
       this.broadcastEvent({
-        event: 'HERO_LEVEL_UP',
-        heroId,
-        level: hero.level,
-        stats: { hp: hero.maxHp, attack: hero.attack, speed: hero.speed },
+        event: 'ENEMY_SPAWNED',
+        enemy: this.getNetworkEnemy(boss),
       });
+    });
+
+    console.log(`[Coop] 보스 2마리 스폰됨 - Room ${this.id}`);
+  }
+
+  private checkGamePhase(): void {
+    // 이미 종료된 게임
+    if (this.gamePhase === 'victory' || this.gamePhase === 'defeat') return;
+
+    // 패배 조건: 넥서스 HP = 0
+    if (this.nexus.hp <= 0) {
+      this.endGame(false);
+      return;
+    }
+
+    if (this.gamePhase === 'playing') {
+      // 두 기지 모두 파괴되면 보스 페이즈
+      const allBasesDestroyed = this.enemyBases.every(b => b.destroyed);
+      if (allBasesDestroyed) {
+        this.gamePhase = 'boss_phase';
+        this.spawnBosses();
+        this.broadcast({
+          type: 'COOP_WAVE_START',
+          waveNumber: -1,  // 보스 페이즈 표시
+          enemyCount: 2,
+        });
+        console.log(`[Coop] 보스 페이즈 진입 - Room ${this.id}`);
+      }
+    } else if (this.gamePhase === 'boss_phase') {
+      // 승리 조건: 모든 보스 처치
+      const bosses = this.enemies.filter(e => e.type === 'boss');
+      if (this.bossesSpawned && bosses.length === 0) {
+        this.endGame(true);
+      }
     }
   }
 
-  private calculateExpToNextLevel(level: number): number {
-    return CONFIG.EXP.BASE + (level * CONFIG.EXP.MULTIPLIER);
-  }
+  private distributeGold(enemy: ServerEnemy): void {
+    // 모든 살아있는 플레이어에게 골드 분배
+    const aliveHeroes = Array.from(this.heroes.values()).filter(h => !h.isDead);
 
-  private updatePassiveGrowth(): void {
-    this.heroes.forEach(hero => {
-      hero.passiveGrowth.level++;
-      const level = hero.passiveGrowth.level;
+    aliveHeroes.forEach(hero => {
+      const goldRateBonus = hero.upgradeLevels.goldRate * CONFIG.UPGRADE.goldRate.perLevel;
+      const actualGold = Math.floor(enemy.goldReward * (1 + goldRateBonus));
+      hero.gold += actualGold;
 
-      switch (hero.heroClass) {
-        case 'warrior':
-          // 피해흡혈 +0.5%/레벨, 최대 50%
-          hero.passiveGrowth.currentValue = Math.min(0.5, level * 0.005);
-          break;
-        case 'archer':
-          // 다중타겟 확률 +0.5%/레벨, 최대 100%
-          hero.passiveGrowth.currentValue = Math.min(1.0, level * 0.005);
-          break;
-        case 'knight':
-          // HP 재생 +5/초/레벨, 최대 200/초
-          hero.passiveGrowth.currentValue = Math.min(200, level * 5);
-          break;
-        case 'mage':
-          // 데미지 보너스 +1%/레벨, 최대 100%
-          hero.passiveGrowth.currentValue = Math.min(1.0, level * 0.01);
-          break;
+      // 통계 업데이트
+      const stats = this.playerStats.get(hero.playerId);
+      if (stats) {
+        stats.goldEarned += actualGold;
+        stats.kills++;
       }
     });
+
+    // 죽은 플레이어는 50% 골드
+    const deadHeroes = Array.from(this.heroes.values()).filter(h => h.isDead);
+    deadHeroes.forEach(hero => {
+      const goldRateBonus = hero.upgradeLevels.goldRate * CONFIG.UPGRADE.goldRate.perLevel;
+      const actualGold = Math.floor(enemy.goldReward * 0.5 * (1 + goldRateBonus));
+      hero.gold += actualGold;
+
+      const stats = this.playerStats.get(hero.playerId);
+      if (stats) {
+        stats.goldEarned += actualGold;
+      }
+    });
+  }
+
+  private damageNexus(damage: number): void {
+    this.nexus.hp = Math.max(0, this.nexus.hp - damage);
   }
 
   private damageHero(heroId: string, damage: number, attackerId: string): void {
@@ -975,7 +1006,7 @@ export class RPGCoopGameRoom {
 
     hero.hp = Math.max(0, hero.hp - damage);
 
-    // 플레이어 통계 업데이트
+    // 통계 업데이트
     const stats = this.playerStats.get(hero.playerId);
     if (stats) {
       stats.damageTaken += damage;
@@ -1000,12 +1031,14 @@ export class RPGCoopGameRoom {
     if (!hero) return;
 
     hero.isDead = true;
+    // 부활 시간: 기본 시간 + 분당 추가 (최대 30초)
+    const minutes = Math.floor(this.gameTime / 60);
     hero.reviveTimer = Math.min(
       CONFIG.REVIVE.MAX_TIME,
-      CONFIG.REVIVE.BASE_TIME + this.currentWave * CONFIG.REVIVE.TIME_PER_WAVE
+      CONFIG.REVIVE.BASE_TIME + minutes * CONFIG.REVIVE.TIME_PER_MINUTE
     );
 
-    // 플레이어 통계 업데이트
+    // 통계 업데이트
     const stats = this.playerStats.get(hero.playerId);
     if (stats) {
       stats.deaths++;
@@ -1022,22 +1055,15 @@ export class RPGCoopGameRoom {
     const hero = this.heroes.get(heroId);
     if (!hero) return;
 
-    // 살아있는 아군 근처에 부활
-    const aliveAllies = Array.from(this.heroes.values()).filter(h => !h.isDead);
-    let spawnX = CONFIG.MAP_CENTER_X;
-    let spawnY = CONFIG.MAP_CENTER_Y;
+    // 넥서스 근처에서 부활
+    const angle = Math.random() * Math.PI * 2;
+    const offset = CONFIG.REVIVE.SPAWN_OFFSET;
+    let spawnX = this.nexus.x + Math.cos(angle) * offset;
+    let spawnY = this.nexus.y + Math.sin(angle) * offset;
 
-    if (aliveAllies.length > 0) {
-      const ally = aliveAllies[Math.floor(Math.random() * aliveAllies.length)];
-      const angle = Math.random() * Math.PI * 2;
-      const offset = CONFIG.REVIVE.SPAWN_OFFSET;
-      spawnX = ally.x + Math.cos(angle) * offset;
-      spawnY = ally.y + Math.sin(angle) * offset;
-
-      // 맵 경계 체크
-      spawnX = Math.max(50, Math.min(CONFIG.MAP_WIDTH - 50, spawnX));
-      spawnY = Math.max(50, Math.min(CONFIG.MAP_HEIGHT - 50, spawnY));
-    }
+    // 맵 경계 체크
+    spawnX = Math.max(50, Math.min(CONFIG.MAP_WIDTH - 50, spawnX));
+    spawnY = Math.max(50, Math.min(CONFIG.MAP_HEIGHT - 50, spawnY));
 
     hero.isDead = false;
     hero.hp = Math.floor(hero.maxHp * CONFIG.REVIVE.REVIVE_HP_PERCENT);
@@ -1060,22 +1086,20 @@ export class RPGCoopGameRoom {
 
     enemy.hp = Math.max(0, enemy.hp - damage);
 
-    // 어그로 추적 - 누가 공격했는지 기록
+    // 어그로 설정
     if (attackerId) {
-      enemy.lastAttackerId = attackerId;
-      enemy.lastAttackedTime = this.gameTime;
+      enemy.aggroOnHero = true;
+      enemy.aggroExpireTime = this.gameTime + CONFIG.AGGRO.DURATION;
+      enemy.aggroTargetHeroId = attackerId;
     }
 
-    // 플레이어 통계 업데이트
+    // 통계 업데이트
     if (attackerId) {
       const hero = this.heroes.get(attackerId);
       if (hero) {
         const stats = this.playerStats.get(hero.playerId);
         if (stats) {
           stats.damageDealt += damage;
-          if (enemy.hp <= 0) {
-            stats.kills++;
-          }
         }
       }
     }
@@ -1087,6 +1111,33 @@ export class RPGCoopGameRoom {
       hp: enemy.hp,
       attackerId,
     });
+  }
+
+  private damageBase(baseId: 'left' | 'right', damage: number, attackerId: string): boolean {
+    const base = this.enemyBases.find(b => b.id === baseId);
+    if (!base || base.destroyed) return false;
+
+    base.hp = Math.max(0, base.hp - damage);
+
+    if (base.hp <= 0) {
+      base.destroyed = true;
+
+      // 통계 업데이트
+      if (attackerId) {
+        const hero = this.heroes.get(attackerId);
+        if (hero) {
+          const stats = this.playerStats.get(hero.playerId);
+          if (stats) {
+            stats.basesDestroyed++;
+          }
+        }
+      }
+
+      console.log(`[Coop] 기지 파괴: ${baseId} - Room ${this.id}`);
+      return true;
+    }
+
+    return false;
   }
 
   private stunEnemy(enemyId: string, duration: number): void {
@@ -1103,25 +1154,30 @@ export class RPGCoopGameRoom {
     });
   }
 
-  private checkGameOver(): void {
-    const allDead = Array.from(this.heroes.values()).every(h => h.isDead);
-    if (allDead) {
-      this.endGame(false);
-    }
-  }
-
   private endGame(victory: boolean): void {
     this.gameState = 'ended';
+    this.gamePhase = victory ? 'victory' : 'defeat';
 
     if (this.gameLoopInterval) {
       clearInterval(this.gameLoopInterval);
       this.gameLoopInterval = null;
     }
 
+    // 파괴된 기지 수, 처치한 보스 수 계산
+    const basesDestroyed = this.enemyBases.filter(b => b.destroyed).length;
+
+    // 처치한 보스 수 계산
+    const bossesKilled = this.enemies.filter(e => e.type === 'boss' && e.hp <= 0).length;
+
+    // 총 골드 수입 계산
+    const totalGoldEarned = Array.from(this.playerStats.values()).reduce((sum, stats) => sum + (stats.goldEarned || 0), 0);
+
     const result: RPGCoopGameResult = {
       victory,
-      waveReached: this.currentWave,
+      basesDestroyed,
+      bossesKilled,
       totalGameTime: this.gameTime,
+      totalGoldEarned,
       playerResults: this.playerIds.map(playerId => {
         const heroId = this.playerHeroMap.get(playerId);
         const hero = heroId ? this.heroes.get(heroId) : null;
@@ -1132,19 +1188,18 @@ export class RPGCoopGameRoom {
           playerId,
           playerName: info?.name || 'Unknown',
           heroClass: hero?.heroClass || 'warrior',
-          level: hero?.level || 1,
           kills: stats?.kills || 0,
           deaths: stats?.deaths || 0,
           damageDealt: stats?.damageDealt || 0,
           damageTaken: stats?.damageTaken || 0,
-          expGained: stats?.expGained || 0,
+          goldEarned: stats?.goldEarned || 0,
         };
       }),
     };
 
     this.broadcast({ type: 'COOP_GAME_OVER', result });
 
-    console.log(`[Coop] 게임 종료: Room ${this.id}, 웨이브 ${this.currentWave}, ${victory ? '승리' : '패배'}`);
+    console.log(`[Coop] 게임 종료: Room ${this.id}, ${victory ? '승리' : '패배'}, 기지 ${basesDestroyed}개 파괴`);
 
     // 방 정리
     removeCoopRoom(this.id);
@@ -1165,8 +1220,6 @@ export class RPGCoopGameRoom {
     if (!hero || hero.isDead) return;
 
     hero.moveDirection = direction;
-
-    // HERO_MOVED 이벤트는 더 이상 필요하지 않음 (상태 동기화로 충분)
   }
 
   public handleUseSkill(playerId: string, skillType: SkillType, targetX: number, targetY: number): void {
@@ -1221,6 +1274,46 @@ export class RPGCoopGameRoom {
     });
   }
 
+  // 업그레이드 처리
+  public handleUpgrade(playerId: string, upgradeType: keyof UpgradeLevels): boolean {
+    const heroId = this.playerHeroMap.get(playerId);
+    if (!heroId) return false;
+
+    const hero = this.heroes.get(heroId);
+    if (!hero || hero.isDead) return false;
+
+    const currentLevel = hero.upgradeLevels[upgradeType];
+
+    // 캐릭터 레벨이 최대 레벨
+    if (currentLevel >= hero.characterLevel) return false;
+
+    // 비용 계산
+    const cost = Math.floor(CONFIG.GOLD.UPGRADE_BASE_COST * Math.pow(CONFIG.GOLD.UPGRADE_COST_MULTIPLIER, currentLevel));
+    if (hero.gold < cost) return false;
+
+    // 골드 차감 및 레벨 증가
+    hero.gold -= cost;
+    hero.upgradeLevels[upgradeType]++;
+
+    // 스탯 적용
+    switch (upgradeType) {
+      case 'attack':
+        hero.attack = hero.baseAttack + hero.upgradeLevels.attack * CONFIG.UPGRADE.attack.perLevel;
+        break;
+      case 'speed':
+        hero.speed = hero.baseSpeed + hero.upgradeLevels.speed * CONFIG.UPGRADE.speed.perLevel;
+        break;
+      case 'hp':
+        const hpBonus = CONFIG.UPGRADE.hp.perLevel;
+        hero.maxHp = hero.baseMaxHp + hero.upgradeLevels.hp * hpBonus;
+        hero.hp = Math.min(hero.hp + hpBonus, hero.maxHp);
+        break;
+      // goldRate는 골드 획득 시 자동 적용
+    }
+
+    return true;
+  }
+
   private executeSkill(hero: ServerHero, slot: 'Q' | 'W' | 'E', targetX: number, targetY: number, config: any): void {
     const dx = targetX - hero.x;
     const dy = targetY - hero.y;
@@ -1228,13 +1321,13 @@ export class RPGCoopGameRoom {
     const dirX = dist > 0 ? dx / dist : 1;
     const dirY = dist > 0 ? dy / dist : 0;
 
-    // 마법사 패시브 데미지 보너스 (기본 패시브 레벨 5 이상 + 패시브 성장)
-    const baseMageDamageBonus = hero.level >= CONFIG.PASSIVE_UNLOCK_LEVEL
+    // 마법사 패시브 데미지 보너스
+    const baseMageDamageBonus = hero.characterLevel >= CONFIG.PASSIVE_UNLOCK_LEVEL
       ? (CONFIG.BASE_PASSIVES.mage.damageBonus || 0)
       : 0;
     const damageBonus = hero.heroClass === 'mage' ? baseMageDamageBonus + hero.passiveGrowth.currentValue : 0;
 
-    // 스킬 이펙트 생성 (싱글플레이와 동일한 시각 효과)
+    // 스킬 이펙트 생성
     const skillType = `${hero.heroClass}_${slot.toLowerCase()}` as SkillType;
     this.createSkillEffect(hero, skillType, targetX, targetY, dirX, dirY, config);
 
@@ -1254,7 +1347,6 @@ export class RPGCoopGameRoom {
     }
   }
 
-  // 스킬 시각 이펙트 생성
   private createSkillEffect(
     hero: ServerHero,
     skillType: SkillType,
@@ -1264,7 +1356,6 @@ export class RPGCoopGameRoom {
     dirY: number,
     config: any
   ): void {
-    // E 스킬 중 mage_e(메테오)는 pendingSkills로 처리되므로 제외
     if (skillType === 'mage_e') return;
 
     const effect: SkillEffect = {
@@ -1273,17 +1364,15 @@ export class RPGCoopGameRoom {
       targetPosition: { x: targetX, y: targetY },
       direction: { x: dirX, y: dirY },
       radius: config.radius || hero.range || 80,
-      duration: 0.4,  // 이펙트 지속 시간
+      duration: 0.4,
       startTime: this.gameTime,
       heroClass: hero.heroClass,
     };
 
-    // W 스킬 (돌진류)은 더 긴 duration
     if (skillType.endsWith('_w')) {
       effect.duration = 0.5;
     }
 
-    // 범위 스킬은 목표 위치에 이펙트
     if (skillType === 'archer_e' || skillType === 'mage_w') {
       effect.position = { x: targetX, y: targetY };
     }
@@ -1293,9 +1382,10 @@ export class RPGCoopGameRoom {
 
   private executeWarriorSkill(hero: ServerHero, slot: 'Q' | 'W' | 'E', targetX: number, targetY: number,
                                dirX: number, dirY: number, config: any, damageBonus: number): void {
-    let baseDamage = hero.attack * (1 + damageBonus);
+    // 업그레이드 보너스 적용
+    const attackBonus = hero.upgradeLevels.attack * CONFIG.UPGRADE.attack.perLevel;
+    let baseDamage = (hero.baseAttack + attackBonus) * (1 + damageBonus);
 
-    // 광전사 버프 공격력 보너스 적용 (싱글플레이와 동일)
     const berserkerBuff = hero.buffs.find(b => b.type === 'berserker');
     if (berserkerBuff && berserkerBuff.attackBonus) {
       baseDamage = Math.floor(baseDamage * (1 + berserkerBuff.attackBonus));
@@ -1303,12 +1393,12 @@ export class RPGCoopGameRoom {
 
     switch (slot) {
       case 'Q':
-        // 강타 - 범위 내 적 공격 (바라보는 방향만, 전방 110도)
         this.damageEnemiesInRange(hero.id, hero.x, hero.y, hero.range, baseDamage * config.damageMultiplier, dirX, dirY, true);
+        // 기지 공격도 가능
+        this.tryAttackNearbyBase(hero, baseDamage * config.damageMultiplier);
         break;
 
       case 'W':
-        // 돌진 - 전방 돌진 + 무적
         const dashDistance = config.distance || 200;
         hero.dashState = {
           startX: hero.x,
@@ -1316,12 +1406,11 @@ export class RPGCoopGameRoom {
           targetX: hero.x + dirX * dashDistance,
           targetY: hero.y + dirY * dashDistance,
           progress: 0,
-          duration: 0.25,  // 싱글플레이와 동일 (0.25초)
+          duration: 0.25,
           dirX,
           dirY,
         };
 
-        // 무적 버프
         hero.buffs.push({
           type: 'invincible',
           duration: config.invincibleDuration || 2,
@@ -1329,13 +1418,11 @@ export class RPGCoopGameRoom {
         });
         this.broadcastEvent({ event: 'HERO_BUFF_APPLIED', heroId: hero.id, buff: hero.buffs[hero.buffs.length - 1] });
 
-        // 경로상 적에게 데미지
         this.damageEnemiesInLine(hero.id, hero.x, hero.y, hero.dashState.targetX, hero.dashState.targetY,
                                   60, baseDamage * config.damageMultiplier);
         break;
 
       case 'E':
-        // 광전사 - 버프 적용
         hero.buffs.push({
           type: 'berserker',
           duration: config.duration || 10,
@@ -1351,36 +1438,34 @@ export class RPGCoopGameRoom {
 
   private executeArcherSkill(hero: ServerHero, slot: 'Q' | 'W' | 'E', targetX: number, targetY: number,
                               dirX: number, dirY: number, config: any, damageBonus: number): void {
-    const baseDamage = hero.attack * (1 + damageBonus);
+    const attackBonus = hero.upgradeLevels.attack * CONFIG.UPGRADE.attack.perLevel;
+    const baseDamage = (hero.baseAttack + attackBonus) * (1 + damageBonus);
 
     switch (slot) {
       case 'Q':
-        // 속사 - 단일/다중 대상 공격 (전방 90도 방향 체크)
-        // 다중타겟 확률: 기본 패시브 (레벨 5 이상) + 패시브 성장
-        const baseMultiChance = hero.level >= CONFIG.PASSIVE_UNLOCK_LEVEL
+        const baseMultiChance = hero.characterLevel >= CONFIG.PASSIVE_UNLOCK_LEVEL
           ? (CONFIG.BASE_PASSIVES.archer.baseChance || 0)
           : 0;
         const multiTargetChance = baseMultiChance + hero.passiveGrowth.currentValue;
         const isMultiTarget = Math.random() < multiTargetChance;
-        const archerAngleThreshold = 0.0;  // 90도 (싱글플레이와 동일)
+        const archerAngleThreshold = 0.0;
 
         if (isMultiTarget) {
-          // 다중 대상 (최대 3명, 방향 체크 포함)
           const nearEnemies = this.findNearestEnemies(hero.x, hero.y, hero.range, 3, dirX, dirY, archerAngleThreshold);
           nearEnemies.forEach(enemy => {
             this.damageEnemy(enemy.id, baseDamage * config.damageMultiplier, hero.id);
           });
         } else {
-          // 단일 대상 (방향 체크 포함)
           const nearest = this.findNearestEnemy(hero.x, hero.y, hero.range, dirX, dirY, archerAngleThreshold);
           if (nearest) {
             this.damageEnemy(nearest.id, baseDamage * config.damageMultiplier, hero.id);
           }
         }
+        // 기지 공격도 가능
+        this.tryAttackNearbyBase(hero, baseDamage * config.damageMultiplier);
         break;
 
       case 'W':
-        // 관통 화살 - 직선 관통
         const pierceDistance = config.pierceDistance || 300;
         this.damageEnemiesInLine(hero.id, hero.x, hero.y,
                                   hero.x + dirX * pierceDistance, hero.y + dirY * pierceDistance,
@@ -1388,7 +1473,6 @@ export class RPGCoopGameRoom {
         break;
 
       case 'E':
-        // 화살 비 - 범위 공격
         const radius = config.radius || 150;
         this.damageEnemiesInRange(hero.id, targetX, targetY, radius, baseDamage * config.damageMultiplier);
         break;
@@ -1397,21 +1481,21 @@ export class RPGCoopGameRoom {
 
   private executeKnightSkill(hero: ServerHero, slot: 'Q' | 'W' | 'E', targetX: number, targetY: number,
                               dirX: number, dirY: number, config: any, damageBonus: number): void {
-    const baseDamage = hero.attack * (1 + damageBonus);
+    const attackBonus = hero.upgradeLevels.attack * CONFIG.UPGRADE.attack.perLevel;
+    const baseDamage = (hero.baseAttack + attackBonus) * (1 + damageBonus);
 
     switch (slot) {
       case 'Q':
-        // 방패 타격 - 근접 공격 (바라보는 방향만, 전방 110도)
         const hitCount = this.damageEnemiesInRange(hero.id, hero.x, hero.y, hero.range, baseDamage * config.damageMultiplier, dirX, dirY, true);
-        // W 스킬 쿨타임 감소: 적중한 적 수 × 1초 (싱글플레이와 동일)
         if (hitCount > 0) {
           const cooldownReduction = 1.0 * hitCount;
           hero.skillCooldowns.W = Math.max(0, hero.skillCooldowns.W - cooldownReduction);
         }
+        // 기지 공격도 가능
+        this.tryAttackNearbyBase(hero, baseDamage * config.damageMultiplier);
         break;
 
       case 'W':
-        // 방패 돌진 - 전방 돌진 + 기절
         const dashDistance = config.distance || 150;
         hero.dashState = {
           startX: hero.x,
@@ -1424,7 +1508,6 @@ export class RPGCoopGameRoom {
           dirY,
         };
 
-        // 경로상 적에게 HP 기반 데미지 + 기절
         const hpDamage = hero.maxHp * (config.hpDamagePercent || 0.1);
         const enemiesInPath = this.getEnemiesInLine(hero.x, hero.y, hero.dashState.targetX, hero.dashState.targetY, 70);
         enemiesInPath.forEach(enemy => {
@@ -1434,7 +1517,6 @@ export class RPGCoopGameRoom {
         break;
 
       case 'E':
-        // 철벽 방어 - 데미지 감소 + 힐
         hero.buffs.push({
           type: 'ironwall',
           duration: config.duration || 5,
@@ -1443,7 +1525,6 @@ export class RPGCoopGameRoom {
         });
         this.broadcastEvent({ event: 'HERO_BUFF_APPLIED', heroId: hero.id, buff: hero.buffs[hero.buffs.length - 1] });
 
-        // HP 회복
         const healAmount = Math.floor(hero.maxHp * (config.healPercent || 0.2));
         hero.hp = Math.min(hero.maxHp, hero.hp + healAmount);
         this.broadcastEvent({ event: 'HERO_HEALED', heroId: hero.id, heal: healAmount, hp: hero.hp });
@@ -1453,24 +1534,23 @@ export class RPGCoopGameRoom {
 
   private executeMageSkill(hero: ServerHero, slot: 'Q' | 'W' | 'E', targetX: number, targetY: number,
                             dirX: number, dirY: number, config: any, damageBonus: number): void {
-    const baseDamage = hero.attack * (1 + damageBonus);
+    const attackBonus = hero.upgradeLevels.attack * CONFIG.UPGRADE.attack.perLevel;
+    const baseDamage = (hero.baseAttack + attackBonus) * (1 + damageBonus);
 
     switch (slot) {
       case 'Q':
-        // 마법 화살 - 범위 공격 (전방 90도, 싱글플레이와 동일)
-        // 마법사는 원거리 범위 공격으로 사거리 내 모든 적 타격
-        const mageAngleThreshold = 0.0;  // 90도 (원거리 직업)
+        const mageAngleThreshold = 0.0;
         this.damageEnemiesInRange(hero.id, hero.x, hero.y, hero.range, baseDamage * config.damageMultiplier, dirX, dirY, true, mageAngleThreshold);
+        // 기지 공격도 가능
+        this.tryAttackNearbyBase(hero, baseDamage * config.damageMultiplier);
         break;
 
       case 'W':
-        // 화염구 - 범위 공격
         const radius = config.radius || 80;
         this.damageEnemiesInRange(hero.id, targetX, targetY, radius, baseDamage * config.damageMultiplier);
         break;
 
       case 'E':
-        // 운석 낙하 - 지연 범위 공격
         const delay = config.delay || 3;
         const meteorRadius = config.radius || 150;
         const meteorDamage = baseDamage * config.damageMultiplier;
@@ -1486,6 +1566,19 @@ export class RPGCoopGameRoom {
     }
   }
 
+  // 기지 공격 시도
+  private tryAttackNearbyBase(hero: ServerHero, damage: number): void {
+    const attackRange = hero.range + 50;  // 기지는 크므로 범위 추가
+
+    this.enemyBases.forEach(base => {
+      if (base.destroyed) return;
+      const dist = this.getDistance(hero.x, hero.y, base.x, base.y);
+      if (dist <= attackRange) {
+        this.damageBase(base.id, damage, hero.id);
+      }
+    });
+  }
+
   private damageEnemiesInRange(
     attackerId: string,
     x: number,
@@ -1495,14 +1588,11 @@ export class RPGCoopGameRoom {
     dirX?: number,
     dirY?: number,
     checkDirection: boolean = false,
-    angleThresholdOverride?: number  // 각도 임계값 직접 지정 (마법사용)
-  ): number {  // 적중 수 반환
+    angleThresholdOverride?: number
+  ): number {
     const hero = this.heroes.get(attackerId);
     let hitCount = 0;
 
-    // 방향 체크 임계값 (싱글플레이와 동일)
-    // 근거리(전사, 기사): -0.3 (약 110도)
-    // 원거리(마법사): 0.0 (90도)
     let attackAngleThreshold: number;
     if (angleThresholdOverride !== undefined) {
       attackAngleThreshold = angleThresholdOverride;
@@ -1514,7 +1604,6 @@ export class RPGCoopGameRoom {
     this.enemies.forEach(enemy => {
       const dist = this.getDistance(x, y, enemy.x, enemy.y);
       if (dist <= radius) {
-        // 방향 체크가 활성화된 경우, 바라보는 방향 검증
         if (checkDirection && dirX !== undefined && dirY !== undefined && dist > 0) {
           const enemyDx = enemy.x - x;
           const enemyDy = enemy.y - y;
@@ -1524,18 +1613,15 @@ export class RPGCoopGameRoom {
             const enemyDirY = enemyDy / enemyDist;
             const dot = dirX * enemyDirX + dirY * enemyDirY;
 
-            // 바라보는 방향 범위 밖이면 스킵
             if (dot < attackAngleThreshold) return;
           }
         }
 
         let finalDamage = damage;
 
-        // 전사 피해흡혈 (싱글플레이와 동일한 곱연산 공식)
-        // 공식: (1 + 기본패시브 + 패시브성장) * (1 + 버프) - 1
+        // 전사 피해흡혈
         if (hero && hero.heroClass === 'warrior') {
-          // 레벨 5 이상일 때만 기본 패시브 적용
-          const baseLifesteal = hero.level >= CONFIG.PASSIVE_UNLOCK_LEVEL
+          const baseLifesteal = hero.characterLevel >= CONFIG.PASSIVE_UNLOCK_LEVEL
             ? (CONFIG.BASE_PASSIVES.warrior.lifesteal || 0)
             : 0;
           const growthLifesteal = hero.passiveGrowth.currentValue;
@@ -1544,7 +1630,6 @@ export class RPGCoopGameRoom {
           const berserkerBuff = hero.buffs.find(b => b.type === 'berserker');
           const buffLifesteal = berserkerBuff?.lifesteal || 0;
 
-          // 곱연산: (1 + 패시브) * (1 + 버프) - 1
           const totalLifesteal = (1 + passiveTotal) * (1 + buffLifesteal) - 1;
 
           if (totalLifesteal > 0) {
@@ -1580,7 +1665,6 @@ export class RPGCoopGameRoom {
     const lineY = dy / lineLength;
 
     this.enemies.forEach(enemy => {
-      // 선까지의 거리 계산
       const toEnemyX = enemy.x - startX;
       const toEnemyY = enemy.y - startY;
       const projLength = toEnemyX * lineX + toEnemyY * lineY;
@@ -1605,7 +1689,7 @@ export class RPGCoopGameRoom {
     maxRange: number,
     dirX?: number,
     dirY?: number,
-    angleThreshold?: number  // 방향 체크 각도 임계값 (내적 기준)
+    angleThreshold?: number
   ): ServerEnemy | null {
     let nearest: ServerEnemy | null = null;
     let minDist = maxRange;
@@ -1614,7 +1698,6 @@ export class RPGCoopGameRoom {
       const dist = this.getDistance(x, y, enemy.x, enemy.y);
       if (dist >= minDist || dist === 0) return;
 
-      // 방향 체크 (angleThreshold가 지정된 경우)
       if (dirX !== undefined && dirY !== undefined && angleThreshold !== undefined) {
         const enemyDx = enemy.x - x;
         const enemyDy = enemy.y - y;
@@ -1623,7 +1706,6 @@ export class RPGCoopGameRoom {
           const enemyDirX = enemyDx / enemyDist;
           const enemyDirY = enemyDy / enemyDist;
           const dot = dirX * enemyDirX + dirY * enemyDirY;
-          // 방향 범위 밖이면 스킵
           if (dot < angleThreshold) return;
         }
       }
@@ -1642,13 +1724,12 @@ export class RPGCoopGameRoom {
     count: number,
     dirX?: number,
     dirY?: number,
-    angleThreshold?: number  // 방향 체크 각도 임계값
+    angleThreshold?: number
   ): ServerEnemy[] {
     let filtered = this.enemies
       .map(enemy => ({ enemy, dist: this.getDistance(x, y, enemy.x, enemy.y) }))
       .filter(e => e.dist <= maxRange && e.dist > 0);
 
-    // 방향 체크 (angleThreshold가 지정된 경우)
     if (dirX !== undefined && dirY !== undefined && angleThreshold !== undefined) {
       filtered = filtered.filter(e => {
         const enemyDx = e.enemy.x - x;
@@ -1669,8 +1750,8 @@ export class RPGCoopGameRoom {
   }
 
   private getEffectiveSpeed(hero: ServerHero): number {
-    // 이동속도는 버프 영향 없음 (speedBonus는 공격속도용)
-    return hero.speed;
+    const speedBonus = hero.upgradeLevels.speed * CONFIG.UPGRADE.speed.perLevel;
+    return hero.baseSpeed + speedBonus;
   }
 
   private getDistance(x1: number, y1: number, x2: number, y2: number): number {
@@ -1682,17 +1763,21 @@ export class RPGCoopGameRoom {
       running: this.gameState === 'playing',
       paused: false,
       gameOver: this.gameState === 'ended',
-      victory: false,
+      victory: this.gamePhase === 'victory',
       gameTime: this.gameTime,
-      currentWave: this.currentWave,
-      waveInProgress: this.waveInProgress,
-      enemiesRemaining: this.enemiesRemaining,
+      currentWave: this.enemyBases.filter(b => b.destroyed).length,  // 파괴된 기지 수
+      waveInProgress: this.gamePhase === 'boss_phase',
+      enemiesRemaining: this.enemies.length,
       heroes: Array.from(this.heroes.values()).map(h => this.getNetworkHero(h)),
       enemies: this.enemies.map(e => this.getNetworkEnemy(e)),
       playerCount: this.playerIds.length,
       activeSkillEffects: this.activeSkillEffects,
       pendingSkills: this.pendingSkills,
-    };
+      // 넥서스 디펜스 추가 필드 (클라이언트에서 확장 필요)
+      nexus: this.nexus,
+      enemyBases: this.enemyBases,
+      gamePhase: this.gamePhase,
+    } as RPGCoopGameState & { nexus: ServerNexus; enemyBases: ServerEnemyBase[]; gamePhase: CoopGamePhase };
   }
 
   private getNetworkHero(hero: ServerHero): NetworkCoopHero {
@@ -1708,9 +1793,8 @@ export class RPGCoopGameRoom {
       attackSpeed: hero.attackSpeed,
       speed: hero.speed,
       range: hero.range,
-      level: hero.level,
-      exp: hero.exp,
-      expToNextLevel: hero.expToNextLevel,
+      gold: hero.gold,
+      upgradeLevels: hero.upgradeLevels,
       isDead: hero.isDead,
       reviveTimer: hero.reviveTimer,
       facingRight: hero.facingRight,
@@ -1719,6 +1803,10 @@ export class RPGCoopGameRoom {
       passiveGrowth: hero.passiveGrowth,
       skillCooldowns: hero.skillCooldowns,
       moveDirection: hero.moveDirection,
+      // UI 호환성을 위한 레거시 필드
+      level: hero.level,
+      exp: hero.exp,
+      expToNextLevel: hero.expToNextLevel,
     };
   }
 
@@ -1730,8 +1818,11 @@ export class RPGCoopGameRoom {
       y: enemy.y,
       hp: enemy.hp,
       maxHp: enemy.maxHp,
-      expReward: enemy.expReward,
-      targetHeroId: enemy.targetHeroId,
+      expReward: enemy.goldReward,  // 레거시 호환용
+      goldReward: enemy.goldReward,
+      targetHeroId: enemy.aggroTargetHeroId,
+      aggroOnHero: enemy.aggroOnHero,
+      fromBase: enemy.fromBase,
       buffs: enemy.buffs,
     };
   }
@@ -1758,10 +1849,9 @@ export class RPGCoopGameRoom {
 
     const hero = this.heroes.get(heroId);
     if (hero) {
-      // 연결 해제된 플레이어의 영웅을 사망 처리
       if (!hero.isDead) {
         hero.isDead = true;
-        hero.reviveTimer = 9999;  // 부활 불가
+        hero.reviveTimer = 9999;
         this.broadcastEvent({
           event: 'HERO_DIED',
           heroId,

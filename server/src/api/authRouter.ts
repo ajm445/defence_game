@@ -1,4 +1,5 @@
 import { Router, Request, Response } from 'express';
+import { v4 as uuidv4 } from 'uuid';
 import { getSupabaseAdmin, getSupabaseClient, isSupabaseConfigured } from '../services/supabaseAdmin';
 
 const router = Router();
@@ -143,6 +144,7 @@ router.post('/signin', async (req: Request, res: Response) => {
 });
 
 // 게스트 로그인
+// 게스트는 Supabase Auth 계정을 생성하지 않고, 로컬 UUID로 임시 프로필만 반환
 router.post('/guest', async (req: Request, res: Response) => {
   const { nickname } = req.body;
 
@@ -151,50 +153,20 @@ router.post('/guest', async (req: Request, res: Response) => {
     return;
   }
 
-  const supabase = getSupabaseAdmin()!;
-
   try {
-    // 익명 사용자 생성
-    const { data: authData, error: authError } = await supabase.auth.admin.createUser({
-      email: `guest_${Date.now()}@guest.local`,
-      password: `guest_${Date.now()}_${Math.random().toString(36)}`,
-      email_confirm: true,
-      user_metadata: { nickname, isGuest: true },
-    });
+    // 로컬 UUID 생성 (Supabase Auth 계정 생성 안 함)
+    const guestId = uuidv4();
 
-    if (authError) {
-      res.status(500).json({ success: false, error: '게스트 계정 생성에 실패했습니다.' });
-      return;
-    }
-
-    // 프로필 생성
-    const { error: profileError } = await supabase
-      .from('player_profiles')
-      .insert({
-        id: authData.user.id,
-        nickname,
-        player_level: 1,
-        player_exp: 0,
-        is_guest: true,
-        sound_volume: 0.5,
-        sound_muted: false,
-      });
-
-    if (profileError) {
-      console.error('Create guest profile error:', profileError);
-      await supabase.auth.admin.deleteUser(authData.user.id);
-      res.status(500).json({ success: false, error: '게스트 프로필 생성에 실패했습니다.' });
-      return;
-    }
-
+    // 게스트 프로필은 DB에 저장하지 않고 클라이언트에 직접 반환
+    // 세션 간 데이터가 유지되지 않음 (게스트 특성)
     res.json({
       success: true,
       user: {
-        id: authData.user.id,
+        id: guestId,
         isGuest: true,
       },
       profile: {
-        id: authData.user.id,
+        id: guestId,
         nickname,
         playerLevel: 1,
         playerExp: 0,

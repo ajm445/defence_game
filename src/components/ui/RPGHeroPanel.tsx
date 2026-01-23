@@ -1,6 +1,7 @@
 import React from 'react';
-import { useHero, useRPGStats } from '../../stores/useRPGStore';
+import { useHero, useRPGStats, useUpgradeLevels, useGold } from '../../stores/useRPGStore';
 import { HeroClass, BuffType } from '../../types/rpg';
+import { calculateAllUpgradeBonuses } from '../../game/rpg/goldSystem';
 
 // 직업별 표시 정보
 const CLASS_DISPLAY: Record<HeroClass, { emoji: string; name: string; color: string; bgColor: string }> = {
@@ -72,11 +73,12 @@ const CircularBuffIcon: React.FC<{
 export const RPGHeroPanel: React.FC = () => {
   const hero = useHero();
   const stats = useRPGStats();
+  const upgradeLevels = useUpgradeLevels();
+  const gold = useGold();
 
   if (!hero) return null;
 
   const hpPercent = (hero.hp / hero.maxHp) * 100;
-  const expPercent = (hero.exp / hero.expToNextLevel) * 100;
 
   const getHpColor = () => {
     if (hpPercent > 50) return 'bg-green-500';
@@ -90,30 +92,39 @@ export const RPGHeroPanel: React.FC = () => {
   // 활성 버프 확인
   const activeBuffs = hero.buffs?.filter(b => b.duration > 0) || [];
 
+  // 업그레이드 보너스 계산
+  const upgradeBonuses = calculateAllUpgradeBonuses(upgradeLevels);
+
   return (
     <div className="bg-dark-800/90 backdrop-blur-sm rounded-xl p-4 border border-dark-600/50 min-w-[280px]">
+      {/* 골드 표시 */}
+      <div className="flex items-center justify-between mb-3 pb-2 border-b border-dark-600/50">
+        <div className="flex items-center gap-2">
+          <span className="text-xl">💰</span>
+          <span className="text-lg font-bold text-yellow-400">{gold}</span>
+        </div>
+        <div className="text-xs text-gray-400">
+          처치: <span className="text-red-400 font-bold">{stats.totalKills}</span>
+        </div>
+      </div>
+
       {/* 영웅 정보 헤더 */}
       <div className="flex items-center gap-3 mb-3">
         <div className="relative">
           <div className={`w-14 h-14 rounded-full bg-gradient-to-br ${classInfo.bgColor} border-2 border-current ${classInfo.color} flex items-center justify-center`}>
             <span className="text-3xl">{classInfo.emoji}</span>
           </div>
-          {/* 레벨 배지 */}
+          {/* 캐릭터 레벨 배지 */}
           <div className="absolute -bottom-1 -right-1 bg-yellow-500 text-dark-900 text-xs font-bold w-6 h-6 rounded-full flex items-center justify-center">
-            {hero.level}
+            {hero.characterLevel}
           </div>
         </div>
 
         <div className="flex-1">
           <div className="flex items-center gap-2">
             <span className={`font-bold ${classInfo.color}`}>{classInfo.name}</span>
-            {hero.skillPoints > 0 && (
-              <span className="bg-neon-cyan/20 text-neon-cyan text-xs px-2 py-0.5 rounded">
-                SP: {hero.skillPoints}
-              </span>
-            )}
           </div>
-          <div className="text-xs text-gray-400">레벨 {hero.level}</div>
+          <div className="text-xs text-gray-400">캐릭터 Lv.{hero.characterLevel}</div>
         </div>
 
         {/* 활성 버프 표시 - 원형 프로그레스 바 (헤더 오른쪽) */}
@@ -143,7 +154,7 @@ export const RPGHeroPanel: React.FC = () => {
       </div>
 
       {/* HP 바 */}
-      <div className="mb-2">
+      <div className="mb-3">
         <div className="flex justify-between text-xs mb-1">
           <span className="text-gray-400">HP</span>
           <span className="text-white">{Math.floor(hero.hp)} / {hero.maxHp}</span>
@@ -156,29 +167,25 @@ export const RPGHeroPanel: React.FC = () => {
         </div>
       </div>
 
-      {/* 경험치 바 */}
-      <div className="mb-3">
-        <div className="flex justify-between text-xs mb-1">
-          <span className="text-gray-400">EXP</span>
-          <span className="text-blue-400">{hero.exp} / {hero.expToNextLevel}</span>
-        </div>
-        <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
-          <div
-            className="h-full bg-blue-500 transition-all duration-300"
-            style={{ width: `${Math.min(100, expPercent)}%` }}
-          />
-        </div>
-      </div>
-
-      {/* 스탯 정보 */}
+      {/* 스탯 정보 (업그레이드 보너스 포함) */}
       <div className="grid grid-cols-3 gap-2 text-center text-xs">
         <div className="bg-dark-700/50 rounded-lg p-2">
           <div className="text-red-400">⚔️ 공격</div>
-          <div className="text-white font-bold">{hero.config.attack}</div>
+          <div className="text-white font-bold">
+            {hero.baseAttack + upgradeBonuses.attackBonus}
+            {upgradeBonuses.attackBonus > 0 && (
+              <span className="text-green-400 text-[10px]"> +{upgradeBonuses.attackBonus}</span>
+            )}
+          </div>
         </div>
         <div className="bg-dark-700/50 rounded-lg p-2">
           <div className="text-blue-400">👟 속도</div>
-          <div className="text-white font-bold">{hero.config.speed?.toFixed(2)}</div>
+          <div className="text-white font-bold">
+            {(hero.baseSpeed + upgradeBonuses.speedBonus).toFixed(2)}
+            {upgradeBonuses.speedBonus > 0 && (
+              <span className="text-green-400 text-[10px]"> +{upgradeBonuses.speedBonus.toFixed(2)}</span>
+            )}
+          </div>
         </div>
         <div className="bg-dark-700/50 rounded-lg p-2">
           <div className="text-yellow-400">🎯 사거리</div>

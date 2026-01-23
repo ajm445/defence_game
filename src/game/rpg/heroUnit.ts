@@ -1,4 +1,4 @@
-import { HeroUnit, RPGEnemy } from '../../types/rpg';
+import { HeroUnit, RPGEnemy, EnemyBase } from '../../types/rpg';
 import { distance, clamp } from '../../utils/math';
 import { RPG_CONFIG } from '../../constants/rpgConfig';
 
@@ -150,10 +150,11 @@ export function heroHeal(hero: HeroUnit, amount: number): HeroUnit {
 }
 
 /**
- * 영웅 레벨업 가능 여부 확인
+ * @deprecated 인게임 레벨업이 제거되었습니다.
+ * 업그레이드는 goldSystem.ts의 canUpgrade를 사용하세요.
  */
-export function canLevelUp(hero: HeroUnit): boolean {
-  return hero.exp >= hero.expToNextLevel;
+export function canLevelUp(_hero: HeroUnit): boolean {
+  return false;
 }
 
 /**
@@ -174,4 +175,27 @@ export function findEnemyAtPosition(
     }
   }
   return null;
+}
+
+/**
+ * 영웅과 가장 가까운 적 기지 찾기 (파괴되지 않은 기지만)
+ */
+export function findNearestEnemyBase(
+  hero: HeroUnit,
+  enemyBases: EnemyBase[]
+): EnemyBase | null {
+  let nearest: EnemyBase | null = null;
+  let minDist = Infinity;
+
+  for (const base of enemyBases) {
+    if (!base.destroyed && base.hp > 0) {
+      const dist = distance(hero.x, hero.y, base.x, base.y);
+      if (dist < minDist) {
+        minDist = dist;
+        nearest = base;
+      }
+    }
+  }
+
+  return nearest;
 }

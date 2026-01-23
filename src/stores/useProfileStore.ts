@@ -6,6 +6,8 @@ import {
   LevelUpResult,
   getRequiredPlayerExp,
   getRequiredClassExp,
+  calculatePlayerExp,
+  calculateClassExp,
 } from '../types/auth';
 import { HeroClass } from '../types/rpg';
 import {
@@ -51,11 +53,22 @@ interface ProfileActions {
   loadGameHistory: () => Promise<void>;
   loadStats: () => Promise<void>;
 
-  // 게임 결과 처리
+  // 게임 결과 처리 (넥서스 디펜스 - 싱글)
   handleGameEnd: (gameData: {
     mode: 'single' | 'coop';
     classUsed: HeroClass;
-    waveReached: number;
+    basesDestroyed: number;
+    bossesKilled: number;
+    kills: number;
+    playTime: number;  // 초 단위
+    victory: boolean;
+  }) => Promise<LevelUpResult | null>;
+
+  // 협동 모드 게임 결과 처리 (넥서스 디펜스)
+  handleCoopGameEnd: (gameData: {
+    classUsed: HeroClass;
+    basesDestroyed: number;
+    bossesKilled: number;
     kills: number;
     playTime: number;
     victory: boolean;
@@ -169,6 +182,107 @@ export const useProfileStore = create<ProfileStore>()(
       }
 
       return result.levelUpResult;
+    },
+
+    // 협동 모드 게임 종료 처리 (넥서스 디펜스)
+    handleCoopGameEnd: async (gameData) => {
+      const authState = useAuthStore.getState();
+      const profile = authState.profile;
+
+      if (!profile || profile.isGuest) return null;
+
+      const { classProgress } = get();
+
+      // 협동 모드 경험치 계산 (싱글플레이와 동일한 공식 + 협동 보너스)
+      const playerExpGained = calculatePlayerExp(
+        gameData.basesDestroyed,
+        gameData.bossesKilled,
+        gameData.kills,
+        gameData.playTime,
+        gameData.victory,
+        'coop'  // 협동 모드 1.2배 보너스 적용
+      );
+      const classExpGained = calculateClassExp(
+        gameData.basesDestroyed,
+        gameData.bossesKilled,
+        gameData.kills
+      );
+
+      // 플레이어 레벨업 계산
+      let newPlayerLevel = profile.playerLevel;
+      let newPlayerExp = profile.playerExp + playerExpGained;
+      let playerLeveledUp = false;
+
+      while (newPlayerExp >= getRequiredPlayerExp(newPlayerLevel)) {
+        newPlayerExp -= getRequiredPlayerExp(newPlayerLevel);
+        newPlayerLevel++;
+        playerLeveledUp = true;
+      }
+
+      // 클래스 레벨업 계산
+      const existingProgress = classProgress.find(
+        (p) => p.className === gameData.classUsed
+      );
+
+      let newClassLevel = existingProgress?.classLevel ?? 1;
+      let newClassExp = (existingProgress?.classExp ?? 0) + classExpGained;
+      let classLeveledUp = false;
+
+      while (newClassExp >= getRequiredClassExp(newClassLevel)) {
+        newClassExp -= getRequiredClassExp(newClassLevel);
+        newClassLevel++;
+        classLeveledUp = true;
+      }
+
+      // 로컬 상태 업데이트
+      set({
+        lastGameResult: {
+          playerExpGained,
+          classExpGained,
+          levelUpResult: {
+            playerLeveledUp,
+            newPlayerLevel: playerLeveledUp ? newPlayerLevel : undefined,
+            classLeveledUp,
+            newClassLevel: classLeveledUp ? newClassLevel : undefined,
+            className: classLeveledUp ? gameData.classUsed : undefined,
+          },
+        },
+      });
+
+      // 인증 스토어의 프로필 업데이트
+      authState.updateLocalProfile({
+        ...profile,
+        playerLevel: newPlayerLevel,
+        playerExp: newPlayerExp,
+      });
+
+      // 클래스 진행 상황 업데이트
+      const newClassProgress: ClassProgress = {
+        playerId: profile.id,
+        className: gameData.classUsed,
+        classLevel: newClassLevel,
+        classExp: newClassExp,
+      };
+
+      const existingIndex = classProgress.findIndex(
+        (p) => p.className === gameData.classUsed
+      );
+
+      if (existingIndex >= 0) {
+        const updated = [...classProgress];
+        updated[existingIndex] = newClassProgress;
+        set({ classProgress: updated });
+      } else {
+        set({ classProgress: [...classProgress, newClassProgress] });
+      }
+
+      return {
+        playerLeveledUp,
+        newPlayerLevel: playerLeveledUp ? newPlayerLevel : undefined,
+        classLeveledUp,
+        newClassLevel: classLeveledUp ? newClassLevel : undefined,
+        className: classLeveledUp ? gameData.classUsed : undefined,
+      };
     },
 
     // 특정 클래스 진행 상황 가져오기
