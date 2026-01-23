@@ -12,6 +12,7 @@ import {
   updateNickname as authUpdateNickname,
   deleteAccount as authDeleteAccount,
 } from '../services/authService';
+import { getClassProgress } from '../services/profileService';
 import { useProfileStore } from './useProfileStore';
 import { useUIStore } from './useUIStore';
 import { soundManager } from '../services/SoundManager';
@@ -239,10 +240,18 @@ export const useAuthStore = create<AuthStore>()(
           syncSoundSettings(profile);
           saveSessionToStorage(result.user, profile);
         }
+
+        // classProgress 로드
+        let classProgressData: ClassProgress[] = [];
+        if (profile && !profile.isGuest) {
+          classProgressData = await getClassProgress(result.user.id);
+        }
+
         set({
           status: 'authenticated',
           user: result.user,
           profile,
+          classProgress: classProgressData,
           isLoading: false,
         });
       }
@@ -314,10 +323,18 @@ export const useAuthStore = create<AuthStore>()(
           if (profile) {
             // 프로필이 존재하면 세션 유효
             syncSoundSettings(profile);
+
+            // 게스트가 아니면 classProgress도 로드
+            let classProgressData: ClassProgress[] = [];
+            if (!profile.isGuest) {
+              classProgressData = await getClassProgress(storedSession.user.id);
+            }
+
             set({
               status: 'authenticated',
               user: storedSession.user,
               profile,
+              classProgress: classProgressData,
               isLoading: false,
             });
           } else {

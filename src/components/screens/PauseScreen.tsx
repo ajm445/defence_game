@@ -6,6 +6,7 @@ import { useRPGStore } from '../../stores/useRPGStore';
 import { useProfileStore } from '../../stores/useProfileStore';
 import { createDefaultStatUpgrades } from '../../types/auth';
 import { soundManager } from '../../services/SoundManager';
+import { leaveMultiplayerRoom } from '../../hooks/useNetworkSync';
 
 export const PauseScreen: React.FC = () => {
   const startGame = useGameStore((state) => state.startGame);
@@ -91,8 +92,17 @@ export const PauseScreen: React.FC = () => {
   // RPG 모드 게임 중단 (현재까지의 진행 저장 후 게임 오버 처리)
   const handleQuitGame = () => {
     if (isRPG) {
+      // 일시정지 해제
+      useRPGStore.getState().setPaused(false);
       // 게임 오버로 처리 (패배로 기록)
       useRPGStore.getState().setGameOver(false);
+
+      // 멀티플레이어인 경우 방 나가기
+      const { isMultiplayer } = useRPGStore.getState().multiplayer;
+      if (isMultiplayer) {
+        leaveMultiplayerRoom();
+      }
+
       // 게임 화면으로 돌아가서 게임 오버 모달 표시
       setScreen('game');
     }

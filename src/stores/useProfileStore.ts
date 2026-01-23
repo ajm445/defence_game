@@ -137,6 +137,11 @@ export const useProfileStore = create<ProfileStore>()(
 
       const progress = await getClassProgress(profile.id);
       set({ classProgress: progress });
+
+      // useAuthStore의 classProgress도 동기화
+      for (const p of progress) {
+        authState.updateClassProgress(p);
+      }
     },
 
     // 게임 기록 로드
@@ -188,7 +193,7 @@ export const useProfileStore = create<ProfileStore>()(
       // 인증 스토어의 프로필 업데이트
       authState.updateLocalProfile(result.newProfile);
 
-      // 클래스 진행 상황 업데이트
+      // 클래스 진행 상황 업데이트 (useProfileStore)
       const existingIndex = classProgress.findIndex(
         (p) => p.className === gameData.classUsed
       );
@@ -200,6 +205,9 @@ export const useProfileStore = create<ProfileStore>()(
       } else {
         set({ classProgress: [...classProgress, result.newClassProgress] });
       }
+
+      // useAuthStore의 classProgress도 동기화
+      authState.updateClassProgress(result.newClassProgress);
 
       return result.levelUpResult;
     },
@@ -243,7 +251,7 @@ export const useProfileStore = create<ProfileStore>()(
       // 인증 스토어의 프로필 업데이트
       authState.updateLocalProfile(result.newProfile);
 
-      // 클래스 진행 상황 업데이트
+      // 클래스 진행 상황 업데이트 (useProfileStore)
       const existingIndex = classProgress.findIndex(
         (p) => p.className === gameData.classUsed
       );
@@ -255,6 +263,9 @@ export const useProfileStore = create<ProfileStore>()(
       } else {
         set({ classProgress: [...classProgress, result.newClassProgress] });
       }
+
+      // useAuthStore의 classProgress도 동기화
+      authState.updateClassProgress(result.newClassProgress);
 
       return result.levelUpResult;
     },
@@ -331,11 +342,14 @@ export const useProfileStore = create<ProfileStore>()(
 
       if (!updatedProgress) return false;
 
-      // 로컬 상태 업데이트
+      // 로컬 상태 업데이트 (useProfileStore)
       const updatedList = classProgress.map((p) =>
         p.className === className ? updatedProgress : p
       );
       set({ classProgress: updatedList });
+
+      // useAuthStore의 classProgress도 동기화
+      authState.updateClassProgress(updatedProgress);
 
       return true;
     },
@@ -393,11 +407,14 @@ export const useProfileStore = create<ProfileStore>()(
 
       if (!updatedProgress) return false;
 
-      // 로컬 상태 업데이트
+      // 로컬 상태 업데이트 (useProfileStore)
       const updatedList = classProgress.map((p) =>
         p.className === className ? updatedProgress : p
       );
       set({ classProgress: updatedList });
+
+      // useAuthStore의 classProgress도 동기화
+      authState.updateClassProgress(updatedProgress);
 
       return true;
     },

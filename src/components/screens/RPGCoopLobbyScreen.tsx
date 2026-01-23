@@ -106,6 +106,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           useRPGStore.getState().setMultiplayerState({ players: playersWithReady });
           break;
 
+        case 'COOP_PLAYER_CLASS_CHANGED':
+          const playersWithClassChange = useRPGStore.getState().multiplayer.players.map(p =>
+            p.id === message.playerId ? { ...p, heroClass: message.heroClass } : p
+          );
+          useRPGStore.getState().setMultiplayerState({ players: playersWithClassChange });
+          break;
+
         case 'COOP_ROOM_ERROR':
           setError(message.message);
           break;
@@ -192,9 +199,15 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     soundManager.play('ui_click');
     selectClass(heroClass);
 
-    // 서버에 직업 변경 알림
+    // 서버에 직업 변경 알림 (변경된 클래스의 레벨과 SP 업그레이드 전송)
     if (multiplayer.connectionState === 'in_lobby') {
-      wsClient.send({ type: 'CHANGE_COOP_CLASS', heroClass });
+      // 해당 클래스의 레벨과 statUpgrades 가져오기
+      const classProgress = useAuthStore.getState().classProgress;
+      const progress = classProgress.find(p => p.className === heroClass);
+      const characterLevel = progress?.classLevel || 1;
+      const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+
+      wsClient.send({ type: 'CHANGE_COOP_CLASS', heroClass, characterLevel, statUpgrades });
     }
   }, [playerLevel, isGuest, selectClass, multiplayer.connectionState]);
 
