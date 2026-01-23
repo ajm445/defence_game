@@ -342,6 +342,11 @@ defence_game/
 - **RPG 협동 모드 경험치 저장 버그 수정**
   - 멀티플레이어 게임 종료 시 경험치가 저장되지 않던 문제 해결
   - `RPGCoopGameScreen`에서 `handleGameEnd` 호출 추가
+- **사운드 설정 저장 버그 수정**
+  - 로그아웃 후 다른 계정 로그인 시 이전 계정의 설정이 적용되던 문제 해결
+  - 로그인 사용자: DB에만 저장 (localStorage 사용 안 함)
+  - 게스트: localStorage에만 저장
+  - 로그아웃 시 localStorage 사운드 설정 삭제 (계정 간 혼동 방지)
 - **회원탈퇴 기능 수정**
   - 회원탈퇴 시 Supabase Auth 계정도 완전 삭제
   - 기존 문제: 프로필만 삭제되고 Auth 계정 잔류

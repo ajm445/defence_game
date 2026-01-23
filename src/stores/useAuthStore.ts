@@ -154,29 +154,23 @@ const createLocalGuestProfile = (nickname: string): PlayerProfile => {
 
 // 프로필에서 사운드 설정을 UIStore와 soundManager에 동기화
 const syncSoundSettings = (profile: PlayerProfile) => {
-  const storedSettings = loadSoundSettingsFromStorage();
-
   let volume: number;
   let muted: boolean;
 
-  // DB에 실제 사운드 설정이 저장되어 있는지 확인
-  const hasDbSoundSettings =
-    profile.soundVolume !== undefined && profile.soundVolume !== null;
-
-  if (!profile.isGuest && hasDbSoundSettings) {
-    // 로그인 사용자이고 DB에 설정이 있으면 DB 값 사용
-    volume = profile.soundVolume!;
+  if (!profile.isGuest) {
+    // 로그인 사용자: DB 값만 사용
+    volume = profile.soundVolume ?? 0.5;
     muted = profile.soundMuted ?? false;
-    // localStorage도 업데이트 (다음 로그인 전 백업용)
-    saveSoundSettingsToStorage(volume, muted);
-  } else if (storedSettings) {
-    // localStorage에 설정이 있으면 사용 (게스트 또는 DB에 설정이 없는 경우)
-    volume = storedSettings.volume;
-    muted = storedSettings.muted;
   } else {
-    // 둘 다 없으면 기본값
-    volume = 0.5;
-    muted = false;
+    // 게스트: localStorage 또는 기본값 사용
+    const storedSettings = loadSoundSettingsFromStorage();
+    if (storedSettings) {
+      volume = storedSettings.volume;
+      muted = storedSettings.muted;
+    } else {
+      volume = 0.5;
+      muted = false;
+    }
   }
 
   useUIStore.getState().setSoundVolume(volume);
@@ -282,7 +276,6 @@ export const useAuthStore = create<AuthStore>()(
 
     // 로그아웃
     signOut: async () => {
-      const { profile } = get();
       set({ isLoading: true });
 
       await authSignOut();
@@ -293,10 +286,8 @@ export const useAuthStore = create<AuthStore>()(
       // 세션 삭제
       clearSessionFromStorage();
 
-      // 게스트 로그아웃 시 localStorage 사운드 설정 삭제
-      if (profile?.isGuest) {
-        clearSoundSettingsFromStorage();
-      }
+      // 로그아웃 시 localStorage 사운드 설정 삭제 (다른 계정과 혼동 방지)
+      clearSoundSettingsFromStorage();
 
       set({
         status: 'unauthenticated',
@@ -416,10 +407,11 @@ export const useAuthStore = create<AuthStore>()(
       const { user, profile } = get();
       if (!user || !profile) return;
 
+      // 새 프로필 생성
+      const newProfile = { ...profile, soundVolume: volume, soundMuted: muted };
+
       // 로컬 프로필 업데이트
-      set({
-        profile: { ...profile, soundVolume: volume, soundMuted: muted },
-      });
+      set({ profile: newProfile });
 
       // UIStore와 soundManager 동기화
       useUIStore.getState().setSoundVolume(volume);
@@ -427,13 +419,19 @@ export const useAuthStore = create<AuthStore>()(
       soundManager.setVolume(volume);
       soundManager.setMuted(muted);
 
-      // localStorage에 항상 저장 (게스트 및 비로그인 상태에서 사용)
-      saveSoundSettingsToStorage(volume, muted);
-
-      // 서버에도 저장 (게스트가 아닌 경우)
-      if (!profile.isGuest) {
-        await updateSoundSettings(user.id, volume, muted);
+      if (profile.isGuest) {
+        // 게스트: localStorage에만 저장
+        saveSoundSettingsToStorage(volume, muted);
+      } else {
+        // 로그인 사용자: DB에만 저장
+        const success = await updateSoundSettings(user.id, volume, muted);
+        if (!success) {
+          console.error('Failed to save sound settings to server');
+        }
       }
+
+      // 세션 업데이트 (로그인 상태 유지를 위해)
+      saveSessionToStorage(user, newProfile);
     },
 
     // 에러 설정
