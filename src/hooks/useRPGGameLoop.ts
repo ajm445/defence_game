@@ -575,13 +575,16 @@ export function useRPGGameLoop() {
           useRPGStore.getState().addEnemy(boss);
         }
         bossesSpawnedRef.current = true;
-      }
-
-      // 보스 단계: 모든 보스 처치 시 승리
-      if (bossesSpawnedRef.current && areAllBossesDead(latestState.enemies)) {
-        useRPGStore.getState().setGameOver(true);
-        showNotification('🏆 승리! 모든 보스를 처치했습니다!');
-        soundManager.play('victory');
+        // 보스 스폰 직후에는 승리 체크 스킵 (다음 프레임에서 체크)
+      } else {
+        // 보스 단계: 모든 보스 처치 시 승리 (보스 스폰 후 프레임부터 체크)
+        // 최신 상태에서 적 목록 가져오기 (latestState는 이미 오래됨)
+        const currentEnemies = useRPGStore.getState().enemies;
+        if (areAllBossesDead(currentEnemies)) {
+          useRPGStore.getState().setGameOver(true);
+          showNotification('🏆 승리! 모든 보스를 처치했습니다!');
+          soundManager.play('victory');
+        }
       }
     }
 
@@ -628,7 +631,7 @@ export function useRPGGameLoop() {
         useRPGStore.setState({ hero: result.hero });
       }
 
-      // 데미지 적용
+      // 적 데미지 적용
       for (const damage of result.enemyDamages) {
         const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage);
         if (killed) {
@@ -637,6 +640,18 @@ export function useRPGGameLoop() {
             // 골드 획득은 damageEnemy 내에서 자동 처리됨
             useRPGStore.getState().removeEnemy(enemy.id);
             effectManager.createEffect('attack_melee', enemy.x, enemy.y);
+          }
+        }
+      }
+
+      // 기지 데미지 적용
+      if (result.baseDamages && result.baseDamages.length > 0) {
+        for (const baseDamage of result.baseDamages) {
+          const destroyed = useRPGStore.getState().damageBase(baseDamage.baseId, baseDamage.damage);
+          if (destroyed) {
+            const showNotification = useUIStore.getState().showNotification;
+            showNotification(`적 기지 파괴!`);
+            soundManager.play('victory');
           }
         }
       }
@@ -743,14 +758,14 @@ export function useRPGGameLoop() {
 
       // Q 스킬
       if (skillType === classSkills.q.type) {
-        const result = executeQSkill(state.hero, state.enemies, targetX, targetY, gameTime);
+        const result = executeQSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
         processSkillResult(result, state);
         return;
       }
 
       // W 스킬
       if (skillType === classSkills.w.type) {
-        const result = executeWSkill(state.hero, state.enemies, targetX, targetY, gameTime);
+        const result = executeWSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
         processSkillResult(result, state);
 
         // 기사 방패 돌진 알림
@@ -763,7 +778,7 @@ export function useRPGGameLoop() {
 
       // E 스킬
       if (skillType === classSkills.e.type) {
-        const result = executeESkill(state.hero, state.enemies, targetX, targetY, gameTime);
+        const result = executeESkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
         processSkillResult(result, state);
 
         // 특수 알림

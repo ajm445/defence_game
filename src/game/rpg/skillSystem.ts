@@ -1,4 +1,4 @@
-import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget } from '../../types/rpg';
+import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget, EnemyBase } from '../../types/rpg';
 import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
 import { calculateWarriorLifesteal, rollMultiTarget } from './passiveSystem';
@@ -275,6 +275,7 @@ export interface ClassSkillResult {
   hero: HeroUnit;
   effect?: SkillEffect;
   enemyDamages: { enemyId: string; damage: number }[];
+  baseDamages: { baseId: 'left' | 'right'; damage: number }[];  // 기지 데미지
   buff?: Buff;
   pendingSkill?: PendingSkill;
   stunTargets?: string[];
@@ -292,7 +293,8 @@ export function executeQSkill(
   enemies: RPGEnemy[],
   targetX: number,
   targetY: number,
-  gameTime: number
+  gameTime: number,
+  enemyBases: EnemyBase[] = []  // 적 기지 (선택적)
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].q;
@@ -315,9 +317,11 @@ export function executeQSkill(
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
+  const baseDamages: { baseId: 'left' | 'right'; damage: number }[] = [];
   const hitTargets: HitTarget[] = []; // 피격 대상 위치 수집
   // 직업별 기본 공격 사거리 사용
   const attackRange = hero.config.range || CLASS_CONFIGS[heroClass].range;
+  const baseAttackRange = attackRange + 50;  // 기지는 크기가 크므로 추가 사거리
 
   // 공격 방향 계산 (영웅 → 마우스 방향)
   const dx = targetX - hero.x;
@@ -381,6 +385,30 @@ export function executeQSkill(
     }
   }
 
+  // 적 기지 데미지 (범위 내 + 파괴되지 않은 기지)
+  for (const base of enemyBases) {
+    if (base.destroyed) continue;
+
+    const distToBase = distance(hero.x, hero.y, base.x, base.y);
+    if (distToBase > baseAttackRange) continue;
+
+    // 바라보는 방향 체크
+    const baseDx = base.x - hero.x;
+    const baseDy = base.y - hero.y;
+    const baseDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
+    if (baseDist === 0) continue;
+
+    const baseDirX = baseDx / baseDist;
+    const baseDirY = baseDy / baseDist;
+    const dot = dirX * baseDirX + dirY * baseDirY;
+
+    // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대하게)
+    if (dot < -0.5) continue;
+
+    baseDamages.push({ baseId: base.id, damage: finalDamage });
+    hitTargets.push({ x: base.x, y: base.y, damage: finalDamage });
+  }
+
   // 이펙트는 타겟 방향으로 표시
   const effectX = hero.x + dirX * attackRange;
   const effectY = hero.y + dirY * attackRange;
@@ -441,7 +469,7 @@ export function executeQSkill(
     updatedHero = { ...updatedHero, skills: updatedSkills };
   }
 
-  return { hero: updatedHero, effect, enemyDamages };
+  return { hero: updatedHero, effect, enemyDamages, baseDamages };
 }
 
 /**
@@ -452,7 +480,8 @@ export function executeWSkill(
   enemies: RPGEnemy[],
   targetX: number,
   targetY: number,
-  gameTime: number
+  gameTime: number,
+  enemyBases: EnemyBase[] = []  // 적 기지 (선택적)
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].w;
@@ -468,6 +497,7 @@ export function executeWSkill(
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
+  const baseDamages: { baseId: 'left' | 'right'; damage: number }[] = [];
   const stunTargets: string[] = [];
   let effect: SkillEffect | undefined;
   let updatedHero = hero;
@@ -497,6 +527,15 @@ export function executeWSkill(
           const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, newX, newY);
           if (enemyDist <= 50) {
             enemyDamages.push({ enemyId: enemy.id, damage });
+          }
+        }
+
+        // 돌진 경로상 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+          if (baseDist <= 80) {  // 기지는 크기가 크므로 더 넓은 범위
+            baseDamages.push({ baseId: base.id, damage });
           }
         }
 
@@ -559,6 +598,15 @@ export function executeWSkill(
           }
         }
 
+        // 관통 화살 경로상 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, endX, endY);
+          if (baseDist <= 60) {
+            baseDamages.push({ baseId: base.id, damage });
+          }
+        }
+
         effect = {
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
@@ -597,6 +645,15 @@ export function executeWSkill(
             enemyDamages.push({ enemyId: enemy.id, damage: hpBasedDamage });
             // 기절 적용
             stunTargets.push(enemy.id);
+          }
+        }
+
+        // 돌진 경로상 기지에 HP 기반 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+          if (baseDist <= 80) {
+            baseDamages.push({ baseId: base.id, damage: hpBasedDamage });
           }
         }
 
@@ -654,6 +711,15 @@ export function executeWSkill(
           }
         }
 
+        // 화염구 범위 내 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = distance(targetX, targetY, base.x, base.y);
+          if (baseDist <= radius + 50) {  // 기지는 크기가 크므로 추가 반경
+            baseDamages.push({ baseId: base.id, damage });
+          }
+        }
+
         effect = {
           type: skillConfig.type,
           position: { x: targetX, y: targetY },
@@ -669,7 +735,7 @@ export function executeWSkill(
 
   updatedHero = startSkillCooldown(updatedHero, skillConfig.type);
 
-  return { hero: updatedHero, effect, enemyDamages, stunTargets, stunDuration: returnStunDuration, buff };
+  return { hero: updatedHero, effect, enemyDamages, baseDamages, stunTargets, stunDuration: returnStunDuration, buff };
 }
 
 /**
@@ -680,7 +746,8 @@ export function executeESkill(
   enemies: RPGEnemy[],
   targetX: number,
   targetY: number,
-  gameTime: number
+  gameTime: number,
+  enemyBases: EnemyBase[] = []  // 적 기지 (선택적)
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].e;
@@ -696,6 +763,7 @@ export function executeESkill(
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
+  const baseDamages: { baseId: 'left' | 'right'; damage: number }[] = [];
   let effect: SkillEffect | undefined;
   let buff: Buff | undefined;
   let pendingSkill: PendingSkill | undefined;
@@ -738,6 +806,15 @@ export function executeESkill(
           const dist = distance(targetX, targetY, enemy.x, enemy.y);
           if (dist <= radius) {
             enemyDamages.push({ enemyId: enemy.id, damage });
+          }
+        }
+
+        // 화살 비 범위 내 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = distance(targetX, targetY, base.x, base.y);
+          if (baseDist <= radius + 50) {  // 기지는 크기가 크므로 추가 반경
+            baseDamages.push({ baseId: base.id, damage });
           }
         }
 
@@ -809,7 +886,7 @@ export function executeESkill(
 
   updatedHero = startSkillCooldown(updatedHero, skillConfig.type);
 
-  return { hero: updatedHero, effect, enemyDamages, buff, pendingSkill };
+  return { hero: updatedHero, effect, enemyDamages, baseDamages, buff, pendingSkill };
 }
 
 /**

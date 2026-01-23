@@ -290,7 +290,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
               <Emoji emoji="✨" size={24} />
               <div>
                 <span className="text-purple-300 font-bold">스킬 시스템</span>
-                <div className="text-gray-200 text-sm">Q/W/E 키로 기본공격, 스킬, 궁극기 사용</div>
+                <div className="text-gray-200 text-sm">자동공격 / Shift(스킬) / R(궁극기)</div>
               </div>
             </div>
             <div className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
@@ -351,15 +351,15 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
         <div className="space-y-4">
           <div className="grid grid-cols-3 gap-2 mb-4">
             <div className="bg-yellow-500/20 p-3 rounded-lg border border-yellow-500/30 text-center">
-              <div className="text-yellow-300 font-bold text-xl">Q</div>
+              <div className="text-yellow-300 font-bold text-xl">자동</div>
               <div className="text-gray-300 text-sm">기본 공격</div>
             </div>
             <div className="bg-blue-500/20 p-3 rounded-lg border border-blue-500/30 text-center">
-              <div className="text-blue-300 font-bold text-xl">W</div>
+              <div className="text-blue-300 font-bold text-xl">Shift</div>
               <div className="text-gray-300 text-sm">스킬</div>
             </div>
             <div className="bg-purple-500/20 p-3 rounded-lg border border-purple-500/30 text-center">
-              <div className="text-purple-300 font-bold text-xl">E</div>
+              <div className="text-purple-300 font-bold text-xl">R</div>
               <div className="text-gray-300 text-sm">궁극기</div>
             </div>
           </div>
@@ -393,19 +393,19 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       content: (
         <div className="grid grid-cols-2 gap-3">
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-purple-300 font-bold">우클릭</div>
+            <div className="text-purple-300 font-bold">WASD</div>
             <div className="text-gray-200">이동</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-purple-300 font-bold">Q</div>
-            <div className="text-gray-200">기본 공격</div>
+            <div className="text-purple-300 font-bold">자동</div>
+            <div className="text-gray-200">기본 공격 (사거리 내 적)</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-purple-300 font-bold">W</div>
+            <div className="text-purple-300 font-bold">Shift</div>
             <div className="text-gray-200">스킬</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
-            <div className="text-purple-300 font-bold">E</div>
+            <div className="text-purple-300 font-bold">R</div>
             <div className="text-gray-200">궁극기</div>
           </div>
           <div className="bg-dark-700/70 p-3 rounded-lg border border-dark-500">
