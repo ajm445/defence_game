@@ -59,13 +59,13 @@ export const PASSIVE_GROWTH_CONFIGS: Record<HeroClass, PassiveGrowthConfig> = {
 // ============================================
 
 export const GOLD_CONFIG = {
-  // 적 처치 시 골드 보상
+  // 적 처치 시 골드 보상 (상향 조정)
   REWARDS: {
-    melee: 5,
-    ranged: 8,
-    knight: 15,
-    mage: 20,
-    boss: 200,
+    melee: 12,
+    ranged: 18,
+    knight: 35,
+    mage: 45,
+    boss: 500,
   } as GoldTable,
 
   // 업그레이드 비용
