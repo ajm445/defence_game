@@ -3,6 +3,8 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTutorialStore } from '../../stores/useTutorialStore';
 import { useRPGStore } from '../../stores/useRPGStore';
+import { useProfileStore } from '../../stores/useProfileStore';
+import { createDefaultStatUpgrades } from '../../types/auth';
 import { soundManager } from '../../services/SoundManager';
 
 export const PauseScreen: React.FC = () => {
@@ -51,8 +53,15 @@ export const PauseScreen: React.FC = () => {
     resetGameUI(); // UI 상태 초기화
     if (isRPG) {
       // RPG 모드 재시작
+      const rpgState = useRPGStore.getState();
+      const heroClass = rpgState.selectedClass || 'warrior';
+      const classProgressList = useProfileStore.getState().classProgress;
+      const classProgress = classProgressList.find(p => p.className === heroClass);
+      const characterLevel = classProgress?.classLevel ?? 1;
+      const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
+
       useRPGStore.getState().resetGame();
-      useRPGStore.getState().initGame();
+      useRPGStore.getState().initGame(characterLevel, statUpgrades);
       setScreen('game');
     } else if (isTutorial) {
       // 튜토리얼 재시작
@@ -77,6 +86,16 @@ export const PauseScreen: React.FC = () => {
       endTutorial();
     }
     setScreen('menu');
+  };
+
+  // RPG 모드 게임 중단 (현재까지의 진행 저장 후 게임 오버 처리)
+  const handleQuitGame = () => {
+    if (isRPG) {
+      // 게임 오버로 처리 (패배로 기록)
+      useRPGStore.getState().setGameOver(false);
+      // 게임 화면으로 돌아가서 게임 오버 모달 표시
+      setScreen('game');
+    }
   };
 
   const handleToggleSettings = () => {
@@ -151,6 +170,21 @@ export const PauseScreen: React.FC = () => {
               다시 시작
             </span>
           </button>
+
+          {/* RPG 모드 전용: 게임 중단 버튼 */}
+          {isRPG && (
+            <button
+              onClick={handleQuitGame}
+              className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
+              style={{ paddingTop: '5px', paddingBottom: '5px' }}
+            >
+              <div className="absolute inset-0 bg-red-500/20" />
+              <div className="absolute inset-0 border border-red-500/50 rounded-lg group-hover:border-red-400 group-hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all duration-300" />
+              <span className="relative font-korean text-lg text-red-400 group-hover:text-white transition-colors duration-300">
+                🛑 게임 중단
+              </span>
+            </button>
+          )}
 
           <button
             onClick={handleToggleSettings}

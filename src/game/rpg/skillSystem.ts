@@ -220,33 +220,12 @@ export function executeHeal(hero: HeroUnit, gameTime: number): HealResult {
 }
 
 /**
- * 스킬 업그레이드
+ * @deprecated 스킬 포인트 시스템이 제거되었습니다.
+ * 스킬 레벨은 캐릭터 레벨에 따라 자동으로 결정됩니다.
  */
-export function upgradeSkill(hero: HeroUnit, skillType: SkillType): HeroUnit | null {
-  if (hero.skillPoints <= 0) return null;
-
-  const skill = hero.skills.find((s) => s.type === skillType);
-  if (!skill) return null;
-
-  const upgrade = RPG_CONFIG.SKILL_UPGRADE[skillType];
-  if (!upgrade) return null;
-
-  const updatedSkills = hero.skills.map((s) => {
-    if (s.type === skillType) {
-      return {
-        ...s,
-        level: s.level + 1,
-        cooldown: Math.max(1, s.cooldown - upgrade.cooldownReduction),
-      };
-    }
-    return s;
-  });
-
-  return {
-    ...hero,
-    skills: updatedSkills,
-    skillPoints: hero.skillPoints - 1,
-  };
+export function upgradeSkill(_hero: HeroUnit, _skillType: SkillType): HeroUnit | null {
+  // 스킬 포인트 시스템이 제거되어 더 이상 수동 업그레이드 불가
+  return null;
 }
 
 /**
@@ -323,7 +302,7 @@ export function executeQSkill(
 
   // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
   if (heroClass === 'mage') {
-    const baseDamageBonus = hero.level >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
+    const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
     const growthDamageBonus = hero.passiveGrowth.currentValue;
     damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
   }
@@ -357,7 +336,7 @@ export function executeQSkill(
   // 궁수: 기본 패시브 다중타겟 (레벨 5 이상) + 패시브 성장 확률 판정
   const baseMultiTargetCount = classConfig.passive.multiTarget || 1;
   // 레벨 5 이상이고 패시브 성장 확률 판정 성공 시 다중타겟
-  const isPassiveUnlocked = hero.level >= PASSIVE_UNLOCK_LEVEL;
+  const isPassiveUnlocked = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL;
   const useGrowthMultiTarget = heroClass === 'archer' && isPassiveUnlocked && rollMultiTarget(hero.passiveGrowth.currentValue);
   const multiTargetCount = useGrowthMultiTarget ? baseMultiTargetCount : 1;
 
@@ -425,7 +404,7 @@ export function executeQSkill(
     const totalDamage = enemyDamages.reduce((sum, ed) => sum + ed.damage, 0);
 
     // 기본 패시브 (레벨 5 이상) + 패시브 성장 피해흡혈
-    const baseLifesteal = hero.level >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
+    const baseLifesteal = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
     const growthLifesteal = hero.passiveGrowth.currentValue;
     const passiveTotal = baseLifesteal + growthLifesteal;
 
@@ -483,7 +462,7 @@ export function executeWSkill(
 
   // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
   if (heroClass === 'mage') {
-    const baseDamageBonus = hero.level >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
+    const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
     const growthDamageBonus = hero.passiveGrowth.currentValue;
     damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
   }
@@ -711,7 +690,7 @@ export function executeESkill(
 
   // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
   if (heroClass === 'mage') {
-    const baseDamageBonus = hero.level >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
+    const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
     const growthDamageBonus = hero.passiveGrowth.currentValue;
     damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
   }

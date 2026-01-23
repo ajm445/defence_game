@@ -1,32 +1,51 @@
 import { WebSocketServer, WebSocket } from 'ws';
-import { createServer, IncomingMessage, ServerResponse } from 'http';
+import { createServer } from 'http';
+import express from 'express';
+import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect } from './MessageHandler';
 import { handlePlayerDisconnect } from '../room/RoomManager';
 import { players, sendMessage, Player } from '../state/players';
+import authRouter from '../api/authRouter';
+import profileRouter from '../api/profileRouter';
 
 // Re-export for backwards compatibility
 export { players, sendMessage, sendToPlayer } from '../state/players';
 export type { Player } from '../state/players';
 
 export function createWebSocketServer(port: number) {
-  // HTTP 서버 생성 (health check용)
-  const httpServer = createServer((req: IncomingMessage, res: ServerResponse) => {
-    if (req.url === '/health' || req.url === '/') {
-      res.writeHead(200, { 'Content-Type': 'application/json' });
-      res.end(JSON.stringify({ status: 'ok', players: players.size }));
-    } else {
-      res.writeHead(404);
-      res.end();
-    }
+  // Express 앱 생성
+  const app = express();
+
+  // 미들웨어 설정
+  app.use(cors({
+    origin: process.env.CORS_ORIGIN || '*',
+    credentials: true,
+  }));
+  app.use(express.json());
+
+  // Health check
+  app.get('/health', (req, res) => {
+    res.json({ status: 'ok', players: players.size });
   });
+
+  app.get('/', (req, res) => {
+    res.json({ status: 'ok', players: players.size });
+  });
+
+  // API 라우터
+  app.use('/api/auth', authRouter);
+  app.use('/api/profile', profileRouter);
+
+  // HTTP 서버 생성 (Express 앱 사용)
+  const httpServer = createServer(app);
 
   // WebSocket 서버를 HTTP 서버에 연결
   const wss = new WebSocketServer({ server: httpServer });
 
   // HTTP 서버 시작
   httpServer.listen(port, () => {
-    console.log(`서버 시작: http://localhost:${port} (WebSocket 지원)`);
+    console.log(`서버 시작: http://localhost:${port} (WebSocket + REST API 지원)`);
   });
 
   wss.on('connection', (ws: WebSocket) => {

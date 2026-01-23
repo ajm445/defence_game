@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback } from 'react';
+import React, { useEffect, useCallback, useState } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import {
@@ -8,17 +8,25 @@ import {
   useProfileIsLoading,
 } from '../../stores/useProfileStore';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
-import { CHARACTER_UNLOCK_LEVELS, getRequiredPlayerExp, getRequiredClassExp } from '../../types/auth';
+import {
+  CHARACTER_UNLOCK_LEVELS,
+  getRequiredClassExp,
+  ClassProgress,
+  createDefaultStatUpgrades,
+} from '../../types/auth';
 import { HeroClass } from '../../types/rpg';
 import { soundManager } from '../../services/SoundManager';
+import { CharacterUpgradeModal } from '../ui/CharacterUpgradeModal';
 
 const ClassProgressCard: React.FC<{
   heroClass: HeroClass;
   level: number;
   exp: number;
+  sp: number;
   playerLevel: number;
   isGuest: boolean;
-}> = ({ heroClass, level, exp, playerLevel, isGuest }) => {
+  onClick: () => void;
+}> = ({ heroClass, level, exp, sp, playerLevel, isGuest, onClick }) => {
   const config = CLASS_CONFIGS[heroClass];
   const unlockLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
   const isUnlocked = isGuest ? heroClass === 'archer' : playerLevel >= unlockLevel;
@@ -33,18 +41,24 @@ const ClassProgressCard: React.FC<{
     mage: 'from-purple-500 to-pink-500',
   };
 
+  const handleClick = useCallback(() => {
+    soundManager.play('ui_click');
+    onClick();
+  }, [onClick]);
+
   return (
     <div
+      onClick={handleClick}
       className={`
-        relative p-4 rounded-lg border transition-all
+        relative p-4 rounded-lg border transition-all cursor-pointer min-h-[120px]
         ${isUnlocked
-          ? 'bg-gray-800/50 border-gray-600'
-          : 'bg-gray-900/50 border-gray-700 opacity-60'}
+          ? 'bg-gray-800/50 border-gray-600 hover:border-gray-400 hover:bg-gray-700/50'
+          : 'bg-gray-900/50 border-gray-700 opacity-60 hover:opacity-80'}
       `}
     >
       {/* 잠금 오버레이 */}
       {!isUnlocked && (
-        <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg">
+        <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg pointer-events-none z-10">
           <div className="text-center">
             <span className="text-2xl">🔒</span>
             <p className="text-gray-400 text-xs mt-1">
@@ -62,23 +76,28 @@ const ClassProgressCard: React.FC<{
         </div>
         <div className="ml-auto text-right">
           <p className="text-yellow-400 font-bold">Lv.{level}</p>
+          {sp > 0 && (
+            <p className="text-cyan-400 text-xs font-bold">SP: {sp}</p>
+          )}
         </div>
       </div>
 
-      {isUnlocked && (
-        <div>
-          <div className="flex justify-between text-xs text-gray-400 mb-1">
-            <span>경험치</span>
-            <span>{exp} / {required}</span>
-          </div>
-          <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
-            <div
-              className={`h-full bg-gradient-to-r ${classColors[heroClass]} transition-all duration-300`}
-              style={{ width: `${percentage}%` }}
-            />
-          </div>
+      {/* 경험치 바 - 항상 표시 (잠긴 경우 흐리게) */}
+      <div className={!isUnlocked ? 'opacity-30' : ''}>
+        <div className="flex justify-between text-xs text-gray-400 mb-1">
+          <span>경험치</span>
+          <span>{exp} / {required}</span>
         </div>
-      )}
+        <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div
+            className={`h-full bg-gradient-to-r ${classColors[heroClass]} transition-all duration-300`}
+            style={{ width: `${percentage}%` }}
+          />
+        </div>
+        {isUnlocked && (
+          <p className="text-gray-500 text-xs mt-2 text-center">클릭하여 업그레이드</p>
+        )}
+      </div>
     </div>
   );
 };
@@ -94,6 +113,9 @@ export const ProfileScreen: React.FC = () => {
   const isLoading = useProfileIsLoading();
   const loadProfileData = useProfileStore((state) => state.loadProfileData);
   const getPlayerExpProgress = useProfileStore((state) => state.getPlayerExpProgress);
+
+  // 업그레이드 모달 상태
+  const [selectedClass, setSelectedClass] = useState<HeroClass | null>(null);
 
   useEffect(() => {
     if (profile && !isGuest) {
@@ -116,13 +138,25 @@ export const ProfileScreen: React.FC = () => {
     setScreen('menu');
   }, [signOut, setScreen]);
 
+  const handleOpenModal = useCallback((heroClass: HeroClass) => {
+    setSelectedClass(heroClass);
+  }, []);
+
+  const handleCloseModal = useCallback(() => {
+    setSelectedClass(null);
+  }, []);
+
   const heroClasses: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
 
-  const getClassProgress = (heroClass: HeroClass) => {
+  const getClassProgressData = (heroClass: HeroClass): ClassProgress => {
     const progress = classProgress.find((p) => p.className === heroClass);
     return {
-      level: progress?.classLevel ?? 1,
-      exp: progress?.classExp ?? 0,
+      playerId: profile?.id ?? '',
+      className: heroClass,
+      classLevel: progress?.classLevel ?? 1,
+      classExp: progress?.classExp ?? 0,
+      sp: progress?.sp ?? 0,
+      statUpgrades: progress?.statUpgrades ?? createDefaultStatUpgrades(),
     };
   };
 
@@ -140,24 +174,27 @@ export const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center overflow-y-auto">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl animate-pulse-slow" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
       </div>
 
+      <div style={{ height: '30px' }} />
+
       {/* 메인 컨텐츠 */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-4xl px-4">
+      <div className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-4xl px-4 py-8">
         {/* 타이틀 */}
-        <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-8">
+        <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-6">
           프로필
         </h1>
 
-        <div style={{ height: '30px' }} />
+        <div style={{ height: '15px' }} />
 
         {/* 프로필 카드 */}
-        <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6">
+        <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6"
+        style={{ paddingTop: '5px', paddingBottom: '7px', paddingLeft: '5px', paddingRight: '5px' }}>
           <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-3xl">
               {isGuest ? '👤' : '⭐'}
@@ -176,6 +213,7 @@ export const ProfileScreen: React.FC = () => {
             <button
               onClick={handleSignOut}
               className="px-4 py-2 rounded-lg border border-red-500/50 text-red-400 hover:bg-red-500/10 transition-all cursor-pointer text-sm"
+              style={{ paddingLeft: '5px', paddingRight: '5px' }}
             >
               로그아웃
             </button>
@@ -183,7 +221,8 @@ export const ProfileScreen: React.FC = () => {
 
           {/* 경험치 바 */}
           <div className="mb-2">
-            <div className="flex justify-between text-sm text-gray-400 mb-1">
+            <div className="flex justify-between text-sm text-gray-400 mb-1"
+            style={{ paddingLeft: '5px', paddingRight: '5px' }}>
               <span>플레이어 경험치</span>
               <span>{expProgress.current} / {expProgress.required}</span>
             </div>
@@ -195,11 +234,12 @@ export const ProfileScreen: React.FC = () => {
             </div>
           </div>
 
-          <div style={{ height: '30px' }} />
-          
+          <div style={{ height: '20px' }} />
+
           {/* 게스트 안내 */}
           {isGuest && (
-            <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
+            <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg"
+            style={{ paddingLeft: '5px', paddingRight: '5px' }}>
               <p className="text-yellow-300 text-sm text-center">
                 ⚠️ 게스트 모드에서는 진행 상황이 저장되지 않습니다.
                 <br />
@@ -209,7 +249,7 @@ export const ProfileScreen: React.FC = () => {
           )}
         </div>
 
-        <div style={{ height: '30px' }} />
+        <div style={{ height: '15px' }} />
 
         {/* 통계 섹션 */}
         {!isGuest && stats && (
@@ -218,7 +258,7 @@ export const ProfileScreen: React.FC = () => {
             {isLoading ? (
               <div className="text-center text-gray-400 py-4">로딩 중...</div>
             ) : (
-              <div className="grid grid-cols-2 md:grid-cols-3 gap-4">
+              <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
                 <div className="text-center">
                   <p className="text-2xl text-white font-bold">{stats.totalGames}</p>
                   <p className="text-gray-400 text-sm">총 게임</p>
@@ -226,10 +266,6 @@ export const ProfileScreen: React.FC = () => {
                 <div className="text-center">
                   <p className="text-2xl text-red-400 font-bold">{stats.totalKills}</p>
                   <p className="text-gray-400 text-sm">처치</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl text-purple-400 font-bold">{stats.highestWave}</p>
-                  <p className="text-gray-400 text-sm">최고 웨이브</p>
                 </div>
                 <div className="text-center">
                   <p className="text-2xl text-cyan-400 font-bold">
@@ -255,54 +291,39 @@ export const ProfileScreen: React.FC = () => {
           </div>
         )}
 
-        <div style={{ height: '30px' }} />
+        <div style={{ height: '15px' }} />
 
         {/* 클래스 진행 상황 */}
-        <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6">
+        <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6"
+        style={{ paddingTop: '5px', paddingBottom: '8px', paddingLeft: '5px', paddingRight: '5px' }}>
           <h3 className="text-lg text-white font-bold mb-4">🎮 클래스 진행</h3>
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+          <div style={{ height: '5px' }} />
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4"
+          style={{ paddingLeft: '5px', paddingRight: '5px' }}>
             {heroClasses.map((heroClass) => {
-              const { level, exp } = getClassProgress(heroClass);
+              const progressData = getClassProgressData(heroClass);
               return (
                 <ClassProgressCard
                   key={heroClass}
                   heroClass={heroClass}
-                  level={level}
-                  exp={exp}
+                  level={progressData.classLevel}
+                  exp={progressData.classExp}
+                  sp={progressData.sp}
                   playerLevel={profile.playerLevel}
                   isGuest={isGuest}
+                  onClick={() => handleOpenModal(heroClass)}
                 />
               );
             })}
           </div>
         </div>
-
-        <div style={{ height: '30px' }} />
-
-        {/* 해금 안내 */}
-        <div className="w-full bg-gray-800/30 rounded-lg p-4 mb-6">
-          <h4 className="text-gray-400 text-sm mb-2">🔓 캐릭터 해금 조건</h4>
-          <div className="flex flex-wrap gap-4 text-xs">
-            {heroClasses.map((heroClass) => (
-              <div key={heroClass} className="flex items-center gap-1">
-                <span>{CLASS_CONFIGS[heroClass].emoji}</span>
-                <span className="text-gray-300">{CLASS_CONFIGS[heroClass].name}</span>
-                <span className="text-gray-500">
-                  {CHARACTER_UNLOCK_LEVELS[heroClass] === 1
-                    ? '(기본)'
-                    : `Lv.${CHARACTER_UNLOCK_LEVELS[heroClass]}`}
-                </span>
-              </div>
-            ))}
-          </div>
-        </div>
-
-        <div style={{ height: '30px' }} />
         
+        <div style={{ height: '15px' }} />
+
         {/* 뒤로 가기 */}
         <button
           onClick={handleBack}
-          className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+          className="px-6 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer mb-8"
           style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
         >
           뒤로 가기
@@ -314,6 +335,20 @@ export const ProfileScreen: React.FC = () => {
       <div className="absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 border-yellow-500/30" />
       <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-yellow-500/30" />
       <div className="absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 border-yellow-500/30" />
+
+      {/* 캐릭터 업그레이드 모달 */}
+      {selectedClass && (
+        <CharacterUpgradeModal
+          heroClass={selectedClass}
+          progress={getClassProgressData(selectedClass)}
+          isUnlocked={
+            isGuest
+              ? selectedClass === 'archer'
+              : profile.playerLevel >= CHARACTER_UNLOCK_LEVELS[selectedClass]
+          }
+          onClose={handleCloseModal}
+        />
+      )}
     </div>
   );
 };

@@ -3,6 +3,7 @@ import { UnitType } from '../../types/unit';
 import { CONFIG } from '../../constants/config';
 import {
   RPG_CONFIG,
+  GOLD_CONFIG,
   generateWaveConfig,
   getWaveStatMultiplier,
   getRandomSpawnPosition,
@@ -34,14 +35,15 @@ export function createWaveEnemies(waveNumber: number): { type: UnitType; delay: 
 
 /**
  * 적 유닛 생성
+ * @deprecated 넥서스 디펜스 모드에서는 nexusSpawnSystem.ts의 createEnemyFromBase를 사용하세요.
  */
 export function createRPGEnemy(type: UnitType, waveNumber: number): RPGEnemy {
   const unitConfig = CONFIG.UNITS[type];
   const statMultiplier = getWaveStatMultiplier(waveNumber);
   const spawnPos = getRandomSpawnPosition();
 
-  // 경험치 보상
-  const expReward = RPG_CONFIG.EXP_TABLE[type] || 10;
+  // 골드 보상
+  const goldReward = GOLD_CONFIG.REWARDS[type] || 5;
 
   // AI 설정 가져오기 (웨이브 배율 적용)
   const baseAIConfig = ENEMY_AI_CONFIGS[type];
@@ -64,10 +66,11 @@ export function createRPGEnemy(type: UnitType, waveNumber: number): RPGEnemy {
     state: 'moving',
     attackCooldown: 0,
     team: 'enemy',
-    expReward: Math.floor(expReward * statMultiplier),
+    goldReward: Math.floor(goldReward * statMultiplier),
     targetHero: true,
     aiConfig,
     buffs: [],
+    aggroOnHero: false,
   };
 }
 

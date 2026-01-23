@@ -6,14 +6,15 @@ import { RPGHeroPanel } from '../ui/RPGHeroPanel';
 import { RPGSkillBar } from '../ui/RPGSkillBar';
 import { RPGWaveInfo } from '../ui/RPGWaveInfo';
 import { RPGGameTimer } from '../ui/RPGGameTimer';
+import { RPGUpgradePanel } from '../ui/RPGUpgradePanel';
 import { Notification } from '../ui/Notification';
 import { LevelUpNotification } from '../ui/LevelUpNotification';
-import { useRPGStore, useRPGGameOver, useRPGResult } from '../../stores/useRPGStore';
+import { useRPGStore, useRPGGameOver, useRPGResult, useSelectedClass } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
-import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
-import { useProfileStore, useLastGameResult } from '../../stores/useProfileStore';
+import { useAuthStore, useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
+import { useProfileStore, useLastGameResult, useClassProgress } from '../../stores/useProfileStore';
 import { SkillType } from '../../types/rpg';
-import { LevelUpResult, calculatePlayerExp, calculateClassExp } from '../../types/auth';
+import { LevelUpResult, calculatePlayerExp, calculateClassExp, createDefaultStatUpgrades } from '../../types/auth';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { soundManager } from '../../services/SoundManager';
 
@@ -28,9 +29,11 @@ export const RPGModeScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
-  const handleGameEnd = useProfileStore((state) => state.handleGameEnd);
+  // handleGameEnd는 useEffect에서 직접 getState()로 호출하여 의존성 문제 방지
   const lastGameResult = useLastGameResult();
   const clearLastGameResult = useProfileStore((state) => state.clearLastGameResult);
+  const selectedClass = useSelectedClass();
+  const classProgressList = useClassProgress();
 
   // 레벨업 알림 상태
   const [levelUpResult, setLevelUpResult] = useState<LevelUpResult | null>(null);
@@ -42,24 +45,37 @@ export const RPGModeScreen: React.FC = () => {
     const state = useRPGStore.getState();
     // 이미 영웅이 있고 게임이 실행 중이면 (일시정지에서 돌아온 경우) 초기화하지 않음
     if (!state.hero) {
-      useRPGStore.getState().initGame();
+      // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
+      const heroClass = state.selectedClass || 'warrior';
+      const classProgress = classProgressList.find(p => p.className === heroClass);
+      const characterLevel = classProgress?.classLevel ?? 1;
+      const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
+
+      useRPGStore.getState().initGame(characterLevel, statUpgrades);
+      // 게임 시작 시에만 레퍼런스 초기화 (새 게임일 때만)
+      expSavedRef.current = false;
     }
-    // 게임 시작 시 레퍼런스 초기화
-    expSavedRef.current = false;
+    // classProgressList 변경 시 expSavedRef를 초기화하지 않음 (중복 경험치 저장 방지)
 
     // 언마운트 시 정리하지 않음 - 메인 메뉴로 돌아갈 때만 PauseScreen에서 resetGame 호출
-  }, []);
+  }, [classProgressList]);
 
   // 게임 오버 시 경험치 저장
   useEffect(() => {
-    if (gameOver && result && profile && !expSavedRef.current) {
+    // profile 객체 참조 변경으로 인한 중복 실행 방지
+    // getState()로 현재 프로필을 가져와서 확인
+    const currentProfile = useAuthStore.getState().profile;
+
+    // 게스트가 아니고 아직 저장하지 않은 경우에만 경험치 저장
+    if (gameOver && result && currentProfile && !currentProfile.isGuest && !expSavedRef.current) {
       expSavedRef.current = true;
 
-      // 경험치 저장 (게스트가 아닌 경우에만 실제 저장)
-      handleGameEnd({
+      // 경험치 저장
+      useProfileStore.getState().handleGameEnd({
         mode: 'single',
         classUsed: result.heroClass,
-        waveReached: result.waveReached,
+        basesDestroyed: result.basesDestroyed,
+        bossesKilled: result.bossesKilled,
         kills: result.totalKills,
         playTime: result.timePlayed,
         victory: result.victory,
@@ -71,7 +87,7 @@ export const RPGModeScreen: React.FC = () => {
         }
       });
     }
-  }, [gameOver, result, profile, handleGameEnd]);
+  }, [gameOver, result]);  // profile을 의존성에서 제거 - getState()로 직접 가져옴
 
   // 스킬 사용 핸들러
   const handleUseSkill = useCallback(
@@ -129,8 +145,16 @@ export const RPGModeScreen: React.FC = () => {
     setLevelUpResult(null);
     setShowLevelUp(false);
     expSavedRef.current = false;
-    useRPGStore.getState().initGame();
-  }, [resetGame, clearLastGameResult]);
+
+    // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
+    const state = useRPGStore.getState();
+    const heroClass = state.selectedClass || 'warrior';
+    const classProgress = classProgressList.find(p => p.className === heroClass);
+    const characterLevel = classProgress?.classLevel ?? 1;
+    const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
+
+    useRPGStore.getState().initGame(characterLevel, statUpgrades);
+  }, [resetGame, clearLastGameResult, classProgressList]);
 
   // 레벨업 알림 닫기
   const handleCloseLevelUp = useCallback(() => {
@@ -161,9 +185,18 @@ export const RPGModeScreen: React.FC = () => {
       {/* 알림 */}
       <Notification />
 
-      {/* 하단 UI - 스킬바 */}
+      {/* 하단 UI - 스킬바 + 업그레이드 패널 (한 줄로 통합) */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto">
-        <RPGSkillBar onUseSkill={handleUseSkill} />
+        <div className="flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
+          {/* 스킬바 */}
+          <RPGSkillBar onUseSkill={handleUseSkill} />
+
+          {/* 구분선 */}
+          {!gameOver && <div className="w-px bg-dark-500/50 my-1" />}
+
+          {/* 업그레이드 패널 */}
+          {!gameOver && <RPGUpgradePanel />}
+        </div>
       </div>
 
       {/* 조작법 안내 */}
@@ -181,23 +214,32 @@ export const RPGModeScreen: React.FC = () => {
                 {result.victory ? '🏆 승리!' : '💀 게임 오버'}
               </div>
               <div className="text-gray-400">
-                웨이브 {result.waveReached}까지 도달
+                {result.victory
+                  ? '모든 보스를 처치했습니다!'
+                  : result.basesDestroyed > 0
+                    ? `${result.basesDestroyed}개 기지 파괴`
+                    : '넥서스가 파괴되었습니다'
+                }
               </div>
             </div>
 
             {/* 통계 */}
             <div className="space-y-3 mb-6">
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
-                <span className="text-gray-400">최종 레벨</span>
-                <span className="text-yellow-400 font-bold">Lv.{result.heroLevel}</span>
+                <span className="text-gray-400">기지 파괴</span>
+                <span className="text-red-400 font-bold">{result.basesDestroyed}/2</span>
+              </div>
+              <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
+                <span className="text-gray-400">보스 처치</span>
+                <span className="text-purple-400 font-bold">{result.bossesKilled}/2</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">총 처치</span>
                 <span className="text-red-400 font-bold">{result.totalKills}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
-                <span className="text-gray-400">획득 경험치 (게임)</span>
-                <span className="text-blue-400 font-bold">{result.totalExp}</span>
+                <span className="text-gray-400">획득 골드</span>
+                <span className="text-yellow-400 font-bold">{result.totalGoldEarned}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">플레이 시간</span>
@@ -215,18 +257,31 @@ export const RPGModeScreen: React.FC = () => {
                   <div className="flex justify-between">
                     <span className="text-gray-400">플레이어 EXP</span>
                     <span className="text-yellow-400 font-bold">
-                      +{lastGameResult?.playerExpGained ?? calculatePlayerExp(result.waveReached, result.victory, 'single')}
+                      +{lastGameResult?.playerExpGained ?? calculatePlayerExp(
+                        result.basesDestroyed,
+                        result.bossesKilled,
+                        result.totalKills,
+                        result.timePlayed,
+                        result.victory,
+                        'single'
+                      )}
                     </span>
                   </div>
                   <div className="flex justify-between">
                     <span className="text-gray-400">클래스 EXP ({CLASS_CONFIGS[result.heroClass]?.name || result.heroClass})</span>
                     <span className="text-cyan-400 font-bold">
-                      +{lastGameResult?.classExpGained ?? calculateClassExp(result.waveReached, result.totalKills)}
+                      +{lastGameResult?.classExpGained ?? calculateClassExp(
+                        result.basesDestroyed,
+                        result.bossesKilled,
+                        result.totalKills
+                      )}
                     </span>
                   </div>
                 </div>
               </div>
             )}
+
+            <div style={{ height: '10px' }} />
 
             {/* 게스트 안내 */}
             {isGuest && (
@@ -236,6 +291,8 @@ export const RPGModeScreen: React.FC = () => {
                 </p>
               </div>
             )}
+
+            <div style={{ height: '10px' }} />
 
             {/* 버튼 */}
             <div className="flex gap-3">

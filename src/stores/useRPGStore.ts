@@ -1,9 +1,11 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, UpgradeLevels, RPGGamePhase } from '../types/rpg';
 import { UnitType } from '../types/unit';
-import { RPG_CONFIG, calculateExpToNextLevel, CLASS_CONFIGS, CLASS_SKILLS, PASSIVE_GROWTH_CONFIGS } from '../constants/rpgConfig';
-import { createInitialPassiveState, upgradePassiveState } from '../game/rpg/passiveSystem';
+import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG } from '../constants/rpgConfig';
+import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
+import { createInitialUpgradeLevels, getUpgradeCost, canUpgrade, getGoldReward, calculateAllUpgradeBonuses, UpgradeType } from '../game/rpg/goldSystem';
+import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '../types/auth';
 
 interface RPGState extends RPGGameState {
   // 활성 스킬 효과
@@ -28,14 +30,14 @@ interface RPGState extends RPGGameState {
 
 interface RPGActions {
   // 게임 초기화
-  initGame: () => void;
+  initGame: (characterLevel?: number, statUpgrades?: CharacterStatUpgrades) => void;
   resetGame: () => void;
 
   // 직업 선택
   selectClass: (heroClass: HeroClass) => void;
 
   // 영웅 관련
-  createHero: (heroClass: HeroClass) => void;
+  createHero: (heroClass: HeroClass, characterLevel?: number, statUpgrades?: CharacterStatUpgrades) => void;
   moveHero: (x: number, y: number) => void;
   setMoveDirection: (direction: { x: number; y: number } | undefined) => void;
   setAttackTarget: (targetId: string | undefined) => void;
@@ -59,28 +61,30 @@ interface RPGActions {
   // 시야 관련
   updateVisibility: () => void;
 
-  // 경험치/레벨
-  addExp: (amount: number) => void;
-  levelUp: () => void;
+  // 골드 시스템
+  addGold: (amount: number) => void;
+  upgradeHeroStat: (stat: UpgradeType) => boolean;
 
   // 스킬
   useSkill: (skillType: string) => boolean;
   updateSkillCooldowns: (deltaTime: number) => void;
   addSkillEffect: (effect: SkillEffect) => void;
   removeSkillEffect: (index: number) => void;
-  upgradeSkill: (skillType: string) => void;
 
-  // 웨이브
-  startWave: (waveNumber: number) => void;
-  endWave: () => void;
+  // 적 관리
   addEnemy: (enemy: RPGEnemy) => void;
   removeEnemy: (enemyId: string) => void;
   damageEnemy: (enemyId: string, amount: number) => boolean; // returns true if killed
   updateEnemies: (enemies: RPGEnemy[]) => void;
 
+  // 넥서스/기지
+  damageNexus: (amount: number) => void;
+  damageBase: (baseId: 'left' | 'right', amount: number) => boolean; // returns true if destroyed
+  spawnBosses: () => void;
+  setGamePhase: (phase: RPGGamePhase) => void;
+
   // 스폰
-  addToSpawnQueue: (type: UnitType, delay: number) => void;
-  clearSpawnQueue: () => void;
+  setSpawnTimer: (time: number) => void;
   setLastSpawnTime: (time: number) => void;
 
   // 카메라
@@ -94,13 +98,13 @@ interface RPGActions {
   setPaused: (paused: boolean) => void;
   setGameOver: (victory: boolean) => void;
   updateGameTime: (deltaTime: number) => void;
+  setFiveMinuteRewardClaimed: () => void;
 
   // 통계
   incrementKills: () => void;
-  addExpGained: (amount: number) => void;
-
-  // 패시브 성장
-  upgradePassive: (clearedWave: number) => void;
+  addGoldEarned: (amount: number) => void;
+  incrementBasesDestroyed: () => void;
+  incrementBossesKilled: () => void;
 
   // 공격 사거리 표시
   setShowAttackRange: (show: boolean) => void;
@@ -116,6 +120,34 @@ const initialVisibility: VisibilityState = {
   visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
 };
 
+// 넥서스 초기 상태 생성
+const createInitialNexus = (): Nexus => ({
+  x: NEXUS_CONFIG.position.x,
+  y: NEXUS_CONFIG.position.y,
+  hp: NEXUS_CONFIG.hp,
+  maxHp: NEXUS_CONFIG.hp,
+});
+
+// 적 기지 초기 상태 생성
+const createInitialEnemyBases = (): EnemyBase[] => [
+  {
+    id: 'left',
+    x: ENEMY_BASE_CONFIG.left.x,
+    y: ENEMY_BASE_CONFIG.left.y,
+    hp: ENEMY_BASE_CONFIG.left.hp,
+    maxHp: ENEMY_BASE_CONFIG.left.hp,
+    destroyed: false,
+  },
+  {
+    id: 'right',
+    x: ENEMY_BASE_CONFIG.right.x,
+    y: ENEMY_BASE_CONFIG.right.y,
+    hp: ENEMY_BASE_CONFIG.right.hp,
+    maxHp: ENEMY_BASE_CONFIG.right.hp,
+    destroyed: false,
+  },
+];
+
 const initialState: RPGState = {
   running: false,
   paused: false,
@@ -125,21 +157,28 @@ const initialState: RPGState = {
   hero: null,
   selectedClass: null,
 
-  currentWave: 0,
-  waveInProgress: false,
-  waveStarted: false,  // 첫 웨이브가 시작되었는지 여부
-  enemiesRemaining: 0,
+  // 골드 시스템
+  gold: GOLD_CONFIG.STARTING_GOLD,
+  upgradeLevels: createInitialUpgradeLevels(),
+
+  // 넥서스 디펜스
+  nexus: null,
+  enemyBases: [],
+  gamePhase: 'playing',
+  fiveMinuteRewardClaimed: false,
+
+  // 적 관리
   enemies: [],
 
-  spawnQueue: [],
+  // 스폰 관리
   lastSpawnTime: 0,
+  spawnTimer: 0,
 
   gameTime: 0,
-  waveStartTime: 0,
 
   camera: {
-    x: RPG_CONFIG.MAP_CENTER_X,
-    y: RPG_CONFIG.MAP_CENTER_Y,
+    x: NEXUS_CONFIG.position.x,
+    y: NEXUS_CONFIG.position.y,
     zoom: RPG_CONFIG.CAMERA.DEFAULT_ZOOM,
     followHero: true,
   },
@@ -148,15 +187,16 @@ const initialState: RPGState = {
 
   stats: {
     totalKills: 0,
-    totalExpGained: 0,
-    highestWave: 0,
+    totalGoldEarned: 0,
+    basesDestroyed: 0,
+    bossesKilled: 0,
     timePlayed: 0,
   },
 
   activeSkillEffects: [],
   pendingSkills: [],
   result: null,
-  mousePosition: { x: RPG_CONFIG.MAP_CENTER_X, y: RPG_CONFIG.MAP_CENTER_Y },
+  mousePosition: { x: NEXUS_CONFIG.position.x, y: NEXUS_CONFIG.position.y },
   showAttackRange: false,
   hoveredSkillRange: null,
 };
@@ -193,43 +233,63 @@ function createClassSkills(heroClass: HeroClass): Skill[] {
 }
 
 // 영웅 생성 (직업별)
-function createHeroUnit(heroClass: HeroClass): HeroUnit {
+function createHeroUnit(
+  heroClass: HeroClass,
+  characterLevel: number = 1,
+  statUpgrades?: CharacterStatUpgrades
+): HeroUnit {
   const classConfig = CLASS_CONFIGS[heroClass];
+
+  // 캐릭터 레벨이 5 이상이면 패시브 활성화
+  const passiveState = getPassiveFromCharacterLevel(heroClass, characterLevel) || createInitialPassiveState();
+
+  // SP 스탯 업그레이드 적용
+  const upgrades = statUpgrades || createDefaultStatUpgrades();
+  const attackBonus = getStatBonus('attack', upgrades.attack);
+  const speedBonus = getStatBonus('speed', upgrades.speed);
+  const hpBonus = getStatBonus('hp', upgrades.hp);
+  const rangeBonus = getStatBonus('range', upgrades.range);
+  // hpRegen은 게임 루프에서 적용됨
+
+  // 최종 스탯 계산
+  const finalHp = classConfig.hp + hpBonus;
+  const finalAttack = classConfig.attack + attackBonus;
+  const finalSpeed = classConfig.speed + speedBonus;
+  const finalRange = classConfig.range + rangeBonus;
 
   return {
     id: 'hero',
     type: 'hero',
     heroClass,
+    characterLevel,
     config: {
       name: classConfig.name,
       cost: {},
-      hp: classConfig.hp,
-      attack: classConfig.attack,
+      hp: finalHp,
+      attack: finalAttack,
       attackSpeed: classConfig.attackSpeed,
-      speed: classConfig.speed,
-      range: classConfig.range,
+      speed: finalSpeed,
+      range: finalRange,
       type: 'combat',
     },
-    x: RPG_CONFIG.MAP_CENTER_X,
-    y: RPG_CONFIG.MAP_CENTER_Y,
-    hp: classConfig.hp,
-    maxHp: classConfig.hp,
+    x: NEXUS_CONFIG.position.x,  // 넥서스 근처에서 시작
+    y: NEXUS_CONFIG.position.y + 100,
+    hp: finalHp,
+    maxHp: finalHp,
     state: 'idle',
     attackCooldown: 0,
     team: 'player',
 
-    level: 1,
-    exp: 0,
-    expToNextLevel: calculateExpToNextLevel(1),
     skills: createClassSkills(heroClass),
-    baseAttack: classConfig.attack,
-    baseSpeed: classConfig.speed,
+    baseAttack: finalAttack,
+    baseSpeed: finalSpeed,
     baseAttackSpeed: classConfig.attackSpeed,
-    skillPoints: 0,
     buffs: [],
     facingRight: true,   // 기본적으로 오른쪽을 바라봄 (이미지 반전용)
     facingAngle: 0,      // 기본적으로 오른쪽 방향 (0 라디안)
-    passiveGrowth: createInitialPassiveState(), // 패시브 성장 상태 초기화
+    passiveGrowth: passiveState,
+    // SP 업그레이드 저장 (hpRegen 적용용)
+    statUpgrades: upgrades,
   };
 }
 
@@ -237,16 +297,23 @@ export const useRPGStore = create<RPGStore>()(
   subscribeWithSelector((set, get) => ({
     ...initialState,
 
-    initGame: () => {
+    initGame: (characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades) => {
       const state = get();
       // 선택된 직업이 없으면 기본값 warrior 사용
       const heroClass = state.selectedClass || 'warrior';
-      const hero = createHeroUnit(heroClass);
+      const hero = createHeroUnit(heroClass, characterLevel, statUpgrades);
       set({
         ...initialState,
         running: true,
         selectedClass: heroClass,
         hero,
+        // 넥서스 디펜스 초기화
+        nexus: createInitialNexus(),
+        enemyBases: createInitialEnemyBases(),
+        gamePhase: 'playing',
+        gold: GOLD_CONFIG.STARTING_GOLD,
+        upgradeLevels: createInitialUpgradeLevels(),
+        fiveMinuteRewardClaimed: false,
         visibility: {
           exploredCells: new Set<string>(),
           visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
@@ -264,6 +331,12 @@ export const useRPGStore = create<RPGStore>()(
       ...initialState,
       // 선택된 직업은 유지 (다시 시작할 때 사용)
       selectedClass: state.selectedClass,
+      nexus: null,
+      enemyBases: [],
+      gamePhase: 'playing',
+      gold: GOLD_CONFIG.STARTING_GOLD,
+      upgradeLevels: createInitialUpgradeLevels(),
+      fiveMinuteRewardClaimed: false,
       visibility: {
         exploredCells: new Set<string>(),
         visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
@@ -274,8 +347,8 @@ export const useRPGStore = create<RPGStore>()(
       set({ selectedClass: heroClass });
     },
 
-    createHero: (heroClass: HeroClass) => {
-      const hero = createHeroUnit(heroClass);
+    createHero: (heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades) => {
+      const hero = createHeroUnit(heroClass, characterLevel, statUpgrades);
       set({ hero, selectedClass: heroClass });
     },
 
@@ -402,57 +475,62 @@ export const useRPGStore = create<RPGStore>()(
       });
     },
 
-    addExp: (amount) => {
+    // 골드 추가 (추가 골드 보너스 적용)
+    addGold: (amount) => {
       set((state) => {
-        if (!state.hero) return state;
-        const newExp = state.hero.exp + amount;
+        // 추가 골드 = 레벨 * perLevel (레벨당 +2)
+        const bonusGold = calculateAllUpgradeBonuses(state.upgradeLevels).goldRateBonus;
+        const actualAmount = amount + bonusGold;
         return {
-          hero: { ...state.hero, exp: newExp },
+          gold: state.gold + actualAmount,
+          stats: {
+            ...state.stats,
+            totalGoldEarned: state.stats.totalGoldEarned + actualAmount,
+          },
         };
       });
     },
 
-    levelUp: () => {
-      set((state) => {
-        if (!state.hero) return state;
+    // 영웅 스탯 업그레이드
+    upgradeHeroStat: (stat: UpgradeType) => {
+      const state = get();
+      const currentLevel = state.upgradeLevels[stat];
+      const characterLevel = state.hero?.characterLevel || 1;
 
-        const hero = state.hero;
-        const newLevel = hero.level + 1;
-        // 직업별 레벨업 보너스 사용 (기사는 HP +50)
-        const bonus = RPG_CONFIG.CLASS_LEVEL_UP_BONUS[hero.heroClass] || RPG_CONFIG.LEVEL_UP_BONUS;
+      // 업그레이드 가능 여부 확인
+      if (!canUpgrade(state.gold, currentLevel, characterLevel)) {
+        return false;
+      }
 
-        // 스탯 증가
-        const newMaxHp = hero.maxHp + bonus.hp;
-        const newAttack = hero.baseAttack + bonus.attack;
-        const newSpeed = hero.baseSpeed + bonus.speed;
+      const cost = getUpgradeCost(currentLevel);
 
-        // 레벨업 시 모든 스킬 쿨타임 초기화
-        const updatedSkills = hero.skills.map((skill) => ({
-          ...skill,
-          currentCooldown: 0,
-        }));
+      set((prevState) => {
+        const newUpgradeLevels = {
+          ...prevState.upgradeLevels,
+          [stat]: prevState.upgradeLevels[stat] + 1,
+        };
+
+        // HP 업그레이드 시 영웅 최대 HP도 증가
+        let heroUpdate = {};
+        if (stat === 'hp' && prevState.hero) {
+          const hpBonus = UPGRADE_CONFIG.hp.perLevel;
+          heroUpdate = {
+            hero: {
+              ...prevState.hero,
+              maxHp: prevState.hero.maxHp + hpBonus,
+              hp: Math.min(prevState.hero.hp + hpBonus, prevState.hero.maxHp + hpBonus),
+            },
+          };
+        }
 
         return {
-          hero: {
-            ...hero,
-            level: newLevel,
-            exp: hero.exp - hero.expToNextLevel,
-            expToNextLevel: calculateExpToNextLevel(newLevel),
-            maxHp: newMaxHp,
-            hp: newMaxHp, // 레벨업 시 풀 HP 회복
-            baseAttack: newAttack,
-            baseSpeed: newSpeed,
-            config: {
-              ...hero.config,
-              hp: newMaxHp,
-              attack: newAttack,
-              speed: newSpeed,
-            },
-            skills: updatedSkills,
-            skillPoints: hero.skillPoints + 1,
-          },
+          gold: prevState.gold - cost,
+          upgradeLevels: newUpgradeLevels,
+          ...heroUpdate,
         };
       });
+
+      return true;
     },
 
     useSkill: (skillType) => {
@@ -506,87 +584,62 @@ export const useRPGStore = create<RPGStore>()(
       }));
     },
 
-    upgradeSkill: (skillType) => {
-      set((state) => {
-        if (!state.hero || state.hero.skillPoints <= 0) return state;
-
-        const skill = state.hero.skills.find((s) => s.type === skillType);
-        if (!skill) return state;
-
-        const upgrade = RPG_CONFIG.SKILL_UPGRADE[skillType as keyof typeof RPG_CONFIG.SKILL_UPGRADE];
-        if (!upgrade) return state;
-
-        const updatedSkills = state.hero.skills.map((s) => {
-          if (s.type === skillType) {
-            return {
-              ...s,
-              level: s.level + 1,
-              cooldown: Math.max(1, s.cooldown - upgrade.cooldownReduction),
-            };
-          }
-          return s;
-        });
-
-        return {
-          hero: {
-            ...state.hero,
-            skills: updatedSkills,
-            skillPoints: state.hero.skillPoints - 1,
-          },
-        };
-      });
-    },
-
-    startWave: (waveNumber) => {
-      set((state) => ({
-        currentWave: waveNumber,
-        waveInProgress: true,
-        waveStarted: true,
-        waveStartTime: state.gameTime,
-        stats: {
-          ...state.stats,
-          highestWave: Math.max(state.stats.highestWave, waveNumber),
-        },
-      }));
-    },
-
-    endWave: () => {
-      set({
-        waveInProgress: false,
-        spawnQueue: [],
-      });
+    // 스폰 타이머 설정
+    setSpawnTimer: (time: number) => {
+      set({ spawnTimer: time });
     },
 
     addEnemy: (enemy) => {
       set((state) => ({
         enemies: [...state.enemies, enemy],
-        enemiesRemaining: state.enemiesRemaining + 1,
       }));
     },
 
     removeEnemy: (enemyId) => {
       set((state) => ({
         enemies: state.enemies.filter((e) => e.id !== enemyId),
-        enemiesRemaining: Math.max(0, state.enemiesRemaining - 1),
       }));
     },
 
     damageEnemy: (enemyId, amount) => {
       let killed = false;
+      let goldReward = 0;
+      let isBoss = false;
+      const gameTime = get().gameTime;
+      const AGGRO_DURATION = 5; // 어그로 지속 시간 (초)
+
       set((state) => {
         const enemies = state.enemies.map((enemy) => {
           if (enemy.id === enemyId) {
             const newHp = enemy.hp - amount;
             if (newHp <= 0) {
               killed = true;
+              goldReward = enemy.goldReward || 0;
+              isBoss = enemy.type === 'boss';
               return { ...enemy, hp: 0 };
             }
-            return { ...enemy, hp: newHp };
+            // 피해를 입으면 어그로 설정
+            return {
+              ...enemy,
+              hp: newHp,
+              aggroOnHero: true,
+              aggroExpireTime: gameTime + AGGRO_DURATION,
+            };
           }
           return enemy;
         });
         return { enemies };
       });
+
+      // 처치 시 골드 획득 및 통계 업데이트
+      if (killed && goldReward > 0) {
+        get().addGold(goldReward);
+        get().incrementKills();
+        if (isBoss) {
+          get().incrementBossesKilled();
+        }
+      }
+
       return killed;
     },
 
@@ -594,18 +647,81 @@ export const useRPGStore = create<RPGStore>()(
       set({ enemies });
     },
 
-    addToSpawnQueue: (type, delay) => {
-      set((state) => ({
-        spawnQueue: [...state.spawnQueue, { type, delay }],
-      }));
-    },
-
-    clearSpawnQueue: () => {
-      set({ spawnQueue: [] });
-    },
-
     setLastSpawnTime: (time) => {
       set({ lastSpawnTime: time });
+    },
+
+    // 넥서스 피해
+    damageNexus: (amount: number) => {
+      set((state) => {
+        if (!state.nexus) return state;
+        const newHp = Math.max(0, state.nexus.hp - amount);
+
+        // 넥서스 파괴 시 게임 오버
+        if (newHp <= 0) {
+          return {
+            nexus: { ...state.nexus, hp: 0 },
+            gamePhase: 'defeat',
+            gameOver: true,
+            victory: false,
+          };
+        }
+
+        return {
+          nexus: { ...state.nexus, hp: newHp },
+        };
+      });
+    },
+
+    // 적 기지 피해
+    damageBase: (baseId: 'left' | 'right', amount: number) => {
+      let destroyed = false;
+
+      set((state) => {
+        const updatedBases = state.enemyBases.map((base) => {
+          if (base.id === baseId && !base.destroyed) {
+            const newHp = Math.max(0, base.hp - amount);
+            if (newHp <= 0) {
+              destroyed = true;
+              return { ...base, hp: 0, destroyed: true };
+            }
+            return { ...base, hp: newHp };
+          }
+          return base;
+        });
+
+        // 기지 파괴 시 통계 업데이트
+        const statsUpdate = destroyed ? {
+          stats: {
+            ...state.stats,
+            basesDestroyed: state.stats.basesDestroyed + 1,
+          },
+        } : {};
+
+        // 두 기지 모두 파괴되었는지 확인
+        const allBasesDestroyed = updatedBases.every((b) => b.destroyed);
+        const phaseUpdate = allBasesDestroyed ? { gamePhase: 'boss_phase' as RPGGamePhase } : {};
+
+        return {
+          enemyBases: updatedBases,
+          ...statsUpdate,
+          ...phaseUpdate,
+        };
+      });
+
+      return destroyed;
+    },
+
+    // 보스 스폰
+    spawnBosses: () => {
+      // 실제 보스 스폰 로직은 bossSystem.ts에서 처리
+      // 여기서는 게임 단계만 변경
+      set({ gamePhase: 'boss_phase' });
+    },
+
+    // 게임 단계 설정
+    setGamePhase: (phase: RPGGamePhase) => {
+      set({ gamePhase: phase });
     },
 
     setCamera: (x, y) => {
@@ -649,16 +765,22 @@ export const useRPGStore = create<RPGStore>()(
         gameOver: true,
         victory,
         running: false,
+        gamePhase: victory ? 'victory' : 'defeat',
         result: {
           victory,
-          waveReached: state.stats.highestWave,
           totalKills: state.stats.totalKills,
-          totalExp: state.stats.totalExpGained,
+          totalGoldEarned: state.stats.totalGoldEarned,
+          basesDestroyed: state.stats.basesDestroyed,
+          bossesKilled: state.stats.bossesKilled,
           timePlayed: state.stats.timePlayed,
-          heroLevel: state.hero?.level || 1,
           heroClass: state.hero?.heroClass || 'warrior',
+          finalUpgradeLevels: state.upgradeLevels,
         },
       });
+    },
+
+    setFiveMinuteRewardClaimed: () => {
+      set({ fiveMinuteRewardClaimed: true });
     },
 
     updateGameTime: (deltaTime) => {
@@ -677,60 +799,22 @@ export const useRPGStore = create<RPGStore>()(
       }));
     },
 
-    addExpGained: (amount) => {
+    addGoldEarned: (amount) => {
       set((state) => ({
-        stats: { ...state.stats, totalExpGained: state.stats.totalExpGained + amount },
+        stats: { ...state.stats, totalGoldEarned: state.stats.totalGoldEarned + amount },
       }));
     },
 
-    // 패시브 성장
-    upgradePassive: (clearedWave: number) => {
-      set((state) => {
-        if (!state.hero) return state;
+    incrementBasesDestroyed: () => {
+      set((state) => ({
+        stats: { ...state.stats, basesDestroyed: state.stats.basesDestroyed + 1 },
+      }));
+    },
 
-        const hero = state.hero;
-        const newPassiveState = upgradePassiveState(hero.passiveGrowth, hero.heroClass, clearedWave);
-
-        // 레벨이 변하지 않으면 업데이트 안함
-        if (newPassiveState.level === hero.passiveGrowth.level) {
-          return state;
-        }
-
-        // 오버플로우 보너스 적용 (최대치 초과 시 스탯 증가)
-        const config = PASSIVE_GROWTH_CONFIGS[hero.heroClass];
-        let updatedHero = { ...hero, passiveGrowth: newPassiveState };
-
-        if (newPassiveState.overflowBonus > 0 && newPassiveState.overflowBonus !== hero.passiveGrowth.overflowBonus) {
-          const bonusDiff = newPassiveState.overflowBonus - hero.passiveGrowth.overflowBonus;
-
-          if (config.overflowType === 'attack') {
-            // 공격력 증가
-            const attackBonus = Math.floor(hero.baseAttack * bonusDiff);
-            updatedHero = {
-              ...updatedHero,
-              baseAttack: hero.baseAttack + attackBonus,
-              config: {
-                ...hero.config,
-                attack: (hero.config.attack || hero.baseAttack) + attackBonus,
-              },
-            };
-          } else if (config.overflowType === 'maxHp') {
-            // 체력 증가
-            const hpBonus = Math.floor(hero.maxHp * bonusDiff);
-            updatedHero = {
-              ...updatedHero,
-              maxHp: hero.maxHp + hpBonus,
-              hp: hero.hp + hpBonus, // 현재 체력도 증가
-              config: {
-                ...hero.config,
-                hp: hero.maxHp + hpBonus,
-              },
-            };
-          }
-        }
-
-        return { hero: updatedHero };
-      });
+    incrementBossesKilled: () => {
+      set((state) => ({
+        stats: { ...state.stats, bossesKilled: state.stats.bossesKilled + 1 },
+      }));
     },
 
     // 공격 사거리 표시
@@ -839,8 +923,6 @@ export const useRPGStore = create<RPGStore>()(
 // 선택자 훅
 export const useHero = () => useRPGStore((state) => state.hero);
 export const useRPGCamera = () => useRPGStore((state) => state.camera);
-export const useCurrentWave = () => useRPGStore((state) => state.currentWave);
-export const useWaveInProgress = () => useRPGStore((state) => state.waveInProgress);
 export const useRPGEnemies = () => useRPGStore((state) => state.enemies);
 export const useRPGGameOver = () => useRPGStore((state) => state.gameOver);
 export const useRPGResult = () => useRPGStore((state) => state.result);
@@ -851,3 +933,12 @@ export const useVisibility = () => useRPGStore((state) => state.visibility);
 export const usePendingSkills = () => useRPGStore((state) => state.pendingSkills);
 export const useShowAttackRange = () => useRPGStore((state) => state.showAttackRange);
 export const useHoveredSkillRange = () => useRPGStore((state) => state.hoveredSkillRange);
+
+// 넥서스 디펜스 훅
+export const useGold = () => useRPGStore((state) => state.gold);
+export const useUpgradeLevels = () => useRPGStore((state) => state.upgradeLevels);
+export const useNexus = () => useRPGStore((state) => state.nexus);
+export const useEnemyBases = () => useRPGStore((state) => state.enemyBases);
+export const useRPGGamePhase = () => useRPGStore((state) => state.gamePhase);
+export const useGameTime = () => useRPGStore((state) => state.gameTime);
+export const useFiveMinuteRewardClaimed = () => useRPGStore((state) => state.fiveMinuteRewardClaimed);

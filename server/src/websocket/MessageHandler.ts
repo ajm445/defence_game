@@ -88,11 +88,11 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     // 협동 모드 메시지
     case 'CREATE_COOP_ROOM':
-      handleCreateCoopRoom(playerId, message.playerName, message.heroClass);
+      handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades);
       break;
 
     case 'JOIN_COOP_ROOM':
-      handleJoinCoopRoom(playerId, message.roomCode, message.playerName, message.heroClass);
+      handleJoinCoopRoom(playerId, message.roomCode, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades);
       break;
 
     case 'LEAVE_COOP_ROOM':
@@ -108,7 +108,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       break;
 
     case 'CHANGE_COOP_CLASS':
-      handleChangeCoopClass(playerId, message.heroClass);
+      handleChangeCoopClass(playerId, message.heroClass, message.characterLevel, message.statUpgrades);
       break;
 
     case 'START_COOP_GAME':
@@ -125,6 +125,10 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     case 'COOP_USE_SKILL':
       handleCoopUseSkill(playerId, message.skillType, message.targetX, message.targetY);
+      break;
+
+    case 'COOP_UPGRADE_HERO_STAT':
+      handleCoopUpgradeHeroStat(playerId, (message as any).upgradeType);
       break;
 
     default:
@@ -219,22 +223,22 @@ function handleCollectResource(playerId: string, nodeId: string): void {
 // 협동 모드 핸들러
 // ============================================
 
-function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any): void {
+function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
   const player = players.get(playerId);
   if (!player) return;
 
   const name = playerName || `Player_${playerId.slice(0, 4)}`;
-  console.log(`[Coop] ${name}(${playerId}) 방 생성 요청`);
-  createCoopRoom(playerId, name, heroClass);
+  console.log(`[Coop] ${name}(${playerId}) 방 생성 요청 (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
+  createCoopRoom(playerId, name, heroClass, characterLevel ?? 1, statUpgrades);
 }
 
-function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: string, heroClass: any): void {
+function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
   const player = players.get(playerId);
   if (!player) return;
 
   const name = playerName || `Player_${playerId.slice(0, 4)}`;
-  console.log(`[Coop] ${name}(${playerId}) 방 참가 요청: ${roomCode}`);
-  joinCoopRoom(roomCode, playerId, name, heroClass);
+  console.log(`[Coop] ${name}(${playerId}) 방 참가 요청: ${roomCode} (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
+  joinCoopRoom(roomCode, playerId, name, heroClass, characterLevel ?? 1, statUpgrades);
 }
 
 function handleLeaveCoopRoom(playerId: string): void {
@@ -247,9 +251,9 @@ function handleCoopReady(playerId: string, isReady: boolean): void {
   setCoopReady(playerId, isReady);
 }
 
-function handleChangeCoopClass(playerId: string, heroClass: any): void {
-  console.log(`[Coop] ${playerId} 직업 변경: ${heroClass}`);
-  changeCoopClass(playerId, heroClass);
+function handleChangeCoopClass(playerId: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
+  console.log(`[Coop] ${playerId} 직업 변경: ${heroClass} (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
+  changeCoopClass(playerId, heroClass, characterLevel ?? 1, statUpgrades);
 }
 
 function handleStartCoopGame(playerId: string): void {
@@ -279,6 +283,19 @@ function handleCoopUseSkill(playerId: string, skillType: any, targetX: number, t
   const room = coopGameRooms.get(player.roomId);
   if (room) {
     room.handleUseSkill(playerId, skillType, targetX, targetY);
+  }
+}
+
+function handleCoopUpgradeHeroStat(playerId: string, upgradeType: 'attack' | 'speed' | 'hp' | 'goldRate'): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    const success = room.handleUpgrade(playerId, upgradeType);
+    if (success) {
+      console.log(`[Coop] ${playerId} 업그레이드 성공: ${upgradeType}`);
+    }
   }
 }
 

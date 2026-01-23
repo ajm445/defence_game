@@ -81,17 +81,16 @@ export const RPGPlayTypeSelectScreen: React.FC = () => {
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">
                 🎮
               </div>
-              <div style={{ height: '10px' }} />
+              <div style={{ height: '20px' }} />
               <h2 className="font-game text-xl text-white mb-2">싱글 플레이</h2>
+              <div style={{ height: '5px' }} />
               <div className="w-16 h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent mb-3" />
+              <div style={{ height: '5px' }} />
               <p className="text-gray-400 text-sm text-center">
                 혼자서 웨이브를<br />
                 클리어하세요
               </p>
-              <div className="mt-4 flex flex-col gap-1 text-xs text-gray-500">
-                <span>• 솔로 플레이</span>
-                <span>• 무한 웨이브</span>
-              </div>
+              <div style={{ height: '5px' }} />
             </div>
           </button>
 
@@ -107,13 +106,16 @@ export const RPGPlayTypeSelectScreen: React.FC = () => {
               <div className="text-6xl mb-4 group-hover:scale-110 transition-transform duration-300">
                 👥
               </div>
-              <div style={{ height: '10px' }} />
+              <div style={{ height: '20px' }} />
               <h2 className="font-game text-xl text-white mb-2">협동 플레이</h2>
+              <div style={{ height: '5px' }} />
               <div className="w-16 h-0.5 bg-gradient-to-r from-transparent via-orange-400 to-transparent mb-3" />
+              <div style={{ height: '5px' }} />
               <p className="text-gray-400 text-sm text-center">
                 친구들과 함께<br />
                 웨이브를 클리어하세요
               </p>
+              <div style={{ height: '5px' }} />
               <div className="mt-4 flex flex-col gap-1 text-xs text-gray-500">
                 <span>• 2~4인 협동</span>
                 <span>• 초대 코드</span>

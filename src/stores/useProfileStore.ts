@@ -4,8 +4,15 @@ import {
   ClassProgress,
   GameRecord,
   LevelUpResult,
+  StatUpgradeType,
   getRequiredPlayerExp,
   getRequiredClassExp,
+  calculatePlayerExp,
+  calculateClassExp,
+  createDefaultStatUpgrades,
+  SP_PER_CLASS_LEVEL,
+  STAT_UPGRADE_CONFIG,
+  getUpgradeableStats,
 } from '../types/auth';
 import { HeroClass } from '../types/rpg';
 import {
@@ -13,6 +20,8 @@ import {
   getGameHistory,
   processGameResult,
   getPlayerStats,
+  upgradeCharacterStat,
+  resetCharacterStats,
 } from '../services/profileService';
 import { useAuthStore } from './useAuthStore';
 
@@ -51,11 +60,22 @@ interface ProfileActions {
   loadGameHistory: () => Promise<void>;
   loadStats: () => Promise<void>;
 
-  // 게임 결과 처리
+  // 게임 결과 처리 (넥서스 디펜스 - 싱글)
   handleGameEnd: (gameData: {
     mode: 'single' | 'coop';
     classUsed: HeroClass;
-    waveReached: number;
+    basesDestroyed: number;
+    bossesKilled: number;
+    kills: number;
+    playTime: number;  // 초 단위
+    victory: boolean;
+  }) => Promise<LevelUpResult | null>;
+
+  // 협동 모드 게임 결과 처리 (넥서스 디펜스)
+  handleCoopGameEnd: (gameData: {
+    classUsed: HeroClass;
+    basesDestroyed: number;
+    bossesKilled: number;
     kills: number;
     playTime: number;
     victory: boolean;
@@ -70,6 +90,18 @@ interface ProfileActions {
 
   // 마지막 결과 초기화
   clearLastGameResult: () => void;
+
+  // SP 스탯 업그레이드
+  upgradeCharacterStatAction: (
+    className: HeroClass,
+    statType: StatUpgradeType
+  ) => Promise<boolean>;
+
+  // 업그레이드 가능 여부 확인
+  canUpgradeStat: (className: HeroClass, statType: StatUpgradeType) => boolean;
+
+  // SP 초기화 (스탯 리셋)
+  resetCharacterStatsAction: (className: HeroClass) => Promise<boolean>;
 
   // 전체 초기화 (로그아웃 시)
   reset: () => void;
@@ -132,7 +164,8 @@ export const useProfileStore = create<ProfileStore>()(
       const authState = useAuthStore.getState();
       const profile = authState.profile;
 
-      if (!profile) return null;
+      // 게스트인 경우 경험치 저장하지 않음
+      if (!profile || profile.isGuest) return null;
 
       const { classProgress } = get();
 
@@ -141,6 +174,61 @@ export const useProfileStore = create<ProfileStore>()(
         profile,
         classProgress,
         gameData
+      );
+
+      // 로컬 상태 업데이트
+      set({
+        lastGameResult: {
+          playerExpGained: result.playerExpGained,
+          classExpGained: result.classExpGained,
+          levelUpResult: result.levelUpResult,
+        },
+      });
+
+      // 인증 스토어의 프로필 업데이트
+      authState.updateLocalProfile(result.newProfile);
+
+      // 클래스 진행 상황 업데이트
+      const existingIndex = classProgress.findIndex(
+        (p) => p.className === gameData.classUsed
+      );
+
+      if (existingIndex >= 0) {
+        const updated = [...classProgress];
+        updated[existingIndex] = result.newClassProgress;
+        set({ classProgress: updated });
+      } else {
+        set({ classProgress: [...classProgress, result.newClassProgress] });
+      }
+
+      return result.levelUpResult;
+    },
+
+    // 협동 모드 게임 종료 처리 (넥서스 디펜스)
+    // 싱글플레이와 동일하게 processGameResult를 사용하여 서버에 저장
+    handleCoopGameEnd: async (gameData) => {
+      const authState = useAuthStore.getState();
+      const profile = authState.profile;
+
+      // 게스트인 경우 경험치 저장하지 않음
+      if (!profile || profile.isGuest) return null;
+
+      const { classProgress } = get();
+
+      // 협동 모드: processGameResult 호출 (서버에 저장됨)
+      const result = await processGameResult(
+        profile.id,
+        profile,
+        classProgress,
+        {
+          mode: 'coop',  // 협동 모드 1.2배 보너스 적용
+          classUsed: gameData.classUsed,
+          basesDestroyed: gameData.basesDestroyed,
+          bossesKilled: gameData.bossesKilled,
+          kills: gameData.kills,
+          playTime: gameData.playTime,
+          victory: gameData.victory,
+        }
       );
 
       // 로컬 상태 업데이트
@@ -216,6 +304,102 @@ export const useProfileStore = create<ProfileStore>()(
     // 마지막 게임 결과 초기화
     clearLastGameResult: () => {
       set({ lastGameResult: null });
+    },
+
+    // SP 스탯 업그레이드
+    upgradeCharacterStatAction: async (className, statType) => {
+      const authState = useAuthStore.getState();
+      const profile = authState.profile;
+
+      if (!profile || profile.isGuest) return false;
+
+      const { classProgress } = get();
+      const progress = classProgress.find((p) => p.className === className);
+
+      if (!progress || progress.sp <= 0) return false;
+
+      // 업그레이드 가능 여부 확인
+      if (!get().canUpgradeStat(className, statType)) return false;
+
+      // API 호출
+      const updatedProgress = await upgradeCharacterStat(
+        profile.id,
+        className,
+        statType,
+        progress
+      );
+
+      if (!updatedProgress) return false;
+
+      // 로컬 상태 업데이트
+      const updatedList = classProgress.map((p) =>
+        p.className === className ? updatedProgress : p
+      );
+      set({ classProgress: updatedList });
+
+      return true;
+    },
+
+    // 업그레이드 가능 여부 확인
+    canUpgradeStat: (className, statType) => {
+      const { classProgress } = get();
+      const progress = classProgress.find((p) => p.className === className);
+
+      if (!progress || progress.sp <= 0) return false;
+
+      // statUpgrades가 없으면 업그레이드 불가
+      if (!progress.statUpgrades) return false;
+
+      // 해당 캐릭터가 이 스탯을 업그레이드할 수 있는지 확인
+      const upgradeableStats = getUpgradeableStats(className);
+      if (!upgradeableStats.includes(statType)) return false;
+
+      // 최대 레벨 확인
+      const currentLevel = progress.statUpgrades[statType] ?? 0;
+      const maxLevel = STAT_UPGRADE_CONFIG[statType].maxLevel;
+      if (currentLevel >= maxLevel) return false;
+
+      return true;
+    },
+
+    // SP 초기화 (스탯 리셋)
+    resetCharacterStatsAction: async (className) => {
+      const authState = useAuthStore.getState();
+      const profile = authState.profile;
+
+      if (!profile || profile.isGuest) return false;
+
+      const { classProgress } = get();
+      const progress = classProgress.find((p) => p.className === className);
+
+      if (!progress) return false;
+
+      // 사용한 SP가 없으면 리셋할 필요 없음
+      const spentSP =
+        progress.statUpgrades.attack +
+        progress.statUpgrades.speed +
+        progress.statUpgrades.hp +
+        progress.statUpgrades.range +
+        progress.statUpgrades.hpRegen;
+
+      if (spentSP === 0) return false;
+
+      // API 호출
+      const updatedProgress = await resetCharacterStats(
+        profile.id,
+        className,
+        progress
+      );
+
+      if (!updatedProgress) return false;
+
+      // 로컬 상태 업데이트
+      const updatedList = classProgress.map((p) =>
+        p.className === className ? updatedProgress : p
+      );
+      set({ classProgress: updatedList });
+
+      return true;
     },
 
     // 전체 초기화 (로그아웃 시)

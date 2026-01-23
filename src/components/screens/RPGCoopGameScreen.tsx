@@ -1,19 +1,29 @@
-import React, { useCallback, useEffect } from 'react';
+import React, { useCallback, useEffect, useRef } from 'react';
 import { useRPGCoopGameLoop } from '../../hooks/useRPGCoopGameLoop';
 import { RPGCoopCanvas } from '../canvas/RPGCoopCanvas';
 import { RPGCoopHeroPanel } from '../ui/RPGCoopHeroPanel';
 import { RPGCoopReviveTimer } from '../ui/RPGCoopReviveTimer';
 import { RPGSkillBar } from '../ui/RPGSkillBar';
-import { RPGWaveInfo } from '../ui/RPGWaveInfo';
 import { RPGGameTimer } from '../ui/RPGGameTimer';
 import { Notification } from '../ui/Notification';
-import { useRPGCoopStore, useMyCoopHero, useCoopWaveInfo } from '../../stores/useRPGCoopStore';
+import {
+  useRPGCoopStore,
+  useMyCoopHero,
+  useCoopNexus,
+  useCoopEnemyBases,
+  useCoopGamePhase,
+  useMyCoopGold,
+  useMyCoopUpgradeLevels,
+  useCoopEnemies,
+} from '../../stores/useRPGCoopStore';
 import { useUIStore } from '../../stores/useUIStore';
-import { useAuthIsGuest } from '../../stores/useAuthStore';
+import { useAuthStore, useAuthIsGuest } from '../../stores/useAuthStore';
+import { useProfileStore } from '../../stores/useProfileStore';
 import { soundManager } from '../../services/SoundManager';
 import { CLASS_CONFIGS, CLASS_SKILLS } from '../../constants/rpgConfig';
 import { calculatePlayerExp, calculateClassExp } from '../../types/auth';
-import type { SkillType } from '../../types/rpg';
+import type { HeroClass, SkillType, RPGGamePhase } from '../../types/rpg';
+import { getUpgradeCost, type UpgradeType } from '../../game/rpg/goldSystem';
 
 export const RPGCoopGameScreen: React.FC = () => {
   // 게임 루프 시작
@@ -25,9 +35,44 @@ export const RPGCoopGameScreen: React.FC = () => {
   const useSkill = useRPGCoopStore((state) => state.useSkill);
   const setScreen = useUIStore((state) => state.setScreen);
   const isGuest = useAuthIsGuest();
+  // handleCoopGameEnd는 useEffect에서 직접 getState()로 호출하여 의존성 문제 방지
 
   const myHero = useMyCoopHero();
-  const waveInfo = useCoopWaveInfo();
+
+  // 경험치 저장 중복 방지를 위한 ref
+  const expSavedRef = useRef(false);
+
+  // 게임 종료 시 경험치 저장
+  useEffect(() => {
+    // myHero 객체 참조 변경으로 인한 중복 실행 방지
+    // 조건 체크를 위한 값만 사용
+    const currentIsGuest = useAuthStore.getState().profile?.isGuest ?? true;
+
+    if (gameResult && myHero && !currentIsGuest && !expSavedRef.current) {
+      expSavedRef.current = true;
+
+      // 내 캐릭터의 킬 수 찾기
+      const myResult = gameResult.playerResults.find(
+        (p) => p.heroClass === myHero.heroClass
+      );
+      const myKills = myResult?.kills || 0;
+
+      // 경험치 저장 (협동 모드 - 넥서스 디펜스 공식 사용)
+      useProfileStore.getState().handleCoopGameEnd({
+        classUsed: myHero.heroClass as HeroClass,
+        basesDestroyed: gameResult.basesDestroyed,
+        bossesKilled: gameResult.bossesKilled,
+        kills: myKills,
+        playTime: gameResult.totalGameTime,
+        victory: gameResult.victory,
+      });
+    }
+
+    // 게임이 리셋되면 ref도 초기화
+    if (!gameResult) {
+      expSavedRef.current = false;
+    }
+  }, [gameResult, myHero]);  // isGuest를 의존성에서 제거 - getState()로 직접 가져옴
 
   // 스킬 사용 핸들러
   const handleUseSkill = useCallback(
@@ -116,9 +161,9 @@ export const RPGCoopGameScreen: React.FC = () => {
           <RPGCoopHeroPanel />
         </div>
 
-        {/* 오른쪽: 웨이브 정보 */}
+        {/* 오른쪽: 넥서스 디펜스 상태 정보 */}
         <div className="pointer-events-auto">
-          <CoopWaveInfo />
+          <CoopNexusDefenseInfo />
         </div>
       </div>
 
@@ -136,6 +181,13 @@ export const RPGCoopGameScreen: React.FC = () => {
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto">
         <CoopSkillBar onUseSkill={handleUseSkill} />
       </div>
+
+      {/* 우측 하단 업그레이드 패널 - 게임 진행 중에만 표시 */}
+      {!gameResult && (
+        <div className="absolute bottom-8 right-4 pointer-events-auto">
+          <CoopUpgradePanel />
+        </div>
+      )}
 
       {/* 조작법 안내 */}
       <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">
@@ -160,26 +212,250 @@ export const RPGCoopGameScreen: React.FC = () => {
   );
 };
 
-// 협동 모드 웨이브 정보
-const CoopWaveInfo: React.FC = () => {
-  const waveInfo = useCoopWaveInfo();
-  const gameTime = useRPGCoopStore((state) => state.gameState?.gameTime || 0);
+// 협동 모드 넥서스 디펜스 정보 (싱글플레이 RPGWaveInfo 스타일)
+const CoopNexusDefenseInfo: React.FC = () => {
+  const nexus = useCoopNexus();
+  const enemyBases = useCoopEnemyBases();
+  const gamePhase = useCoopGamePhase();
+  const enemies = useCoopEnemies();
 
-  const minutes = Math.floor(gameTime / 60);
-  const seconds = Math.floor(gameTime % 60);
+  const aliveEnemies = enemies.filter((e) => e.hp > 0).length;
+  const bossEnemies = enemies.filter((e) => e.hp > 0 && e.type === 'boss').length;
+  const destroyedBases = enemyBases.filter((b) => b.destroyed).length;
+  const isBossPhase = gamePhase === 'boss_phase';
+
+  // 넥서스 HP 비율
+  const nexusHpPercent = nexus ? nexus.hp / nexus.maxHp : 1;
 
   return (
-    <div className="bg-dark-800/90 backdrop-blur-sm rounded-lg p-3 border border-dark-600/50 min-w-[150px]">
-      <div className="text-center">
-        <div className="text-green-400 font-bold text-xl mb-1">
-          웨이브 {waveInfo.currentWave}
+    <div className={`
+      bg-dark-800/90 backdrop-blur-sm rounded-xl p-4 border min-w-[200px]
+      ${isBossPhase ? 'border-red-500/50' : 'border-dark-600/50'}
+    `}>
+      {/* 게임 상태 */}
+      <div className="flex items-center justify-between mb-2">
+        <div className={`
+          text-xl font-bold
+          ${isBossPhase ? 'text-red-400' : 'text-white'}
+        `}>
+          {isBossPhase ? (
+            <>
+              <span className="mr-2">BOSS</span>
+              보스 페이즈
+            </>
+          ) : (
+            <>전투 중</>
+          )}
         </div>
-        <div className="text-gray-400 text-sm">
-          남은 적: {waveInfo.enemiesRemaining}
+        {isBossPhase && (
+          <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded uppercase">
+            보스
+          </span>
+        )}
+      </div>
+
+      {/* 넥서스 상태 */}
+      <div className="mb-3">
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-cyan-400">N</span>
+          <span className="text-sm text-gray-400">넥서스</span>
         </div>
-        <div className="text-gray-500 text-xs mt-1">
-          {minutes}:{String(seconds).padStart(2, '0')}
+        <div className="h-3 bg-dark-700 rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all duration-300 ${
+              nexusHpPercent > 0.5 ? 'bg-cyan-500' :
+              nexusHpPercent > 0.25 ? 'bg-yellow-500' : 'bg-red-500'
+            }`}
+            style={{ width: `${nexusHpPercent * 100}%` }}
+          />
         </div>
+        <div className="text-xs text-gray-500 mt-1">
+          {nexus ? `${Math.floor(nexus.hp)} / ${nexus.maxHp}` : 'N/A'}
+        </div>
+      </div>
+
+      {/* 적 기지 상태 */}
+      <div className="space-y-2 mb-3">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-400">적 기지</span>
+          <span className="text-red-400 font-bold">{destroyedBases}/2 파괴</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {enemyBases.map((base) => (
+            <div
+              key={base.id}
+              className={`text-xs px-2 py-1 rounded ${
+                base.destroyed
+                  ? 'bg-gray-600/50 text-gray-400 line-through'
+                  : 'bg-red-500/20 text-red-400'
+              }`}
+            >
+              {base.id === 'left' ? '좌측' : '우측'} 기지
+              {!base.destroyed && (
+                <span className="ml-1 text-gray-500">
+                  ({Math.floor((base.hp / base.maxHp) * 100)}%)
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 적 정보 */}
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-400">적 유닛</span>
+          <span className="text-red-400 font-bold">{aliveEnemies}</span>
+        </div>
+        {isBossPhase && bossEnemies > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">보스</span>
+            <span className="text-purple-400 font-bold">{bossEnemies}/2</span>
+          </div>
+        )}
+      </div>
+
+      {/* 목표 안내 */}
+      <div className="mt-3 pt-3 border-t border-dark-600/50">
+        <div className="text-xs text-gray-400">
+          {isBossPhase
+            ? '보스를 모두 처치하세요!'
+            : destroyedBases < 2
+              ? '적 기지를 파괴하세요!'
+              : '보스 등장 준비 중...'}
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 협동 모드 업그레이드 패널
+const UPGRADE_INFO: Record<UpgradeType, { key: string; icon: string; color: string; name: string }> = {
+  attack: { key: '1', icon: 'ATK', color: 'text-red-400', name: '공격력' },
+  speed: { key: '2', icon: 'SPD', color: 'text-blue-400', name: '이동속도' },
+  hp: { key: '3', icon: 'HP', color: 'text-green-400', name: '체력' },
+  goldRate: { key: '4', icon: 'GOLD', color: 'text-yellow-400', name: '골드 획득' },
+};
+
+interface CoopUpgradeButtonProps {
+  type: UpgradeType;
+  currentLevel: number;
+  maxLevel: number;
+  gold: number;
+  onUpgrade: () => void;
+}
+
+const CoopUpgradeButton: React.FC<CoopUpgradeButtonProps> = ({
+  type,
+  currentLevel,
+  maxLevel,
+  gold,
+  onUpgrade,
+}) => {
+  const info = UPGRADE_INFO[type];
+  const cost = getUpgradeCost(currentLevel);
+  const canAfford = gold >= cost;
+  const isMaxed = currentLevel >= maxLevel;
+  const isDisabled = isMaxed || !canAfford;
+
+  return (
+    <button
+      onClick={onUpgrade}
+      disabled={isDisabled}
+      className={`
+        flex items-center gap-1 px-2 py-1 rounded border transition-all duration-150 text-xs
+        ${isDisabled
+          ? 'bg-dark-700/50 border-dark-600 opacity-50 cursor-not-allowed'
+          : 'bg-dark-700/80 border-dark-500 hover:border-neon-cyan hover:bg-dark-600/80 cursor-pointer'
+        }
+      `}
+    >
+      {/* 아이콘 + 키 */}
+      <span className={`text-sm ${info.color}`}>{info.icon}</span>
+      <span className="text-gray-500">[{info.key}]</span>
+
+      {/* 레벨 */}
+      <span className={currentLevel > 0 ? 'text-neon-cyan font-bold' : 'text-gray-400'}>
+        {currentLevel}
+      </span>
+      <span className="text-gray-600">/</span>
+      <span className="text-gray-400">{maxLevel}</span>
+
+      {/* 비용 */}
+      {!isMaxed ? (
+        <span className={`ml-1 ${canAfford ? 'text-yellow-400' : 'text-red-400/70'}`}>
+          G{cost}
+        </span>
+      ) : (
+        <span className="ml-1 text-yellow-400 font-bold">MAX</span>
+      )}
+    </button>
+  );
+};
+
+const CoopUpgradePanel: React.FC = () => {
+  const gold = useMyCoopGold();
+  const upgradeLevels = useMyCoopUpgradeLevels();
+  const myHero = useMyCoopHero();
+  const upgradeHeroStat = useRPGCoopStore((state) => state.upgradeHeroStat);
+
+  const characterLevel = myHero?.passiveGrowth?.level || 1;
+
+  const handleUpgrade = useCallback((type: UpgradeType) => {
+    upgradeHeroStat(type);
+  }, [upgradeHeroStat]);
+
+  // 키보드 단축키 처리
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      // 입력 필드에 포커스된 경우 무시
+      if (e.target instanceof HTMLInputElement || e.target instanceof HTMLTextAreaElement) {
+        return;
+      }
+
+      switch (e.key) {
+        case '1':
+          handleUpgrade('attack');
+          break;
+        case '2':
+          handleUpgrade('speed');
+          break;
+        case '3':
+          handleUpgrade('hp');
+          break;
+        case '4':
+          handleUpgrade('goldRate');
+          break;
+      }
+    };
+
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [handleUpgrade]);
+
+  return (
+    <div className="bg-dark-800/90 backdrop-blur-sm rounded-lg p-2 border border-dark-600/50">
+      {/* 골드 표시 */}
+      <div className="flex items-center justify-center gap-2 mb-2 pb-2 border-b border-dark-600/50">
+        <span className="text-lg">G</span>
+        <span className="text-lg font-bold text-yellow-400">{gold}</span>
+      </div>
+
+      {/* 업그레이드 타이틀 */}
+      <div className="text-xs text-gray-500 mb-1 text-center">업그레이드 [1-4]</div>
+
+      {/* 업그레이드 버튼들 - 2x2 그리드 */}
+      <div className="grid grid-cols-2 gap-1">
+        {(['attack', 'speed', 'hp', 'goldRate'] as UpgradeType[]).map((type) => (
+          <CoopUpgradeButton
+            key={type}
+            type={type}
+            currentLevel={upgradeLevels[type]}
+            maxLevel={characterLevel}
+            gold={gold}
+            onUpgrade={() => handleUpgrade(type)}
+          />
+        ))}
       </div>
     </div>
   );
@@ -380,6 +656,9 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ result, isGuest, myHeroCl
     : result.playerResults[0];
   const myKills = myResult?.kills || 0;
 
+  // 총 킬 수 계산
+  const totalKills = result.playerResults.reduce((sum, p) => sum + p.kills, 0);
+
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-50">
       <div className="bg-dark-800/95 backdrop-blur-sm rounded-2xl p-8 border border-dark-600/50 min-w-[500px] max-h-[80vh] overflow-y-auto">
@@ -389,14 +668,39 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ result, isGuest, myHeroCl
             {result.victory ? '승리!' : '게임 오버'}
           </div>
           <div className="text-gray-400">
-            웨이브 {result.waveReached}까지 도달
+            {result.victory
+              ? '모든 보스를 처치했습니다!'
+              : result.basesDestroyed > 0
+                ? `${result.basesDestroyed}개 기지 파괴`
+                : '넥서스가 파괴되었습니다'
+            }
           </div>
           <div className="text-gray-500 text-sm">
             플레이 시간: {Math.floor(result.totalGameTime / 60)}:{String(Math.floor(result.totalGameTime % 60)).padStart(2, '0')}
           </div>
         </div>
 
-        {/* 계정 경험치 (비게스트만 표시 - 즉시 계산하여 표시) */}
+        {/* 통계 */}
+        <div className="space-y-3 mb-6">
+          <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
+            <span className="text-gray-400">기지 파괴</span>
+            <span className="text-red-400 font-bold">{result.basesDestroyed}/2</span>
+          </div>
+          <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
+            <span className="text-gray-400">보스 처치</span>
+            <span className="text-purple-400 font-bold">{result.bossesKilled}/2</span>
+          </div>
+          <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
+            <span className="text-gray-400">총 처치 (팀)</span>
+            <span className="text-red-400 font-bold">{totalKills}</span>
+          </div>
+          <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
+            <span className="text-gray-400">획득 골드 (팀)</span>
+            <span className="text-yellow-400 font-bold">{result.totalGoldEarned}</span>
+          </div>
+        </div>
+
+        {/* 계정 경험치 (비게스트만 표시 - 싱글플레이와 동일한 공식 사용) */}
         {!isGuest && myHeroClass && (
           <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
             <h4 className="text-purple-400 font-bold text-sm mb-2">계정 경험치 획득</h4>
@@ -404,13 +708,20 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ result, isGuest, myHeroCl
               <div className="flex justify-between">
                 <span className="text-gray-400">플레이어 EXP</span>
                 <span className="text-yellow-400 font-bold">
-                  +{calculatePlayerExp(result.waveReached, result.victory, 'coop')}
+                  +{calculatePlayerExp(
+                    result.basesDestroyed,
+                    result.bossesKilled,
+                    myKills,
+                    result.totalGameTime,
+                    result.victory,
+                    'coop'
+                  )}
                 </span>
               </div>
               <div className="flex justify-between">
                 <span className="text-gray-400">클래스 EXP ({CLASS_CONFIGS[myHeroClass as keyof typeof CLASS_CONFIGS]?.name || myHeroClass})</span>
                 <span className="text-cyan-400 font-bold">
-                  +{calculateClassExp(result.waveReached, myKills)}
+                  +{calculateClassExp(result.basesDestroyed, result.bossesKilled, myKills)}
                 </span>
               </div>
             </div>
@@ -440,7 +751,7 @@ const GameOverModal: React.FC<GameOverModalProps> = ({ result, isGuest, myHeroCl
                   <span className="text-xl">{config.emoji}</span>
                   <div>
                     <p className="text-white font-bold">{player.playerName}</p>
-                    <p className="text-gray-500 text-xs">Lv.{player.level} {config.name}</p>
+                    <p className="text-gray-500 text-xs">{config.name}</p>
                   </div>
                 </div>
                 <div className="text-right text-sm">

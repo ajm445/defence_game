@@ -1,5 +1,6 @@
 import { Position } from './game';
 import { Unit, UnitType } from './unit';
+import { CharacterStatUpgrades } from './auth';
 
 // 영웅 직업 타입
 export type HeroClass = 'warrior' | 'archer' | 'knight' | 'mage';
@@ -57,6 +58,35 @@ export interface PassiveGrowthState {
   overflowBonus: number;   // 초과 보너스 (최대치 도달 후 추가 스탯 보너스)
 }
 
+// Nexus (중앙 수호물)
+export interface Nexus {
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+}
+
+// Enemy Base (적 기지)
+export interface EnemyBase {
+  id: 'left' | 'right';
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  destroyed: boolean;
+}
+
+// Upgrade Levels (업그레이드 레벨)
+export interface UpgradeLevels {
+  attack: number;
+  speed: number;
+  hp: number;
+  goldRate: number;
+}
+
+// RPG 게임 진행 단계
+export type RPGGamePhase = 'playing' | 'boss_phase' | 'victory' | 'defeat';
+
 // 직업 설정
 export interface ClassConfig {
   name: string;
@@ -97,9 +127,8 @@ export interface DashState {
 export interface HeroUnit extends Omit<Unit, 'type'> {
   type: 'hero';
   heroClass: HeroClass;      // 영웅 직업
-  level: number;             // 현재 레벨
-  exp: number;               // 현재 경험치
-  expToNextLevel: number;    // 다음 레벨까지 필요 경험치
+  characterLevel: number;    // 계정 캐릭터 레벨 (프로필에서 가져옴)
+  statUpgrades?: CharacterStatUpgrades; // SP로 업그레이드한 스탯
   skills: Skill[];           // 보유 스킬
   targetPosition?: Position; // 이동 목표 위치 (구 방식 - 사용 안함)
   moveDirection?: Position;  // WASD 이동 방향 (신 방식)
@@ -107,7 +136,6 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   baseAttack: number;        // 기본 공격력
   baseSpeed: number;         // 기본 이동속도
   baseAttackSpeed: number;   // 기본 공격속도
-  skillPoints: number;       // 미사용 스킬 포인트
   buffs: Buff[];             // 활성 버프 목록
   facingRight: boolean;      // 오른쪽을 바라보는지 여부 (이미지 반전용)
   facingAngle: number;       // 실제 바라보는 방향 각도 (라디안, 스킬 방향용)
@@ -134,10 +162,13 @@ export interface EnemyAIConfig {
 
 // 적 유닛 (RPG 모드용)
 export interface RPGEnemy extends Unit {
-  expReward: number;       // 처치 시 경험치
+  goldReward: number;      // 처치 시 골드
   targetHero: boolean;     // 영웅을 타겟으로 하는지
   aiConfig: EnemyAIConfig; // AI 설정
   buffs: Buff[];           // 활성 버프/디버프 목록
+  fromBase?: 'left' | 'right'; // 스폰된 기지 (넥서스 디펜스용)
+  aggroOnHero: boolean;    // 영웅에게 어그로가 끌렸는지 (공격당하면 true)
+  aggroExpireTime?: number; // 어그로 만료 시간 (게임 시간 기준)
 }
 
 // 시야 시스템 설정
@@ -151,26 +182,31 @@ export interface RPGGameState {
   running: boolean;
   paused: boolean;
   gameOver: boolean;
-  victory: boolean;       // 승리 여부 (특정 웨이브 클리어 시)
+  victory: boolean;       // 승리 여부
 
   // 영웅
   hero: HeroUnit | null;
   selectedClass: HeroClass | null;  // 선택된 직업
 
-  // 웨이브
-  currentWave: number;
-  waveInProgress: boolean;
-  waveStarted: boolean;  // 첫 웨이브가 시작되었는지 여부
-  enemiesRemaining: number;
+  // 골드 시스템
+  gold: number;
+  upgradeLevels: UpgradeLevels;
+
+  // 넥서스 디펜스
+  nexus: Nexus | null;
+  enemyBases: EnemyBase[];
+  gamePhase: RPGGamePhase;
+  fiveMinuteRewardClaimed: boolean;
+
+  // 적 관리
   enemies: RPGEnemy[];
 
   // 스폰 관리
-  spawnQueue: { type: UnitType; delay: number }[];
   lastSpawnTime: number;
+  spawnTimer: number;  // 다음 스폰까지 남은 시간
 
   // 타이머
   gameTime: number;       // 총 플레이 시간
-  waveStartTime: number;  // 현재 웨이브 시작 시간
 
   // 카메라
   camera: {
@@ -186,8 +222,9 @@ export interface RPGGameState {
   // 통계
   stats: {
     totalKills: number;
-    totalExpGained: number;
-    highestWave: number;
+    totalGoldEarned: number;
+    basesDestroyed: number;
+    bossesKilled: number;
     timePlayed: number;
   };
 
@@ -207,12 +244,15 @@ export interface PendingSkill {
   radius: number;
 }
 
-// 레벨업 보너스
+// 레벨업 보너스 (계정 레벨 보너스)
 export interface LevelUpBonus {
   hp: number;
   attack: number;
   speed: number;
 }
+
+// 골드 보상 테이블 (적 유닛별)
+export type GoldTable = Partial<Record<UnitType, number>>;
 
 // 피격 대상 정보 (공격 이펙트용)
 export interface HitTarget {
@@ -236,16 +276,17 @@ export interface SkillEffect {
   heroClass?: HeroClass;   // 발동한 영웅 직업 (이펙트 스타일 결정용)
 }
 
-// 경험치 테이블 (적 유닛별)
+// 경험치 테이블 (적 유닛별) - 레거시, 계정 경험치용
 export type ExpTable = Partial<Record<UnitType, number>>;
 
 // RPG 게임 결과
 export interface RPGGameResult {
   victory: boolean;
-  waveReached: number;
   totalKills: number;
-  totalExp: number;
+  totalGoldEarned: number;
+  basesDestroyed: number;
+  bossesKilled: number;
   timePlayed: number;
-  heroLevel: number;
   heroClass: HeroClass;
+  finalUpgradeLevels: UpgradeLevels;
 }

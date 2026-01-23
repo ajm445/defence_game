@@ -45,10 +45,20 @@ const HeroPanelItem: React.FC<HeroPanelItemProps> = ({ hero, playerName, isMe })
 
   return (
     <div
-      className={`bg-dark-800/90 backdrop-blur-sm rounded-lg p-3 border min-w-[200px] ${
+      className={`bg-dark-800/90 backdrop-blur-sm rounded-lg p-3 border min-w-[220px] ${
         isMe ? 'border-neon-cyan' : 'border-dark-600/50'
       } ${hero.isDead ? 'opacity-60' : ''}`}
     >
+      {/* 골드 표시 (내 캐릭터만) */}
+      {isMe && (
+        <div className="flex items-center justify-between mb-2 pb-2 border-b border-dark-600/50">
+          <div className="flex items-center gap-2">
+            <span className="text-lg">G</span>
+            <span className="text-lg font-bold text-yellow-400">{hero.gold}</span>
+          </div>
+        </div>
+      )}
+
       {/* 헤더: 이름 + 레벨 */}
       <div className="flex items-center justify-between mb-2">
         <div className="flex items-center gap-2">

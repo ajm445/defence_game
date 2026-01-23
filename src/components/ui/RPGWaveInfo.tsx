@@ -1,125 +1,162 @@
 import React from 'react';
-import { useCurrentWave, useWaveInProgress, useRPGEnemies, useRPGStore } from '../../stores/useRPGStore';
-import { getWaveDescription } from '../../game/rpg/waveSystem';
+import { useRPGEnemies, useNexus, useEnemyBases, useRPGGamePhase } from '../../stores/useRPGStore';
 
 export const RPGWaveInfo: React.FC = () => {
-  const currentWave = useCurrentWave();
-  const waveInProgress = useWaveInProgress();
   const enemies = useRPGEnemies();
-  const spawnQueue = useRPGStore((state) => state.spawnQueue);
+  const nexus = useNexus();
+  const enemyBases = useEnemyBases();
+  const gamePhase = useRPGGamePhase();
 
-  const isBossWave = currentWave > 0 && currentWave % 10 === 0;
   const aliveEnemies = enemies.filter((e) => e.hp > 0).length;
-  const totalEnemies = aliveEnemies + spawnQueue.length;
+  const bossEnemies = enemies.filter((e) => e.hp > 0 && e.type === 'boss').length;
+  const destroyedBases = enemyBases.filter((b) => b.destroyed).length;
+  const isBossPhase = gamePhase === 'boss_phase';
+
+  // 넥서스 HP 비율
+  const nexusHpPercent = nexus ? nexus.hp / nexus.maxHp : 1;
 
   return (
     <div className={`
       bg-dark-800/90 backdrop-blur-sm rounded-xl p-4 border min-w-[200px]
-      ${isBossWave ? 'border-red-500/50' : 'border-dark-600/50'}
+      ${isBossPhase ? 'border-red-500/50' : 'border-dark-600/50'}
     `}>
-      {/* 웨이브 번호 */}
+      {/* 게임 상태 */}
       <div className="flex items-center justify-between mb-2">
         <div className={`
-          text-2xl font-bold
-          ${isBossWave ? 'text-red-400' : 'text-white'}
+          text-xl font-bold
+          ${isBossPhase ? 'text-red-400' : 'text-white'}
         `}>
-          {isBossWave && <span className="mr-2">👹</span>}
-          웨이브 {currentWave}
+          {isBossPhase ? (
+            <>
+              <span className="mr-2">👹</span>
+              보스 페이즈
+            </>
+          ) : (
+            <>전투 중</>
+          )}
         </div>
-        {isBossWave && (
+        {isBossPhase && (
           <span className="text-xs bg-red-500/20 text-red-400 px-2 py-1 rounded uppercase">
             보스
           </span>
         )}
       </div>
 
-      {/* 웨이브 상태 */}
+      {/* 넥서스 상태 */}
       <div className="mb-3">
-        {waveInProgress ? (
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-green-500 rounded-full animate-pulse" />
-            <span className="text-sm text-green-400">진행 중</span>
-          </div>
-        ) : currentWave > 0 ? (
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-yellow-500 rounded-full" />
-            <span className="text-sm text-yellow-400">준비 중...</span>
-          </div>
-        ) : (
-          <div className="flex items-center gap-2">
-            <div className="w-2 h-2 bg-gray-500 rounded-full" />
-            <span className="text-sm text-gray-400">대기 중</span>
+        <div className="flex items-center gap-2 mb-1">
+          <span className="text-cyan-400">💎</span>
+          <span className="text-sm text-gray-400">넥서스</span>
+        </div>
+        <div className="h-3 bg-dark-700 rounded-full overflow-hidden">
+          <div
+            className={`h-full transition-all duration-300 ${
+              nexusHpPercent > 0.5 ? 'bg-cyan-500' :
+              nexusHpPercent > 0.25 ? 'bg-yellow-500' : 'bg-red-500'
+            }`}
+            style={{ width: `${nexusHpPercent * 100}%` }}
+          />
+        </div>
+        <div className="text-xs text-gray-500 mt-1">
+          {nexus ? `${Math.floor(nexus.hp)} / ${nexus.maxHp}` : 'N/A'}
+        </div>
+      </div>
+
+      {/* 적 기지 상태 */}
+      <div className="space-y-2 mb-3">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-400">적 기지</span>
+          <span className="text-red-400 font-bold">{destroyedBases}/2 파괴</span>
+        </div>
+        <div className="grid grid-cols-2 gap-2">
+          {enemyBases.map((base) => (
+            <div
+              key={base.id}
+              className={`text-xs px-2 py-1 rounded ${
+                base.destroyed
+                  ? 'bg-gray-600/50 text-gray-400 line-through'
+                  : 'bg-red-500/20 text-red-400'
+              }`}
+            >
+              {base.id === 'left' ? '좌측' : '우측'} 기지
+              {!base.destroyed && (
+                <span className="ml-1 text-gray-500">
+                  ({Math.floor((base.hp / base.maxHp) * 100)}%)
+                </span>
+              )}
+            </div>
+          ))}
+        </div>
+      </div>
+
+      {/* 적 정보 */}
+      <div className="space-y-2">
+        <div className="flex justify-between text-sm">
+          <span className="text-gray-400">적 유닛</span>
+          <span className="text-red-400 font-bold">{aliveEnemies}</span>
+        </div>
+        {isBossPhase && bossEnemies > 0 && (
+          <div className="flex justify-between text-sm">
+            <span className="text-gray-400">보스</span>
+            <span className="text-purple-400 font-bold">{bossEnemies}/2</span>
           </div>
         )}
       </div>
 
-      {/* 적 정보 */}
-      {waveInProgress && (
-        <div className="space-y-2">
-          <div className="flex justify-between text-sm">
-            <span className="text-gray-400">남은 적</span>
-            <span className="text-white font-bold">{aliveEnemies}</span>
-          </div>
-          {spawnQueue.length > 0 && (
-            <div className="flex justify-between text-sm">
-              <span className="text-gray-400">대기 중</span>
-              <span className="text-yellow-400">{spawnQueue.length}</span>
-            </div>
-          )}
-
-          {/* 적 진행 바 */}
-          <div className="h-2 bg-dark-700 rounded-full overflow-hidden">
-            <div
-              className={`h-full transition-all duration-300 ${isBossWave ? 'bg-red-500' : 'bg-neon-cyan'}`}
-              style={{
-                width: `${totalEnemies > 0 ? (1 - aliveEnemies / totalEnemies) * 100 : 0}%`,
-              }}
-            />
-          </div>
+      {/* 목표 안내 */}
+      <div className="mt-3 pt-3 border-t border-dark-600/50">
+        <div className="text-xs text-gray-400">
+          {isBossPhase
+            ? '⚔️ 보스를 모두 처치하세요!'
+            : destroyedBases < 2
+              ? '🎯 적 기지를 파괴하세요!'
+              : '⏳ 보스 등장 준비 중...'}
         </div>
-      )}
-
-      {/* 웨이브 설명 */}
-      {currentWave > 0 && (
-        <div className="mt-3 pt-3 border-t border-dark-600/50">
-          <div className="text-xs text-gray-400">
-            {getWaveDescription(currentWave)}
-          </div>
-        </div>
-      )}
+      </div>
     </div>
   );
 };
 
-// 웨이브 시작/클리어 알림 컴포넌트
-export const RPGWaveAlert: React.FC<{
-  type: 'start' | 'clear' | 'boss';
-  waveNumber: number;
+// 게임 상태 알림 컴포넌트 (기존 RPGWaveAlert 대체)
+export const RPGGameAlert: React.FC<{
+  type: 'boss_spawn' | 'base_destroyed' | 'victory' | 'defeat';
   visible: boolean;
-}> = ({ type, waveNumber, visible }) => {
+  baseName?: string;
+}> = ({ type, visible, baseName }) => {
   if (!visible) return null;
 
   const configs = {
-    start: {
-      title: `웨이브 ${waveNumber}`,
-      subtitle: '시작!',
-      bgColor: 'from-neon-cyan/20 to-blue-500/20',
-      borderColor: 'border-neon-cyan/50',
-      textColor: 'text-neon-cyan',
-    },
-    clear: {
-      title: `웨이브 ${waveNumber}`,
-      subtitle: '클리어!',
-      bgColor: 'from-green-500/20 to-emerald-500/20',
-      borderColor: 'border-green-500/50',
-      textColor: 'text-green-400',
-    },
-    boss: {
-      title: '보스 웨이브!',
-      subtitle: `웨이브 ${waveNumber}`,
+    boss_spawn: {
+      title: '보스 등장!',
+      subtitle: '모든 기지가 파괴되었습니다',
       bgColor: 'from-red-500/20 to-orange-500/20',
       borderColor: 'border-red-500/50',
       textColor: 'text-red-400',
+      emoji: '👹',
+    },
+    base_destroyed: {
+      title: '기지 파괴!',
+      subtitle: `${baseName || ''} 기지가 파괴되었습니다`,
+      bgColor: 'from-green-500/20 to-emerald-500/20',
+      borderColor: 'border-green-500/50',
+      textColor: 'text-green-400',
+      emoji: '💥',
+    },
+    victory: {
+      title: '승리!',
+      subtitle: '모든 보스를 처치했습니다',
+      bgColor: 'from-yellow-500/20 to-amber-500/20',
+      borderColor: 'border-yellow-500/50',
+      textColor: 'text-yellow-400',
+      emoji: '🏆',
+    },
+    defeat: {
+      title: '패배',
+      subtitle: '넥서스가 파괴되었습니다',
+      bgColor: 'from-gray-500/20 to-gray-600/20',
+      borderColor: 'border-gray-500/50',
+      textColor: 'text-gray-400',
+      emoji: '💀',
     },
   };
 
@@ -135,7 +172,7 @@ export const RPGWaveAlert: React.FC<{
         `}
       >
         <div className={`text-4xl font-bold ${config.textColor} text-center`}>
-          {type === 'boss' && <span className="block text-5xl mb-2">👹</span>}
+          <span className="block text-5xl mb-2">{config.emoji}</span>
           {config.title}
         </div>
         <div className="text-xl text-white/80 text-center mt-1">
@@ -145,3 +182,6 @@ export const RPGWaveAlert: React.FC<{
     </div>
   );
 };
+
+// 기존 RPGWaveAlert 호환성을 위한 별칭 (사용하는 곳이 있으면)
+export const RPGWaveAlert = RPGGameAlert;

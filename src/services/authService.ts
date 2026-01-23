@@ -1,16 +1,43 @@
-import { supabase, isSupabaseConfigured } from './supabase';
 import { PlayerProfile } from '../types/auth';
-import type { User, Session, AuthError } from '@supabase/supabase-js';
+
+// API 기본 URL (환경변수로 설정)
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
 export interface AuthResult {
   success: boolean;
-  user?: User;
-  session?: Session;
+  user?: {
+    id: string;
+    email?: string;
+    isGuest?: boolean;
+  };
+  profile?: PlayerProfile;
   error?: string;
 }
 
 export interface SignUpResult extends AuthResult {
   needsEmailConfirmation?: boolean;
+}
+
+// API 요청 헬퍼
+async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || '요청 처리 중 오류가 발생했습니다.');
+  }
+
+  return data;
 }
 
 // 이메일로 회원가입
@@ -19,47 +46,30 @@ export const signUpWithEmail = async (
   password: string,
   nickname: string
 ): Promise<SignUpResult> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return { success: false, error: 'Supabase가 설정되지 않았습니다.' };
-  }
-
   try {
-    const { data, error } = await supabase.auth.signUp({
-      email,
-      password,
-      options: {
-        data: {
-          nickname,
-        },
-      },
+    const data = await apiRequest<{
+      success: boolean;
+      user?: { id: string; email: string };
+      error?: string;
+    }>('/api/auth/signup', {
+      method: 'POST',
+      body: JSON.stringify({ email, password, nickname }),
     });
 
-    if (error) {
-      return { success: false, error: translateAuthError(error) };
-    }
-
-    if (data.user && !data.session) {
-      // 이메일 확인이 필요한 경우
-      return {
-        success: true,
-        user: data.user,
-        needsEmailConfirmation: true,
-      };
-    }
-
-    // 프로필 생성
-    if (data.user) {
-      await createPlayerProfile(data.user.id, nickname, false);
+    if (!data.success) {
+      return { success: false, error: data.error };
     }
 
     return {
       success: true,
-      user: data.user ?? undefined,
-      session: data.session ?? undefined,
+      user: data.user,
     };
   } catch (err) {
     console.error('Sign up error:', err);
-    return { success: false, error: '회원가입 중 오류가 발생했습니다.' };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : '회원가입 중 오류가 발생했습니다.'
+    };
   }
 };
 
@@ -68,216 +78,116 @@ export const signInWithEmail = async (
   email: string,
   password: string
 ): Promise<AuthResult> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return { success: false, error: 'Supabase가 설정되지 않았습니다.' };
-  }
-
   try {
-    const { data, error } = await supabase.auth.signInWithPassword({
-      email,
-      password,
+    const data = await apiRequest<{
+      success: boolean;
+      user?: { id: string; email: string };
+      profile?: PlayerProfile;
+      error?: string;
+    }>('/api/auth/signin', {
+      method: 'POST',
+      body: JSON.stringify({ email, password }),
     });
 
-    if (error) {
-      return { success: false, error: translateAuthError(error) };
+    if (!data.success) {
+      return { success: false, error: data.error };
     }
 
     return {
       success: true,
       user: data.user,
-      session: data.session,
+      profile: data.profile,
     };
   } catch (err) {
     console.error('Sign in error:', err);
-    return { success: false, error: '로그인 중 오류가 발생했습니다.' };
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.'
+    };
   }
 };
 
-// 게스트로 로그인 (익명 세션)
+// 게스트로 로그인
 export const signInAsGuest = async (nickname: string): Promise<AuthResult> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    // Supabase 없이 로컬 게스트 모드
-    return {
-      success: true,
-      user: {
-        id: `guest_${Date.now()}`,
-        email: undefined,
-      } as unknown as User,
-    };
-  }
-
   try {
-    const { data, error } = await supabase.auth.signInAnonymously();
+    const data = await apiRequest<{
+      success: boolean;
+      user?: { id: string; isGuest: boolean };
+      profile?: PlayerProfile;
+      error?: string;
+    }>('/api/auth/guest', {
+      method: 'POST',
+      body: JSON.stringify({ nickname }),
+    });
 
-    if (error) {
-      return { success: false, error: translateAuthError(error) };
-    }
-
-    // 게스트 프로필 생성
-    if (data.user) {
-      await createPlayerProfile(data.user.id, nickname, true);
+    if (!data.success) {
+      // API 실패 시 로컬 게스트 모드로 폴백
+      return {
+        success: true,
+        user: {
+          id: `guest_${Date.now()}`,
+          isGuest: true,
+        },
+        profile: {
+          id: `guest_${Date.now()}`,
+          nickname,
+          playerLevel: 1,
+          playerExp: 0,
+          isGuest: true,
+          soundVolume: 0.5,
+          soundMuted: false,
+        },
+      };
     }
 
     return {
       success: true,
-      user: data.user ?? undefined,
-      session: data.session ?? undefined,
+      user: data.user,
+      profile: data.profile,
     };
   } catch (err) {
     console.error('Guest sign in error:', err);
-    // Supabase 오류 시 로컬 게스트 모드로 폴백
+    // API 오류 시 로컬 게스트 모드로 폴백
     return {
       success: true,
       user: {
         id: `guest_${Date.now()}`,
-        email: undefined,
-      } as unknown as User,
-    };
-  }
-};
-
-// 로그아웃
-export const signOut = async (): Promise<{ success: boolean; error?: string }> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return { success: true };
-  }
-
-  try {
-    const { error } = await supabase.auth.signOut();
-
-    if (error) {
-      return { success: false, error: translateAuthError(error) };
-    }
-
-    return { success: true };
-  } catch (err) {
-    console.error('Sign out error:', err);
-    return { success: false, error: '로그아웃 중 오류가 발생했습니다.' };
-  }
-};
-
-// 현재 세션 가져오기
-export const getCurrentSession = async (): Promise<Session | null> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return null;
-  }
-
-  try {
-    const { data } = await supabase.auth.getSession();
-    return data.session;
-  } catch (err) {
-    console.error('Get session error:', err);
-    return null;
-  }
-};
-
-// 현재 유저 가져오기
-export const getCurrentUser = async (): Promise<User | null> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return null;
-  }
-
-  try {
-    const { data } = await supabase.auth.getUser();
-    return data.user;
-  } catch (err) {
-    console.error('Get user error:', err);
-    return null;
-  }
-};
-
-// 플레이어 프로필 생성
-export const createPlayerProfile = async (
-  userId: string,
-  nickname: string,
-  isGuest: boolean
-): Promise<PlayerProfile | null> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    // 로컬 프로필 반환
-    return {
-      id: userId,
-      nickname,
-      playerLevel: 1,
-      playerExp: 0,
-      isGuest,
-      soundVolume: 0.5,
-      soundMuted: false,
-    };
-  }
-
-  try {
-    const { data, error } = await supabase
-      .from('player_profiles')
-      .upsert({
-        id: userId,
+        isGuest: true,
+      },
+      profile: {
+        id: `guest_${Date.now()}`,
         nickname,
-        player_level: 1,
-        player_exp: 0,
-        is_guest: isGuest,
-        sound_volume: 0.5,
-        sound_muted: false,
-      }, {
-        onConflict: 'id',
-      })
-      .select()
-      .single();
-
-    if (error) {
-      console.error('Create profile error:', error);
-      return null;
-    }
-
-    return {
-      id: data.id,
-      nickname: data.nickname,
-      playerLevel: data.player_level,
-      playerExp: data.player_exp,
-      isGuest: data.is_guest,
-      soundVolume: data.sound_volume ?? 0.5,
-      soundMuted: data.sound_muted ?? false,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
+        playerLevel: 1,
+        playerExp: 0,
+        isGuest: true,
+        soundVolume: 0.5,
+        soundMuted: false,
+      },
     };
-  } catch (err) {
-    console.error('Create profile error:', err);
-    return null;
   }
+};
+
+// 로그아웃 (클라이언트 세션 정리만)
+export const signOut = async (): Promise<{ success: boolean; error?: string }> => {
+  // 서버에 별도 로그아웃 API 호출 필요 없음 (세션 기반이 아님)
+  // 클라이언트에서 저장된 사용자 정보만 정리
+  return { success: true };
 };
 
 // 플레이어 프로필 가져오기
 export const getPlayerProfile = async (userId: string): Promise<PlayerProfile | null> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return null;
-  }
-
   try {
-    const { data, error } = await supabase
-      .from('player_profiles')
-      .select('*')
-      .eq('id', userId)
-      .single();
+    const data = await apiRequest<{
+      success: boolean;
+      profile?: PlayerProfile;
+      error?: string;
+    }>(`/api/auth/profile/${userId}`);
 
-    if (error) {
-      if (error.code === 'PGRST116') {
-        // 프로필이 없는 경우
-        return null;
-      }
-      console.error('Get profile error:', error);
+    if (!data.success || !data.profile) {
       return null;
     }
 
-    return {
-      id: data.id,
-      nickname: data.nickname,
-      playerLevel: data.player_level,
-      playerExp: data.player_exp,
-      isGuest: data.is_guest,
-      // DB에 값이 있으면 사용, 없으면 undefined (localStorage 우선 사용)
-      soundVolume: data.sound_volume !== null && data.sound_volume !== undefined ? data.sound_volume : undefined,
-      soundMuted: data.sound_muted !== null && data.sound_muted !== undefined ? data.sound_muted : undefined,
-      createdAt: data.created_at,
-      updatedAt: data.updated_at,
-    };
+    return data.profile;
   } catch (err) {
     console.error('Get profile error:', err);
     return null;
@@ -290,58 +200,88 @@ export const updateSoundSettings = async (
   soundVolume: number,
   soundMuted: boolean
 ): Promise<boolean> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return true; // 로컬 모드에서는 항상 성공
-  }
-
   try {
-    const { error } = await supabase
-      .from('player_profiles')
-      .update({
-        sound_volume: soundVolume,
-        sound_muted: soundMuted,
-      })
-      .eq('id', userId);
+    const data = await apiRequest<{ success: boolean }>(`/api/auth/profile/${userId}/sound`, {
+      method: 'PATCH',
+      body: JSON.stringify({ soundVolume, soundMuted }),
+    });
 
-    if (error) {
-      console.error('Update sound settings error:', error);
-      return false;
-    }
-
-    return true;
+    return data.success;
   } catch (err) {
     console.error('Update sound settings error:', err);
     return false;
   }
 };
 
-// 인증 에러 번역
-const translateAuthError = (error: AuthError): string => {
-  const errorMessages: Record<string, string> = {
-    'Invalid login credentials': '아이디 또는 비밀번호가 올바르지 않습니다.',
-    'Email not confirmed': '계정 인증이 필요합니다. 관리자에게 문의하세요.',
-    'User already registered': '이미 사용 중인 아이디입니다.',
-    'Password should be at least 6 characters': '비밀번호는 최소 6자 이상이어야 합니다.',
-    'Invalid email': '아이디 형식이 올바르지 않습니다.',
-    'Anonymous sign-ins are disabled': '게스트 로그인이 비활성화되어 있습니다.',
-  };
+// 닉네임 변경
+export const updateNickname = async (
+  userId: string,
+  newNickname: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const data = await apiRequest<{ success: boolean; error?: string }>(
+      `/api/auth/profile/${userId}/nickname`,
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ nickname: newNickname }),
+      }
+    );
 
-  return errorMessages[error.message] || error.message;
+    return data;
+  } catch (err) {
+    console.error('Update nickname error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : '닉네임 변경 중 오류가 발생했습니다.'
+    };
+  }
 };
 
-// 인증 상태 변화 구독
-export const onAuthStateChange = (
-  callback: (user: User | null) => void
-): (() => void) => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return () => {};
+// 회원 탈퇴
+export const deleteAccount = async (
+  userId: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const data = await apiRequest<{ success: boolean; error?: string }>(
+      `/api/auth/account/${userId}`,
+      { method: 'DELETE' }
+    );
+
+    return data;
+  } catch (err) {
+    console.error('Delete account error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : '회원 탈퇴 중 오류가 발생했습니다.'
+    };
   }
+};
 
-  const { data: { subscription } } = supabase.auth.onAuthStateChange(
-    (_event, session) => {
-      callback(session?.user ?? null);
-    }
-  );
+// 인증 상태 변화 구독 (더 이상 Supabase 사용하지 않음)
+export const onAuthStateChange = (
+  _callback: (user: { id: string; email?: string } | null) => void
+): (() => void) => {
+  // 서버 기반 인증이므로 실시간 구독 없음
+  // 클라이언트에서 상태 관리
+  return () => {};
+};
 
-  return () => subscription.unsubscribe();
+// 레거시 호환성을 위한 함수들 (더 이상 사용하지 않음)
+export const getCurrentSession = async () => null;
+export const getCurrentUser = async () => null;
+export const createPlayerProfile = async (
+  userId: string,
+  nickname: string,
+  isGuest: boolean
+): Promise<PlayerProfile | null> => {
+  // 회원가입 시 서버에서 프로필 생성하므로 별도 호출 불필요
+  return {
+    id: userId,
+    nickname,
+    playerLevel: 1,
+    playerExp: 0,
+    isGuest,
+    soundVolume: 0.5,
+    soundMuted: false,
+  };
 };

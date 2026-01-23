@@ -1,5 +1,5 @@
 import { UnitType } from '../types/unit';
-import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig } from '../types/rpg';
+import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig, GoldTable } from '../types/rpg';
 
 // 패시브 시스템 상수
 export const PASSIVE_UNLOCK_LEVEL = 5;      // 기본 패시브 활성화 레벨
@@ -53,6 +53,133 @@ export const PASSIVE_GROWTH_CONFIGS: Record<HeroClass, PassiveGrowthConfig> = {
     overflowPerLevel: 0.01,  // 초과 시 공격력 +1%
   },
 };
+
+// ============================================
+// 골드 시스템 설정
+// ============================================
+
+export const GOLD_CONFIG = {
+  // 적 처치 시 골드 보상
+  REWARDS: {
+    melee: 5,
+    ranged: 8,
+    knight: 15,
+    mage: 20,
+    boss: 200,
+  } as GoldTable,
+
+  // 업그레이드 비용
+  UPGRADE_BASE_COST: 50,
+  UPGRADE_COST_MULTIPLIER: 1.5,
+
+  // 시작 골드
+  STARTING_GOLD: 0,
+} as const;
+
+// 업그레이드 설정 (레벨당 보너스)
+export const UPGRADE_CONFIG = {
+  attack: {
+    perLevel: 3,           // 레벨당 +3 공격력
+    description: '공격력',
+  },
+  speed: {
+    perLevel: 0.08,        // 레벨당 +0.08 이동속도
+    description: '이동속도',
+  },
+  hp: {
+    perLevel: 25,          // 레벨당 +25 최대 HP
+    description: '최대 HP',
+  },
+  goldRate: {
+    perLevel: 2,           // 레벨당 +2 추가 골드
+    description: '추가 골드',
+  },
+} as const;
+
+// ============================================
+// 넥서스 디펜스 설정
+// ============================================
+
+export const NEXUS_CONFIG = {
+  position: {
+    x: 1500,  // 맵 중앙 (MAP_WIDTH / 2)
+    y: 1000,  // 맵 중앙 (MAP_HEIGHT / 2)
+  },
+  hp: 5000,
+  radius: 80,  // 넥서스 크기
+} as const;
+
+export const ENEMY_BASE_CONFIG = {
+  left: {
+    x: 150,    // 왼쪽 끝
+    y: 1000,   // 중앙 레인
+    hp: 3000,
+    radius: 60,
+  },
+  right: {
+    x: 2850,   // 오른쪽 끝
+    y: 1000,   // 중앙 레인
+    hp: 3000,
+    radius: 60,
+  },
+} as const;
+
+// 레인 설정 (적이 이동하는 경로)
+export const LANE_CONFIG = {
+  // 레인 폭 (시각적 표시용)
+  width: 200,
+  // 레인 중심 Y 좌표
+  centerY: 1000,
+  // 레인 색상
+  color: 'rgba(50, 40, 30, 0.4)',  // 어두운 길 색상
+  borderColor: 'rgba(100, 80, 60, 0.3)',
+} as const;
+
+// 스폰 설정
+export const SPAWN_CONFIG = {
+  // 기본 스폰 간격 (초)
+  BASE_INTERVAL: 4,
+  // 분당 스폰 간격 감소 (최소 1.5초까지)
+  INTERVAL_DECREASE_PER_MINUTE: 0.2,
+  MIN_INTERVAL: 1.5,
+
+  // 적 스탯 배율 (분당 10% 증가)
+  STAT_MULTIPLIER_PER_MINUTE: 0.1,
+
+  // 적 구성 (게임 시간에 따라 변화)
+  getEnemyTypesForTime: (minutes: number): { type: UnitType; weight: number }[] => {
+    if (minutes < 2) {
+      return [{ type: 'melee', weight: 1 }];
+    } else if (minutes < 4) {
+      return [
+        { type: 'melee', weight: 3 },
+        { type: 'ranged', weight: 1 },
+      ];
+    } else if (minutes < 6) {
+      return [
+        { type: 'melee', weight: 2 },
+        { type: 'ranged', weight: 2 },
+        { type: 'knight', weight: 1 },
+      ];
+    } else {
+      return [
+        { type: 'melee', weight: 2 },
+        { type: 'ranged', weight: 2 },
+        { type: 'knight', weight: 2 },
+        { type: 'mage', weight: 1 },
+      ];
+    }
+  },
+} as const;
+
+// 5분 마일스톤 보상
+export const MILESTONE_CONFIG = {
+  FIVE_MINUTE_BONUS_EXP: 100,  // 계정 경험치 보너스
+} as const;
+
+// ============================================
+// 직업별 설정
+// ============================================
 
 // 직업별 설정
 export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
@@ -282,10 +409,10 @@ export const CLASS_SKILLS = {
 };
 
 export const RPG_CONFIG = {
-  // 맵 설정
-  MAP_WIDTH: 2000,
+  // 맵 설정 (넓은 맵 - 양쪽 레인 형태)
+  MAP_WIDTH: 3000,
   MAP_HEIGHT: 2000,
-  MAP_CENTER_X: 1000,
+  MAP_CENTER_X: 1500,
   MAP_CENTER_Y: 1000,
 
   // 시야 설정

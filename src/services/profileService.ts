@@ -1,45 +1,56 @@
-import { supabase, isSupabaseConfigured } from './supabase';
 import {
   PlayerProfile,
   ClassProgress,
   GameRecord,
   LevelUpResult,
+  CharacterStatUpgrades,
   calculatePlayerExp,
   calculateClassExp,
   getRequiredPlayerExp,
   getRequiredClassExp,
+  createDefaultStatUpgrades,
+  SP_PER_CLASS_LEVEL,
+  StatUpgradeType,
 } from '../types/auth';
 import { HeroClass } from '../types/rpg';
+
+// API 기본 URL
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
+// API 요청 헬퍼
+async function apiRequest<T>(
+  endpoint: string,
+  options: RequestInit = {}
+): Promise<T> {
+  const response = await fetch(`${API_URL}${endpoint}`, {
+    ...options,
+    headers: {
+      'Content-Type': 'application/json',
+      ...options.headers,
+    },
+  });
+
+  const data = await response.json();
+
+  if (!response.ok) {
+    throw new Error(data.error || '요청 처리 중 오류가 발생했습니다.');
+  }
+
+  return data;
+}
 
 // 플레이어 프로필 업데이트
 export const updatePlayerProfile = async (
   userId: string,
   updates: Partial<Pick<PlayerProfile, 'nickname' | 'playerLevel' | 'playerExp'>>
 ): Promise<boolean> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return false;
-  }
-
   try {
-    const dbUpdates: Record<string, unknown> = {
-      updated_at: new Date().toISOString(),
-    };
+    const data = await apiRequest<{ success: boolean }>(`/api/profile/player/${userId}`, {
+      method: 'PATCH',
+      body: JSON.stringify(updates),
+    });
 
-    if (updates.nickname !== undefined) dbUpdates.nickname = updates.nickname;
-    if (updates.playerLevel !== undefined) dbUpdates.player_level = updates.playerLevel;
-    if (updates.playerExp !== undefined) dbUpdates.player_exp = updates.playerExp;
-
-    const { error } = await supabase
-      .from('player_profiles')
-      .update(dbUpdates)
-      .eq('id', userId);
-
-    if (error) {
-      console.error('Update profile error:', error);
-      return false;
-    }
-
-    return true;
+    return data.success;
   } catch (err) {
     console.error('Update profile error:', err);
     return false;
@@ -48,30 +59,17 @@ export const updatePlayerProfile = async (
 
 // 클래스 진행 상황 가져오기
 export const getClassProgress = async (playerId: string): Promise<ClassProgress[]> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return [];
-  }
-
   try {
-    const { data, error } = await supabase
-      .from('class_progress')
-      .select('*')
-      .eq('player_id', playerId);
+    const data = await apiRequest<{
+      success: boolean;
+      progress: ClassProgress[];
+    }>(`/api/profile/class-progress/${playerId}`);
 
-    if (error) {
-      console.error('Get class progress error:', error);
+    if (!data.success) {
       return [];
     }
 
-    return data.map((row) => ({
-      id: row.id,
-      playerId: row.player_id,
-      className: row.class_name as HeroClass,
-      classLevel: row.class_level,
-      classExp: row.class_exp,
-      createdAt: row.created_at,
-      updatedAt: row.updated_at,
-    }));
+    return data.progress;
   } catch (err) {
     console.error('Get class progress error:', err);
     return [];
@@ -82,63 +80,122 @@ export const getClassProgress = async (playerId: string): Promise<ClassProgress[
 export const upsertClassProgress = async (
   playerId: string,
   className: HeroClass,
-  updates: { classLevel: number; classExp: number }
-): Promise<boolean> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return false;
+  updates: {
+    classLevel: number;
+    classExp: number;
+    sp?: number;
+    statUpgrades?: CharacterStatUpgrades;
   }
-
+): Promise<boolean> => {
   try {
-    const { error } = await supabase
-      .from('class_progress')
-      .upsert({
-        player_id: playerId,
-        class_name: className,
-        class_level: updates.classLevel,
-        class_exp: updates.classExp,
-        updated_at: new Date().toISOString(),
-      }, {
-        onConflict: 'player_id,class_name',
-      });
+    const data = await apiRequest<{ success: boolean }>('/api/profile/class-progress', {
+      method: 'POST',
+      body: JSON.stringify({
+        playerId,
+        className,
+        classLevel: updates.classLevel,
+        classExp: updates.classExp,
+        sp: updates.sp ?? 0,
+        statUpgrades: updates.statUpgrades ?? createDefaultStatUpgrades(),
+      }),
+    });
 
-    if (error) {
-      console.error('Upsert class progress error:', error);
-      return false;
-    }
-
-    return true;
+    return data.success;
   } catch (err) {
     console.error('Upsert class progress error:', err);
     return false;
   }
 };
 
-// 게임 기록 저장
-export const saveGameRecord = async (record: Omit<GameRecord, 'id' | 'playedAt'>): Promise<boolean> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return false;
+// SP 사용하여 스탯 업그레이드
+export const upgradeCharacterStat = async (
+  playerId: string,
+  className: HeroClass,
+  statType: StatUpgradeType,
+  currentProgress: ClassProgress
+): Promise<ClassProgress | null> => {
+  if (currentProgress.sp <= 0) {
+    console.error('Not enough SP');
+    return null;
   }
 
+  const newStatUpgrades = {
+    ...currentProgress.statUpgrades,
+    [statType]: currentProgress.statUpgrades[statType] + 1,
+  };
+
+  const newSp = currentProgress.sp - 1;
+
   try {
-    const { error } = await supabase
-      .from('game_history')
-      .insert({
-        player_id: record.playerId,
-        mode: record.mode,
-        class_used: record.classUsed,
-        wave_reached: record.waveReached,
-        kills: record.kills,
-        play_time: record.playTime,
-        victory: record.victory,
-        exp_earned: record.expEarned,
-      });
+    await upsertClassProgress(playerId, className, {
+      classLevel: currentProgress.classLevel,
+      classExp: currentProgress.classExp,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
+    });
 
-    if (error) {
-      console.error('Save game record error:', error);
-      return false;
-    }
+    return {
+      ...currentProgress,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
+    };
+  } catch (err) {
+    console.error('Upgrade character stat error:', err);
+    return null;
+  }
+};
 
-    return true;
+// SP 초기화 (스탯 리셋)
+export const resetCharacterStats = async (
+  playerId: string,
+  className: HeroClass,
+  currentProgress: ClassProgress
+): Promise<ClassProgress | null> => {
+  // 사용한 SP 계산
+  const spentSP =
+    currentProgress.statUpgrades.attack +
+    currentProgress.statUpgrades.speed +
+    currentProgress.statUpgrades.hp +
+    currentProgress.statUpgrades.range +
+    currentProgress.statUpgrades.hpRegen;
+
+  // 이미 0이면 리셋할 필요 없음
+  if (spentSP === 0) {
+    return currentProgress;
+  }
+
+  // SP 반환 및 스탯 초기화
+  const newSp = currentProgress.sp + spentSP;
+  const newStatUpgrades = createDefaultStatUpgrades();
+
+  try {
+    await upsertClassProgress(playerId, className, {
+      classLevel: currentProgress.classLevel,
+      classExp: currentProgress.classExp,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
+    });
+
+    return {
+      ...currentProgress,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
+    };
+  } catch (err) {
+    console.error('Reset character stats error:', err);
+    return null;
+  }
+};
+
+// 게임 기록 저장
+export const saveGameRecord = async (record: Omit<GameRecord, 'id' | 'playedAt'>): Promise<boolean> => {
+  try {
+    const data = await apiRequest<{ success: boolean }>('/api/profile/game-record', {
+      method: 'POST',
+      body: JSON.stringify(record),
+    });
+
+    return data.success;
   } catch (err) {
     console.error('Save game record error:', err);
     return false;
@@ -150,42 +207,24 @@ export const getGameHistory = async (
   playerId: string,
   limit = 10
 ): Promise<GameRecord[]> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return [];
-  }
-
   try {
-    const { data, error } = await supabase
-      .from('game_history')
-      .select('*')
-      .eq('player_id', playerId)
-      .order('played_at', { ascending: false })
-      .limit(limit);
+    const data = await apiRequest<{
+      success: boolean;
+      history: GameRecord[];
+    }>(`/api/profile/game-history/${playerId}?limit=${limit}`);
 
-    if (error) {
-      console.error('Get game history error:', error);
+    if (!data.success) {
       return [];
     }
 
-    return data.map((row) => ({
-      id: row.id,
-      playerId: row.player_id,
-      mode: row.mode as 'single' | 'coop',
-      classUsed: row.class_used as HeroClass,
-      waveReached: row.wave_reached,
-      kills: row.kills,
-      playTime: row.play_time,
-      victory: row.victory,
-      expEarned: row.exp_earned,
-      playedAt: row.played_at,
-    }));
+    return data.history;
   } catch (err) {
     console.error('Get game history error:', err);
     return [];
   }
 };
 
-// 게임 결과 처리 및 경험치 적용
+// 게임 결과 처리 및 경험치 적용 (넥서스 디펜스)
 export const processGameResult = async (
   playerId: string,
   profile: PlayerProfile,
@@ -193,9 +232,10 @@ export const processGameResult = async (
   gameData: {
     mode: 'single' | 'coop';
     classUsed: HeroClass;
-    waveReached: number;
+    basesDestroyed: number;
+    bossesKilled: number;
     kills: number;
-    playTime: number;
+    playTime: number;  // 초 단위
     victory: boolean;
   }
 ): Promise<{
@@ -205,9 +245,20 @@ export const processGameResult = async (
   newProfile: PlayerProfile;
   newClassProgress: ClassProgress;
 }> => {
-  // 경험치 계산
-  const playerExpGained = calculatePlayerExp(gameData.waveReached, gameData.victory, gameData.mode);
-  const classExpGained = calculateClassExp(gameData.waveReached, gameData.kills);
+  // 경험치 계산 (넥서스 디펜스)
+  const playerExpGained = calculatePlayerExp(
+    gameData.basesDestroyed,
+    gameData.bossesKilled,
+    gameData.kills,
+    gameData.playTime,
+    gameData.victory,
+    gameData.mode
+  );
+  const classExpGained = calculateClassExp(
+    gameData.basesDestroyed,
+    gameData.bossesKilled,
+    gameData.kills
+  );
 
   // 플레이어 레벨업 계산
   let newPlayerLevel = profile.playerLevel;
@@ -228,12 +279,22 @@ export const processGameResult = async (
   let newClassLevel = existingProgress?.classLevel ?? 1;
   let newClassExp = (existingProgress?.classExp ?? 0) + classExpGained;
   let classLeveledUp = false;
+  let spGained = 0;
+  const previousLevel = newClassLevel;
 
   while (newClassExp >= getRequiredClassExp(newClassLevel)) {
     newClassExp -= getRequiredClassExp(newClassLevel);
     newClassLevel++;
     classLeveledUp = true;
+    spGained += SP_PER_CLASS_LEVEL; // 레벨당 SP 획득
   }
+
+  // 기존 SP + 새로 획득한 SP
+  const existingSp = existingProgress?.sp ?? 0;
+  const newSp = existingSp + spGained;
+
+  // 기존 스탯 업그레이드 유지
+  const existingStatUpgrades = existingProgress?.statUpgrades ?? createDefaultStatUpgrades();
 
   // 새 프로필 데이터
   const newProfile: PlayerProfile = {
@@ -248,6 +309,8 @@ export const processGameResult = async (
     className: gameData.classUsed,
     classLevel: newClassLevel,
     classExp: newClassExp,
+    sp: newSp,
+    statUpgrades: existingStatUpgrades,
   };
 
   // 레벨업 결과
@@ -257,10 +320,11 @@ export const processGameResult = async (
     classLeveledUp,
     newClassLevel: classLeveledUp ? newClassLevel : undefined,
     className: classLeveledUp ? gameData.classUsed : undefined,
+    spGained: spGained > 0 ? spGained : undefined,
   };
 
-  // 게스트가 아닌 경우 DB에 저장
-  if (!profile.isGuest && isSupabaseConfigured()) {
+  // 게스트가 아닌 경우 DB에 저장 (백엔드 API 통해)
+  if (!profile.isGuest) {
     // 프로필 업데이트
     await updatePlayerProfile(playerId, {
       playerLevel: newPlayerLevel,
@@ -271,6 +335,8 @@ export const processGameResult = async (
     await upsertClassProgress(playerId, gameData.classUsed, {
       classLevel: newClassLevel,
       classExp: newClassExp,
+      sp: newSp,
+      statUpgrades: existingStatUpgrades,
     });
 
     // 게임 기록 저장
@@ -278,7 +344,8 @@ export const processGameResult = async (
       playerId,
       mode: gameData.mode,
       classUsed: gameData.classUsed,
-      waveReached: gameData.waveReached,
+      basesDestroyed: gameData.basesDestroyed,
+      bossesKilled: gameData.bossesKilled,
       kills: gameData.kills,
       playTime: gameData.playTime,
       victory: gameData.victory,
@@ -304,62 +371,24 @@ export const getPlayerStats = async (playerId: string): Promise<{
   highestWave: number;
   favoriteClass: HeroClass | null;
 } | null> => {
-  if (!isSupabaseConfigured() || !supabase) {
-    return null;
-  }
-
   try {
-    const { data, error } = await supabase
-      .from('game_history')
-      .select('*')
-      .eq('player_id', playerId);
+    const data = await apiRequest<{
+      success: boolean;
+      stats: {
+        totalGames: number;
+        totalWins: number;
+        totalKills: number;
+        totalPlayTime: number;
+        highestWave: number;
+        favoriteClass: HeroClass | null;
+      };
+    }>(`/api/profile/stats/${playerId}`);
 
-    if (error) {
-      console.error('Get player stats error:', error);
+    if (!data.success) {
       return null;
     }
 
-    if (!data || data.length === 0) {
-      return {
-        totalGames: 0,
-        totalWins: 0,
-        totalKills: 0,
-        totalPlayTime: 0,
-        highestWave: 0,
-        favoriteClass: null,
-      };
-    }
-
-    const totalGames = data.length;
-    const totalWins = data.filter((g) => g.victory).length;
-    const totalKills = data.reduce((sum, g) => sum + g.kills, 0);
-    const totalPlayTime = data.reduce((sum, g) => sum + g.play_time, 0);
-    const highestWave = Math.max(...data.map((g) => g.wave_reached));
-
-    // 가장 많이 사용한 클래스 찾기
-    const classCounts: Partial<Record<HeroClass, number>> = {};
-    for (const game of data) {
-      const cls = game.class_used as HeroClass;
-      classCounts[cls] = (classCounts[cls] ?? 0) + 1;
-    }
-
-    let favoriteClass: HeroClass | null = null;
-    let maxCount = 0;
-    for (const [cls, count] of Object.entries(classCounts)) {
-      if (count > maxCount) {
-        maxCount = count;
-        favoriteClass = cls as HeroClass;
-      }
-    }
-
-    return {
-      totalGames,
-      totalWins,
-      totalKills,
-      totalPlayTime,
-      highestWave,
-      favoriteClass,
-    };
+    return data.stats;
   } catch (err) {
     console.error('Get player stats error:', err);
     return null;

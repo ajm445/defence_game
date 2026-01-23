@@ -220,7 +220,7 @@ export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
   const displaySkills = hero.skills.filter(skill => skill.key === 'W' || skill.key === 'E');
 
   return (
-    <div className="flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
+    <>
       {displaySkills.map((skill) => (
         <div key={skill.type} className="flex flex-col items-center gap-1">
           <div className="text-[10px] text-gray-400 font-medium">
@@ -235,6 +235,6 @@ export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
           />
         </div>
       ))}
-    </div>
+    </>
   );
 };

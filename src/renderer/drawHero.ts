@@ -248,7 +248,7 @@ export function drawHero(
     drawEmoji(ctx, classVisual.emoji, screenX, screenY, 28);
   }
 
-  // 레벨 배지
+  // 캐릭터 레벨 배지 (계정 레벨)
   ctx.fillStyle = '#1a1a35';
   ctx.strokeStyle = '#ffd700';
   ctx.lineWidth = 2;
@@ -261,7 +261,7 @@ export function drawHero(
   ctx.fillStyle = '#ffd700';
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
-  ctx.fillText(`${hero.level}`, screenX + 25, screenY - 20);
+  ctx.fillText(`${hero.characterLevel}`, screenX + 25, screenY - 20);
 
   // 체력바 배경
   const hpBarWidth = 50;
@@ -270,7 +270,7 @@ export function drawHero(
 
   ctx.fillStyle = '#1a1a25';
   ctx.beginPath();
-  ctx.roundRect(screenX - hpBarWidth / 2, screenY - 45, hpBarWidth, hpBarHeight, 3);
+  ctx.roundRect(screenX - hpBarWidth / 2, screenY - 40, hpBarWidth, hpBarHeight, 3);
   ctx.fill();
 
   // 체력바
@@ -279,32 +279,10 @@ export function drawHero(
   ctx.beginPath();
   ctx.roundRect(
     screenX - hpBarWidth / 2 + 1,
-    screenY - 44,
+    screenY - 39,
     (hpBarWidth - 2) * hpPercent,
     hpBarHeight - 2,
     2
-  );
-  ctx.fill();
-
-  // 경험치바 배경
-  const expBarWidth = 50;
-  const expBarHeight = 3;
-  const expPercent = hero.exp / hero.expToNextLevel;
-
-  ctx.fillStyle = '#1a1a25';
-  ctx.beginPath();
-  ctx.roundRect(screenX - expBarWidth / 2, screenY - 37, expBarWidth, expBarHeight, 2);
-  ctx.fill();
-
-  // 경험치바 (파란색)
-  ctx.fillStyle = '#3b82f6';
-  ctx.beginPath();
-  ctx.roundRect(
-    screenX - expBarWidth / 2 + 1,
-    screenY - 36,
-    (expBarWidth - 2) * Math.min(1, expPercent),
-    expBarHeight - 2,
-    1
   );
   ctx.fill();
 

@@ -11,10 +11,12 @@ import type {
   NetworkCoopHero,
   NetworkCoopEnemy,
 } from '@shared/types/rpgNetwork';
-import type { HeroClass, SkillEffect } from '../types/rpg';
+import type { HeroClass, SkillEffect, Nexus, EnemyBase, UpgradeLevels, RPGGamePhase } from '../types/rpg';
+import type { UpgradeType } from '../game/rpg/goldSystem';
 import { wsClient } from '../services/WebSocketClient';
 import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
+import { useProfileStore } from './useProfileStore';
 
 interface RPGCoopState {
   // 연결 상태
@@ -63,6 +65,7 @@ interface RPGCoopState {
   kickPlayer: (playerId: string) => void;
   setMoveDirection: (direction: { x: number; y: number } | null) => void;
   useSkill: (skillSlot: 'Q' | 'W' | 'E', targetX: number, targetY: number) => void;
+  upgradeHeroStat: (upgradeType: UpgradeType) => void;
   reset: () => void;
 
   // 상태 조회
@@ -304,12 +307,20 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
 
     createRoom: () => {
       const { playerName, selectedClass } = get();
-      wsClient.createCoopRoom(playerName || 'Player', selectedClass);
+      // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
+      const classProgress = useProfileStore.getState().classProgress.find(p => p.className === selectedClass);
+      const characterLevel = classProgress?.classLevel ?? 1;
+      const statUpgrades = classProgress?.statUpgrades;
+      wsClient.createCoopRoom(playerName || 'Player', selectedClass, characterLevel, statUpgrades);
     },
 
     joinRoom: (roomCode: string) => {
       const { playerName, selectedClass } = get();
-      wsClient.joinCoopRoom(roomCode, playerName || 'Player', selectedClass);
+      // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
+      const classProgress = useProfileStore.getState().classProgress.find(p => p.className === selectedClass);
+      const characterLevel = classProgress?.classLevel ?? 1;
+      const statUpgrades = classProgress?.statUpgrades;
+      wsClient.joinCoopRoom(roomCode, playerName || 'Player', selectedClass, characterLevel, statUpgrades);
     },
 
     leaveRoom: () => {
@@ -332,7 +343,11 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
 
       // 로비에 있으면 서버에도 알림
       if (connectionState === 'in_coop_lobby') {
-        wsClient.changeCoopClass(heroClass);
+        // 새 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
+        const classProgress = useProfileStore.getState().classProgress.find(p => p.className === heroClass);
+        const characterLevel = classProgress?.classLevel ?? 1;
+        const statUpgrades = classProgress?.statUpgrades;
+        wsClient.changeCoopClass(heroClass, characterLevel, statUpgrades);
       }
     },
 
@@ -399,6 +414,17 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
 
       const skillType = skillTypeMap[myHero.heroClass][skillSlot] as any;
       wsClient.coopUseSkill(skillType, targetX, targetY);
+    },
+
+    upgradeHeroStat: (upgradeType: UpgradeType) => {
+      const { gameState, myHeroId } = get();
+      if (!gameState || !myHeroId) return;
+
+      const myHero = gameState.heroes.find(h => h.id === myHeroId);
+      if (!myHero || myHero.isDead) return;
+
+      // 서버로 업그레이드 요청 전송
+      wsClient.coopUpgradeHeroStat(upgradeType);
     },
 
     reset: () => {
@@ -581,10 +607,12 @@ function handleGameEvent(
   }
 }
 
-// 빈 배열 상수 (참조 안정성)
+// 빈 배열/객체 상수 (참조 안정성)
 const EMPTY_HEROES: NetworkCoopHero[] = [];
 const EMPTY_ENEMIES: NetworkCoopEnemy[] = [];
 const EMPTY_PLAYERS: CoopPlayerInfo[] = [];
+const EMPTY_ENEMY_BASES: EnemyBase[] = [];
+const DEFAULT_UPGRADE_LEVELS: UpgradeLevels = { attack: 0, speed: 0, hp: 0, goldRate: 0 };
 
 // 편의 훅들
 export const useMyCoopHero = (): NetworkCoopHero | null => {
@@ -623,4 +651,39 @@ export const useCoopPlayers = () => {
 
 export const useCoopRoomCode = () => {
   return useRPGCoopStore((state) => state.roomInfo?.roomCode ?? '');
+};
+
+// 넥서스 디펜스 관련 셀렉터
+export const useCoopNexus = (): Nexus | null => {
+  return useRPGCoopStore((state) => state.gameState?.nexus ?? null);
+};
+
+export const useCoopEnemyBases = (): EnemyBase[] => {
+  return useRPGCoopStore((state) => state.gameState?.enemyBases ?? EMPTY_ENEMY_BASES);
+};
+
+export const useCoopGold = (): number => {
+  return useRPGCoopStore((state) => state.gameState?.gold ?? 0);
+};
+
+export const useCoopGamePhase = (): RPGGamePhase => {
+  return useRPGCoopStore((state) => state.gameState?.gamePhase ?? 'playing');
+};
+
+export const useMyCoopUpgradeLevels = (): UpgradeLevels => {
+  const myHeroId = useRPGCoopStore((state) => state.myHeroId);
+  const heroes = useRPGCoopStore((state) => state.gameState?.heroes);
+
+  if (!heroes || !myHeroId) return DEFAULT_UPGRADE_LEVELS;
+  const myHero = heroes.find(h => h.id === myHeroId);
+  return myHero?.upgradeLevels ?? DEFAULT_UPGRADE_LEVELS;
+};
+
+export const useMyCoopGold = (): number => {
+  const myHeroId = useRPGCoopStore((state) => state.myHeroId);
+  const heroes = useRPGCoopStore((state) => state.gameState?.heroes);
+
+  if (!heroes || !myHeroId) return 0;
+  const myHero = heroes.find(h => h.id === myHeroId);
+  return myHero?.gold ?? 0;
 };

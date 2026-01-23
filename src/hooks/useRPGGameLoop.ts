@@ -1,15 +1,9 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, PASSIVE_UNLOCK_WAVE, PASSIVE_GROWTH_INTERVAL } from '../constants/rpgConfig';
-import { updateHeroUnit, canLevelUp, findNearestEnemy } from '../game/rpg/heroUnit';
-import {
-  createWaveEnemies,
-  createRPGEnemy,
-  isWaveCleared,
-  getWaveBreakDuration,
-} from '../game/rpg/waveSystem';
-import { addExperience } from '../game/rpg/expSystem';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG } from '../constants/rpgConfig';
+import { getStatBonus } from '../types/auth';
+import { updateHeroUnit, findNearestEnemy, findNearestEnemyBase } from '../game/rpg/heroUnit';
 import {
   executeDash,
   executeSpin,
@@ -21,7 +15,7 @@ import {
   canUseSkill,
 } from '../game/rpg/skillSystem';
 import {
-  updateAllEnemiesAI,
+  updateAllEnemiesAINexus,
   calculateDamageAfterReduction,
   applyStunToEnemy,
 } from '../game/rpg/enemyAI';
@@ -29,13 +23,14 @@ import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
 import { SkillType, PendingSkill, SkillEffect } from '../types/rpg';
 import { distance } from '../utils/math';
+import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy } from '../game/rpg/nexusSpawnSystem';
+import { createBosses, areAllBossesDead, hasBosses } from '../game/rpg/bossSystem';
 
 export function useRPGGameLoop() {
   const lastTimeRef = useRef<number>(0);
   const animationIdRef = useRef<number>(0);
-  const waveBreakTimerRef = useRef<number>(-1);
   const pendingSkillRef = useRef<SkillType | null>(null);
-  const levelUpThisFrameRef = useRef<boolean>(false); // 레벨업 사운드 중복 방지
+  const bossesSpawnedRef = useRef<boolean>(false);
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -51,9 +46,6 @@ export function useRPGGameLoop() {
 
     const deltaTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1);
     lastTimeRef.current = timestamp;
-
-    // 프레임 시작 시 레벨업 플래그 리셋
-    levelUpThisFrameRef.current = false;
 
     // 게임 시간 업데이트
     useRPGStore.getState().updateGameTime(deltaTime);
@@ -79,6 +71,8 @@ export function useRPGGameLoop() {
         const attackRange = heroForAutoAttack.config.range || 80;
         const nearestEnemy = findNearestEnemy(heroForAutoAttack, state.enemies);
 
+        let attackedTarget = false;
+
         if (nearestEnemy) {
           const dist = distance(heroForAutoAttack.x, heroForAutoAttack.y, nearestEnemy.x, nearestEnemy.y);
           if (dist <= attackRange) {
@@ -86,12 +80,56 @@ export function useRPGGameLoop() {
             useRPGStore.getState().setMousePosition(nearestEnemy.x, nearestEnemy.y);
             useRPGStore.getState().useSkill(qSkillType);
             pendingSkillRef.current = qSkillType;
+            attackedTarget = true;
 
             // 사운드 재생
             if (heroClass === 'archer' || heroClass === 'mage') {
               soundManager.play('attack_ranged');
             } else {
               soundManager.play('attack_melee');
+            }
+          }
+        }
+
+        // 적이 사거리 내에 없으면 적 기지 공격 시도
+        if (!attackedTarget) {
+          const enemyBases = useRPGStore.getState().enemyBases;
+          const nearestBase = findNearestEnemyBase(heroForAutoAttack, enemyBases);
+
+          if (nearestBase) {
+            const baseDist = distance(heroForAutoAttack.x, heroForAutoAttack.y, nearestBase.x, nearestBase.y);
+            // 기지는 크기가 크므로 사거리 + 기지 반경으로 계산 (기지 반경 약 50)
+            const baseAttackRange = attackRange + 50;
+            if (baseDist <= baseAttackRange) {
+              // 기지 방향으로 마우스 위치 설정
+              useRPGStore.getState().setMousePosition(nearestBase.x, nearestBase.y);
+
+              // 기지에 직접 데미지 적용 (스킬 쿨다운 시작)
+              useRPGStore.getState().useSkill(qSkillType);
+
+              // 영웅 공격력 계산 (업그레이드 보너스 포함)
+              const baseAttack = heroForAutoAttack.baseAttack;
+              const upgradeLevels = useRPGStore.getState().upgradeLevels;
+              const attackBonus = upgradeLevels.attack * 5; // 업그레이드당 5 공격력
+              const totalAttack = baseAttack + attackBonus;
+
+              // 기지에 데미지 적용
+              const destroyed = useRPGStore.getState().damageBase(nearestBase.id, totalAttack);
+
+              // 이펙트 및 사운드
+              effectManager.createEffect('attack_melee', nearestBase.x, nearestBase.y);
+              if (heroClass === 'archer' || heroClass === 'mage') {
+                soundManager.play('attack_ranged');
+              } else {
+                soundManager.play('attack_melee');
+              }
+
+              // 기지 파괴 시 알림
+              if (destroyed) {
+                const showNotification = useUIStore.getState().showNotification;
+                showNotification(`적 기지 파괴!`);
+                soundManager.play('victory');
+              }
             }
           }
         }
@@ -124,11 +162,7 @@ export function useRPGGameLoop() {
       if (killed) {
         const enemy = state.enemies.find((e) => e.id === heroResult.enemyDamage!.targetId);
         if (enemy) {
-          // 경험치 획득
-          useRPGStore.getState().addExp(enemy.expReward);
-          useRPGStore.getState().addExpGained(enemy.expReward);
-          useRPGStore.getState().incrementKills();
-
+          // 골드 획득은 damageEnemy 내에서 자동 처리됨
           // 적 제거
           useRPGStore.getState().removeEnemy(enemy.id);
 
@@ -160,32 +194,30 @@ export function useRPGGameLoop() {
       useRPGStore.getState().setCamera(updatedHero.x, updatedHero.y);
     }
 
-    // 패시브 HP 재생 (기사: 기본 패시브 레벨 5 이상 + 패시브 성장)
+    // HP 재생 처리 (기사: 패시브, 전사/기사: SP hpRegen 업그레이드)
     const heroForRegen = useRPGStore.getState().hero;
-    if (heroForRegen && heroForRegen.heroClass === 'knight' && heroForRegen.hp < heroForRegen.maxHp) {
-      const classConfig = CLASS_CONFIGS[heroForRegen.heroClass];
-      const baseRegen = heroForRegen.level >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.hpRegen || 0) : 0;
-      const growthRegen = heroForRegen.passiveGrowth.currentValue;
-      const totalRegen = baseRegen + growthRegen;
+    if (heroForRegen && heroForRegen.hp < heroForRegen.maxHp) {
+      const heroClass = heroForRegen.heroClass;
+      let totalRegen = 0;
+
+      // 기사 패시브 HP 재생 (캐릭터 레벨 5 이상 시 활성화)
+      if (heroClass === 'knight') {
+        const classConfig = CLASS_CONFIGS[heroClass];
+        const baseRegen = heroForRegen.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.hpRegen || 0) : 0;
+        const growthRegen = heroForRegen.passiveGrowth.currentValue;
+        totalRegen += baseRegen + growthRegen;
+      }
+
+      // SP hpRegen 업그레이드 보너스 (전사, 기사만)
+      if ((heroClass === 'warrior' || heroClass === 'knight') && heroForRegen.statUpgrades) {
+        const hpRegenBonus = getStatBonus('hpRegen', heroForRegen.statUpgrades.hpRegen);
+        totalRegen += hpRegenBonus;
+      }
 
       if (totalRegen > 0) {
         const regenAmount = totalRegen * deltaTime;
         const newHp = Math.min(heroForRegen.maxHp, heroForRegen.hp + regenAmount);
         useRPGStore.getState().updateHeroState({ hp: newHp });
-      }
-    }
-
-    // 레벨업 체크
-    const currentHero = useRPGStore.getState().hero;
-    if (currentHero && canLevelUp(currentHero)) {
-      useRPGStore.getState().levelUp();
-      const newHero = useRPGStore.getState().hero;
-      if (newHero) {
-        // 레벨업 알림
-        const showNotification = useUIStore.getState().showNotification;
-        showNotification(`레벨 ${newHero.level} 달성!`);
-        soundManager.play('upgrade'); // 레벨업 사운드 (3음 아르페지오)
-        levelUpThisFrameRef.current = true; // 이 프레임에서 레벨업 발생 표시
       }
     }
 
@@ -195,13 +227,16 @@ export function useRPGGameLoop() {
     // 시야 업데이트
     useRPGStore.getState().updateVisibility();
 
-    // 적 AI 업데이트 (현재 상태의 적 배열 사용 - 스킬 데미지 반영)
+    // 적 AI 업데이트 (넥서스 타겟팅 버전)
     const currentHeroState = useRPGStore.getState().hero;
     const currentEnemies = useRPGStore.getState().enemies;
+    const currentNexus = useRPGStore.getState().nexus;
+
     if (currentHeroState) {
-      const { updatedEnemies, totalHeroDamage: rawDamage } = updateAllEnemiesAI(
+      const { updatedEnemies, totalHeroDamage: rawDamage, totalNexusDamage } = updateAllEnemiesAINexus(
         currentEnemies,
         currentHeroState,
+        currentNexus,
         deltaTime,
         state.gameTime
       );
@@ -213,11 +248,25 @@ export function useRPGGameLoop() {
         effectManager.createEffect('attack_melee', updatedHero.x, updatedHero.y);
         soundManager.play('attack_melee');
 
-        // 게임 오버 체크 (RPGModeScreen에서 자체 게임 오버 모달 표시)
+        // 게임 오버 체크 (플레이어 사망)
         const heroAfterDamage = useRPGStore.getState().hero;
         if (!heroAfterDamage || heroAfterDamage.hp <= 0) {
           useRPGStore.getState().setGameOver(false);
           soundManager.play('defeat');
+          return;
+        }
+      }
+
+      // 넥서스 데미지 적용
+      if (totalNexusDamage > 0) {
+        useRPGStore.getState().damageNexus(totalNexusDamage);
+
+        // 넥서스 파괴 체크
+        const nexusAfterDamage = useRPGStore.getState().nexus;
+        if (!nexusAfterDamage || nexusAfterDamage.hp <= 0) {
+          soundManager.play('defeat');
+          const showNotification = useUIStore.getState().showNotification;
+          showNotification('넥서스가 파괴되었습니다!');
           return;
         }
       }
@@ -243,9 +292,7 @@ export function useRPGGameLoop() {
           if (dist <= skill.radius) {
             const killed = useRPGStore.getState().damageEnemy(enemy.id, skill.damage);
             if (killed) {
-              useRPGStore.getState().addExp(enemy.expReward);
-              useRPGStore.getState().addExpGained(enemy.expReward);
-              useRPGStore.getState().incrementKills();
+              // 골드 획득은 damageEnemy 내에서 자동 처리됨
               useRPGStore.getState().removeEnemy(enemy.id);
             }
           }
@@ -275,127 +322,62 @@ export function useRPGGameLoop() {
       useRPGStore.getState().removePendingSkill(triggeredSkills[i]);
     }
 
-    // 스폰 큐 처리
-    const currentState = useRPGStore.getState();
-    if (currentState.waveInProgress && currentState.spawnQueue.length > 0) {
-      const timeSinceWaveStart = currentState.gameTime - currentState.waveStartTime;
-
-      // 스폰 가능한 적 확인
-      const readyToSpawn = currentState.spawnQueue.filter(
-        (spawn) => spawn.delay <= timeSinceWaveStart
-      );
-
-      for (const spawn of readyToSpawn) {
-        const enemy = createRPGEnemy(spawn.type, currentState.currentWave);
-        useRPGStore.getState().addEnemy(enemy);
-      }
-
-      // 스폰된 적 제거
-      if (readyToSpawn.length > 0) {
-        const remainingQueue = currentState.spawnQueue.filter(
-          (spawn) => spawn.delay > timeSinceWaveStart
-        );
-        // 직접 상태 업데이트
-        useRPGStore.setState({ spawnQueue: remainingQueue });
-      }
-    }
-
-    // 웨이브 클리어 체크
+    // 넥서스 디펜스: 연속 스폰 처리
     const latestState = useRPGStore.getState();
-    if (
-      latestState.waveInProgress &&
-      isWaveCleared(latestState.enemies, latestState.spawnQueue.length === 0)
-    ) {
-      useRPGStore.getState().endWave();
-      // 레벨업 사운드와 중복 방지 (지연 재생)
-      if (levelUpThisFrameRef.current) {
-        setTimeout(() => soundManager.play('victory'), 800);
-      } else {
+    const showNotification = useUIStore.getState().showNotification;
+
+    // 게임 단계에 따른 처리
+    if (latestState.gamePhase === 'playing') {
+      // 적 기지에서 동시 스폰 (양쪽에서 여러 마리)
+      const enemyBases = latestState.enemyBases;
+      const spawnResult = shouldSpawnEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases);
+
+      if (spawnResult.shouldSpawn && spawnResult.spawns.length > 0) {
+        // 각 기지에서 스폰
+        for (const spawn of spawnResult.spawns) {
+          const base = enemyBases.find(b => b.id === spawn.baseId);
+          if (base && !base.destroyed) {
+            // 해당 기지에서 count만큼 적 생성
+            for (let i = 0; i < spawn.count; i++) {
+              const enemy = createEnemyFromBase(base, latestState.gameTime);
+              if (enemy) {
+                useRPGStore.getState().addEnemy(enemy);
+              }
+            }
+          }
+        }
+        useRPGStore.getState().setLastSpawnTime(latestState.gameTime);
+      }
+
+      // 5분 마일스톤 보상 체크
+      if (latestState.gameTime >= 300 && !latestState.fiveMinuteRewardClaimed) {
+        useRPGStore.getState().setFiveMinuteRewardClaimed();
+        showNotification(`🎉 5분 생존! 보너스 경험치 ${MILESTONE_CONFIG.FIVE_MINUTE_BONUS_EXP}!`);
         soundManager.play('victory');
       }
 
-      const clearedWave = latestState.currentWave;
-      const showNotification = useUIStore.getState().showNotification;
+      // 두 기지 모두 파괴되면 보스 단계로
+      const allBasesDestroyed = enemyBases.every(b => b.destroyed);
+      if (allBasesDestroyed && !bossesSpawnedRef.current) {
+        useRPGStore.getState().setGamePhase('boss_phase');
+        showNotification('🔥 모든 기지 파괴! 보스 출현!');
+        soundManager.play('warning');
+        soundManager.play('boss_spawn');
 
-      // 웨이브 클리어 알림
-      showNotification(`웨이브 ${clearedWave} 클리어!`);
-
-      // 패시브 성장 처리 (10, 20, 30... 웨이브 클리어 시)
-      if (clearedWave >= PASSIVE_UNLOCK_WAVE && clearedWave % PASSIVE_GROWTH_INTERVAL === 0) {
-        const heroBeforeUpgrade = useRPGStore.getState().hero;
-        if (heroBeforeUpgrade) {
-          useRPGStore.getState().upgradePassive(clearedWave);
+        // 보스 2마리 스폰
+        const bosses = createBosses(enemyBases, latestState.gameTime);
+        for (const boss of bosses) {
+          useRPGStore.getState().addEnemy(boss);
         }
+        bossesSpawnedRef.current = true;
       }
-
-      // 휴식 시간 설정
-      waveBreakTimerRef.current = getWaveBreakDuration(latestState.currentWave);
-    }
-
-    // 웨이브 휴식 타이머
-    if (!latestState.waveInProgress && waveBreakTimerRef.current >= 0) {
-      waveBreakTimerRef.current -= deltaTime;
-
-      if (waveBreakTimerRef.current < 0) {
-        // 타이머 비활성화
-        waveBreakTimerRef.current = -1;
-
-        // 다음 웨이브 시작
-        const nextWave = latestState.currentWave + 1;
-        useRPGStore.getState().startWave(nextWave);
-
-        // 웨이브 스폰 큐 설정
-        const waveEnemies = createWaveEnemies(nextWave);
-        for (const enemy of waveEnemies) {
-          useRPGStore.getState().addToSpawnQueue(enemy.type, enemy.delay);
-        }
-
-        // 웨이브 시작 알림
-        const showNotification = useUIStore.getState().showNotification;
-        if (nextWave % 10 === 0) {
-          showNotification(`⚠️ 보스 웨이브 ${nextWave} 시작!`);
-          // 레벨업 사운드와 중복 방지 (지연 재생)
-          // 보스 웨이브에만 경고음 + 보스 등장 사운드 재생
-          if (levelUpThisFrameRef.current) {
-            setTimeout(() => {
-              soundManager.play('warning');
-              soundManager.play('boss_spawn');
-            }, 800);
-          } else {
-            soundManager.play('warning');
-            soundManager.play('boss_spawn');
-          }
-        } else {
-          showNotification(`웨이브 ${nextWave} 시작!`);
-          // 일반 웨이브는 간단한 웨이브 시작 사운드만 재생
-          if (levelUpThisFrameRef.current) {
-            setTimeout(() => soundManager.play('wave_start'), 800);
-          } else {
-            soundManager.play('wave_start');
-          }
-        }
-
-        // 10웨이브마다 적 스탯 증가 알림 (웨이브 10, 20, 30...)
-        if (nextWave % 10 === 0) {
-          const statBoostLevel = Math.floor(nextWave / 10);
-          const statBoostPercent = statBoostLevel * 30;
-          setTimeout(() => {
-            showNotification(`⚡ 적 강화! 스탯 +${statBoostPercent}%`);
-          }, 1500); // 보스 알림 후 1.5초 뒤에 표시
-        }
+    } else if (latestState.gamePhase === 'boss_phase') {
+      // 보스 단계: 모든 보스 처치 시 승리
+      if (bossesSpawnedRef.current && areAllBossesDead(latestState.enemies)) {
+        useRPGStore.getState().setGameOver(true);
+        showNotification('🏆 승리! 모든 보스를 처치했습니다!');
+        soundManager.play('victory');
       }
-    }
-
-    // 첫 웨이브 시작 (게임 시작 직후) - 이미 시작된 경우 스킵
-    if (!latestState.waveStarted && latestState.currentWave === 0 && !latestState.waveInProgress) {
-      useRPGStore.getState().startWave(1);
-      const waveEnemies = createWaveEnemies(1);
-      for (const enemy of waveEnemies) {
-        useRPGStore.getState().addToSpawnQueue(enemy.type, enemy.delay);
-      }
-
-      const showNotification = useUIStore.getState().showNotification;
-      showNotification('웨이브 1 시작!');
     }
 
     // 이펙트 업데이트
@@ -439,9 +421,7 @@ export function useRPGGameLoop() {
         if (killed) {
           const enemy = state.enemies.find((e) => e.id === damage.enemyId);
           if (enemy) {
-            useRPGStore.getState().addExp(enemy.expReward);
-            useRPGStore.getState().addExpGained(enemy.expReward);
-            useRPGStore.getState().incrementKills();
+            // 골드 획득은 damageEnemy 내에서 자동 처리됨
             useRPGStore.getState().removeEnemy(enemy.id);
             effectManager.createEffect('attack_melee', enemy.x, enemy.y);
           }
@@ -502,9 +482,7 @@ export function useRPGGameLoop() {
             if (killed) {
               const enemy = state.enemies.find((e) => e.id === damage.enemyId);
               if (enemy) {
-                useRPGStore.getState().addExp(enemy.expReward);
-                useRPGStore.getState().addExpGained(enemy.expReward);
-                useRPGStore.getState().incrementKills();
+                // 골드 획득은 damageEnemy 내에서 자동 처리됨
                 useRPGStore.getState().removeEnemy(enemy.id);
               }
             }
@@ -522,9 +500,7 @@ export function useRPGGameLoop() {
             if (killed) {
               const enemy = state.enemies.find((e) => e.id === damage.enemyId);
               if (enemy) {
-                useRPGStore.getState().addExp(enemy.expReward);
-                useRPGStore.getState().addExpGained(enemy.expReward);
-                useRPGStore.getState().incrementKills();
+                // 골드 획득은 damageEnemy 내에서 자동 처리됨
                 useRPGStore.getState().removeEnemy(enemy.id);
               }
             }
@@ -610,7 +586,7 @@ export function useRPGGameLoop() {
   useEffect(() => {
     if (running && !paused && !gameOver) {
       lastTimeRef.current = performance.now();
-      waveBreakTimerRef.current = -1;
+      bossesSpawnedRef.current = false;  // 게임 시작 시 보스 스폰 플래그 리셋
       animationIdRef.current = requestAnimationFrame(tick);
     }
 

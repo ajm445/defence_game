@@ -1,20 +1,28 @@
 import React, { useEffect, useState } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
-import { useAuthStore, useAuthProfile, useAuthStatus } from '../../stores/useAuthStore';
+import { useAuthStore, useAuthProfile, useAuthStatus, useAuthIsGuest } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 
 export const MainMenu: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
   const authStatus = useAuthStatus();
   const profile = useAuthProfile();
+  const isGuest = useAuthIsGuest();
   const signOut = useAuthStore((state) => state.signOut);
   const saveSoundSettings = useAuthStore((state) => state.saveSoundSettings);
+  const updateNickname = useAuthStore((state) => state.updateNickname);
+  const deleteAccount = useAuthStore((state) => state.deleteAccount);
   const soundVolume = useUIStore((state) => state.soundVolume);
   const soundMuted = useUIStore((state) => state.soundMuted);
   const setSoundVolume = useUIStore((state) => state.setSoundVolume);
   const setSoundMuted = useUIStore((state) => state.setSoundMuted);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [settingsTab, setSettingsTab] = useState<'sound' | 'profile' | 'danger'>('sound');
+  const [newNickname, setNewNickname] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [settingsError, setSettingsError] = useState<string | null>(null);
+  const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
 
   // 앱 시작 시 사운드 설정 동기화
   useEffect(() => {
@@ -46,12 +54,6 @@ export const MainMenu: React.FC = () => {
     await signOut();
   };
 
-  const handleToggleSettings = () => {
-    soundManager.init();
-    soundManager.play('ui_click');
-    setShowSettings(!showSettings);
-  };
-
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     setSoundVolume(newVolume);
@@ -71,6 +73,59 @@ export const MainMenu: React.FC = () => {
     soundManager.play('ui_click');
     await saveSoundSettings(soundVolume, soundMuted);
     setShowSettings(false);
+  };
+
+  const handleOpenSettings = () => {
+    soundManager.init();
+    soundManager.play('ui_click');
+    setSettingsTab('sound');
+    setNewNickname(profile?.nickname || '');
+    setSettingsError(null);
+    setSettingsSuccess(null);
+    setShowDeleteConfirm(false);
+    setShowSettings(true);
+  };
+
+  const handleCloseSettings = () => {
+    setShowSettings(false);
+    setSettingsError(null);
+    setSettingsSuccess(null);
+    setShowDeleteConfirm(false);
+  };
+
+  const handleUpdateNickname = async () => {
+    if (!newNickname.trim()) {
+      setSettingsError('닉네임을 입력해주세요.');
+      return;
+    }
+    if (newNickname.trim().length < 2) {
+      setSettingsError('닉네임은 2자 이상이어야 합니다.');
+      return;
+    }
+    if (newNickname.trim() === profile?.nickname) {
+      setSettingsError('현재 닉네임과 동일합니다.');
+      return;
+    }
+
+    soundManager.play('ui_click');
+    const result = await updateNickname(newNickname.trim());
+    if (result.success) {
+      setSettingsSuccess('닉네임이 변경되었습니다.');
+      setSettingsError(null);
+    } else {
+      setSettingsError(result.error || '닉네임 변경에 실패했습니다.');
+    }
+  };
+
+  const handleDeleteAccount = async () => {
+    soundManager.play('ui_click');
+    const result = await deleteAccount();
+    if (result.success) {
+      setShowSettings(false);
+      setScreen('menu');
+    } else {
+      setSettingsError(result.error || '회원 탈퇴에 실패했습니다.');
+    }
   };
 
   const isAuthenticated = authStatus === 'authenticated' && profile;
@@ -222,75 +277,206 @@ export const MainMenu: React.FC = () => {
         </div>
       </div>
 
-      {/* 설정 버튼 (우측 상단) */}
-      <button
-        onClick={handleToggleSettings}
-        className="absolute top-6 right-6 z-20 w-12 h-12 rounded-full bg-dark-700/80 border border-gray-600 hover:border-yellow-500 hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group"
-      >
-        <span className="text-2xl group-hover:rotate-90 transition-transform duration-300">⚙️</span>
-      </button>
+      {/* 설정 버튼 (우측 상단) - 로그인 시에만 표시 */}
+      {isAuthenticated && (
+        <button
+          onClick={handleOpenSettings}
+          className="absolute top-6 right-6 z-20 w-12 h-12 rounded-full bg-dark-700/80 border border-gray-600 hover:border-yellow-500 hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group"
+        >
+          <span className="text-2xl group-hover:rotate-90 transition-transform duration-300">⚙️</span>
+        </button>
+      )}
 
       {/* 설정 패널 */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 flex items-center justify-center">
-          <div className="bg-dark-800/95 rounded-xl p-6 border border-gray-600 min-w-[320px] animate-fade-in">
-            <h3 className="text-white font-bold text-xl mb-6 text-center">⚙️ 설정</h3>
+          <div className="bg-dark-800/95 rounded-xl p-6 border border-gray-600 min-w-[380px] max-w-[420px] animate-fade-in">
+            <h3 className="text-white font-bold text-xl mb-4 text-center">⚙️ 설정</h3>
 
-            {/* 음량 조절 */}
-            <div className="space-y-6">
-              <div>
-                <div className="flex justify-between items-center mb-3">
-                  <span className="text-gray-300">음량</span>
-                  <span className="text-neon-cyan font-bold">{Math.round(soundVolume * 100)}%</span>
-                </div>
-                <input
-                  type="range"
-                  min="0"
-                  max="1"
-                  step="0.05"
-                  value={soundVolume}
-                  onChange={handleVolumeChange}
-                  className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer accent-neon-cyan"
-                />
-              </div>
-
-              {/* 음소거 토글 */}
-              <div className="flex justify-between items-center">
-                <span className="text-gray-300">음소거</span>
+            {/* 탭 버튼 - 일반 회원만 표시 */}
+            {!isGuest && (
+              <div className="flex gap-2 mb-6">
                 <button
-                  onClick={handleToggleMute}
-                  className={`px-4 py-2 rounded-lg border transition-all cursor-pointer ${
-                    soundMuted
-                      ? 'bg-red-500/20 border-red-500 text-red-400'
-                      : 'bg-green-500/20 border-green-500 text-green-400'
+                  onClick={() => { setSettingsTab('sound'); setSettingsError(null); setSettingsSuccess(null); }}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm transition-all cursor-pointer ${
+                    settingsTab === 'sound'
+                      ? 'bg-neon-cyan/20 border border-neon-cyan text-neon-cyan'
+                      : 'bg-dark-600 border border-gray-600 text-gray-400 hover:border-gray-500'
                   }`}
                 >
-                  {soundMuted ? '🔇 꺼짐' : '🔊 켜짐'}
+                  🔊 소리
+                </button>
+                <button
+                  onClick={() => { setSettingsTab('profile'); setSettingsError(null); setSettingsSuccess(null); setNewNickname(profile?.nickname || ''); }}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm transition-all cursor-pointer ${
+                    settingsTab === 'profile'
+                      ? 'bg-yellow-500/20 border border-yellow-500 text-yellow-400'
+                      : 'bg-dark-600 border border-gray-600 text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  ✏️ 프로필
+                </button>
+                <button
+                  onClick={() => { setSettingsTab('danger'); setSettingsError(null); setSettingsSuccess(null); setShowDeleteConfirm(false); }}
+                  className={`flex-1 py-2 px-3 rounded-lg text-sm transition-all cursor-pointer ${
+                    settingsTab === 'danger'
+                      ? 'bg-red-500/20 border border-red-500 text-red-400'
+                      : 'bg-dark-600 border border-gray-600 text-gray-400 hover:border-gray-500'
+                  }`}
+                >
+                  ⚠️ 계정
                 </button>
               </div>
-            </div>
+            )}
 
-            {/* 버튼들 */}
-            <div className="mt-8 flex gap-3">
-              <button
-                onClick={() => setShowSettings(false)}
-                className="flex-1 py-3 bg-dark-600 hover:bg-dark-500 text-gray-300 rounded-lg transition-colors cursor-pointer"
-              >
-                취소
-              </button>
-              <button
-                onClick={handleSaveSettings}
-                className="flex-1 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan border border-neon-cyan/50 hover:border-neon-cyan rounded-lg transition-all cursor-pointer"
-              >
-                저장
-              </button>
-            </div>
+            {/* 에러/성공 메시지 */}
+            {settingsError && (
+              <div className="mb-4 p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                <p className="text-red-400 text-sm text-center">{settingsError}</p>
+              </div>
+            )}
+            {settingsSuccess && (
+              <div className="mb-4 p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                <p className="text-green-400 text-sm text-center">{settingsSuccess}</p>
+              </div>
+            )}
 
-            {/* 로그인 안내 (비로그인 시) */}
-            {!isAuthenticated && (
-              <p className="mt-4 text-xs text-gray-500 text-center">
-                로그인하면 설정이 계정에 저장됩니다.
-              </p>
+            {/* 소리 설정 탭 - 게스트는 항상 이 탭만 표시 */}
+            {(settingsTab === 'sound' || isGuest) && (
+              <div className="space-y-6">
+                <div>
+                  <div className="flex justify-between items-center mb-3">
+                    <span className="text-gray-300">음량</span>
+                    <span className="text-neon-cyan font-bold">{Math.round(soundVolume * 100)}%</span>
+                  </div>
+                  <input
+                    type="range"
+                    min="0"
+                    max="1"
+                    step="0.05"
+                    value={soundVolume}
+                    onChange={handleVolumeChange}
+                    className="w-full h-2 bg-dark-600 rounded-lg appearance-none cursor-pointer accent-neon-cyan"
+                  />
+                </div>
+
+                <div className="flex justify-between items-center">
+                  <span className="text-gray-300">음소거</span>
+                  <button
+                    onClick={handleToggleMute}
+                    className={`px-4 py-2 rounded-lg border transition-all cursor-pointer ${
+                      soundMuted
+                        ? 'bg-red-500/20 border-red-500 text-red-400'
+                        : 'bg-green-500/20 border-green-500 text-green-400'
+                    }`}
+                  >
+                    {soundMuted ? '🔇 꺼짐' : '🔊 켜짐'}
+                  </button>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button
+                    onClick={handleCloseSettings}
+                    className="flex-1 py-3 bg-dark-600 hover:bg-dark-500 text-gray-300 rounded-lg transition-colors cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleSaveSettings}
+                    className="flex-1 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan border border-neon-cyan/50 hover:border-neon-cyan rounded-lg transition-all cursor-pointer"
+                  >
+                    저장
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 프로필 설정 탭 - 일반 회원만 */}
+            {settingsTab === 'profile' && !isGuest && (
+              <div className="space-y-6">
+                <div>
+                  <label className="block text-gray-300 mb-2">닉네임</label>
+                  <input
+                    type="text"
+                    value={newNickname}
+                    onChange={(e) => setNewNickname(e.target.value)}
+                    placeholder="새 닉네임 입력..."
+                    maxLength={20}
+                    className="w-full px-4 py-3 bg-dark-600 border border-gray-600 rounded-lg text-white focus:border-yellow-500 focus:outline-none"
+                  />
+                  <p className="text-gray-500 text-xs mt-2">현재: {profile?.nickname}</p>
+                </div>
+
+                <div className="pt-4 flex gap-3">
+                  <button
+                    onClick={handleCloseSettings}
+                    className="flex-1 py-3 bg-dark-600 hover:bg-dark-500 text-gray-300 rounded-lg transition-colors cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleUpdateNickname}
+                    className="flex-1 py-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/50 hover:border-yellow-500 rounded-lg transition-all cursor-pointer"
+                  >
+                    변경
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* 계정 설정 탭 (위험) - 일반 회원만 */}
+            {settingsTab === 'danger' && !isGuest && (
+              <div className="space-y-6">
+                {!showDeleteConfirm ? (
+                  <>
+                    <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                      <h4 className="text-red-400 font-bold mb-2">⚠️ 회원 탈퇴</h4>
+                      <p className="text-gray-400 text-sm">
+                        계정을 삭제하면 모든 게임 데이터(레벨, 통계, 진행 상황)가 영구적으로 삭제됩니다.
+                      </p>
+                    </div>
+
+                    <div className="pt-4 flex gap-3">
+                      <button
+                        onClick={handleCloseSettings}
+                        className="flex-1 py-3 bg-dark-600 hover:bg-dark-500 text-gray-300 rounded-lg transition-colors cursor-pointer"
+                      >
+                        닫기
+                      </button>
+                      <button
+                        onClick={() => setShowDeleteConfirm(true)}
+                        className="flex-1 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 hover:border-red-500 rounded-lg transition-all cursor-pointer"
+                      >
+                        회원 탈퇴
+                      </button>
+                    </div>
+                  </>
+                ) : (
+                  <>
+                    <div className="p-4 bg-red-500/20 border border-red-500 rounded-lg">
+                      <h4 className="text-red-400 font-bold mb-2 text-center">정말 탈퇴하시겠습니까?</h4>
+                      <p className="text-gray-300 text-sm text-center">
+                        이 작업은 되돌릴 수 없습니다.
+                      </p>
+                    </div>
+
+                    <div className="pt-4 flex gap-3">
+                      <button
+                        onClick={() => setShowDeleteConfirm(false)}
+                        className="flex-1 py-3 bg-dark-600 hover:bg-dark-500 text-gray-300 rounded-lg transition-colors cursor-pointer"
+                      >
+                        취소
+                      </button>
+                      <button
+                        onClick={handleDeleteAccount}
+                        className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all cursor-pointer"
+                      >
+                        확인, 탈퇴합니다
+                      </button>
+                    </div>
+                  </>
+                )}
+              </div>
             )}
           </div>
         </div>

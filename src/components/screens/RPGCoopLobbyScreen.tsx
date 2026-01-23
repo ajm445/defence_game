@@ -42,7 +42,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const isGuest = useAuthIsGuest();
   const playerLevel = profile?.playerLevel ?? 1;
 
-  const [inputName, setInputName] = useState(playerName || '');
+  const [inputName, setInputName] = useState(playerName || profile?.nickname || '');
   const [isConnecting, setIsConnecting] = useState(false);
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [inputRoomCode, setInputRoomCode] = useState('');

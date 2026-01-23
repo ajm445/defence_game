@@ -1,3 +1,4 @@
+import 'dotenv/config';
 import { createWebSocketServer } from './websocket/WebSocketServer';
 
 const PORT = Number(process.env.PORT) || 8080;
