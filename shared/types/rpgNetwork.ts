@@ -4,6 +4,7 @@ import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, Pendi
 import type { UnitType } from '../../src/types/unit';
 import type { Position } from '../../src/types/game';
 import type { CharacterStatUpgrades } from '../../src/types/auth';
+import type { SerializedGameState, PlayerInput, HostBasedClientMessage, HostBasedServerMessage } from './hostBasedNetwork';
 
 // ============================================
 // 협동 모드 설정
@@ -11,7 +12,7 @@ import type { CharacterStatUpgrades } from '../../src/types/auth';
 
 export const COOP_CONFIG = {
   MAX_PLAYERS: 4,
-  MIN_PLAYERS: 2,
+  MIN_PLAYERS: 1,  // 호스트 기반 통합 시스템 - 1인도 시작 가능
   COUNTDOWN_SECONDS: 3,
   STATE_SYNC_INTERVAL: 50,  // 50ms (20Hz)
   GAME_LOOP_FPS: 60,
@@ -226,11 +227,16 @@ export type CoopClientMessage =
   | { type: 'CHANGE_COOP_CLASS'; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
   | { type: 'START_COOP_GAME' }  // 호스트 전용
   | { type: 'KICK_COOP_PLAYER'; playerId: string }  // 호스트 전용
-  // 게임 액션
+  // 게임 액션 (레거시)
   | { type: 'COOP_HERO_MOVE'; direction: { x: number; y: number } | null }  // null = 이동 중지
   | { type: 'COOP_USE_SKILL'; skillType: SkillType; targetX: number; targetY: number }
   // 넥서스 디펜스 액션
-  | { type: 'COOP_UPGRADE_HERO_STAT'; upgradeType: 'attack' | 'speed' | 'hp' | 'goldRate' };
+  | { type: 'COOP_UPGRADE_HERO_STAT'; upgradeType: 'attack' | 'speed' | 'hp' | 'goldRate' }
+  // 호스트 기반 메시지
+  | { type: 'HOST_GAME_STATE_BROADCAST'; state: SerializedGameState }
+  | { type: 'HOST_GAME_EVENT_BROADCAST'; event: any }
+  | { type: 'HOST_PLAYER_INPUT'; input: PlayerInput }
+  | { type: 'HOST_GAME_OVER'; result: any };
 
 // ============================================
 // 서버 → 클라이언트 메시지
@@ -246,10 +252,10 @@ export type CoopServerMessage =
   | { type: 'COOP_PLAYER_CLASS_CHANGED'; playerId: string; heroClass: HeroClass }
   | { type: 'COOP_PLAYER_KICKED'; playerId: string; reason: string }
   | { type: 'COOP_ROOM_ERROR'; message: string }
-  // 게임 시작
+  // 게임 시작 (레거시)
   | { type: 'COOP_GAME_COUNTDOWN'; seconds: number }
   | { type: 'COOP_GAME_START'; state: RPGCoopGameState; yourHeroId: string }
-  // 게임 진행
+  // 게임 진행 (레거시)
   | { type: 'COOP_GAME_STATE'; state: RPGCoopGameState }
   | { type: 'COOP_GAME_EVENT'; event: RPGCoopGameEvent }
   | { type: 'COOP_WAVE_START'; waveNumber: number; enemyCount: number }
@@ -257,7 +263,14 @@ export type CoopServerMessage =
   | { type: 'COOP_GAME_OVER'; result: RPGCoopGameResult }
   // 연결 상태
   | { type: 'COOP_PLAYER_DISCONNECTED'; playerId: string }
-  | { type: 'COOP_PLAYER_RECONNECTED'; playerId: string };
+  | { type: 'COOP_PLAYER_RECONNECTED'; playerId: string }
+  // 호스트 기반 메시지
+  | { type: 'COOP_GAME_START_HOST_BASED'; isHost: boolean; playerIndex: number; players: CoopPlayerInfo[]; hostPlayerId: string }
+  | { type: 'COOP_GAME_STATE_FROM_HOST'; state: SerializedGameState }
+  | { type: 'COOP_PLAYER_INPUT'; input: PlayerInput }
+  | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
+  | { type: 'COOP_YOU_ARE_NOW_HOST' }
+  | { type: 'COOP_RECONNECT_INFO'; hostPlayerId: string; isHost: boolean; gameState: 'waiting' | 'countdown' | 'playing' | 'ended' };
 
 // ============================================
 // 연결 상태

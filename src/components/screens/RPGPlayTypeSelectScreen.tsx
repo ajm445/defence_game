@@ -117,7 +117,7 @@ export const RPGPlayTypeSelectScreen: React.FC = () => {
               </p>
               <div style={{ height: '5px' }} />
               <div className="mt-4 flex flex-col gap-1 text-xs text-gray-500">
-                <span>• 2~4인 협동</span>
+                <span>• 1~4인 멀티플레이</span>
                 <span>• 초대 코드</span>
               </div>
             </div>

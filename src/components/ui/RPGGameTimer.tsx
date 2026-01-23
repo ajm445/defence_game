@@ -1,16 +1,8 @@
 import React from 'react';
 import { useRPGStore } from '../../stores/useRPGStore';
-import { useRPGCoopStore } from '../../stores/useRPGCoopStore';
 
-interface RPGGameTimerProps {
-  mode: 'single' | 'coop';
-}
-
-export const RPGGameTimer: React.FC<RPGGameTimerProps> = ({ mode }) => {
-  const singleGameTime = useRPGStore((state) => state.gameTime);
-  const coopGameTime = useRPGCoopStore((state) => state.gameState?.gameTime ?? 0);
-
-  const gameTime = mode === 'single' ? singleGameTime : coopGameTime;
+export const RPGGameTimer: React.FC = () => {
+  const gameTime = useRPGStore((state) => state.gameTime);
 
   const minutes = Math.floor(gameTime / 60);
   const seconds = Math.floor(gameTime % 60);

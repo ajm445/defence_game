@@ -5,6 +5,7 @@ import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange, drawSkill
 import { effectManager } from '../effects';
 import { drawRPGMinimap, getMinimapConfig } from './drawRPGMinimap';
 import { useRPGStore } from '../stores/useRPGStore';
+import { useAuthStore } from '../stores/useAuthStore';
 import { drawNexus, drawAllEnemyBases } from './drawNexusEntities';
 
 /**
@@ -72,7 +73,22 @@ export function renderRPG(
     }
   }
 
-  // 영웅 렌더링
+  // 다른 플레이어 영웅 렌더링 (멀티플레이어 모드)
+  const otherHeroes = useRPGStore.getState().otherHeroes;
+  const multiplayerPlayers = useRPGStore.getState().multiplayer.players;
+  if (otherHeroes && otherHeroes.size > 0) {
+    otherHeroes.forEach((otherHero) => {
+      if (otherHero.hp > 0) {
+        // 플레이어 ID에서 hero_ 접두사 제거하여 플레이어 이름 찾기
+        const playerId = otherHero.id.replace('hero_', '');
+        const player = multiplayerPlayers.find(p => p.id === playerId);
+        const otherNickname = player?.name || '플레이어';
+        drawHero(ctx, otherHero, camera, scaledWidth, scaledHeight, state.gameTime, true, otherNickname);
+      }
+    });
+  }
+
+  // 영웅 렌더링 (내 영웅)
   if (state.hero) {
     // 공격 범위 표시 (V 키 누른 상태)
     const showAttackRange = useRPGStore.getState().showAttackRange;
@@ -87,7 +103,9 @@ export function renderRPG(
       drawSkillRange(ctx, state.hero, camera, hoveredSkillRange, mousePosition);
     }
 
-    drawHero(ctx, state.hero, camera, scaledWidth, scaledHeight, state.gameTime);
+    // 내 닉네임 가져오기
+    const myNickname = useAuthStore.getState().profile?.nickname || '나';
+    drawHero(ctx, state.hero, camera, scaledWidth, scaledHeight, state.gameTime, false, myNickname);
   }
 
   // 파티클 이펙트 렌더링

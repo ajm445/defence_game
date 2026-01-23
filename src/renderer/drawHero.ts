@@ -2,6 +2,7 @@ import { HeroUnit, RPGEnemy, SkillEffect, HeroClass } from '../types/rpg';
 import { Camera, UnitType } from '../types';
 import { drawEmoji } from '../utils/canvasEmoji';
 import { drawUnitImage } from '../utils/unitImages';
+import { RPG_CONFIG } from '../constants/rpgConfig';
 
 // 직업별 이미지 매핑 및 색상 설정
 const CLASS_VISUALS: Record<HeroClass, { unitType: UnitType; emoji: string; color: string; glowColor: string }> = {
@@ -13,6 +14,7 @@ const CLASS_VISUALS: Record<HeroClass, { unitType: UnitType; emoji: string; colo
 
 /**
  * 영웅 유닛 렌더링
+ * @param isOtherPlayer - 다른 플레이어의 영웅인지 (멀티플레이어용)
  */
 export function drawHero(
   ctx: CanvasRenderingContext2D,
@@ -20,7 +22,9 @@ export function drawHero(
   camera: Camera,
   canvasWidth: number,
   canvasHeight: number,
-  gameTime: number = 0
+  gameTime: number = 0,
+  isOtherPlayer: boolean = false,
+  nickname?: string
 ) {
   const screenX = hero.x - camera.x;
   const screenY = hero.y - camera.y;
@@ -33,6 +37,64 @@ export function drawHero(
     screenY > canvasHeight + 50
   ) {
     return;
+  }
+
+  // 사망 상태 체크 및 렌더링
+  if (hero.hp <= 0 && hero.deathTime !== undefined) {
+    const timeSinceDeath = gameTime - hero.deathTime;
+    const reviveTime = RPG_CONFIG.REVIVE.BASE_TIME;
+    const remainingTime = Math.max(0, reviveTime - timeSinceDeath);
+
+    ctx.save();
+
+    // 사망 위치에 반투명 유령 효과
+    ctx.globalAlpha = 0.4;
+
+    // 회색톤 유령
+    ctx.fillStyle = 'rgba(100, 100, 100, 0.6)';
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, 20, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 십자가 아이콘
+    ctx.strokeStyle = '#ffffff';
+    ctx.lineWidth = 3;
+    ctx.beginPath();
+    ctx.moveTo(screenX, screenY - 10);
+    ctx.lineTo(screenX, screenY + 10);
+    ctx.moveTo(screenX - 8, screenY);
+    ctx.lineTo(screenX + 8, screenY);
+    ctx.stroke();
+
+    ctx.globalAlpha = 1;
+
+    // 부활 타이머 표시
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
+    ctx.beginPath();
+    ctx.roundRect(screenX - 30, screenY - 55, 60, 24, 5);
+    ctx.fill();
+
+    ctx.fillStyle = '#ef4444';
+    ctx.font = 'bold 14px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+    ctx.fillText(`💀 ${remainingTime.toFixed(1)}s`, screenX, screenY - 43);
+
+    // 닉네임 표시 (사망 상태에서도)
+    if (nickname) {
+      ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+      const textWidth = ctx.measureText(nickname).width;
+      ctx.beginPath();
+      ctx.roundRect(screenX - textWidth / 2 - 4, screenY - 75, textWidth + 8, 14, 3);
+      ctx.fill();
+
+      ctx.fillStyle = '#9ca3af';
+      ctx.font = 'bold 11px Arial';
+      ctx.fillText(nickname, screenX, screenY - 68);
+    }
+
+    ctx.restore();
+    return; // 사망 상태에서는 일반 렌더링 스킵
   }
 
   // 직업별 비주얼 가져오기
@@ -213,15 +275,31 @@ export function drawHero(
     ctx.fill();
   }
 
-  // 영웅 글로우 효과 (직업별 색상)
-  const glowColor = hasBerserker ? '#ff0000' : (hasIronwall ? '#4a90d9' : classVisual.glowColor);
-  ctx.shadowColor = glowColor;
-  ctx.shadowBlur = 20;
+  // 다른 플레이어 표시 (팀원 구분용 외곽 링)
+  if (isOtherPlayer) {
+    // 시안색 팀원 표시 링
+    ctx.globalAlpha = 0.6;
+    ctx.strokeStyle = '#00d4ff';
+    ctx.lineWidth = 3;
+    ctx.setLineDash([6, 3]);
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, 42, 0, Math.PI * 2);
+    ctx.stroke();
+    ctx.setLineDash([]);
+    ctx.globalAlpha = 1;
+  }
 
-  // 외부 오라 (직업별 색상)
+  // 영웅 글로우 효과 (직업별 색상, 다른 플레이어는 시안색 글로우 추가)
+  const baseGlowColor = hasBerserker ? '#ff0000' : (hasIronwall ? '#4a90d9' : classVisual.glowColor);
+  const glowColor = isOtherPlayer ? '#00d4ff' : baseGlowColor;
+  ctx.shadowColor = glowColor;
+  ctx.shadowBlur = isOtherPlayer ? 25 : 20;
+
+  // 외부 오라 (직업별 색상, 다른 플레이어는 시안색 혼합)
+  const auraColor = isOtherPlayer ? '#00d4ff' : classVisual.color;
   const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 40);
-  gradient.addColorStop(0, classVisual.color + '60');
-  gradient.addColorStop(0.5, classVisual.color + '20');
+  gradient.addColorStop(0, auraColor + '60');
+  gradient.addColorStop(0.5, auraColor + '20');
   gradient.addColorStop(1, 'transparent');
   ctx.fillStyle = gradient;
   ctx.beginPath();
@@ -230,8 +308,8 @@ export function drawHero(
 
   // 메인 원
   ctx.fillStyle = '#1a1a35';
-  ctx.strokeStyle = classVisual.color;
-  ctx.lineWidth = 3;
+  ctx.strokeStyle = isOtherPlayer ? '#00d4ff' : classVisual.color;
+  ctx.lineWidth = isOtherPlayer ? 4 : 3;
 
   ctx.beginPath();
   ctx.arc(screenX, screenY, 25, 0, Math.PI * 2);
@@ -262,6 +340,24 @@ export function drawHero(
   ctx.textAlign = 'center';
   ctx.textBaseline = 'middle';
   ctx.fillText(`${hero.characterLevel}`, screenX + 25, screenY - 20);
+
+  // 닉네임 표시
+  if (nickname) {
+    ctx.fillStyle = isOtherPlayer ? '#60a5fa' : '#fbbf24';
+    ctx.font = 'bold 11px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 텍스트 배경 (가독성 향상)
+    const textWidth = ctx.measureText(nickname).width;
+    ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
+    ctx.beginPath();
+    ctx.roundRect(screenX - textWidth / 2 - 4, screenY - 56, textWidth + 8, 14, 3);
+    ctx.fill();
+
+    ctx.fillStyle = isOtherPlayer ? '#60a5fa' : '#fbbf24';
+    ctx.fillText(nickname, screenX, screenY - 49);
+  }
 
   // 체력바 배경
   const hpBarWidth = 50;
@@ -319,6 +415,28 @@ export function drawHero(
     ctx.beginPath();
     ctx.arc(screenX + 25, screenY + 5, 4, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // 다른 플레이어 팀원 표시 (이름 또는 "ALLY" 표시)
+  if (isOtherPlayer) {
+    ctx.font = 'bold 10px Arial';
+    ctx.textAlign = 'center';
+    ctx.textBaseline = 'middle';
+
+    // 배경 박스
+    const labelText = 'ALLY';
+    const textWidth = ctx.measureText(labelText).width;
+    const labelX = screenX;
+    const labelY = screenY + 45;
+
+    ctx.fillStyle = 'rgba(0, 212, 255, 0.8)';
+    ctx.beginPath();
+    ctx.roundRect(labelX - textWidth / 2 - 4, labelY - 7, textWidth + 8, 14, 3);
+    ctx.fill();
+
+    // 텍스트
+    ctx.fillStyle = '#ffffff';
+    ctx.fillText(labelText, labelX, labelY);
   }
 }
 

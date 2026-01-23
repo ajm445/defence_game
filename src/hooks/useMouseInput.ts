@@ -1,4 +1,4 @@
-import { useRef, useCallback, RefObject } from 'react';
+import { useRef, useCallback, useEffect, RefObject } from 'react';
 import { useGameStore } from '../stores/useGameStore';
 import { useUIStore } from '../stores/useUIStore';
 import { useMultiplayerStore } from '../stores/useMultiplayerStore';
@@ -126,12 +126,13 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
     e.preventDefault();
   }, []);
 
-  const handleWheel = useCallback(
-    (e: React.WheelEvent) => {
-      e.preventDefault();
+  // 휠 이벤트는 passive: false로 네이티브 이벤트 리스너 사용 (preventDefault 허용)
+  useEffect(() => {
+    const canvas = canvasRef.current;
+    if (!canvas) return;
 
-      const canvas = canvasRef.current;
-      if (!canvas) return;
+    const handleWheel = (e: WheelEvent) => {
+      e.preventDefault();
 
       const rect = canvas.getBoundingClientRect();
       const mouseX = e.clientX - rect.left;
@@ -145,15 +146,19 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
       const newZoom = currentZoom + delta;
 
       zoomAt(newZoom, mouseX, mouseY);
-    },
-    [canvasRef, zoomAt]
-  );
+    };
+
+    canvas.addEventListener('wheel', handleWheel, { passive: false });
+
+    return () => {
+      canvas.removeEventListener('wheel', handleWheel);
+    };
+  }, [canvasRef, zoomAt]);
 
   return {
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
     handleContextMenu,
-    handleWheel,
   };
 };

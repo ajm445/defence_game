@@ -131,6 +131,23 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleCoopUpgradeHeroStat(playerId, (message as any).upgradeType);
       break;
 
+    // 호스트 기반 메시지
+    case 'HOST_GAME_STATE_BROADCAST':
+      handleHostGameStateBroadcast(playerId, (message as any).state);
+      break;
+
+    case 'HOST_GAME_EVENT_BROADCAST':
+      handleHostGameEventBroadcast(playerId, (message as any).event);
+      break;
+
+    case 'HOST_PLAYER_INPUT':
+      handleHostPlayerInput(playerId, (message as any).input);
+      break;
+
+    case 'HOST_GAME_OVER':
+      handleHostGameOver(playerId, (message as any).result);
+      break;
+
     default:
       console.warn(`알 수 없는 메시지 타입: ${(message as any).type}`);
   }
@@ -311,4 +328,48 @@ export function handleCoopDisconnect(playerId: string): void {
 
   // 대기 방 처리
   handleCoopPlayerDisconnect(playerId);
+}
+
+// ============================================
+// 호스트 기반 메시지 핸들러
+// ============================================
+
+function handleHostGameStateBroadcast(playerId: string, state: any): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.handleGameStateBroadcast(playerId, state);
+  }
+}
+
+function handleHostGameEventBroadcast(playerId: string, event: any): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.handleGameEventBroadcast(playerId, event);
+  }
+}
+
+function handleHostPlayerInput(playerId: string, input: any): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.handlePlayerInput(playerId, input);
+  }
+}
+
+function handleHostGameOver(playerId: string, result: any): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.handleGameOver(playerId, result);
+  }
 }
