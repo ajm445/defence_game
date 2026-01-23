@@ -17,7 +17,7 @@ import {
   useCoopEnemies,
 } from '../../stores/useRPGCoopStore';
 import { useUIStore } from '../../stores/useUIStore';
-import { useAuthIsGuest } from '../../stores/useAuthStore';
+import { useAuthStore, useAuthIsGuest } from '../../stores/useAuthStore';
 import { useProfileStore } from '../../stores/useProfileStore';
 import { soundManager } from '../../services/SoundManager';
 import { CLASS_CONFIGS, CLASS_SKILLS } from '../../constants/rpgConfig';
@@ -44,7 +44,11 @@ export const RPGCoopGameScreen: React.FC = () => {
 
   // 게임 종료 시 경험치 저장
   useEffect(() => {
-    if (gameResult && myHero && !isGuest && !expSavedRef.current) {
+    // myHero 객체 참조 변경으로 인한 중복 실행 방지
+    // 조건 체크를 위한 값만 사용
+    const currentIsGuest = useAuthStore.getState().profile?.isGuest ?? true;
+
+    if (gameResult && myHero && !currentIsGuest && !expSavedRef.current) {
       expSavedRef.current = true;
 
       // 내 캐릭터의 킬 수 찾기
@@ -54,7 +58,6 @@ export const RPGCoopGameScreen: React.FC = () => {
       const myKills = myResult?.kills || 0;
 
       // 경험치 저장 (협동 모드 - 넥서스 디펜스 공식 사용)
-      // handleCoopGameEnd는 useProfileStore에서 안정적인 참조이므로 의존성에서 제외
       useProfileStore.getState().handleCoopGameEnd({
         classUsed: myHero.heroClass as HeroClass,
         basesDestroyed: gameResult.basesDestroyed,
@@ -69,7 +72,7 @@ export const RPGCoopGameScreen: React.FC = () => {
     if (!gameResult) {
       expSavedRef.current = false;
     }
-  }, [gameResult, myHero, isGuest]);
+  }, [gameResult, myHero]);  // isGuest를 의존성에서 제거 - getState()로 직접 가져옴
 
   // 스킬 사용 핸들러
   const handleUseSkill = useCallback(

@@ -164,7 +164,8 @@ export const useProfileStore = create<ProfileStore>()(
       const authState = useAuthStore.getState();
       const profile = authState.profile;
 
-      if (!profile) return null;
+      // 게스트인 경우 경험치 저장하지 않음
+      if (!profile || profile.isGuest) return null;
 
       const { classProgress } = get();
 

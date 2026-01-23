@@ -11,7 +11,7 @@ import { Notification } from '../ui/Notification';
 import { LevelUpNotification } from '../ui/LevelUpNotification';
 import { useRPGStore, useRPGGameOver, useRPGResult, useSelectedClass } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
-import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
+import { useAuthStore, useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import { useProfileStore, useLastGameResult, useClassProgress } from '../../stores/useProfileStore';
 import { SkillType } from '../../types/rpg';
 import { LevelUpResult, calculatePlayerExp, calculateClassExp, createDefaultStatUpgrades } from '../../types/auth';
@@ -52,20 +52,25 @@ export const RPGModeScreen: React.FC = () => {
       const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
 
       useRPGStore.getState().initGame(characterLevel, statUpgrades);
+      // 게임 시작 시에만 레퍼런스 초기화 (새 게임일 때만)
+      expSavedRef.current = false;
     }
-    // 게임 시작 시 레퍼런스 초기화
-    expSavedRef.current = false;
+    // classProgressList 변경 시 expSavedRef를 초기화하지 않음 (중복 경험치 저장 방지)
 
     // 언마운트 시 정리하지 않음 - 메인 메뉴로 돌아갈 때만 PauseScreen에서 resetGame 호출
   }, [classProgressList]);
 
   // 게임 오버 시 경험치 저장
   useEffect(() => {
-    if (gameOver && result && profile && !expSavedRef.current) {
+    // profile 객체 참조 변경으로 인한 중복 실행 방지
+    // getState()로 현재 프로필을 가져와서 확인
+    const currentProfile = useAuthStore.getState().profile;
+
+    // 게스트가 아니고 아직 저장하지 않은 경우에만 경험치 저장
+    if (gameOver && result && currentProfile && !currentProfile.isGuest && !expSavedRef.current) {
       expSavedRef.current = true;
 
-      // 경험치 저장 (게스트가 아닌 경우에만 실제 저장)
-      // handleGameEnd는 useProfileStore에서 안정적인 참조이므로 의존성에서 제외
+      // 경험치 저장
       useProfileStore.getState().handleGameEnd({
         mode: 'single',
         classUsed: result.heroClass,
@@ -82,7 +87,7 @@ export const RPGModeScreen: React.FC = () => {
         }
       });
     }
-  }, [gameOver, result, profile]);
+  }, [gameOver, result]);  // profile을 의존성에서 제거 - getState()로 직접 가져옴
 
   // 스킬 사용 핸들러
   const handleUseSkill = useCallback(
@@ -276,6 +281,8 @@ export const RPGModeScreen: React.FC = () => {
               </div>
             )}
 
+            <div style={{ height: '10px' }} />
+
             {/* 게스트 안내 */}
             {isGuest && (
               <div className="mb-6 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg">
@@ -284,6 +291,8 @@ export const RPGModeScreen: React.FC = () => {
                 </p>
               </div>
             )}
+
+            <div style={{ height: '10px' }} />
 
             {/* 버튼 */}
             <div className="flex gap-3">
