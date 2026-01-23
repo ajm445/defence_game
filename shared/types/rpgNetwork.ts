@@ -65,6 +65,7 @@ export interface CoopPlayerInfo {
   isHost: boolean;
   isReady: boolean;
   connected: boolean;
+  characterLevel?: number;  // 캐릭터(클래스) 레벨 - 업그레이드 최대 레벨 결정
 }
 
 // ============================================
@@ -215,12 +216,12 @@ export interface RPGCoopGameResult {
 
 export type CoopClientMessage =
   // 방 관련
-  | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass }
-  | { type: 'JOIN_COOP_ROOM'; roomCode: string; playerName: string; heroClass: HeroClass }
+  | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass; characterLevel?: number }
+  | { type: 'JOIN_COOP_ROOM'; roomCode: string; playerName: string; heroClass: HeroClass; characterLevel?: number }
   | { type: 'LEAVE_COOP_ROOM' }
   | { type: 'COOP_READY' }
   | { type: 'COOP_UNREADY' }
-  | { type: 'CHANGE_COOP_CLASS'; heroClass: HeroClass }
+  | { type: 'CHANGE_COOP_CLASS'; heroClass: HeroClass; characterLevel?: number }
   | { type: 'START_COOP_GAME' }  // 호스트 전용
   | { type: 'KICK_COOP_PLAYER'; playerId: string }  // 호스트 전용
   // 게임 액션

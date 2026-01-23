@@ -35,7 +35,7 @@ export const RPGCoopGameScreen: React.FC = () => {
   const useSkill = useRPGCoopStore((state) => state.useSkill);
   const setScreen = useUIStore((state) => state.setScreen);
   const isGuest = useAuthIsGuest();
-  const handleCoopGameEnd = useProfileStore((state) => state.handleCoopGameEnd);
+  // handleCoopGameEnd는 useEffect에서 직접 getState()로 호출하여 의존성 문제 방지
 
   const myHero = useMyCoopHero();
 
@@ -54,7 +54,8 @@ export const RPGCoopGameScreen: React.FC = () => {
       const myKills = myResult?.kills || 0;
 
       // 경험치 저장 (협동 모드 - 넥서스 디펜스 공식 사용)
-      handleCoopGameEnd({
+      // handleCoopGameEnd는 useProfileStore에서 안정적인 참조이므로 의존성에서 제외
+      useProfileStore.getState().handleCoopGameEnd({
         classUsed: myHero.heroClass as HeroClass,
         basesDestroyed: gameResult.basesDestroyed,
         bossesKilled: gameResult.bossesKilled,
@@ -68,7 +69,7 @@ export const RPGCoopGameScreen: React.FC = () => {
     if (!gameResult) {
       expSavedRef.current = false;
     }
-  }, [gameResult, myHero, isGuest, handleCoopGameEnd]);
+  }, [gameResult, myHero, isGuest]);
 
   // 스킬 사용 핸들러
   const handleUseSkill = useCallback(

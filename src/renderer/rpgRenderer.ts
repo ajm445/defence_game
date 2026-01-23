@@ -49,15 +49,13 @@ export function renderRPG(
   // 맵 경계 표시
   drawMapBoundary(ctx, camera, scaledWidth, scaledHeight);
 
-  // 넥서스 디펜스 엔티티 렌더링
+  // 넥서스 디펜스 엔티티 렌더링 (다른 엔티티와 동일한 카메라 사용)
   if (state.nexus) {
-    const nexusCamera = { x: state.camera.x, y: state.camera.y, zoom: state.camera.zoom };
-    drawNexus(ctx, state.nexus, nexusCamera, scaledWidth, scaledHeight);
+    drawNexus(ctx, state.nexus, camera, scaledWidth, scaledHeight);
   }
 
   if (state.enemyBases && state.enemyBases.length > 0) {
-    const baseCamera = { x: state.camera.x, y: state.camera.y, zoom: state.camera.zoom };
-    drawAllEnemyBases(ctx, state.enemyBases, baseCamera, scaledWidth, scaledHeight);
+    drawAllEnemyBases(ctx, state.enemyBases, camera, scaledWidth, scaledHeight);
   }
 
   // 스킬 이펙트 렌더링

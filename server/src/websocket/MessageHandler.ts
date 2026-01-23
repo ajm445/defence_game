@@ -88,11 +88,11 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     // 협동 모드 메시지
     case 'CREATE_COOP_ROOM':
-      handleCreateCoopRoom(playerId, message.playerName, message.heroClass);
+      handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel);
       break;
 
     case 'JOIN_COOP_ROOM':
-      handleJoinCoopRoom(playerId, message.roomCode, message.playerName, message.heroClass);
+      handleJoinCoopRoom(playerId, message.roomCode, message.playerName, message.heroClass, message.characterLevel);
       break;
 
     case 'LEAVE_COOP_ROOM':
@@ -108,7 +108,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       break;
 
     case 'CHANGE_COOP_CLASS':
-      handleChangeCoopClass(playerId, message.heroClass);
+      handleChangeCoopClass(playerId, message.heroClass, message.characterLevel);
       break;
 
     case 'START_COOP_GAME':
@@ -219,22 +219,22 @@ function handleCollectResource(playerId: string, nodeId: string): void {
 // 협동 모드 핸들러
 // ============================================
 
-function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any): void {
+function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number): void {
   const player = players.get(playerId);
   if (!player) return;
 
   const name = playerName || `Player_${playerId.slice(0, 4)}`;
-  console.log(`[Coop] ${name}(${playerId}) 방 생성 요청`);
-  createCoopRoom(playerId, name, heroClass);
+  console.log(`[Coop] ${name}(${playerId}) 방 생성 요청 (Lv.${characterLevel ?? 1})`);
+  createCoopRoom(playerId, name, heroClass, characterLevel ?? 1);
 }
 
-function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: string, heroClass: any): void {
+function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: string, heroClass: any, characterLevel?: number): void {
   const player = players.get(playerId);
   if (!player) return;
 
   const name = playerName || `Player_${playerId.slice(0, 4)}`;
-  console.log(`[Coop] ${name}(${playerId}) 방 참가 요청: ${roomCode}`);
-  joinCoopRoom(roomCode, playerId, name, heroClass);
+  console.log(`[Coop] ${name}(${playerId}) 방 참가 요청: ${roomCode} (Lv.${characterLevel ?? 1})`);
+  joinCoopRoom(roomCode, playerId, name, heroClass, characterLevel ?? 1);
 }
 
 function handleLeaveCoopRoom(playerId: string): void {
@@ -247,9 +247,9 @@ function handleCoopReady(playerId: string, isReady: boolean): void {
   setCoopReady(playerId, isReady);
 }
 
-function handleChangeCoopClass(playerId: string, heroClass: any): void {
-  console.log(`[Coop] ${playerId} 직업 변경: ${heroClass}`);
-  changeCoopClass(playerId, heroClass);
+function handleChangeCoopClass(playerId: string, heroClass: any, characterLevel?: number): void {
+  console.log(`[Coop] ${playerId} 직업 변경: ${heroClass} (Lv.${characterLevel ?? 1})`);
+  changeCoopClass(playerId, heroClass, characterLevel ?? 1);
 }
 
 function handleStartCoopGame(playerId: string): void {

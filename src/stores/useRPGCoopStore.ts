@@ -16,6 +16,7 @@ import type { UpgradeType } from '../game/rpg/goldSystem';
 import { wsClient } from '../services/WebSocketClient';
 import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
+import { useProfileStore } from './useProfileStore';
 
 interface RPGCoopState {
   // 연결 상태
@@ -306,12 +307,18 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
 
     createRoom: () => {
       const { playerName, selectedClass } = get();
-      wsClient.createCoopRoom(playerName || 'Player', selectedClass);
+      // 선택된 클래스의 캐릭터 레벨 가져오기
+      const classProgress = useProfileStore.getState().classProgress.find(p => p.className === selectedClass);
+      const characterLevel = classProgress?.classLevel ?? 1;
+      wsClient.createCoopRoom(playerName || 'Player', selectedClass, characterLevel);
     },
 
     joinRoom: (roomCode: string) => {
       const { playerName, selectedClass } = get();
-      wsClient.joinCoopRoom(roomCode, playerName || 'Player', selectedClass);
+      // 선택된 클래스의 캐릭터 레벨 가져오기
+      const classProgress = useProfileStore.getState().classProgress.find(p => p.className === selectedClass);
+      const characterLevel = classProgress?.classLevel ?? 1;
+      wsClient.joinCoopRoom(roomCode, playerName || 'Player', selectedClass, characterLevel);
     },
 
     leaveRoom: () => {
@@ -334,7 +341,10 @@ export const useRPGCoopStore = create<RPGCoopState>((set, get) => {
 
       // 로비에 있으면 서버에도 알림
       if (connectionState === 'in_coop_lobby') {
-        wsClient.changeCoopClass(heroClass);
+        // 새 클래스의 캐릭터 레벨 가져오기
+        const classProgress = useProfileStore.getState().classProgress.find(p => p.className === heroClass);
+        const characterLevel = classProgress?.classLevel ?? 1;
+        wsClient.changeCoopClass(heroClass, characterLevel);
       }
     },
 

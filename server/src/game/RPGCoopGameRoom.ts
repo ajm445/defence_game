@@ -16,26 +16,26 @@ import type {
 // 게임 단계 타입
 type CoopGamePhase = 'playing' | 'boss_phase' | 'victory' | 'defeat';
 
-// 서버측 협동 모드 설정
+// 서버측 협동 모드 설정 (싱글플레이어와 동일한 맵 설정)
 const CONFIG = {
-  MAP_WIDTH: 2000,
+  MAP_WIDTH: 3000,
   MAP_HEIGHT: 2000,
-  MAP_CENTER_X: 1000,
+  MAP_CENTER_X: 1500,
   MAP_CENTER_Y: 1000,
   SPAWN_MARGIN: 50,
 
   // 넥서스 설정
   NEXUS: {
-    X: 1000,
+    X: 1500,
     Y: 1000,
     HP: 5000,
     RADIUS: 80,
   },
 
-  // 적 기지 설정
+  // 적 기지 설정 (싱글플레이어와 동일)
   ENEMY_BASES: {
-    left: { x: 200, y: 1000, hp: 3000, radius: 60 },
-    right: { x: 1800, y: 1000, hp: 3000, radius: 60 },
+    left: { x: 150, y: 1000, hp: 3000, radius: 60 },
+    right: { x: 2850, y: 1000, hp: 3000, radius: 60 },
   },
 
   // 골드 설정
@@ -52,12 +52,12 @@ const CONFIG = {
     UPGRADE_COST_MULTIPLIER: 1.5,
   },
 
-  // 업그레이드 설정 (레벨당 보너스)
+  // 업그레이드 설정 (레벨당 보너스) - 싱글플레이어와 동일
   UPGRADE: {
     attack: { perLevel: 3 },
     speed: { perLevel: 0.08 },
     hp: { perLevel: 25 },
-    goldRate: { perLevel: 0.15 },
+    goldRate: { perLevel: 2 },  // +2 추가 골드 (고정값)
   },
 
   // 스폰 설정
@@ -372,8 +372,8 @@ export class RPGCoopGameRoom {
       const classConfig = CONFIG.CLASS_CONFIGS[heroClass];
       const pos = spawnPositions[index];
 
-      // TODO: 실제 캐릭터 레벨을 플레이어 프로필에서 가져와야 함
-      const characterLevel = 10;  // 기본값
+      // 플레이어 정보에서 캐릭터 레벨 가져오기 (없으면 기본값 1)
+      const characterLevel = playerInfo.characterLevel ?? 1;
 
       const heroId = uuidv4();
       const hero: ServerHero = {
@@ -773,7 +773,7 @@ export class RPGCoopGameRoom {
     const activeBases = this.enemyBases.filter(b => !b.destroyed);
     if (activeBases.length === 0) return;
 
-    // 스폰 간격 계산 (시간이 지날수록 빨라짐)
+    // 스폰 간격 계산 (시간이 지날수록 빨라짐) - 싱글플레이어와 동일
     const minutes = this.gameTime / 60;
     const spawnInterval = Math.max(
       CONFIG.SPAWN.MIN_INTERVAL,
@@ -783,11 +783,10 @@ export class RPGCoopGameRoom {
     // 스폰 시간 체크
     if (this.gameTime - this.lastSpawnTime < spawnInterval) return;
 
-    // 번갈아가며 기지에서 스폰
-    const spawnIndex = Math.floor(this.gameTime / spawnInterval) % activeBases.length;
-    const selectedBase = activeBases[spawnIndex];
-
-    this.spawnEnemy(selectedBase);
+    // 양쪽 기지에서 동시에 스폰 (싱글플레이어와 동일)
+    activeBases.forEach(base => {
+      this.spawnEnemy(base);
+    });
     this.lastSpawnTime = this.gameTime;
   }
 
@@ -960,8 +959,9 @@ export class RPGCoopGameRoom {
     const aliveHeroes = Array.from(this.heroes.values()).filter(h => !h.isDead);
 
     aliveHeroes.forEach(hero => {
+      // goldRate는 고정 추가 골드 (싱글플레이어와 동일)
       const goldRateBonus = hero.upgradeLevels.goldRate * CONFIG.UPGRADE.goldRate.perLevel;
-      const actualGold = Math.floor(enemy.goldReward * (1 + goldRateBonus));
+      const actualGold = enemy.goldReward + goldRateBonus;
       hero.gold += actualGold;
 
       // 통계 업데이트
@@ -976,7 +976,7 @@ export class RPGCoopGameRoom {
     const deadHeroes = Array.from(this.heroes.values()).filter(h => h.isDead);
     deadHeroes.forEach(hero => {
       const goldRateBonus = hero.upgradeLevels.goldRate * CONFIG.UPGRADE.goldRate.perLevel;
-      const actualGold = Math.floor(enemy.goldReward * 0.5 * (1 + goldRateBonus));
+      const actualGold = Math.floor((enemy.goldReward + goldRateBonus) * 0.5);
       hero.gold += actualGold;
 
       const stats = this.playerStats.get(hero.playerId);

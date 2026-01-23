@@ -29,7 +29,7 @@ export const RPGModeScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
-  const handleGameEnd = useProfileStore((state) => state.handleGameEnd);
+  // handleGameEnd는 useEffect에서 직접 getState()로 호출하여 의존성 문제 방지
   const lastGameResult = useLastGameResult();
   const clearLastGameResult = useProfileStore((state) => state.clearLastGameResult);
   const selectedClass = useSelectedClass();
@@ -65,7 +65,8 @@ export const RPGModeScreen: React.FC = () => {
       expSavedRef.current = true;
 
       // 경험치 저장 (게스트가 아닌 경우에만 실제 저장)
-      handleGameEnd({
+      // handleGameEnd는 useProfileStore에서 안정적인 참조이므로 의존성에서 제외
+      useProfileStore.getState().handleGameEnd({
         mode: 'single',
         classUsed: result.heroClass,
         basesDestroyed: result.basesDestroyed,
@@ -81,7 +82,7 @@ export const RPGModeScreen: React.FC = () => {
         }
       });
     }
-  }, [gameOver, result, profile, handleGameEnd]);
+  }, [gameOver, result, profile]);
 
   // 스킬 사용 핸들러
   const handleUseSkill = useCallback(

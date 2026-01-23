@@ -3,17 +3,20 @@ import { NEXUS_CONFIG, ENEMY_BASE_CONFIG } from '../constants/rpgConfig';
 
 /**
  * 넥서스 그리기
+ * 참고: ctx.scale(zoom, zoom)이 이미 적용된 상태에서 호출됨
+ * camera는 이미 스케일 조정됨 (state.camera.x - scaledWidth/2)
  */
 export function drawNexus(
   ctx: CanvasRenderingContext2D,
   nexus: Nexus,
   camera: { x: number; y: number; zoom: number },
-  canvasWidth: number,
-  canvasHeight: number
+  _canvasWidth: number,
+  _canvasHeight: number
 ): void {
-  const screenX = (nexus.x - camera.x) * camera.zoom + canvasWidth / 2;
-  const screenY = (nexus.y - camera.y) * camera.zoom + canvasHeight / 2;
-  const radius = NEXUS_CONFIG.radius * camera.zoom;
+  // 다른 엔티티와 동일한 좌표 변환 (ctx.scale이 이미 적용됨)
+  const screenX = nexus.x - camera.x;
+  const screenY = nexus.y - camera.y;
+  const radius = NEXUS_CONFIG.radius;  // zoom은 ctx.scale로 이미 적용됨
 
   // HP 비율
   const hpPercent = nexus.hp / nexus.maxHp;
@@ -58,7 +61,7 @@ export function drawNexus(
 
   // 테두리
   ctx.strokeStyle = '#00ffff';
-  ctx.lineWidth = 3 * camera.zoom;
+  ctx.lineWidth = 3;
   ctx.stroke();
 
   // 중앙 코어
@@ -71,9 +74,9 @@ export function drawNexus(
 
   // HP 바
   const hpBarWidth = radius * 2;
-  const hpBarHeight = 8 * camera.zoom;
+  const hpBarHeight = 8;
   const hpBarX = screenX - hpBarWidth / 2;
-  const hpBarY = screenY + radius + 15 * camera.zoom;
+  const hpBarY = screenY + radius + 15;
 
   // HP 바 배경
   ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -91,31 +94,33 @@ export function drawNexus(
 
   // HP 텍스트
   ctx.fillStyle = '#ffffff';
-  ctx.font = `bold ${12 * camera.zoom}px sans-serif`;
+  ctx.font = 'bold 12px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(`${Math.floor(nexus.hp)} / ${nexus.maxHp}`, screenX, hpBarY + hpBarHeight + 12 * camera.zoom);
+  ctx.fillText(`${Math.floor(nexus.hp)} / ${nexus.maxHp}`, screenX, hpBarY + hpBarHeight + 12);
 
   // 라벨
   ctx.fillStyle = '#00ffff';
-  ctx.font = `bold ${14 * camera.zoom}px sans-serif`;
+  ctx.font = 'bold 14px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText('NEXUS', screenX, screenY - radius - 10 * camera.zoom);
+  ctx.fillText('NEXUS', screenX, screenY - radius - 10);
 }
 
 /**
  * 적 기지 그리기
+ * 참고: ctx.scale(zoom, zoom)이 이미 적용된 상태에서 호출됨
  */
 export function drawEnemyBase(
   ctx: CanvasRenderingContext2D,
   base: EnemyBase,
   camera: { x: number; y: number; zoom: number },
-  canvasWidth: number,
-  canvasHeight: number
+  _canvasWidth: number,
+  _canvasHeight: number
 ): void {
-  const screenX = (base.x - camera.x) * camera.zoom + canvasWidth / 2;
-  const screenY = (base.y - camera.y) * camera.zoom + canvasHeight / 2;
+  // 다른 엔티티와 동일한 좌표 변환
+  const screenX = base.x - camera.x;
+  const screenY = base.y - camera.y;
   const config = ENEMY_BASE_CONFIG[base.id];
-  const radius = config.radius * camera.zoom;
+  const radius = config.radius;  // zoom은 ctx.scale로 이미 적용됨
 
   // HP 비율
   const hpPercent = base.hp / base.maxHp;
@@ -142,9 +147,9 @@ export function drawEnemyBase(
 
     // 파괴됨 표시
     ctx.fillStyle = '#888888';
-    ctx.font = `bold ${12 * camera.zoom}px sans-serif`;
+    ctx.font = 'bold 12px sans-serif';
     ctx.textAlign = 'center';
-    ctx.fillText('DESTROYED', screenX, screenY + radius + 20 * camera.zoom);
+    ctx.fillText('DESTROYED', screenX, screenY + radius + 20);
     return;
   }
 
@@ -172,12 +177,12 @@ export function drawEnemyBase(
 
   // 테두리
   ctx.strokeStyle = '#ff4444';
-  ctx.lineWidth = 3 * camera.zoom;
+  ctx.lineWidth = 3;
   ctx.strokeRect(-radius, -radius, radius * 2, radius * 2);
 
   // 중앙 문양 (X 표시)
   ctx.strokeStyle = '#ff6666';
-  ctx.lineWidth = 4 * camera.zoom;
+  ctx.lineWidth = 4;
   ctx.beginPath();
   ctx.moveTo(-radius * 0.5, -radius * 0.5);
   ctx.lineTo(radius * 0.5, radius * 0.5);
@@ -189,9 +194,9 @@ export function drawEnemyBase(
 
   // HP 바
   const hpBarWidth = radius * 2;
-  const hpBarHeight = 6 * camera.zoom;
+  const hpBarHeight = 6;
   const hpBarX = screenX - hpBarWidth / 2;
-  const hpBarY = screenY + radius + 10 * camera.zoom;
+  const hpBarY = screenY + radius + 10;
 
   // HP 바 배경
   ctx.fillStyle = 'rgba(0, 0, 0, 0.7)';
@@ -209,15 +214,15 @@ export function drawEnemyBase(
 
   // HP 텍스트
   ctx.fillStyle = '#ffffff';
-  ctx.font = `${10 * camera.zoom}px sans-serif`;
+  ctx.font = '10px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(`${Math.floor(base.hp)} / ${base.maxHp}`, screenX, hpBarY + hpBarHeight + 10 * camera.zoom);
+  ctx.fillText(`${Math.floor(base.hp)} / ${base.maxHp}`, screenX, hpBarY + hpBarHeight + 10);
 
   // 라벨
   ctx.fillStyle = '#ff6666';
-  ctx.font = `bold ${11 * camera.zoom}px sans-serif`;
+  ctx.font = 'bold 11px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(base.id === 'left' ? 'LEFT BASE' : 'RIGHT BASE', screenX, screenY - radius - 8 * camera.zoom);
+  ctx.fillText(base.id === 'left' ? 'LEFT BASE' : 'RIGHT BASE', screenX, screenY - radius - 8);
 }
 
 /**
