@@ -181,6 +181,7 @@ export const getUpgradeableStats = (heroClass: HeroClass): StatUpgradeType[] => 
 };
 
 // 스탯 업그레이드 정보
+// maxLevel을 Infinity로 설정하여 레벨 제한 없음 (플레이어 레벨로만 제한)
 export const STAT_UPGRADE_CONFIG: Record<StatUpgradeType, {
   name: string;
   icon: string;
@@ -193,35 +194,35 @@ export const STAT_UPGRADE_CONFIG: Record<StatUpgradeType, {
     icon: '⚔️',
     perLevel: 5,      // 레벨당 +5 공격력
     unit: '',
-    maxLevel: 20,
+    maxLevel: Infinity,
   },
   speed: {
     name: '이동속도',
     icon: '👟',
     perLevel: 0.1,    // 레벨당 +0.1 이동속도
     unit: '',
-    maxLevel: 15,
+    maxLevel: Infinity,
   },
   hp: {
     name: '체력',
     icon: '❤️',
     perLevel: 30,     // 레벨당 +30 체력
     unit: '',
-    maxLevel: 20,
+    maxLevel: Infinity,
   },
   range: {
     name: '사거리',
     icon: '🎯',
     perLevel: 10,     // 레벨당 +10 사거리
     unit: '',
-    maxLevel: 10,
+    maxLevel: Infinity,
   },
   hpRegen: {
     name: '체력 재생',
     icon: '💚',
     perLevel: 2,      // 레벨당 +2/초 체력 재생
     unit: '/초',
-    maxLevel: 15,
+    maxLevel: Infinity,
   },
 };
 

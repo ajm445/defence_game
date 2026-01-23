@@ -264,7 +264,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
                     <div>
                       <div className="text-white font-medium">{statConfig.name}</div>
                       <div className="text-xs text-gray-400">
-                        Lv.{currentLevel}/{statConfig.maxLevel}
+                        Lv.{currentLevel}
                         {currentLevel > 0 && (
                           <span className="ml-2 text-green-400">
                             +{statType === 'speed' ? currentBonus.toFixed(1) : currentBonus}{statConfig.unit}
