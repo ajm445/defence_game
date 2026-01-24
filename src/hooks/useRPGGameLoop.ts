@@ -160,8 +160,10 @@ export function useRPGGameLoop() {
     }
 
     // 부활 체크 (사망 후 일정 시간 경과 시 부활)
-    if (state.hero.hp <= 0 && state.hero.deathTime) {
-      const timeSinceDeath = state.gameTime - state.hero.deathTime;
+    const hostDeathTime = state.hero.deathTime;
+    const isHostDead = state.hero.hp <= 0 && hostDeathTime !== undefined;
+    if (isHostDead && hostDeathTime !== undefined) {
+      const timeSinceDeath = state.gameTime - hostDeathTime;
       const reviveTime = RPG_CONFIG.REVIVE.BASE_TIME;
 
       if (timeSinceDeath >= reviveTime) {
@@ -171,17 +173,22 @@ export function useRPGGameLoop() {
         showNotification('부활했습니다! (2초간 무적)');
       }
 
-      // 사망 상태에서는 게임 로직 스킵 (카메라/렌더링만)
-      animationIdRef.current = requestAnimationFrame(tick);
-      return;
+      // 싱글플레이어: 사망 상태에서는 게임 로직 스킵
+      // 멀티플레이어: 호스트 사망해도 게임 로직 계속 실행 (적 AI, 넥서스 데미지 등)
+      if (!state.multiplayer.isMultiplayer) {
+        animationIdRef.current = requestAnimationFrame(tick);
+        return;
+      }
     }
 
-    // 스킬 쿨다운 업데이트
-    useRPGStore.getState().updateSkillCooldowns(deltaTime);
+    // 스킬 쿨다운 업데이트 (호스트가 살아있을 때만)
+    if (!isHostDead) {
+      useRPGStore.getState().updateSkillCooldowns(deltaTime);
+    }
 
-    // 자동 공격: 적이 사거리 내에 있고 Q 스킬이 준비되면 자동 발동
+    // 자동 공격: 적이 사거리 내에 있고 Q 스킬이 준비되면 자동 발동 (호스트가 살아있을 때만)
     const heroForAutoAttack = useRPGStore.getState().hero;
-    if (heroForAutoAttack && !heroForAutoAttack.dashState) {
+    if (!isHostDead && heroForAutoAttack && !heroForAutoAttack.dashState) {
       const heroClass = heroForAutoAttack.heroClass;
       const qSkillType = CLASS_SKILLS[heroClass].q.type;
       const qSkill = heroForAutoAttack.skills.find(s => s.type === qSkillType);
@@ -1097,9 +1104,21 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
         });
 
         // Q 스킬 쿨다운 리셋
-        const skillsWithCooldown = updatedSkills.map(s =>
+        let skillsWithCooldown = updatedSkills.map(s =>
           s.type === qSkillType ? { ...s, currentCooldown: s.cooldown } : s
         );
+
+        // 기사 Q 스킬 적중 시 W 스킬 쿨다운 1초 감소
+        if (heroClass === 'knight') {
+          const wSkillType = CLASS_SKILLS.knight.w.type;
+          skillsWithCooldown = skillsWithCooldown.map(s => {
+            if (s.type === wSkillType && s.currentCooldown > 0) {
+              return { ...s, currentCooldown: Math.max(0, s.currentCooldown - 1.0) };
+            }
+            return s;
+          });
+        }
+
         state.updateOtherHero(heroId, {
           skills: skillsWithCooldown,
           facingAngle: Math.atan2(nearestEnemy.y - hero.y, nearestEnemy.x - hero.x),
