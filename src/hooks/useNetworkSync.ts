@@ -158,7 +158,7 @@ export function useNetworkSync() {
 
         // 로비 복귀
         case 'COOP_RETURN_TO_LOBBY':
-          handleReturnToLobby();
+          handleReturnToLobby(message);
           break;
 
         // 게임 재시작 카운트다운
@@ -282,12 +282,25 @@ function handleGameOver(result: any) {
   useRPGStore.getState().setMultiplayerState({ connectionState: 'post_game' });
 }
 
-function handleReturnToLobby() {
-  console.log('[NetworkSync] 로비 복귀');
+function handleReturnToLobby(message?: any) {
+  console.log('[NetworkSync] 로비 복귀', message);
 
-  // 게임 상태 리셋하고 로비로
+  // 게임 상태 리셋
   useRPGStore.getState().resetGame();
-  useRPGStore.getState().setMultiplayerState({ connectionState: 'in_lobby' });
+
+  // 멀티플레이어 상태 업데이트 (플레이어 정보 유지)
+  if (message && message.players) {
+    useRPGStore.getState().setMultiplayerState({
+      connectionState: 'in_lobby',
+      roomCode: message.roomCode,
+      roomId: message.roomId,
+      players: message.players,
+      hostPlayerId: message.hostPlayerId,
+    });
+  } else {
+    useRPGStore.getState().setMultiplayerState({ connectionState: 'in_lobby' });
+  }
+
   useUIStore.getState().setScreen('rpgCoopLobby');
 }
 

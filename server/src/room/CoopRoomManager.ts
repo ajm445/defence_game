@@ -228,6 +228,7 @@ export function leaveCoopRoom(playerId: string): void {
           sendToPlayer(id, {
             type: 'COOP_ROOM_JOINED',
             roomId: room.id,
+            roomCode: room.code,
             players: Array.from(room.players.values()),
             yourIndex: Array.from(room.players.keys()).indexOf(id),
           });
@@ -390,7 +391,7 @@ export function startCoopGame(hostPlayerId: string): void {
   const playerIds = Array.from(room.players.keys());
   const playerInfos = Array.from(room.players.values());
 
-  const gameRoom = new RPGCoopGameRoom(room.id, playerIds, playerInfos);
+  const gameRoom = new RPGCoopGameRoom(room.id, room.code, playerIds, playerInfos);
 
   // MessageHandler에 게임 방 등록
   addCoopRoom(gameRoom);

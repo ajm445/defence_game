@@ -236,7 +236,11 @@ export type CoopClientMessage =
   | { type: 'HOST_GAME_STATE_BROADCAST'; state: SerializedGameState }
   | { type: 'HOST_GAME_EVENT_BROADCAST'; event: any }
   | { type: 'HOST_PLAYER_INPUT'; input: PlayerInput }
-  | { type: 'HOST_GAME_OVER'; result: any };
+  | { type: 'HOST_GAME_OVER'; result: any }
+  // 게임 종료 후 로비 관련
+  | { type: 'RETURN_TO_LOBBY' }
+  | { type: 'RESTART_COOP_GAME' }
+  | { type: 'DESTROY_COOP_ROOM' };
 
 // ============================================
 // 서버 → 클라이언트 메시지
@@ -245,7 +249,7 @@ export type CoopClientMessage =
 export type CoopServerMessage =
   // 방 관련
   | { type: 'COOP_ROOM_CREATED'; roomCode: string; roomId: string }
-  | { type: 'COOP_ROOM_JOINED'; roomId: string; players: CoopPlayerInfo[]; yourIndex: number }
+  | { type: 'COOP_ROOM_JOINED'; roomId: string; roomCode: string; players: CoopPlayerInfo[]; yourIndex: number }
   | { type: 'COOP_PLAYER_JOINED'; player: CoopPlayerInfo }
   | { type: 'COOP_PLAYER_LEFT'; playerId: string }
   | { type: 'COOP_PLAYER_READY'; playerId: string; isReady: boolean }

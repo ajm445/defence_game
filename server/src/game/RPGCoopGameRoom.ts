@@ -16,6 +16,7 @@ import type { SerializedGameState, PlayerInput } from '../../../shared/types/hos
  */
 export class RPGCoopGameRoom {
   public id: string;
+  public roomCode: string;
   private playerIds: string[];
   private playerInfos: CoopPlayerInfo[];
   private hostPlayerId: string;
@@ -26,15 +27,16 @@ export class RPGCoopGameRoom {
   // 각 플레이어의 heroId 매핑 (호스트가 할당)
   private playerHeroMap: Map<string, string> = new Map();
 
-  constructor(id: string, playerIds: string[], playerInfos: CoopPlayerInfo[]) {
+  constructor(id: string, roomCode: string, playerIds: string[], playerInfos: CoopPlayerInfo[]) {
     this.id = id;
+    this.roomCode = roomCode;
     this.playerIds = playerIds;
     this.playerInfos = playerInfos;
 
     // 호스트 식별 (첫 번째 플레이어가 방장)
     this.hostPlayerId = playerInfos.find(p => p.isHost)?.id || playerIds[0];
 
-    console.log(`[Relay] 게임 방 생성: ${id}, 호스트: ${this.hostPlayerId}, 플레이어: ${playerIds.length}명`);
+    console.log(`[Relay] 게임 방 생성: ${id} (${roomCode}), 호스트: ${this.hostPlayerId}, 플레이어: ${playerIds.length}명`);
   }
 
   public startCountdown(): void {
@@ -173,10 +175,22 @@ export class RPGCoopGameRoom {
 
     this.gameState = 'waiting';
 
-    // 모든 플레이어에게 로비 복귀 알림
-    this.broadcast({ type: 'COOP_RETURN_TO_LOBBY' });
+    // 플레이어 준비 상태 초기화
+    this.playerInfos = this.playerInfos.map(p => ({
+      ...p,
+      isReady: p.isHost, // 호스트는 항상 준비 상태
+    }));
 
-    console.log(`[Relay] 로비 복귀: Room ${this.id}`);
+    // 모든 플레이어에게 로비 복귀 알림 (플레이어 정보 포함)
+    this.broadcast({
+      type: 'COOP_RETURN_TO_LOBBY',
+      roomCode: this.roomCode,
+      roomId: this.id,
+      players: this.playerInfos,
+      hostPlayerId: this.hostPlayerId,
+    });
+
+    console.log(`[Relay] 로비 복귀: Room ${this.id} (${this.roomCode})`);
   }
 
   /**
