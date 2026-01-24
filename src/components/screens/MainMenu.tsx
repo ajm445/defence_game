@@ -268,13 +268,6 @@ export const MainMenu: React.FC = () => {
         <div className="text-gray-400 text-xs tracking-widest uppercase">
           Press a button to start
         </div>
-        <div className="flex items-center gap-4 text-gray-500 text-xs">
-          <span>WASD - Move Camera</span>
-          <span className="w-1 h-1 rounded-full bg-gray-500" />
-          <span>SPACE - Home Base</span>
-          <span className="w-1 h-1 rounded-full bg-gray-500" />
-          <span>ESC - Menu</span>
-        </div>
       </div>
 
       {/* 설정 버튼 (우측 상단) - 로그인 시에만 표시 */}

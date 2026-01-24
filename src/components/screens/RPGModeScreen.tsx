@@ -131,13 +131,13 @@ export const RPGModeScreen: React.FC = () => {
     [requestSkill]
   );
 
-  // 게임 오버 시 결과 화면으로 이동
+  // 게임 오버 시 직업 선택 화면으로 이동
   const handleBackToMenu = useCallback(() => {
     resetGame();
     clearLastGameResult();
     setLevelUpResult(null);
     setShowLevelUp(false);
-    setScreen('gameTypeSelect');
+    setScreen('rpgClassSelect');
   }, [resetGame, clearLastGameResult, setScreen]);
 
   const handleRetry = useCallback(() => {
