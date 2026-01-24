@@ -246,6 +246,27 @@ class WebSocketClient {
   public hostBroadcastGameOver(result: any): void {
     this.send({ type: 'HOST_GAME_OVER', result } as any);
   }
+
+  /**
+   * 로비 복귀 요청 (호스트만)
+   */
+  public returnToLobby(): void {
+    this.send({ type: 'RETURN_TO_LOBBY' } as any);
+  }
+
+  /**
+   * 게임 재시작 요청 (호스트만)
+   */
+  public restartCoopGame(): void {
+    this.send({ type: 'RESTART_COOP_GAME' } as any);
+  }
+
+  /**
+   * 방 파기 요청 (호스트만)
+   */
+  public destroyCoopRoom(): void {
+    this.send({ type: 'DESTROY_COOP_ROOM' } as any);
+  }
 }
 
 // 싱글톤 인스턴스

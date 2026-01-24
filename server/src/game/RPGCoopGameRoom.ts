@@ -140,7 +140,7 @@ export class RPGCoopGameRoom {
 
   /**
    * 호스트로부터 게임 종료 알림
-   * → 모든 플레이어에게 전달
+   * → 모든 플레이어에게 전달 (방은 유지)
    */
   public handleGameOver(playerId: string, result: any): void {
     // 호스트만 게임 종료를 선언할 수 있음
@@ -150,10 +150,85 @@ export class RPGCoopGameRoom {
 
     this.gameState = 'ended';
 
-    // 모든 플레이어에게 게임 종료 알림
+    // 모든 플레이어에게 게임 종료 알림 (방은 유지됨)
     this.broadcast({ type: 'COOP_GAME_OVER', result });
 
     console.log(`[Relay] 게임 종료: Room ${this.id}, 승리: ${result?.victory}`);
+
+    // cleanup() 호출 제거 - 방 유지하여 재시작 가능
+  }
+
+  /**
+   * 게임 종료 후 로비로 복귀
+   * → 호스트만 호출 가능
+   */
+  public returnToLobby(playerId: string): void {
+    if (playerId !== this.hostPlayerId) {
+      return;
+    }
+
+    if (this.gameState !== 'ended') {
+      return;
+    }
+
+    this.gameState = 'waiting';
+
+    // 모든 플레이어에게 로비 복귀 알림
+    this.broadcast({ type: 'COOP_RETURN_TO_LOBBY' });
+
+    console.log(`[Relay] 로비 복귀: Room ${this.id}`);
+  }
+
+  /**
+   * 게임 재시작 (로비에서 호스트가 시작)
+   * → 호스트만 호출 가능
+   */
+  public restartGame(playerId: string): void {
+    if (playerId !== this.hostPlayerId) {
+      return;
+    }
+
+    if (this.gameState !== 'waiting' && this.gameState !== 'ended') {
+      return;
+    }
+
+    // 카운트다운 시작
+    this.gameState = 'countdown';
+    this.broadcast({ type: 'COOP_RESTART_COUNTDOWN' });
+
+    console.log(`[Relay] 게임 재시작 카운트다운: Room ${this.id}`);
+
+    // 3초 카운트다운
+    let countdown = 3;
+    this.countdownTimer = setInterval(() => {
+      countdown--;
+      this.broadcast({ type: 'COOP_COUNTDOWN', countdown });
+
+      if (countdown <= 0) {
+        if (this.countdownTimer) {
+          clearInterval(this.countdownTimer);
+          this.countdownTimer = null;
+        }
+        this.gameState = 'playing';
+        this.broadcast({ type: 'COOP_GAME_RESTART' });
+        console.log(`[Relay] 게임 재시작: Room ${this.id}`);
+      }
+    }, 1000);
+  }
+
+  /**
+   * 호스트가 방 파기
+   * → 모든 플레이어에게 알림 후 방 삭제
+   */
+  public destroyRoom(playerId: string): void {
+    if (playerId !== this.hostPlayerId) {
+      return;
+    }
+
+    // 모든 플레이어에게 방 파기 알림
+    this.broadcast({ type: 'COOP_ROOM_DESTROYED', reason: '호스트가 방을 파기했습니다.' });
+
+    console.log(`[Relay] 방 파기: Room ${this.id}`);
 
     // 방 정리
     this.cleanup();

@@ -156,9 +156,34 @@ export function useNetworkSync() {
           handleGameOver(message.result);
           break;
 
+        // 로비 복귀
+        case 'COOP_RETURN_TO_LOBBY':
+          handleReturnToLobby();
+          break;
+
+        // 게임 재시작 카운트다운
+        case 'COOP_RESTART_COUNTDOWN':
+          handleRestartCountdown();
+          break;
+
+        // 게임 재시작
+        case 'COOP_GAME_RESTART':
+          handleGameRestart();
+          break;
+
+        // 방 파기됨
+        case 'COOP_ROOM_DESTROYED':
+          handleRoomDestroyed(message.reason);
+          break;
+
         // 카운트다운
         case 'COOP_GAME_COUNTDOWN':
           useRPGStore.getState().setMultiplayerState({ countdown: message.seconds });
+          break;
+
+        // 카운트다운 (재시작 시)
+        case 'COOP_COUNTDOWN':
+          useRPGStore.getState().setMultiplayerState({ countdown: message.countdown });
           break;
       }
     };
@@ -253,6 +278,69 @@ function handleGameOver(result: any) {
   console.log('[NetworkSync] 게임 종료:', result);
 
   useRPGStore.getState().setGameOver(result?.victory || false);
+  // 멀티플레이어 상태를 post_game으로 변경 (방은 유지)
+  useRPGStore.getState().setMultiplayerState({ connectionState: 'post_game' });
+}
+
+function handleReturnToLobby() {
+  console.log('[NetworkSync] 로비 복귀');
+
+  // 게임 상태 리셋하고 로비로
+  useRPGStore.getState().resetGame();
+  useRPGStore.getState().setMultiplayerState({ connectionState: 'in_lobby' });
+  useUIStore.getState().setScreen('rpgCoopLobby');
+}
+
+function handleRestartCountdown() {
+  console.log('[NetworkSync] 게임 재시작 카운트다운 시작');
+
+  useRPGStore.getState().setMultiplayerState({ connectionState: 'countdown' });
+}
+
+function handleGameRestart() {
+  console.log('[NetworkSync] 게임 재시작');
+
+  // 게임 상태 완전 리셋 후 새 게임 시작
+  const state = useRPGStore.getState();
+  const { players, isHost, hostPlayerId, myPlayerId, myHeroId } = state.multiplayer;
+
+  // 게임 리셋
+  state.resetGame();
+
+  // 멀티플레이어 상태 유지하면서 게임 재시작
+  state.setMultiplayerState({
+    connectionState: 'in_game',
+    players,
+    isHost,
+    hostPlayerId,
+    myPlayerId,
+    myHeroId,
+  });
+
+  // 게임 초기화 (호스트만 - 클라이언트는 호스트로부터 상태 수신)
+  if (isHost) {
+    state.initMultiplayerGame(players);
+  }
+  // 클라이언트는 호스트로부터 게임 상태를 받아서 적용함
+
+  // 게임 화면으로
+  useUIStore.getState().setScreen('rpgMode');
+}
+
+function handleRoomDestroyed(reason: string) {
+  console.log('[NetworkSync] 방 파기됨:', reason);
+
+  // 알림 표시
+  useUIStore.getState().showNotification(reason || '방이 파기되었습니다.');
+
+  // 멀티플레이어 상태 초기화
+  useRPGStore.getState().resetMultiplayerState();
+
+  // 게임 리셋
+  useRPGStore.getState().resetGame();
+
+  // 직업 선택 화면으로
+  useUIStore.getState().setScreen('rpgClassSelect');
 }
 
 /**

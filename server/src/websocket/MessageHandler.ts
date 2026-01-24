@@ -148,6 +148,18 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleHostGameOver(playerId, (message as any).result);
       break;
 
+    case 'RETURN_TO_LOBBY':
+      handleReturnToLobby(playerId);
+      break;
+
+    case 'RESTART_COOP_GAME':
+      handleRestartCoopGame(playerId);
+      break;
+
+    case 'DESTROY_COOP_ROOM':
+      handleDestroyCoopRoom(playerId);
+      break;
+
     default:
       console.warn(`알 수 없는 메시지 타입: ${(message as any).type}`);
   }
@@ -371,5 +383,35 @@ function handleHostGameOver(playerId: string, result: any): void {
   const room = coopGameRooms.get(player.roomId);
   if (room) {
     room.handleGameOver(playerId, result);
+  }
+}
+
+function handleReturnToLobby(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.returnToLobby(playerId);
+  }
+}
+
+function handleRestartCoopGame(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.restartGame(playerId);
+  }
+}
+
+function handleDestroyCoopRoom(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.destroyRoom(playerId);
   }
 }
