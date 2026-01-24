@@ -1096,12 +1096,28 @@ export const useRPGStore = create<RPGStore>()(
     addBuff: (buff: Buff) => {
       set((state) => {
         if (!state.hero) return state;
-        // 기존 같은 타입의 버프 제거 후 추가
+
+        // 같은 타입의 기존 버프 찾기
+        const existingBuff = state.hero.buffs.find(b => b.type === buff.type);
+
+        // 같은 타입 버프가 있으면 더 긴 지속시간 선택
+        let finalBuff = buff;
+        if (existingBuff) {
+          const existingRemaining = existingBuff.duration;
+          if (existingRemaining > buff.duration) {
+            // 기존 버프의 지속시간이 더 길면, 새 버프의 효과 + 기존 지속시간 유지
+            finalBuff = {
+              ...buff,
+              duration: existingRemaining,
+            };
+          }
+        }
+
         const filteredBuffs = state.hero.buffs.filter(b => b.type !== buff.type);
         return {
           hero: {
             ...state.hero,
-            buffs: [...filteredBuffs, buff],
+            buffs: [...filteredBuffs, finalBuff],
           },
         };
       });
