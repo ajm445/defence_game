@@ -172,7 +172,11 @@ export const useProfileStore = create<ProfileStore>()(
       // 게스트인 경우 경험치 저장하지 않음
       if (!profile || profile.isGuest) return null;
 
-      const { classProgress } = get();
+      // useProfileStore 우선, 비어있으면 useAuthStore 사용 (로그인 시 로드됨)
+      let classProgress = get().classProgress;
+      if (classProgress.length === 0) {
+        classProgress = authState.classProgress;
+      }
 
       const result = await processGameResult(
         profile.id,
@@ -221,7 +225,11 @@ export const useProfileStore = create<ProfileStore>()(
       // 게스트인 경우 경험치 저장하지 않음
       if (!profile || profile.isGuest) return null;
 
-      const { classProgress } = get();
+      // useProfileStore 우선, 비어있으면 useAuthStore 사용 (로그인 시 로드됨)
+      let classProgress = get().classProgress;
+      if (classProgress.length === 0) {
+        classProgress = authState.classProgress;
+      }
 
       // 협동 모드: processGameResult 호출 (서버에 저장됨)
       const result = await processGameResult(

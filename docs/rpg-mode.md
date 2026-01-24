@@ -1,4 +1,4 @@
-# RPG 모드 게임 설명서 (V1.15.4)
+# RPG 모드 게임 설명서 (V1.15.5)
 
 ## 게임 소개
 
@@ -302,6 +302,12 @@ RPG 모드는 플레이어가 4가지 직업 중 하나를 선택하여 영웅�
 ---
 
 ## 버전 히스토리
+
+### V1.15.5
+- **경험치 저장 버그 수정** (Critical)
+  - 게임 종료 시 경험치가 기존 값에 더해지지 않고 덮어쓰여 레벨이 초기화되던 버그 수정
+  - `handleGameEnd`/`handleCoopGameEnd`에서 `useProfileStore.classProgress`가 비어있을 때 `useAuthStore.classProgress` 폴백 추가
+  - 기존 캐릭터 경험치(classExp)와 레벨(classLevel)이 정확히 누적되도록 개선
 
 ### V1.15.4
 - **오라(Aura) 버프 시스템 구현**
