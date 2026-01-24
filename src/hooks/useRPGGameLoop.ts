@@ -348,7 +348,7 @@ export function useRPGGameLoop() {
       if (heroClass === 'knight') {
         const classConfig = CLASS_CONFIGS[heroClass];
         const baseRegen = heroForRegen.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.hpRegen || 0) : 0;
-        const growthRegen = heroForRegen.passiveGrowth.currentValue;
+        const growthRegen = heroForRegen.passiveGrowth?.currentValue || 0;
         totalRegen += baseRegen + growthRegen;
       }
 

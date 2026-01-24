@@ -297,8 +297,13 @@ function executeOtherHeroSkill(
     return;
   }
 
-  // 스킬 실행
-  const result = executeSkill(hero, state.enemies, targetX, targetY, state.gameTime);
+  // 스킬 실행 (enemyBases 전달, E 스킬은 casterId도 전달)
+  let result;
+  if (skillSlot === 'E') {
+    result = (executeSkill as typeof executeESkill)(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases, heroId);
+  } else {
+    result = executeSkill(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases);
+  }
 
   // 영웅 상태 업데이트 (스킬 쿨다운 포함)
   const updatedHero = result.hero;

@@ -305,7 +305,7 @@ export function executeQSkill(
   // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
   if (heroClass === 'mage') {
     const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
-    const growthDamageBonus = hero.passiveGrowth.currentValue;
+    const growthDamageBonus = hero.passiveGrowth?.currentValue || 0;
     damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
   }
 
@@ -341,7 +341,7 @@ export function executeQSkill(
   const baseMultiTargetCount = classConfig.passive.multiTarget || 1;
   // 레벨 5 이상이고 패시브 성장 확률 판정 성공 시 다중타겟
   const isPassiveUnlocked = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL;
-  const useGrowthMultiTarget = heroClass === 'archer' && isPassiveUnlocked && rollMultiTarget(hero.passiveGrowth.currentValue);
+  const useGrowthMultiTarget = heroClass === 'archer' && isPassiveUnlocked && rollMultiTarget(hero.passiveGrowth?.currentValue || 0);
   const multiTargetCount = useGrowthMultiTarget ? baseMultiTargetCount : 1;
 
   const targetEnemies: { enemy: RPGEnemy; dist: number }[] = [];
@@ -433,7 +433,7 @@ export function executeQSkill(
 
     // 기본 패시브 (레벨 5 이상) + 패시브 성장 피해흡혈
     const baseLifesteal = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
-    const growthLifesteal = hero.passiveGrowth.currentValue;
+    const growthLifesteal = hero.passiveGrowth?.currentValue || 0;
     const passiveTotal = baseLifesteal + growthLifesteal;
 
     // 광전사 버프 피해흡혈
@@ -492,7 +492,7 @@ export function executeWSkill(
   // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
   if (heroClass === 'mage') {
     const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
-    const growthDamageBonus = hero.passiveGrowth.currentValue;
+    const growthDamageBonus = hero.passiveGrowth?.currentValue || 0;
     damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
   }
 
@@ -759,7 +759,7 @@ export function executeESkill(
   // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
   if (heroClass === 'mage') {
     const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
-    const growthDamageBonus = hero.passiveGrowth.currentValue;
+    const growthDamageBonus = hero.passiveGrowth?.currentValue || 0;
     damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
   }
 
