@@ -35,6 +35,7 @@ export function useRPGGameLoop() {
   const pendingSkillRef = useRef<SkillType | null>(null);
   const bossesSpawnedRef = useRef<boolean>(false);
   const lastBroadcastTimeRef = useRef<number>(0);
+  const wasRunningRef = useRef<boolean>(false);
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -547,20 +548,10 @@ export function useRPGGameLoop() {
         soundManager.play('victory');
       }
 
-      // 두 기지 모두 파괴되면 보스 단계로
+      // 두 기지 모두 파괴되면 보스 단계로 (보스 스폰은 boss_phase에서 처리)
       const allBasesDestroyed = enemyBases.every(b => b.destroyed);
-      if (allBasesDestroyed && !bossesSpawnedRef.current) {
+      if (allBasesDestroyed) {
         useRPGStore.getState().setGamePhase('boss_phase');
-        showNotification('🔥 모든 기지 파괴! 보스 출현!');
-        soundManager.play('warning');
-        soundManager.play('boss_spawn');
-
-        // 보스 2마리 스폰
-        const bosses = createBosses(enemyBases, latestState.gameTime);
-        for (const boss of bosses) {
-          useRPGStore.getState().addEnemy(boss);
-        }
-        bossesSpawnedRef.current = true;
       }
     } else if (latestState.gamePhase === 'boss_phase') {
       // 보스 단계 진입 시 보스 스폰 (아직 스폰 안됐으면)
@@ -820,8 +811,14 @@ export function useRPGGameLoop() {
   useEffect(() => {
     if (running && !paused && !gameOver) {
       lastTimeRef.current = performance.now();
-      bossesSpawnedRef.current = false;  // 게임 시작 시 보스 스폰 플래그 리셋
+      // 게임이 새로 시작될 때만 보스 스폰 플래그 리셋 (running이 false→true로 변경될 때)
+      if (!wasRunningRef.current) {
+        bossesSpawnedRef.current = false;
+      }
+      wasRunningRef.current = true;
       animationIdRef.current = requestAnimationFrame(tick);
+    } else {
+      wasRunningRef.current = false;
     }
 
     return () => {

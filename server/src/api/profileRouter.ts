@@ -44,7 +44,7 @@ router.get('/class-progress/:playerId', async (req: Request, res: Response) => {
       classLevel: row.class_level,
       classExp: row.class_exp,
       sp: row.sp ?? 0,  // SP 포함
-      statUpgrades: row.stat_upgrades ?? { attack: 0, speed: 0, hp: 0, range: 0, hpRegen: 0 },  // 스탯 업그레이드 포함
+      statUpgrades: row.stat_upgrades ?? { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 },  // 스탯 업그레이드 포함
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
@@ -76,7 +76,7 @@ router.post('/class-progress', async (req: Request, res: Response) => {
         class_level: classLevel,
         class_exp: classExp,
         sp: sp ?? 0,  // SP 저장
-        stat_upgrades: statUpgrades ?? { attack: 0, speed: 0, hp: 0, range: 0, hpRegen: 0 },  // 스탯 업그레이드 저장
+        stat_upgrades: statUpgrades ?? { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 },  // 스탯 업그레이드 저장
         updated_at: new Date().toISOString(),
       }, {
         onConflict: 'player_id,class_name',

@@ -68,8 +68,8 @@ export function updateEnemyAINexus(
     updatedEnemy.attackCooldown -= deltaTime;
   }
 
-  // 어그로 만료 체크
-  const hasAggro = updatedEnemy.aggroOnHero &&
+  // 어그로 만료 체크 - 영웅이 살아있을 때만 어그로 유효
+  const hasAggro = hero.hp > 0 && updatedEnemy.aggroOnHero &&
     (!updatedEnemy.aggroExpireTime || gameTime < updatedEnemy.aggroExpireTime);
 
   // 어그로 만료 시 초기화
@@ -517,8 +517,8 @@ function updateEnemyAINexusWithTarget(
     updatedEnemy.aggroExpireTime = undefined;
   }
 
-  // 영웅이 있고 탐지 범위 내인 경우 영웅 추적
-  const shouldTargetHero = targetHero && (
+  // 영웅이 있고 살아있으며 탐지 범위 내인 경우 영웅 추적
+  const shouldTargetHero = targetHero && targetHero.hp > 0 && (
     updatedEnemy.aggroOnHero ||
     distToHero <= aiConfig.detectionRange
   );

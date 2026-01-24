@@ -393,6 +393,7 @@ export const useProfileStore = create<ProfileStore>()(
         progress.statUpgrades.attack +
         progress.statUpgrades.speed +
         progress.statUpgrades.hp +
+        progress.statUpgrades.attackSpeed +
         progress.statUpgrades.range +
         progress.statUpgrades.hpRegen;
 
