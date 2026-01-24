@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, UpgradeLevels, RPGGamePhase } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, UpgradeLevels, RPGGamePhase, BasicAttackEffect } from '../types/rpg';
 import { UnitType } from '../types/unit';
 import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
@@ -13,6 +13,9 @@ import { wsClient } from '../services/WebSocketClient';
 interface RPGState extends RPGGameState {
   // 활성 스킬 효과
   activeSkillEffects: SkillEffect[];
+
+  // 기본 공격 이펙트 (네트워크 동기화용)
+  basicAttackEffects: BasicAttackEffect[];
 
   // 결과
   result: RPGGameResult | null;
@@ -85,6 +88,10 @@ interface RPGActions {
   updateSkillCooldowns: (deltaTime: number) => void;
   addSkillEffect: (effect: SkillEffect) => void;
   removeSkillEffect: (index: number) => void;
+
+  // 기본 공격 이펙트 (네트워크 동기화용)
+  addBasicAttackEffect: (effect: BasicAttackEffect) => void;
+  cleanBasicAttackEffects: () => void;
 
   // 적 관리
   addEnemy: (enemy: RPGEnemy) => void;
@@ -241,6 +248,7 @@ const initialState: RPGState = {
   },
 
   activeSkillEffects: [],
+  basicAttackEffects: [],
   pendingSkills: [],
   result: null,
   mousePosition: { x: NEXUS_CONFIG.position.x, y: NEXUS_CONFIG.position.y },
@@ -385,6 +393,7 @@ export const useRPGStore = create<RPGStore>()(
         // 이전 게임 데이터 명시적 초기화
         enemies: [],
         activeSkillEffects: [],
+        basicAttackEffects: [],
         pendingSkills: [],
         gameOver: false,
         victory: false,
@@ -768,6 +777,21 @@ export const useRPGStore = create<RPGStore>()(
     removeSkillEffect: (index) => {
       set((state) => ({
         activeSkillEffects: state.activeSkillEffects.filter((_, i) => i !== index),
+      }));
+    },
+
+    // 기본 공격 이펙트 추가 (네트워크 동기화용)
+    addBasicAttackEffect: (effect) => {
+      set((state) => ({
+        basicAttackEffects: [...state.basicAttackEffects, effect],
+      }));
+    },
+
+    // 오래된 기본 공격 이펙트 정리 (300ms 이후)
+    cleanBasicAttackEffects: () => {
+      const now = Date.now();
+      set((state) => ({
+        basicAttackEffects: state.basicAttackEffects.filter(e => now - e.timestamp < 300),
       }));
     },
 
@@ -1443,6 +1467,7 @@ export const useRPGStore = create<RPGStore>()(
         gold: state.gold,
         upgradeLevels: state.upgradeLevels,
         activeSkillEffects: state.activeSkillEffects,
+        basicAttackEffects: state.basicAttackEffects,
         pendingSkills: state.pendingSkills,
         running: state.running,
         paused: state.paused,
@@ -1556,6 +1581,7 @@ export const useRPGStore = create<RPGStore>()(
         gold: myGold,  // 내 골드 적용
         upgradeLevels: myUpgrades,  // 내 업그레이드 적용
         activeSkillEffects: serializedState.activeSkillEffects,
+        basicAttackEffects: serializedState.basicAttackEffects || [],
         pendingSkills: serializedState.pendingSkills,
         running: serializedState.running,
         paused: serializedState.paused,

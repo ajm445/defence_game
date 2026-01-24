@@ -286,6 +286,15 @@ export interface SkillEffect {
   heroClass?: HeroClass;   // 발동한 영웅 직업 (이펙트 스타일 결정용)
 }
 
+// 기본 공격 이펙트 (네트워크 동기화용)
+export interface BasicAttackEffect {
+  id: string;           // 고유 ID (중복 생성 방지)
+  x: number;
+  y: number;
+  type: 'melee' | 'ranged';
+  timestamp: number;    // 생성 시간
+}
+
 // 경험치 테이블 (적 유닛별) - 레거시, 계정 경험치용
 export type ExpTable = Partial<Record<UnitType, number>>;
 

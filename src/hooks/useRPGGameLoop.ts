@@ -36,6 +36,7 @@ export function useRPGGameLoop() {
   const bossesSpawnedRef = useRef<boolean>(false);
   const lastBroadcastTimeRef = useRef<number>(0);
   const wasRunningRef = useRef<boolean>(false);
+  const processedEffectIdsRef = useRef<Set<string>>(new Set());
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -64,6 +65,24 @@ export function useRPGGameLoop() {
     if (isMultiplayer && !isHost) {
       // 클라이언트: 이펙트 업데이트 + 로컬 영웅 이동 예측
       effectManager.update(deltaTime);
+
+      // 동기화된 기본 공격 이펙트 처리 (클라이언트)
+      const clientBasicAttackEffects = useRPGStore.getState().basicAttackEffects;
+      for (const effect of clientBasicAttackEffects) {
+        if (!processedEffectIdsRef.current.has(effect.id)) {
+          processedEffectIdsRef.current.add(effect.id);
+          const effectType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+          effectManager.createEffect(effectType, effect.x, effect.y);
+        }
+      }
+      // 오래된 이펙트 ID 정리 (300ms 이후)
+      const now = Date.now();
+      for (const effectId of processedEffectIdsRef.current) {
+        const timestamp = parseInt(effectId.split('_')[2]) || 0;
+        if (now - timestamp > 1000) {
+          processedEffectIdsRef.current.delete(effectId);
+        }
+      }
 
       const clientHero = useRPGStore.getState().hero;
 
@@ -587,6 +606,18 @@ export function useRPGGameLoop() {
     // 이펙트 업데이트
     effectManager.update(deltaTime);
 
+    // 동기화된 기본 공격 이펙트 처리 (호스트 및 싱글플레이어)
+    const hostBasicAttackEffects = useRPGStore.getState().basicAttackEffects;
+    for (const effect of hostBasicAttackEffects) {
+      if (!processedEffectIdsRef.current.has(effect.id)) {
+        processedEffectIdsRef.current.add(effect.id);
+        const effectType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+        effectManager.createEffect(effectType, effect.x, effect.y);
+      }
+    }
+    // 오래된 기본 공격 이펙트 정리
+    useRPGStore.getState().cleanBasicAttackEffects();
+
     // 스킬 이펙트 업데이트
     const activeEffects = useRPGStore.getState().activeSkillEffects;
     const currentTime = useRPGStore.getState().gameTime;
@@ -971,8 +1002,17 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
         const killed = state.damageEnemy(nearestEnemy.id, totalDamage, heroId);
         if (killed) {
           state.removeEnemy(nearestEnemy.id);
-          effectManager.createEffect('attack_melee', nearestEnemy.x, nearestEnemy.y);
         }
+
+        // 공격 이펙트 추가 (네트워크 동기화용)
+        const attackType = (heroClass === 'archer' || heroClass === 'mage') ? 'ranged' : 'melee';
+        state.addBasicAttackEffect({
+          id: `atk_${heroId}_${Date.now()}`,
+          x: nearestEnemy.x,
+          y: nearestEnemy.y,
+          type: attackType,
+          timestamp: Date.now(),
+        });
 
         // Q 스킬 쿨다운 리셋
         const skillsWithCooldown = updatedSkills.map(s =>
@@ -1020,7 +1060,16 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             facingAngle: Math.atan2(nearestBase.y - hero.y, nearestBase.x - hero.x),
           });
 
-          effectManager.createEffect('attack_melee', nearestBase.x, nearestBase.y);
+          // 공격 이펙트 추가 (네트워크 동기화용)
+          const baseAttackType = (heroClass === 'archer' || heroClass === 'mage') ? 'ranged' : 'melee';
+          state.addBasicAttackEffect({
+            id: `atk_${heroId}_${Date.now()}_base`,
+            x: nearestBase.x,
+            y: nearestBase.y,
+            type: baseAttackType,
+            timestamp: Date.now(),
+          });
+
           if (heroClass === 'archer' || heroClass === 'mage') {
             soundManager.play('attack_ranged');
           } else {
