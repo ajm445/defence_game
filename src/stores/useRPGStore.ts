@@ -9,6 +9,11 @@ import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '
 import type { MultiplayerState, PlayerInput, SerializedGameState, SerializedHero, SerializedEnemy } from '../../shared/types/hostBasedNetwork';
 import type { CoopPlayerInfo } from '../../shared/types/rpgNetwork';
 import { wsClient } from '../services/WebSocketClient';
+import { distance } from '../utils/math';
+
+// 버프 공유 범위 상수 (useNetworkSync.ts와 동일)
+const BERSERKER_SHARE_RANGE = 300;
+const IRONWALL_SHARE_RANGE = Infinity;
 
 interface RPGState extends RPGGameState {
   // 활성 스킬 효과
@@ -758,10 +763,22 @@ export const useRPGStore = create<RPGStore>()(
     updateSkillCooldowns: (deltaTime) => {
       set((state) => {
         if (!state.hero) return state;
-        const updatedSkills = state.hero.skills.map((skill) => ({
-          ...skill,
-          currentCooldown: Math.max(0, skill.currentCooldown - deltaTime),
-        }));
+
+        // 광전사 버프 확인 (공격속도 증가)
+        const berserkerBuff = state.hero.buffs?.find(b => b.type === 'berserker');
+        const attackSpeedMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
+
+        const updatedSkills = state.hero.skills.map((skill) => {
+          // Q스킬(기본 공격)에만 공격속도 버프 적용
+          const isQSkill = skill.type.endsWith('_q');
+          const cooldownReduction = isQSkill
+            ? deltaTime * attackSpeedMultiplier
+            : deltaTime;
+          return {
+            ...skill,
+            currentCooldown: Math.max(0, skill.currentCooldown - cooldownReduction),
+          };
+        });
         return {
           hero: { ...state.hero, skills: updatedSkills },
         };
@@ -1104,6 +1121,48 @@ export const useRPGStore = create<RPGStore>()(
 
     updateBuffs: (deltaTime: number) => {
       set((state) => {
+        // 시전자 위치 조회 헬퍼 함수
+        const getCasterPosition = (casterId: string): { x: number; y: number } | null => {
+          // 호스트 영웅인 경우
+          if (state.hero && state.hero.id === casterId) {
+            return { x: state.hero.x, y: state.hero.y };
+          }
+          // 다른 플레이어인 경우
+          const caster = state.otherHeroes.get(casterId);
+          if (caster) {
+            return { x: caster.x, y: caster.y };
+          }
+          return null;
+        };
+
+        // 버프 범위 체크 헬퍼 함수 (공유받은 버프인 경우만 체크)
+        const isBuffInRange = (buff: Buff, heroX: number, heroY: number): boolean => {
+          // casterId가 없으면 본인이 시전한 버프이므로 범위 체크 불필요
+          if (!buff.casterId) return true;
+
+          // 시전자 위치 조회
+          const casterPos = getCasterPosition(buff.casterId);
+          if (!casterPos) {
+            // 시전자가 없으면 (연결 해제 등) 버프 유지 (지속시간으로만 관리)
+            return true;
+          }
+
+          // 버프 타입에 따른 범위 결정
+          let shareRange: number;
+          if (buff.type === 'berserker') {
+            shareRange = BERSERKER_SHARE_RANGE;
+          } else if (buff.type === 'ironwall') {
+            shareRange = IRONWALL_SHARE_RANGE;
+          } else {
+            // 공유 대상 버프가 아니면 범위 체크 불필요
+            return true;
+          }
+
+          // 시전자와의 거리 체크
+          const dist = distance(heroX, heroY, casterPos.x, casterPos.y);
+          return dist <= shareRange;
+        };
+
         // 내 영웅 버프 업데이트
         let updatedHero = state.hero;
         if (state.hero) {
@@ -1112,7 +1171,9 @@ export const useRPGStore = create<RPGStore>()(
               ...buff,
               duration: buff.duration - deltaTime,
             }))
-            .filter(buff => buff.duration > 0);
+            .filter(buff => buff.duration > 0)
+            // 공유받은 버프의 경우 범위 체크
+            .filter(buff => isBuffInRange(buff, state.hero!.x, state.hero!.y));
           updatedHero = {
             ...state.hero,
             buffs: updatedBuffs,
@@ -1127,7 +1188,9 @@ export const useRPGStore = create<RPGStore>()(
               ...buff,
               duration: buff.duration - deltaTime,
             }))
-            .filter(buff => buff.duration > 0);
+            .filter(buff => buff.duration > 0)
+            // 공유받은 버프의 경우 범위 체크
+            .filter(buff => isBuffInRange(buff, otherHero.x, otherHero.y));
           updatedOtherHeroes.set(heroId, {
             ...otherHero,
             buffs: updatedBuffs,

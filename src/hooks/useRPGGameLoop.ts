@@ -129,6 +129,9 @@ export function useRPGGameLoop() {
         useRPGStore.getState().setCamera(updatedHero.x, updatedHero.y);
       }
 
+      // 클라이언트도 버프 지속시간 업데이트 (모든 영웅)
+      useRPGStore.getState().updateBuffs(deltaTime);
+
       animationIdRef.current = requestAnimationFrame(tick);
       return;
     }
@@ -228,7 +231,13 @@ export function useRPGGameLoop() {
               const baseAttack = heroForAutoAttack.baseAttack;
               const upgradeLevels = useRPGStore.getState().upgradeLevels;
               const attackBonus = upgradeLevels.attack * 5; // 업그레이드당 5 공격력
-              const totalAttack = baseAttack + attackBonus;
+              let totalAttack = baseAttack + attackBonus;
+
+              // 광전사 버프 공격력 보너스 적용
+              const hostBerserkerBuff = heroForAutoAttack.buffs?.find(b => b.type === 'berserker');
+              if (hostBerserkerBuff?.attackBonus) {
+                totalAttack = Math.floor(totalAttack * (1 + hostBerserkerBuff.attackBonus));
+              }
 
               // 기지에 데미지 적용
               const destroyed = useRPGStore.getState().damageBase(nearestBase.id, totalAttack);
@@ -967,11 +976,22 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
     // 돌진 중이면 스킵
     if (hero.dashState) return;
 
-    // 스킬 쿨다운 업데이트
-    const updatedSkills = hero.skills.map(skill => ({
-      ...skill,
-      currentCooldown: Math.max(0, skill.currentCooldown - deltaTime),
-    }));
+    // 광전사 버프 확인 (공격속도 증가)
+    const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker');
+    const attackSpeedMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
+
+    // 스킬 쿨다운 업데이트 (광전사 버프 공격속도 적용)
+    const updatedSkills = hero.skills.map(skill => {
+      // Q스킬(기본 공격)에만 공격속도 버프 적용
+      const isQSkill = skill.type.endsWith('_q');
+      const cooldownReduction = isQSkill
+        ? deltaTime * attackSpeedMultiplier
+        : deltaTime;
+      return {
+        ...skill,
+        currentCooldown: Math.max(0, skill.currentCooldown - cooldownReduction),
+      };
+    });
 
     // 스킬 업데이트 적용
     state.updateOtherHero(heroId, { skills: updatedSkills });
@@ -996,12 +1016,48 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
         const baseDamage = hero.baseAttack;
         const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
         const attackBonus = playerUpgrades.attack * 5;
-        const totalDamage = baseDamage + attackBonus;
+        let totalDamage = baseDamage + attackBonus;
+
+        // 광전사 버프 공격력 보너스 적용
+        if (berserkerBuff?.attackBonus) {
+          totalDamage = Math.floor(totalDamage * (1 + berserkerBuff.attackBonus));
+        }
 
         // killerHeroId를 전달하여 해당 플레이어에게 골드 지급
         const killed = state.damageEnemy(nearestEnemy.id, totalDamage, heroId);
         if (killed) {
           state.removeEnemy(nearestEnemy.id);
+        }
+
+        // 피해흡혈 적용: 전사 패시브 (전사만) + 광전사 버프 (모든 클래스)
+        {
+          // 전사 패시브 피해흡혈 (전사만)
+          let passiveTotal = 0;
+          if (heroClass === 'warrior') {
+            const classConfig = CLASS_CONFIGS[heroClass];
+            const baseLifesteal = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
+            const growthLifesteal = hero.passiveGrowth?.currentValue || 0;
+            passiveTotal = baseLifesteal + growthLifesteal;
+          }
+
+          // 광전사 버프 피해흡혈 (모든 클래스에 적용)
+          const buffLifesteal = berserkerBuff?.lifesteal || 0;
+
+          // 곱연산: (1 + 패시브) * (1 + 버프) - 1
+          const totalLifesteal = passiveTotal > 0 || buffLifesteal > 0
+            ? (1 + passiveTotal) * (1 + buffLifesteal) - 1
+            : 0;
+
+          if (totalLifesteal > 0) {
+            const healAmount = Math.floor(totalDamage * totalLifesteal);
+            if (healAmount > 0) {
+              const currentHero = state.otherHeroes.get(heroId);
+              if (currentHero) {
+                const newHp = Math.min(currentHero.maxHp, currentHero.hp + healAmount);
+                state.updateOtherHero(heroId, { hp: newHp });
+              }
+            }
+          }
         }
 
         // 공격 방향 계산
@@ -1058,9 +1114,14 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           const baseDamage = hero.baseAttack;
           const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
           const attackBonus = playerUpgrades.attack * 5;
-          const totalDamage = baseDamage + attackBonus;
+          let baseTotalDamage = baseDamage + attackBonus;
 
-          const destroyed = state.damageBase(nearestBase.id, totalDamage);
+          // 광전사 버프 공격력 보너스 적용
+          if (berserkerBuff?.attackBonus) {
+            baseTotalDamage = Math.floor(baseTotalDamage * (1 + berserkerBuff.attackBonus));
+          }
+
+          const destroyed = state.damageBase(nearestBase.id, baseTotalDamage);
 
           // 공격 방향 계산
           const baseDirX = nearestBase.x - hero.x;
@@ -1085,10 +1146,10 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             position: { x: hero.x, y: hero.y },
             direction: { x: normalizedBaseDirX, y: normalizedBaseDirY },
             radius: isAoE ? attackRange : undefined,
-            damage: totalDamage,
+            damage: baseTotalDamage,
             duration: 0.4,
             startTime: _gameTime,
-            hitTargets: [{ x: nearestBase.x, y: nearestBase.y, damage: totalDamage }],
+            hitTargets: [{ x: nearestBase.x, y: nearestBase.y, damage: baseTotalDamage }],
             heroClass: heroClass,
           });
 
