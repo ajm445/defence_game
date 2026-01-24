@@ -1008,11 +1008,9 @@ function updateOtherHeroesMovement(deltaTime: number) {
     const newX = hero.x + normalizedX * moveDistance;
     const newY = hero.y + normalizedY * moveDistance;
 
-    // 맵 범위 제한
-    const mapWidth = RPG_CONFIG.MAP_WIDTH;
-    const mapHeight = RPG_CONFIG.MAP_HEIGHT;
-    const clampedX = Math.max(0, Math.min(mapWidth, newX));
-    const clampedY = Math.max(0, Math.min(mapHeight, newY));
+    // 맵 범위 제한 (30px 마진 - 호스트와 동일)
+    const clampedX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, newX));
+    const clampedY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, newY));
 
     // 영웅 위치 업데이트
     state.updateOtherHero(heroId, {

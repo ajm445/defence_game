@@ -437,8 +437,10 @@ function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
 
     const distToOther = distance(caster.x, caster.y, currentOtherHero.x, currentOtherHero.y);
     if (distToOther <= shareRange) {
-      // 같은 타입의 버프가 이미 있으면 제거 후 새로 추가
-      const filteredBuffs = (currentOtherHero.buffs || []).filter(b => b.type !== buff.type);
+      // 같은 시전자의 같은 타입 버프만 제거 후 새로 추가 (다른 시전자 버프는 유지)
+      const filteredBuffs = (currentOtherHero.buffs || []).filter(b =>
+        !(b.type === buff.type && b.casterId === casterId)
+      );
       // 공유 버프에 시전자 ID 추가 (범위 체크용)
       const sharedBuff: Buff = { ...buff, casterId };
       const updateData: Partial<HeroUnit> = {
@@ -496,8 +498,10 @@ export function shareHostBuffToAllies(buff: Buff, hostHero: HeroUnit) {
     const distToOther = distance(hostHero.x, hostHero.y, currentOtherHero.x, currentOtherHero.y);
     console.log(`[NetworkSync] 버프 공유 거리 체크: ${otherHeroId}, 거리=${distToOther.toFixed(0)}, 범위=${shareRange}, 공유=${distToOther <= shareRange ? 'O' : 'X'}`);
     if (distToOther <= shareRange) {
-      // 같은 타입의 버프가 이미 있으면 제거 후 새로 추가
-      const filteredBuffs = (currentOtherHero.buffs || []).filter(b => b.type !== buff.type);
+      // 같은 시전자의 같은 타입 버프만 제거 후 새로 추가 (다른 시전자 버프는 유지)
+      const filteredBuffs = (currentOtherHero.buffs || []).filter(b =>
+        !(b.type === buff.type && b.casterId === hostHero.id)
+      );
       // 공유 버프에 시전자 ID 추가 (범위 체크용)
       const sharedBuff: Buff = { ...buff, casterId: hostHero.id };
       const updateData: Partial<HeroUnit> = {
