@@ -197,6 +197,7 @@ export interface RPGGameState {
   // 영웅
   hero: HeroUnit | null;
   selectedClass: HeroClass | null;  // 선택된 직업
+  otherHeroes?: Map<string, HeroUnit>;  // 다른 플레이어 영웅들 (멀티플레이)
 
   // 골드 시스템
   gold: number;

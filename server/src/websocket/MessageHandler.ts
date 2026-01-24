@@ -4,13 +4,16 @@ import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import {
   createCoopRoom,
   joinCoopRoom,
+  joinCoopRoomById,
   leaveCoopRoom,
   setCoopReady,
   changeCoopClass,
   kickCoopPlayer,
   startCoopGame,
   handleCoopPlayerDisconnect,
+  getAllWaitingCoopRooms,
 } from '../room/CoopRoomManager';
+import { sendToPlayer } from '../state/players';
 import { GameRoom } from '../game/GameRoom';
 import { RPGCoopGameRoom } from '../game/RPGCoopGameRoom';
 
@@ -88,11 +91,19 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     // 협동 모드 메시지
     case 'CREATE_COOP_ROOM':
-      handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades);
+      handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades, (message as any).isPrivate);
       break;
 
     case 'JOIN_COOP_ROOM':
       handleJoinCoopRoom(playerId, message.roomCode, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades);
+      break;
+
+    case 'JOIN_COOP_ROOM_BY_ID':
+      handleJoinCoopRoomById(playerId, (message as any).roomId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades);
+      break;
+
+    case 'GET_COOP_ROOM_LIST':
+      handleGetCoopRoomList(playerId);
       break;
 
     case 'LEAVE_COOP_ROOM':
@@ -252,13 +263,13 @@ function handleCollectResource(playerId: string, nodeId: string): void {
 // 협동 모드 핸들러
 // ============================================
 
-function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
+function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean): void {
   const player = players.get(playerId);
   if (!player) return;
 
   const name = playerName || `Player_${playerId.slice(0, 4)}`;
-  console.log(`[Coop] ${name}(${playerId}) 방 생성 요청 (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
-  createCoopRoom(playerId, name, heroClass, characterLevel ?? 1, statUpgrades);
+  console.log(`[Coop] ${name}(${playerId}) 방 생성 요청 (Lv.${characterLevel ?? 1}, Private: ${isPrivate ?? false})`);
+  createCoopRoom(playerId, name, heroClass, characterLevel ?? 1, statUpgrades, isPrivate ?? false);
 }
 
 function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
@@ -270,6 +281,23 @@ function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: stri
   joinCoopRoom(roomCode, playerId, name, heroClass, characterLevel ?? 1, statUpgrades);
 }
 
+function handleJoinCoopRoomById(playerId: string, roomId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
+  const player = players.get(playerId);
+  if (!player) return;
+
+  const name = playerName || `Player_${playerId.slice(0, 4)}`;
+  console.log(`[Coop] ${name}(${playerId}) 방 참가 요청(ID): ${roomId} (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
+  joinCoopRoomById(roomId, playerId, name, heroClass, characterLevel ?? 1, statUpgrades);
+}
+
+function handleGetCoopRoomList(playerId: string): void {
+  const rooms = getAllWaitingCoopRooms();
+  sendToPlayer(playerId, {
+    type: 'COOP_ROOM_LIST',
+    rooms,
+  });
+}
+
 function handleLeaveCoopRoom(playerId: string): void {
   console.log(`[Coop] ${playerId} 방 나가기`);
   leaveCoopRoom(playerId);
@@ -277,7 +305,18 @@ function handleLeaveCoopRoom(playerId: string): void {
 
 function handleCoopReady(playerId: string, isReady: boolean): void {
   console.log(`[Coop] ${playerId} 준비 상태: ${isReady}`);
+
+  // 먼저 대기 중인 방에서 찾기
   setCoopReady(playerId, isReady);
+
+  // 게임 방에서도 찾기 (게임 종료 후 로비 복귀 시)
+  const player = players.get(playerId);
+  if (player && player.roomId) {
+    const room = coopGameRooms.get(player.roomId);
+    if (room) {
+      room.setPlayerReady(playerId, isReady);
+    }
+  }
 }
 
 function handleChangeCoopClass(playerId: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {

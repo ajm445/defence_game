@@ -171,12 +171,20 @@ class WebSocketClient {
   // 협동 모드 메서드
   // ============================================
 
-  public createCoopRoom(playerName: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
-    this.send({ type: 'CREATE_COOP_ROOM', playerName, heroClass, characterLevel, statUpgrades });
+  public createCoopRoom(playerName: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades, isPrivate: boolean = false): void {
+    this.send({ type: 'CREATE_COOP_ROOM', playerName, heroClass, characterLevel, statUpgrades, isPrivate } as any);
   }
 
   public joinCoopRoom(roomCode: string, playerName: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
     this.send({ type: 'JOIN_COOP_ROOM', roomCode, playerName, heroClass, characterLevel, statUpgrades });
+  }
+
+  public joinCoopRoomById(roomId: string, playerName: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
+    this.send({ type: 'JOIN_COOP_ROOM_BY_ID', roomId, playerName, heroClass, characterLevel, statUpgrades } as any);
+  }
+
+  public getCoopRoomList(): void {
+    this.send({ type: 'GET_COOP_ROOM_LIST' } as any);
   }
 
   public leaveCoopRoom(): void {

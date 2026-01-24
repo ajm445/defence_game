@@ -219,8 +219,10 @@ export interface RPGCoopGameResult {
 
 export type CoopClientMessage =
   // 방 관련
-  | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
+  | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; isPrivate?: boolean }
   | { type: 'JOIN_COOP_ROOM'; roomCode: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
+  | { type: 'JOIN_COOP_ROOM_BY_ID'; roomId: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
+  | { type: 'GET_COOP_ROOM_LIST' }
   | { type: 'LEAVE_COOP_ROOM' }
   | { type: 'COOP_READY' }
   | { type: 'COOP_UNREADY' }
@@ -250,6 +252,7 @@ export type CoopServerMessage =
   // 방 관련
   | { type: 'COOP_ROOM_CREATED'; roomCode: string; roomId: string }
   | { type: 'COOP_ROOM_JOINED'; roomId: string; roomCode: string; players: CoopPlayerInfo[]; yourIndex: number }
+  | { type: 'COOP_ROOM_LIST'; rooms: WaitingCoopRoomInfo[] }
   | { type: 'COOP_PLAYER_JOINED'; player: CoopPlayerInfo }
   | { type: 'COOP_PLAYER_LEFT'; playerId: string }
   | { type: 'COOP_PLAYER_READY'; playerId: string; isReady: boolean }
@@ -299,4 +302,19 @@ export interface CoopRoomInfo {
   isHost: boolean;
   players: CoopPlayerInfo[];
   myIndex: number;
+}
+
+// ============================================
+// 대기방 정보 (목록 조회용)
+// ============================================
+
+export interface WaitingCoopRoomInfo {
+  roomId: string;
+  roomCode: string;
+  hostName: string;
+  hostHeroClass: HeroClass;
+  playerCount: number;
+  maxPlayers: number;
+  createdAt: number;
+  isPrivate: boolean;
 }

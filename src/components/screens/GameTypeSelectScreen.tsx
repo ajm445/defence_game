@@ -20,7 +20,8 @@ export const GameTypeSelectScreen: React.FC = () => {
     if (authStatus !== 'authenticated') {
       setScreen('login');
     } else {
-      setScreen('rpgClassSelect');
+      // 대기방 목록 화면으로 바로 이동
+      setScreen('rpgCoopLobby');
     }
   };
 

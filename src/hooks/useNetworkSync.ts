@@ -290,12 +290,16 @@ function handleReturnToLobby(message?: any) {
 
   // 멀티플레이어 상태 업데이트 (플레이어 정보 유지)
   if (message && message.players) {
+    // 현재 플레이어가 호스트인지 확인
+    const isHost = wsClient.playerId === message.hostPlayerId;
+
     useRPGStore.getState().setMultiplayerState({
       connectionState: 'in_lobby',
       roomCode: message.roomCode,
       roomId: message.roomId,
       players: message.players,
       hostPlayerId: message.hostPlayerId,
+      isHost,  // 호스트 여부 설정
     });
   } else {
     useRPGStore.getState().setMultiplayerState({ connectionState: 'in_lobby' });
@@ -332,12 +336,12 @@ function handleGameRestart() {
 
   // 게임 초기화 (호스트만 - 클라이언트는 호스트로부터 상태 수신)
   if (isHost) {
-    state.initMultiplayerGame(players);
+    state.initMultiplayerGame(players, isHost);
   }
   // 클라이언트는 호스트로부터 게임 상태를 받아서 적용함
 
   // 게임 화면으로
-  useUIStore.getState().setScreen('rpgMode');
+  useUIStore.getState().setScreen('game');
 }
 
 function handleRoomDestroyed(reason: string) {
@@ -408,11 +412,17 @@ function executeOtherHeroSkill(
 
   // 영웅 상태 업데이트 (스킬 쿨다운 포함)
   const updatedHero = result.hero;
+
+  // 스킬 쿨다운 리셋 (스킬 함수에서 skills를 업데이트하지 않으므로 여기서 처리)
+  const updatedSkills = hero.skills.map(s =>
+    s.type === skillType ? { ...s, currentCooldown: s.cooldown } : s
+  );
+
   state.updateOtherHero(heroId, {
     x: updatedHero.x,
     y: updatedHero.y,
     hp: updatedHero.hp,
-    skills: updatedHero.skills,
+    skills: updatedSkills,  // 쿨다운 리셋된 스킬
     buffs: updatedHero.buffs,
     dashState: updatedHero.dashState,
     facingAngle: Math.atan2(targetY - hero.y, targetX - hero.x),
@@ -682,13 +692,13 @@ export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'gol
 /**
  * 멀티플레이 방 생성
  */
-export function createMultiplayerRoom(playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any) {
+export function createMultiplayerRoom(playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean) {
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
     connectionState: 'connecting',
   });
 
-  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades);
+  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false);
 }
 
 /**
