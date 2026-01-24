@@ -1656,6 +1656,11 @@ export const useRPGStore = create<RPGStore>()(
               syncY = localHero.y * 0.95 + hero.y * 0.05;
             }
 
+            // 돌진 중일 때는 서버 위치/상태를 우선 적용 (돌진은 호스트에서 처리)
+            const isDashing = hero.dashState !== undefined;
+            const dashSyncX = isDashing ? hero.x : syncX;
+            const dashSyncY = isDashing ? hero.y : syncY;
+
             myHero = {
               ...localHero,
               // 서버에서만 동기화해야 하는 상태 (데미지, 힐, 스킬 쿨다운, 사망 시간, 업그레이드된 스탯)
@@ -1664,6 +1669,7 @@ export const useRPGStore = create<RPGStore>()(
               skills: hero.skills,
               buffs: hero.buffs,
               deathTime: hero.deathTime,  // 사망 시간 동기화 (부활 타이머용)
+              dashState: hero.dashState,  // 돌진 상태 동기화 (스킬 이동용)
               // 업그레이드로 변경될 수 있는 config 스탯 동기화 (공격속도, 사거리)
               config: {
                 ...localHero.config,
@@ -1672,9 +1678,11 @@ export const useRPGStore = create<RPGStore>()(
                 range: hero.config.range,
               },
               baseAttackSpeed: hero.baseAttackSpeed,
-              // 위치 보정 적용 (오차가 큰 경우에만)
-              x: syncX,
-              y: syncY,
+              // 위치 보정 적용 (돌진 중이면 서버 위치 우선)
+              x: dashSyncX,
+              y: dashSyncY,
+              // 돌진 중이면 상태도 동기화
+              state: isDashing ? hero.state : localHero.state,
               // 나머지는 모두 로컬 유지 (이동, 상태 등)
             };
           } else {

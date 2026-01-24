@@ -1026,6 +1026,35 @@ function updateOtherHeroesMovement(deltaTime: number) {
   state.otherHeroes.forEach((hero, heroId) => {
     // 사망 상태면 이동 스킵
     if (hero.hp <= 0) return;
+
+    // 돌진 중인 경우 - 일반 이동보다 우선
+    if (hero.dashState) {
+      const dash = hero.dashState;
+      const newProgress = dash.progress + deltaTime / dash.duration;
+
+      if (newProgress >= 1) {
+        // 돌진 완료
+        state.updateOtherHero(heroId, {
+          x: dash.targetX,
+          y: dash.targetY,
+          dashState: undefined,
+          state: 'idle',
+        });
+      } else {
+        // 돌진 중 - easeOutQuad 이징 적용 (가속 후 감속)
+        const easedProgress = 1 - (1 - newProgress) * (1 - newProgress);
+        const newX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
+        const newY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
+        state.updateOtherHero(heroId, {
+          x: newX,
+          y: newY,
+          dashState: { ...dash, progress: newProgress },
+          state: 'moving',
+        });
+      }
+      return; // 돌진 중이면 일반 이동 처리 안함
+    }
+
     if (!hero.moveDirection) return;
 
     const { x: dirX, y: dirY } = hero.moveDirection;

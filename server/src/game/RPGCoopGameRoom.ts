@@ -206,6 +206,18 @@ export class RPGCoopGameRoom {
       return;
     }
 
+    // 모든 플레이어가 준비되었는지 확인 (호스트 제외, 혼자일 때는 스킵)
+    if (this.playerInfos.length > 1) {
+      const allReady = this.playerInfos.every(p => p.isHost || p.isReady);
+      if (!allReady) {
+        this.sendToPlayer(playerId, {
+          type: 'COOP_ROOM_ERROR',
+          message: '모든 플레이어가 준비되지 않았습니다.',
+        });
+        return;
+      }
+    }
+
     // 카운트다운 시작
     this.gameState = 'countdown';
     this.broadcast({ type: 'COOP_RESTART_COUNTDOWN' });
@@ -246,6 +258,37 @@ export class RPGCoopGameRoom {
 
     // 방 정리
     this.cleanup();
+  }
+
+  /**
+   * 플레이어 준비 상태 변경 (로비에서)
+   */
+  public setPlayerReady(playerId: string, isReady: boolean): void {
+    // 게임 종료 후 로비 상태에서만 준비 상태 변경 가능
+    if (this.gameState !== 'waiting') {
+      return;
+    }
+
+    const playerInfo = this.playerInfos.find(p => p.id === playerId);
+    if (!playerInfo) {
+      return;
+    }
+
+    // 호스트는 항상 준비 상태 유지
+    if (playerInfo.isHost) {
+      return;
+    }
+
+    playerInfo.isReady = isReady;
+
+    // 모든 플레이어에게 준비 상태 변경 알림
+    this.broadcast({
+      type: 'COOP_PLAYER_READY',
+      playerId,
+      isReady,
+    });
+
+    console.log(`[Coop] ${playerId} 준비 상태: ${isReady}`);
   }
 
   // ============================================
