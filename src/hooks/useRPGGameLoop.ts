@@ -241,6 +241,14 @@ export function useRPGGameLoop() {
               const attackBonus = upgradeLevels.attack * 5; // 업그레이드당 5 공격력
               let totalAttack = baseAttack + attackBonus;
 
+              // 마법사 데미지 보너스 패시브 적용
+              if (heroClass === 'mage') {
+                const classConfig = CLASS_CONFIGS[heroClass];
+                const baseDamageBonus = heroForAutoAttack.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
+                const growthDamageBonus = heroForAutoAttack.passiveGrowth?.currentValue || 0;
+                totalAttack = Math.floor(totalAttack * (1 + baseDamageBonus + growthDamageBonus));
+              }
+
               // 광전사 버프 공격력 보너스 적용
               const hostBerserkerBuff = heroForAutoAttack.buffs?.find(b => b.type === 'berserker');
               if (hostBerserkerBuff?.attackBonus) {
@@ -1270,6 +1278,14 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
           const attackBonus = playerUpgrades.attack * 5;
           let baseTotalDamage = baseDamage + attackBonus;
+
+          // 마법사 데미지 보너스 패시브 적용
+          if (heroClass === 'mage') {
+            const classConfig = CLASS_CONFIGS[heroClass];
+            const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
+            const growthDamageBonus = hero.passiveGrowth?.currentValue || 0;
+            baseTotalDamage = Math.floor(baseTotalDamage * (1 + baseDamageBonus + growthDamageBonus));
+          }
 
           // 광전사 버프 공격력 보너스 적용
           if (berserkerBuff?.attackBonus) {
