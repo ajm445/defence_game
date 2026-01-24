@@ -369,8 +369,9 @@ export function useRPGGameLoop() {
     }
 
     // HP 재생 처리 (기사: 패시브, 전사/기사: SP hpRegen 업그레이드)
+    // 사망 상태(hp <= 0)에서는 HP 재생 적용 안함
     const heroForRegen = useRPGStore.getState().hero;
-    if (heroForRegen && heroForRegen.hp < heroForRegen.maxHp) {
+    if (heroForRegen && heroForRegen.hp > 0 && heroForRegen.hp < heroForRegen.maxHp) {
       const heroClass = heroForRegen.heroClass;
       let totalRegen = 0;
 
