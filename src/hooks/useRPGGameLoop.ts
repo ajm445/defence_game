@@ -133,6 +133,36 @@ export function useRPGGameLoop() {
       // 클라이언트도 버프 지속시간 업데이트 (모든 영웅)
       useRPGStore.getState().updateBuffs(deltaTime);
 
+      // 클라이언트도 스킬 쿨다운 로컬 업데이트 (즉각적인 UI 피드백)
+      useRPGStore.getState().updateSkillCooldowns(deltaTime);
+
+      // 클라이언트도 HP 재생 로컬 처리 (기사 패시브, SP hpRegen)
+      const clientHeroForRegen = useRPGStore.getState().hero;
+      if (clientHeroForRegen && clientHeroForRegen.hp > 0 && clientHeroForRegen.hp < clientHeroForRegen.maxHp) {
+        const clientHeroClass = clientHeroForRegen.heroClass;
+        let clientTotalRegen = 0;
+
+        // 기사 패시브 HP 재생 (캐릭터 레벨 5 이상 시 활성화)
+        if (clientHeroClass === 'knight') {
+          const classConfig = CLASS_CONFIGS[clientHeroClass];
+          const baseRegen = clientHeroForRegen.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.hpRegen || 0) : 0;
+          const growthRegen = clientHeroForRegen.passiveGrowth?.currentValue || 0;
+          clientTotalRegen += baseRegen + growthRegen;
+        }
+
+        // SP hpRegen 업그레이드 보너스 (전사, 기사만)
+        if ((clientHeroClass === 'warrior' || clientHeroClass === 'knight') && clientHeroForRegen.statUpgrades) {
+          const hpRegenBonus = getStatBonus('hpRegen', clientHeroForRegen.statUpgrades.hpRegen);
+          clientTotalRegen += hpRegenBonus;
+        }
+
+        if (clientTotalRegen > 0) {
+          const regenAmount = clientTotalRegen * deltaTime;
+          const newHp = Math.min(clientHeroForRegen.maxHp, clientHeroForRegen.hp + regenAmount);
+          useRPGStore.getState().updateHeroState({ hp: newHp });
+        }
+      }
+
       animationIdRef.current = requestAnimationFrame(tick);
       return;
     }
