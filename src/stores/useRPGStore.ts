@@ -1121,80 +1121,117 @@ export const useRPGStore = create<RPGStore>()(
 
     updateBuffs: (deltaTime: number) => {
       set((state) => {
-        // 시전자 위치 조회 헬퍼 함수
-        const getCasterPosition = (casterId: string): { x: number; y: number } | null => {
-          // 호스트 영웅인 경우
-          if (state.hero && state.hero.id === casterId) {
-            return { x: state.hero.x, y: state.hero.y };
-          }
-          // 다른 플레이어인 경우
-          const caster = state.otherHeroes.get(casterId);
-          if (caster) {
-            return { x: caster.x, y: caster.y };
-          }
-          return null;
+        // ============================================
+        // 오라(Aura) 버프 시스템
+        // - 시전자의 버프가 활성화된 동안 범위 내 아군에게 지속적으로 버프 적용
+        // - 범위를 벗어나면 버프 해제, 다시 들어오면 재적용
+        // - 지속시간은 시전자의 남은 시간 기준
+        // ============================================
+
+        // 버프 공유 범위 결정
+        const getShareRange = (buffType: string): number => {
+          if (buffType === 'berserker') return BERSERKER_SHARE_RANGE;
+          if (buffType === 'ironwall') return IRONWALL_SHARE_RANGE;
+          return 0; // 공유 대상 아님
         };
 
-        // 버프 범위 체크 헬퍼 함수 (공유받은 버프인 경우만 체크)
-        const isBuffInRange = (buff: Buff, heroX: number, heroY: number): boolean => {
-          // casterId가 없으면 본인이 시전한 버프이므로 범위 체크 불필요
-          if (!buff.casterId) return true;
+        // 모든 영웅 정보 수집 (ID -> {hero, x, y})
+        const allHeroes = new Map<string, { hero: HeroUnit; x: number; y: number }>();
+        if (state.hero) {
+          allHeroes.set(state.hero.id, { hero: state.hero, x: state.hero.x, y: state.hero.y });
+        }
+        state.otherHeroes.forEach((hero, heroId) => {
+          allHeroes.set(heroId, { hero, x: hero.x, y: hero.y });
+        });
 
-          // 시전자 위치 조회
-          const casterPos = getCasterPosition(buff.casterId);
-          if (!casterPos) {
-            // 시전자가 없으면 (연결 해제 등) 버프 유지 (지속시간으로만 관리)
-            return true;
+        // 1단계: 본인 시전 버프(casterId 없음)의 지속시간 감소
+        // 공유받은 버프(casterId 있음)는 제거 (2단계에서 오라로 재적용)
+        const processOwnBuffs = (buffs: Buff[]): Buff[] => {
+          return buffs
+            .filter(buff => !buff.casterId) // 본인 시전 버프만
+            .map(buff => ({ ...buff, duration: buff.duration - deltaTime }))
+            .filter(buff => buff.duration > 0);
+        };
+
+        // 2단계: 시전자의 활성 오라 버프 수집
+        // { casterId, buffType, buff, casterX, casterY }
+        const activeAuras: Array<{
+          casterId: string;
+          buffType: string;
+          buff: Buff;
+          casterX: number;
+          casterY: number;
+          shareRange: number;
+        }> = [];
+
+        allHeroes.forEach(({ hero, x, y }, heroId) => {
+          // 본인이 시전한 버프 중 오라 타입 찾기
+          const ownBuffs = hero.buffs.filter(b => !b.casterId);
+          for (const buff of ownBuffs) {
+            const shareRange = getShareRange(buff.type);
+            if (shareRange > 0) {
+              // 지속시간 감소 적용
+              const newDuration = buff.duration - deltaTime;
+              if (newDuration > 0) {
+                activeAuras.push({
+                  casterId: heroId,
+                  buffType: buff.type,
+                  buff: { ...buff, duration: newDuration },
+                  casterX: x,
+                  casterY: y,
+                  shareRange,
+                });
+              }
+            }
+          }
+        });
+
+        // 3단계: 각 영웅에게 오라 버프 적용
+        const applyAuraBuffs = (heroId: string, heroX: number, heroY: number, ownBuffs: Buff[]): Buff[] => {
+          const resultBuffs = [...ownBuffs];
+
+          for (const aura of activeAuras) {
+            // 시전자 자신은 스킵 (이미 본인 버프로 처리됨)
+            if (aura.casterId === heroId) continue;
+
+            // 거리 체크
+            const dist = distance(heroX, heroY, aura.casterX, aura.casterY);
+            if (dist <= aura.shareRange) {
+              // 범위 내: 버프 적용 또는 갱신
+              const existingIdx = resultBuffs.findIndex(b => b.type === aura.buffType && b.casterId === aura.casterId);
+              const sharedBuff: Buff = {
+                ...aura.buff,
+                casterId: aura.casterId, // 시전자 ID 표시
+              };
+
+              if (existingIdx >= 0) {
+                // 이미 있으면 갱신 (시전자의 남은 시간으로)
+                resultBuffs[existingIdx] = sharedBuff;
+              } else {
+                // 없으면 새로 추가
+                resultBuffs.push(sharedBuff);
+              }
+            }
+            // 범위 밖: 공유받은 버프는 이미 processOwnBuffs에서 제거됨
           }
 
-          // 버프 타입에 따른 범위 결정
-          let shareRange: number;
-          if (buff.type === 'berserker') {
-            shareRange = BERSERKER_SHARE_RANGE;
-          } else if (buff.type === 'ironwall') {
-            shareRange = IRONWALL_SHARE_RANGE;
-          } else {
-            // 공유 대상 버프가 아니면 범위 체크 불필요
-            return true;
-          }
-
-          // 시전자와의 거리 체크
-          const dist = distance(heroX, heroY, casterPos.x, casterPos.y);
-          return dist <= shareRange;
+          return resultBuffs;
         };
 
         // 내 영웅 버프 업데이트
         let updatedHero = state.hero;
         if (state.hero) {
-          const updatedBuffs = state.hero.buffs
-            .map(buff => ({
-              ...buff,
-              duration: buff.duration - deltaTime,
-            }))
-            .filter(buff => buff.duration > 0)
-            // 공유받은 버프의 경우 범위 체크
-            .filter(buff => isBuffInRange(buff, state.hero!.x, state.hero!.y));
-          updatedHero = {
-            ...state.hero,
-            buffs: updatedBuffs,
-          };
+          const ownBuffs = processOwnBuffs(state.hero.buffs);
+          const finalBuffs = applyAuraBuffs(state.hero.id, state.hero.x, state.hero.y, ownBuffs);
+          updatedHero = { ...state.hero, buffs: finalBuffs };
         }
 
-        // 다른 영웅들 버프 업데이트 (멀티플레이어)
+        // 다른 영웅들 버프 업데이트
         const updatedOtherHeroes = new Map(state.otherHeroes);
         state.otherHeroes.forEach((otherHero, heroId) => {
-          const updatedBuffs = otherHero.buffs
-            .map(buff => ({
-              ...buff,
-              duration: buff.duration - deltaTime,
-            }))
-            .filter(buff => buff.duration > 0)
-            // 공유받은 버프의 경우 범위 체크
-            .filter(buff => isBuffInRange(buff, otherHero.x, otherHero.y));
-          updatedOtherHeroes.set(heroId, {
-            ...otherHero,
-            buffs: updatedBuffs,
-          });
+          const ownBuffs = processOwnBuffs(otherHero.buffs);
+          const finalBuffs = applyAuraBuffs(heroId, otherHero.x, otherHero.y, ownBuffs);
+          updatedOtherHeroes.set(heroId, { ...otherHero, buffs: finalBuffs });
         });
 
         return {
