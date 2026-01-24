@@ -418,12 +418,20 @@ function executeOtherHeroSkill(
     s.type === skillType ? { ...s, currentCooldown: s.cooldown } : s
   );
 
+  // 버프 적용 (result.buff가 있으면 영웅 버프에 추가)
+  let updatedBuffs = updatedHero.buffs || [];
+  if (result.buff) {
+    // 같은 타입의 버프가 있으면 교체, 없으면 추가
+    updatedBuffs = updatedBuffs.filter(b => b.type !== result.buff!.type);
+    updatedBuffs = [...updatedBuffs, result.buff];
+  }
+
   state.updateOtherHero(heroId, {
     x: updatedHero.x,
     y: updatedHero.y,
     hp: updatedHero.hp,
     skills: updatedSkills,  // 쿨다운 리셋된 스킬
-    buffs: updatedHero.buffs,
+    buffs: updatedBuffs,    // 새 버프 포함
     dashState: updatedHero.dashState,
     facingAngle: Math.atan2(targetY - hero.y, targetX - hero.x),
   });
@@ -447,10 +455,21 @@ function executeOtherHeroSkill(
     }
   }
 
+  // 기지 데미지 적용
+  if (result.baseDamages && result.baseDamages.length > 0) {
+    for (const baseDamage of result.baseDamages) {
+      const destroyed = state.damageBase(baseDamage.baseId, baseDamage.damage);
+      if (destroyed) {
+        const showNotification = useUIStore.getState().showNotification;
+        showNotification(`적 기지 파괴!`);
+        soundManager.play('victory');
+      }
+    }
+  }
+
   // 버프 공유 (광전사, 철벽 방어)
-  // 버프는 이미 line 305-313에서 result.hero.buffs에 포함되어 적용됨
-  // 여기서는 아군에게 버프 공유만 처리
-  if (result.buff) {
+  // 아군에게 버프 공유 처리 (버프는 위에서 이미 시전자에게 적용됨)
+  if (result.buff && (result.buff.type === 'berserker' || result.buff.type === 'ironwall')) {
     // result.hero는 스킬 실행 후의 영웅 상태 (정확한 위치 정보 포함)
     shareBuffToAllies(result.buff, result.hero, heroId);
   }

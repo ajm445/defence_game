@@ -436,16 +436,20 @@ export function getCoopRoomByPlayerId(playerId: string): WaitingCoopRoom | null 
 export function getAllWaitingCoopRooms(): WaitingCoopRoomInfo[] {
   return Array.from(waitingCoopRooms.values())
     .filter(room => room.state === 'waiting')  // 비밀방도 목록에 표시
-    .map(room => ({
-      roomId: room.id,
-      roomCode: room.code,
-      hostName: room.players.get(room.hostPlayerId)?.name || '알 수 없음',
-      hostHeroClass: room.players.get(room.hostPlayerId)?.heroClass || 'archer',
-      playerCount: room.players.size,
-      maxPlayers: MAX_PLAYERS,
-      createdAt: room.createdAt,
-      isPrivate: room.isPrivate,
-    }));
+    .map(room => {
+      const host = room.players.get(room.hostPlayerId);
+      return {
+        roomId: room.id,
+        roomCode: room.code,
+        hostName: host?.name || '알 수 없음',
+        hostHeroClass: host?.heroClass || 'archer',
+        hostClassLevel: host?.characterLevel || 1,
+        playerCount: room.players.size,
+        maxPlayers: MAX_PLAYERS,
+        createdAt: room.createdAt,
+        isPrivate: room.isPrivate,
+      };
+    });
 }
 
 // roomId로 협동 방 참가

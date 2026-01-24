@@ -623,7 +623,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                 key={room.roomId}
                 onClick={() => !isFull && handleRoomCardClick(room)}
                 disabled={isFull || isConnecting}
-                className={`group relative flex flex-col p-5 h-[150px] border-2 rounded-xl transition-all text-left ${
+                className={`group relative flex flex-col px-7 py-5 h-[150px] border-2 rounded-xl transition-all text-left ${
                   isFull
                     ? 'border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-60'
                     : room.isPrivate
@@ -633,7 +633,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               >
                 {/* 비밀방 아이콘 */}
                 {room.isPrivate && (
-                  <div className="absolute top-3 right-3 text-yellow-400 text-lg" title="비밀방">
+                  <div className="absolute top-3 right-1 text-yellow-400 text-lg" title="비밀방">
                     🔒
                   </div>
                 )}
@@ -642,13 +642,17 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                 <div className="flex items-center gap-3 mb-3">
                   <span className="text-3xl">{config.emoji}</span>
                   <div className="flex-1 min-w-0">
-                    <p className="text-white font-bold text-lg truncate">{room.hostName}</p>
+                    <p className="text-white font-bold text-lg truncate">
+                      {room.hostName}
+                      <span className="ml-2 text-m text-yellow-400 font-normal"> Lv.{room.hostClassLevel}</span>
+                    </p>
                     <p className="text-gray-500 text-sm">{config.name}</p>
                   </div>
                 </div>
 
                 {/* 인원수 */}
-                <div className="mt-auto flex items-center justify-between">
+                <div className="mt-auto flex items-center justify-between"
+                style={{ paddingLeft: '5px', paddingRight: '5px' }}>
                   <div className="flex gap-1">
                     {Array.from({ length: room.maxPlayers }).map((_, i) => (
                       <div
