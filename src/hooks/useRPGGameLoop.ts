@@ -26,6 +26,7 @@ import { SkillType, PendingSkill, SkillEffect, HeroUnit, Buff } from '../types/r
 import { distance } from '../utils/math';
 import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy } from '../game/rpg/nexusSpawnSystem';
 import { createBosses, areAllBossesDead, hasBosses } from '../game/rpg/bossSystem';
+import { rollMultiTarget } from '../game/rpg/passiveSystem';
 import { useNetworkSync, shareHostBuffToAllies } from './useNetworkSync';
 import { wsClient } from '../services/WebSocketClient';
 
@@ -355,6 +356,35 @@ export function useRPGGameLoop() {
         useRPGStore.getState().updateHeroState({ hp: newHp });
       }
     }
+
+    // 다른 플레이어 HP 재생 처리 (기사 패시브 + SP hpRegen)
+    const otherHeroesForRegen = useRPGStore.getState().otherHeroes;
+    otherHeroesForRegen.forEach((otherHero, otherHeroId) => {
+      if (otherHero.hp <= 0 || otherHero.hp >= otherHero.maxHp) return;
+
+      const otherHeroClass = otherHero.heroClass;
+      let otherTotalRegen = 0;
+
+      // 기사 패시브 HP 재생
+      if (otherHeroClass === 'knight') {
+        const classConfig = CLASS_CONFIGS[otherHeroClass];
+        const baseRegen = otherHero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.hpRegen || 0) : 0;
+        const growthRegen = otherHero.passiveGrowth?.currentValue || 0;
+        otherTotalRegen += baseRegen + growthRegen;
+      }
+
+      // SP hpRegen 업그레이드 보너스 (전사, 기사만)
+      if ((otherHeroClass === 'warrior' || otherHeroClass === 'knight') && otherHero.statUpgrades) {
+        const hpRegenBonus = getStatBonus('hpRegen', otherHero.statUpgrades.hpRegen);
+        otherTotalRegen += hpRegenBonus;
+      }
+
+      if (otherTotalRegen > 0) {
+        const regenAmount = otherTotalRegen * deltaTime;
+        const newHp = Math.min(otherHero.maxHp, otherHero.hp + regenAmount);
+        useRPGStore.getState().updateOtherHero(otherHeroId, { hp: newHp });
+      }
+    });
 
     // 버프 업데이트
     useRPGStore.getState().updateBuffs(deltaTime);
@@ -1027,111 +1057,202 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
 
     // 공격 사거리 내 가장 가까운 적 찾기
     const attackRange = hero.config.range || 80;
-    const nearestEnemy = findNearestEnemyForHero(hero, enemies);
 
     let attackedTarget = false;
 
-    if (nearestEnemy) {
-      const dist = distance(hero.x, hero.y, nearestEnemy.x, nearestEnemy.y);
-      if (dist <= attackRange) {
-        // 적 공격 - 해당 플레이어의 업그레이드 레벨 사용
-        const baseDamage = hero.baseAttack;
-        const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
-        const attackBonus = playerUpgrades.attack * 5;
-        let totalDamage = baseDamage + attackBonus;
+    // 데미지 계산 (모든 타겟에 공통 적용)
+    const baseDamage = hero.baseAttack;
+    const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
+    const attackBonus = playerUpgrades.attack * 5;
+    let totalDamage = baseDamage + attackBonus;
 
-        // 광전사 버프 공격력 보너스 적용
-        if (berserkerBuff?.attackBonus) {
-          totalDamage = Math.floor(totalDamage * (1 + berserkerBuff.attackBonus));
+    // 마법사 데미지 보너스 패시브 적용
+    if (heroClass === 'mage') {
+      const classConfig = CLASS_CONFIGS[heroClass];
+      const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
+      const growthDamageBonus = hero.passiveGrowth?.currentValue || 0;
+      totalDamage = Math.floor(totalDamage * (1 + baseDamageBonus + growthDamageBonus));
+    }
+
+    // 광전사 버프 공격력 보너스 적용
+    if (berserkerBuff?.attackBonus) {
+      totalDamage = Math.floor(totalDamage * (1 + berserkerBuff.attackBonus));
+    }
+
+    // 궁수 다중타겟 처리
+    if (heroClass === 'archer') {
+      // 다중타겟 패시브 확률 판정
+      const classConfig = CLASS_CONFIGS[heroClass];
+      const baseMultiTargetCount = classConfig.passive.multiTarget || 3;
+      const isPassiveUnlocked = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL;
+      const useMultiTarget = isPassiveUnlocked && rollMultiTarget(hero.passiveGrowth?.currentValue || 0);
+      const multiTargetCount = useMultiTarget ? baseMultiTargetCount : 1;
+
+      // 범위 내 적들을 거리순으로 정렬
+      const enemiesInRange: { enemy: typeof enemies[0]; dist: number }[] = [];
+      for (const enemy of enemies) {
+        if (enemy.hp <= 0) continue;
+        const dist = distance(hero.x, hero.y, enemy.x, enemy.y);
+        if (dist <= attackRange) {
+          enemiesInRange.push({ enemy, dist });
         }
+      }
+      enemiesInRange.sort((a, b) => a.dist - b.dist);
 
-        // killerHeroId를 전달하여 해당 플레이어에게 골드 지급
-        const killed = state.damageEnemy(nearestEnemy.id, totalDamage, heroId);
-        if (killed) {
-          state.removeEnemy(nearestEnemy.id);
-        }
+      // 다중타겟 공격 실행
+      const targets = enemiesInRange.slice(0, multiTargetCount);
+      if (targets.length > 0) {
+        const hitTargets: { x: number; y: number; damage: number }[] = [];
+        let totalHealAmount = 0;
 
-        // 피해흡혈 적용: 전사 패시브 (전사만) + 광전사 버프 (모든 클래스)
-        {
-          // 전사 패시브 피해흡혈 (전사만)
-          let passiveTotal = 0;
-          if (heroClass === 'warrior') {
-            const classConfig = CLASS_CONFIGS[heroClass];
-            const baseLifesteal = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
-            const growthLifesteal = hero.passiveGrowth?.currentValue || 0;
-            passiveTotal = baseLifesteal + growthLifesteal;
+        for (const { enemy } of targets) {
+          const killed = state.damageEnemy(enemy.id, totalDamage, heroId);
+          if (killed) {
+            state.removeEnemy(enemy.id);
           }
+          hitTargets.push({ x: enemy.x, y: enemy.y, damage: totalDamage });
 
-          // 광전사 버프 피해흡혈 (모든 클래스에 적용)
-          const buffLifesteal = berserkerBuff?.lifesteal || 0;
-
-          // 곱연산: (1 + 패시브) * (1 + 버프) - 1
-          const totalLifesteal = passiveTotal > 0 || buffLifesteal > 0
-            ? (1 + passiveTotal) * (1 + buffLifesteal) - 1
-            : 0;
-
-          if (totalLifesteal > 0) {
-            const healAmount = Math.floor(totalDamage * totalLifesteal);
-            if (healAmount > 0) {
-              const currentHero = state.otherHeroes.get(heroId);
-              if (currentHero) {
-                const newHp = Math.min(currentHero.maxHp, currentHero.hp + healAmount);
-                state.updateOtherHero(heroId, { hp: newHp });
-              }
-            }
+          // 광전사 버프 피해흡혈 (궁수도 버프 받으면 적용)
+          if (berserkerBuff?.lifesteal) {
+            totalHealAmount += Math.floor(totalDamage * berserkerBuff.lifesteal);
           }
         }
 
-        // 공격 방향 계산
-        const dirX = nearestEnemy.x - hero.x;
-        const dirY = nearestEnemy.y - hero.y;
+        // 피해흡혈 적용
+        if (totalHealAmount > 0) {
+          const currentHero = state.otherHeroes.get(heroId);
+          if (currentHero) {
+            const newHp = Math.min(currentHero.maxHp, currentHero.hp + totalHealAmount);
+            state.updateOtherHero(heroId, { hp: newHp });
+          }
+        }
+
+        // 첫 번째 타겟 방향으로 이펙트
+        const firstTarget = targets[0].enemy;
+        const dirX = firstTarget.x - hero.x;
+        const dirY = firstTarget.y - hero.y;
         const dirDist = Math.sqrt(dirX * dirX + dirY * dirY);
         const normalizedDirX = dirDist > 0 ? dirX / dirDist : 1;
         const normalizedDirY = dirDist > 0 ? dirY / dirDist : 0;
 
-        // 호스트와 동일한 SkillEffect 형식으로 이펙트 추가 (네트워크 동기화)
-        const isAoE = heroClass === 'warrior' || heroClass === 'knight' || heroClass === 'mage';
         state.addSkillEffect({
           type: qSkillType,
           position: { x: hero.x, y: hero.y },
           direction: { x: normalizedDirX, y: normalizedDirY },
-          radius: isAoE ? attackRange : undefined,
           damage: totalDamage,
           duration: 0.4,
           startTime: _gameTime,
-          hitTargets: [{ x: nearestEnemy.x, y: nearestEnemy.y, damage: totalDamage }],
+          hitTargets,
           heroClass: heroClass,
         });
 
         // Q 스킬 쿨다운 리셋
-        let skillsWithCooldown = updatedSkills.map(s =>
+        const skillsWithCooldown = updatedSkills.map(s =>
           s.type === qSkillType ? { ...s, currentCooldown: s.cooldown } : s
         );
-
-        // 기사 Q 스킬 적중 시 W 스킬 쿨다운 1초 감소
-        if (heroClass === 'knight') {
-          const wSkillType = CLASS_SKILLS.knight.w.type;
-          skillsWithCooldown = skillsWithCooldown.map(s => {
-            if (s.type === wSkillType && s.currentCooldown > 0) {
-              return { ...s, currentCooldown: Math.max(0, s.currentCooldown - 1.0) };
-            }
-            return s;
-          });
-        }
-
         state.updateOtherHero(heroId, {
           skills: skillsWithCooldown,
-          facingAngle: Math.atan2(nearestEnemy.y - hero.y, nearestEnemy.x - hero.x),
+          facingAngle: Math.atan2(firstTarget.y - hero.y, firstTarget.x - hero.x),
         });
 
-        // 사운드 재생
-        if (heroClass === 'archer' || heroClass === 'mage') {
-          soundManager.play('attack_ranged');
-        } else {
-          soundManager.play('attack_melee');
-        }
-
+        soundManager.play('attack_ranged');
         attackedTarget = true;
+      }
+    } else {
+      // 다른 클래스: 기존 로직 (단일 타겟 또는 범위 공격)
+      const nearestEnemy = findNearestEnemyForHero(hero, enemies);
+
+      if (nearestEnemy) {
+        const dist = distance(hero.x, hero.y, nearestEnemy.x, nearestEnemy.y);
+        if (dist <= attackRange) {
+          // killerHeroId를 전달하여 해당 플레이어에게 골드 지급
+          const killed = state.damageEnemy(nearestEnemy.id, totalDamage, heroId);
+          if (killed) {
+            state.removeEnemy(nearestEnemy.id);
+          }
+
+          // 피해흡혈 적용: 전사 패시브 (전사만) + 광전사 버프 (모든 클래스)
+          {
+            // 전사 패시브 피해흡혈 (전사만)
+            let passiveTotal = 0;
+            if (heroClass === 'warrior') {
+              const classConfig = CLASS_CONFIGS[heroClass];
+              const baseLifesteal = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
+              const growthLifesteal = hero.passiveGrowth?.currentValue || 0;
+              passiveTotal = baseLifesteal + growthLifesteal;
+            }
+
+            // 광전사 버프 피해흡혈 (모든 클래스에 적용)
+            const buffLifesteal = berserkerBuff?.lifesteal || 0;
+
+            // 곱연산: (1 + 패시브) * (1 + 버프) - 1
+            const totalLifesteal = passiveTotal > 0 || buffLifesteal > 0
+              ? (1 + passiveTotal) * (1 + buffLifesteal) - 1
+              : 0;
+
+            if (totalLifesteal > 0) {
+              const healAmount = Math.floor(totalDamage * totalLifesteal);
+              if (healAmount > 0) {
+                const currentHero = state.otherHeroes.get(heroId);
+                if (currentHero) {
+                  const newHp = Math.min(currentHero.maxHp, currentHero.hp + healAmount);
+                  state.updateOtherHero(heroId, { hp: newHp });
+                }
+              }
+            }
+          }
+
+          // 공격 방향 계산
+          const dirX = nearestEnemy.x - hero.x;
+          const dirY = nearestEnemy.y - hero.y;
+          const dirDist = Math.sqrt(dirX * dirX + dirY * dirY);
+          const normalizedDirX = dirDist > 0 ? dirX / dirDist : 1;
+          const normalizedDirY = dirDist > 0 ? dirY / dirDist : 0;
+
+          // 호스트와 동일한 SkillEffect 형식으로 이펙트 추가 (네트워크 동기화)
+          const isAoE = heroClass === 'warrior' || heroClass === 'knight' || heroClass === 'mage';
+          state.addSkillEffect({
+            type: qSkillType,
+            position: { x: hero.x, y: hero.y },
+            direction: { x: normalizedDirX, y: normalizedDirY },
+            radius: isAoE ? attackRange : undefined,
+            damage: totalDamage,
+            duration: 0.4,
+            startTime: _gameTime,
+            hitTargets: [{ x: nearestEnemy.x, y: nearestEnemy.y, damage: totalDamage }],
+            heroClass: heroClass,
+          });
+
+          // Q 스킬 쿨다운 리셋
+          let skillsWithCooldown = updatedSkills.map(s =>
+            s.type === qSkillType ? { ...s, currentCooldown: s.cooldown } : s
+          );
+
+          // 기사 Q 스킬 적중 시 W 스킬 쿨다운 1초 감소
+          if (heroClass === 'knight') {
+            const wSkillType = CLASS_SKILLS.knight.w.type;
+            skillsWithCooldown = skillsWithCooldown.map(s => {
+              if (s.type === wSkillType && s.currentCooldown > 0) {
+                return { ...s, currentCooldown: Math.max(0, s.currentCooldown - 1.0) };
+              }
+              return s;
+            });
+          }
+
+          state.updateOtherHero(heroId, {
+            skills: skillsWithCooldown,
+            facingAngle: Math.atan2(nearestEnemy.y - hero.y, nearestEnemy.x - hero.x),
+          });
+
+          // 사운드 재생
+          if (heroClass === 'mage') {
+            soundManager.play('attack_ranged');
+          } else {
+            soundManager.play('attack_melee');
+          }
+
+          attackedTarget = true;
+        }
       }
     }
 
