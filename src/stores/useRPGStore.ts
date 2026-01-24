@@ -1104,18 +1104,39 @@ export const useRPGStore = create<RPGStore>()(
 
     updateBuffs: (deltaTime: number) => {
       set((state) => {
-        if (!state.hero) return state;
-        const updatedBuffs = state.hero.buffs
-          .map(buff => ({
-            ...buff,
-            duration: buff.duration - deltaTime,
-          }))
-          .filter(buff => buff.duration > 0);
-        return {
-          hero: {
+        // 내 영웅 버프 업데이트
+        let updatedHero = state.hero;
+        if (state.hero) {
+          const updatedBuffs = state.hero.buffs
+            .map(buff => ({
+              ...buff,
+              duration: buff.duration - deltaTime,
+            }))
+            .filter(buff => buff.duration > 0);
+          updatedHero = {
             ...state.hero,
             buffs: updatedBuffs,
-          },
+          };
+        }
+
+        // 다른 영웅들 버프 업데이트 (멀티플레이어)
+        const updatedOtherHeroes = new Map(state.otherHeroes);
+        state.otherHeroes.forEach((otherHero, heroId) => {
+          const updatedBuffs = otherHero.buffs
+            .map(buff => ({
+              ...buff,
+              duration: buff.duration - deltaTime,
+            }))
+            .filter(buff => buff.duration > 0);
+          updatedOtherHeroes.set(heroId, {
+            ...otherHero,
+            buffs: updatedBuffs,
+          });
+        });
+
+        return {
+          hero: updatedHero,
+          otherHeroes: updatedOtherHeroes,
         };
       });
     },

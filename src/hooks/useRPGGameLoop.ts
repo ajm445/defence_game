@@ -1004,14 +1004,25 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           state.removeEnemy(nearestEnemy.id);
         }
 
-        // 공격 이펙트 추가 (네트워크 동기화용)
-        const attackType = (heroClass === 'archer' || heroClass === 'mage') ? 'ranged' : 'melee';
-        state.addBasicAttackEffect({
-          id: `atk_${heroId}_${Date.now()}`,
-          x: nearestEnemy.x,
-          y: nearestEnemy.y,
-          type: attackType,
-          timestamp: Date.now(),
+        // 공격 방향 계산
+        const dirX = nearestEnemy.x - hero.x;
+        const dirY = nearestEnemy.y - hero.y;
+        const dirDist = Math.sqrt(dirX * dirX + dirY * dirY);
+        const normalizedDirX = dirDist > 0 ? dirX / dirDist : 1;
+        const normalizedDirY = dirDist > 0 ? dirY / dirDist : 0;
+
+        // 호스트와 동일한 SkillEffect 형식으로 이펙트 추가 (네트워크 동기화)
+        const isAoE = heroClass === 'warrior' || heroClass === 'knight' || heroClass === 'mage';
+        state.addSkillEffect({
+          type: qSkillType,
+          position: { x: hero.x, y: hero.y },
+          direction: { x: normalizedDirX, y: normalizedDirY },
+          radius: isAoE ? attackRange : undefined,
+          damage: totalDamage,
+          duration: 0.4,
+          startTime: _gameTime,
+          hitTargets: [{ x: nearestEnemy.x, y: nearestEnemy.y, damage: totalDamage }],
+          heroClass: heroClass,
         });
 
         // Q 스킬 쿨다운 리셋
@@ -1051,6 +1062,13 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
 
           const destroyed = state.damageBase(nearestBase.id, totalDamage);
 
+          // 공격 방향 계산
+          const baseDirX = nearestBase.x - hero.x;
+          const baseDirY = nearestBase.y - hero.y;
+          const baseDirDist = Math.sqrt(baseDirX * baseDirX + baseDirY * baseDirY);
+          const normalizedBaseDirX = baseDirDist > 0 ? baseDirX / baseDirDist : 1;
+          const normalizedBaseDirY = baseDirDist > 0 ? baseDirY / baseDirDist : 0;
+
           // Q 스킬 쿨다운 리셋
           const skillsWithCooldown = updatedSkills.map(s =>
             s.type === qSkillType ? { ...s, currentCooldown: s.cooldown } : s
@@ -1060,14 +1078,18 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             facingAngle: Math.atan2(nearestBase.y - hero.y, nearestBase.x - hero.x),
           });
 
-          // 공격 이펙트 추가 (네트워크 동기화용)
-          const baseAttackType = (heroClass === 'archer' || heroClass === 'mage') ? 'ranged' : 'melee';
-          state.addBasicAttackEffect({
-            id: `atk_${heroId}_${Date.now()}_base`,
-            x: nearestBase.x,
-            y: nearestBase.y,
-            type: baseAttackType,
-            timestamp: Date.now(),
+          // 호스트와 동일한 SkillEffect 형식으로 이펙트 추가 (네트워크 동기화)
+          const isAoE = heroClass === 'warrior' || heroClass === 'knight' || heroClass === 'mage';
+          state.addSkillEffect({
+            type: qSkillType,
+            position: { x: hero.x, y: hero.y },
+            direction: { x: normalizedBaseDirX, y: normalizedBaseDirY },
+            radius: isAoE ? attackRange : undefined,
+            damage: totalDamage,
+            duration: 0.4,
+            startTime: _gameTime,
+            hitTargets: [{ x: nearestBase.x, y: nearestBase.y, damage: totalDamage }],
+            heroClass: heroClass,
           });
 
           if (heroClass === 'archer' || heroClass === 'mage') {
