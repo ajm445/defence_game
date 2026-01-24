@@ -533,7 +533,12 @@ export function sendMoveDirection(direction: { x: number; y: number } | null) {
 
   // 호스트가 아닐 때만 서버로 전송
   if (!state.multiplayer.isHost) {
-    wsClient.coopHeroMove(direction);
+    const input: PlayerInput = {
+      playerId: state.multiplayer.myPlayerId || '',
+      moveDirection: direction,
+      timestamp: Date.now(),
+    };
+    wsClient.hostSendPlayerInput(input);
   }
 }
 
