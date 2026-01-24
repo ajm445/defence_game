@@ -1,7 +1,8 @@
 import React, { useCallback, useState, useEffect } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRPGStore } from '../../stores/useRPGStore';
-import { useAuthProfile, useAuthIsGuest, useAuthStore } from '../../stores/useAuthStore';
+import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
+import { useProfileStore } from '../../stores/useProfileStore';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { HeroClass } from '../../types/rpg';
 import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked, createDefaultStatUpgrades } from '../../types/auth';
@@ -196,7 +197,7 @@ export const RPGClassSelectScreen: React.FC = () => {
       const playerName = profile?.nickname || '플레이어';
 
       // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
-      const classProgress = useAuthStore.getState().classProgress;
+      const classProgress = useProfileStore.getState().classProgress;
       const progress = classProgress.find(p => p.className === selectedClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
@@ -232,7 +233,7 @@ export const RPGClassSelectScreen: React.FC = () => {
       const playerName = profile?.nickname || '플레이어';
 
       // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
-      const classProgress = useAuthStore.getState().classProgress;
+      const classProgress = useProfileStore.getState().classProgress;
       const progress = classProgress.find(p => p.className === selectedClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
