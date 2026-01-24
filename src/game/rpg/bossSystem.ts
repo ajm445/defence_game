@@ -5,24 +5,37 @@ import { generateId } from '../../utils/math';
 
 // 보스 설정
 const BOSS_CONFIG = {
-  HP_MULTIPLIER: 5,       // 기본 보스 HP * 5
-  DAMAGE_MULTIPLIER: 2,   // 기본 보스 데미지 * 2
+  // 플레이어 수에 따른 보스 HP (고정값)
+  HP_BY_PLAYER_COUNT: {
+    1: 3500,   // 싱글플레이
+    2: 4000,   // 2인
+    3: 5500,   // 3인
+    4: 7500,   // 4인
+  } as Record<number, number>,
+  // 플레이어 수에 따른 보스 공격력 (고정값)
+  DAMAGE_BY_PLAYER_COUNT: {
+    1: 100,    // 싱글플레이
+    2: 110,    // 2인
+    3: 130,    // 3인
+    4: 160,    // 4인
+  } as Record<number, number>,
   GOLD_REWARD: 200,       // 보스 처치 시 골드
   SIZE_MULTIPLIER: 1.5,   // 보스 크기
 };
 
 /**
  * 보스 2마리 생성 (각 파괴된 기지 위치에서 스폰)
+ * @param playerCount 플레이어 수 (1~4)
  */
 export function createBosses(
   destroyedBases: EnemyBase[],
-  gameTime: number
+  playerCount: number
 ): RPGEnemy[] {
   const bosses: RPGEnemy[] = [];
 
   for (const base of destroyedBases) {
     if (base.destroyed) {
-      const boss = createBoss(base.id, base.x, base.y, gameTime);
+      const boss = createBoss(base.id, base.x, base.y, playerCount);
       bosses.push(boss);
     }
   }
@@ -32,26 +45,28 @@ export function createBosses(
 
 /**
  * 보스 유닛 생성
+ * @param playerCount 플레이어 수 (1~4)
  */
 export function createBoss(
   baseId: 'left' | 'right',
   spawnX: number,
   spawnY: number,
-  gameTime: number
+  playerCount: number
 ): RPGEnemy {
   const unitConfig = CONFIG.UNITS.boss;
   const baseAIConfig = ENEMY_AI_CONFIGS.boss;
 
-  // 시간에 따른 스탯 증가
-  const minutes = gameTime / 60;
-  const timeMultiplier = 1 + minutes * 0.1;
+  // 플레이어 수에 따른 보스 스탯 (고정값)
+  const clampedPlayerCount = Math.max(1, Math.min(4, playerCount));
+  const bossHp = BOSS_CONFIG.HP_BY_PLAYER_COUNT[clampedPlayerCount] || BOSS_CONFIG.HP_BY_PLAYER_COUNT[1];
+  const bossDamage = BOSS_CONFIG.DAMAGE_BY_PLAYER_COUNT[clampedPlayerCount] || BOSS_CONFIG.DAMAGE_BY_PLAYER_COUNT[1];
 
   // AI 설정
   const aiConfig: EnemyAIConfig = {
     detectionRange: baseAIConfig.detectionRange,
     attackRange: baseAIConfig.attackRange,
     moveSpeed: baseAIConfig.moveSpeed * 0.8, // 보스는 약간 느림
-    attackDamage: Math.floor(baseAIConfig.attackDamage * BOSS_CONFIG.DAMAGE_MULTIPLIER * timeMultiplier),
+    attackDamage: bossDamage,
     attackSpeed: baseAIConfig.attackSpeed * 1.2, // 공격 속도 약간 느림
   };
 
@@ -64,8 +79,8 @@ export function createBoss(
     },
     x: spawnX,
     y: spawnY,
-    hp: Math.floor(unitConfig.hp * BOSS_CONFIG.HP_MULTIPLIER * timeMultiplier),
-    maxHp: Math.floor(unitConfig.hp * BOSS_CONFIG.HP_MULTIPLIER * timeMultiplier),
+    hp: bossHp,
+    maxHp: bossHp,
     state: 'idle',
     attackCooldown: 0,
     team: 'enemy',
@@ -75,6 +90,7 @@ export function createBoss(
     buffs: [],
     fromBase: baseId,
     aggroOnHero: false, // 초기에는 넥서스를 향해 이동, 공격받으면 어그로
+    damagedBy: [], // 데미지 관여자 추적 (멀티플레이 골드 분배용)
   };
 }
 

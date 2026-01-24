@@ -35,6 +35,8 @@ export function useRPGGameLoop() {
   const pendingSkillRef = useRef<SkillType | null>(null);
   const bossesSpawnedRef = useRef<boolean>(false);
   const lastBroadcastTimeRef = useRef<number>(0);
+  const wasRunningRef = useRef<boolean>(false);
+  const processedEffectIdsRef = useRef<Set<string>>(new Set());
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -63,6 +65,24 @@ export function useRPGGameLoop() {
     if (isMultiplayer && !isHost) {
       // 클라이언트: 이펙트 업데이트 + 로컬 영웅 이동 예측
       effectManager.update(deltaTime);
+
+      // 동기화된 기본 공격 이펙트 처리 (클라이언트)
+      const clientBasicAttackEffects = useRPGStore.getState().basicAttackEffects;
+      for (const effect of clientBasicAttackEffects) {
+        if (!processedEffectIdsRef.current.has(effect.id)) {
+          processedEffectIdsRef.current.add(effect.id);
+          const effectType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+          effectManager.createEffect(effectType, effect.x, effect.y);
+        }
+      }
+      // 오래된 이펙트 ID 정리 (300ms 이후)
+      const now = Date.now();
+      for (const effectId of processedEffectIdsRef.current) {
+        const timestamp = parseInt(effectId.split('_')[2]) || 0;
+        if (now - timestamp > 1000) {
+          processedEffectIdsRef.current.delete(effectId);
+        }
+      }
 
       const clientHero = useRPGStore.getState().hero;
 
@@ -108,6 +128,9 @@ export function useRPGGameLoop() {
       if (useRPGStore.getState().camera.followHero && updatedHero) {
         useRPGStore.getState().setCamera(updatedHero.x, updatedHero.y);
       }
+
+      // 클라이언트도 버프 지속시간 업데이트 (모든 영웅)
+      useRPGStore.getState().updateBuffs(deltaTime);
 
       animationIdRef.current = requestAnimationFrame(tick);
       return;
@@ -208,7 +231,13 @@ export function useRPGGameLoop() {
               const baseAttack = heroForAutoAttack.baseAttack;
               const upgradeLevels = useRPGStore.getState().upgradeLevels;
               const attackBonus = upgradeLevels.attack * 5; // 업그레이드당 5 공격력
-              const totalAttack = baseAttack + attackBonus;
+              let totalAttack = baseAttack + attackBonus;
+
+              // 광전사 버프 공격력 보너스 적용
+              const hostBerserkerBuff = heroForAutoAttack.buffs?.find(b => b.type === 'berserker');
+              if (hostBerserkerBuff?.attackBonus) {
+                totalAttack = Math.floor(totalAttack * (1 + hostBerserkerBuff.attackBonus));
+              }
 
               // 기지에 데미지 적용
               const destroyed = useRPGStore.getState().damageBase(nearestBase.id, totalAttack);
@@ -251,9 +280,11 @@ export function useRPGGameLoop() {
 
     // 영웅 공격 데미지 처리
     if (heroResult.enemyDamage) {
+      const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
       const killed = useRPGStore.getState().damageEnemy(
         heroResult.enemyDamage.targetId,
-        heroResult.enemyDamage.damage
+        heroResult.enemyDamage.damage,
+        myHeroId
       );
 
       if (killed) {
@@ -481,7 +512,7 @@ export function useRPGGameLoop() {
           if (enemy.hp <= 0) continue;
           const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
           if (dist <= skill.radius) {
-            const killed = useRPGStore.getState().damageEnemy(enemy.id, skill.damage);
+            const killed = useRPGStore.getState().damageEnemy(enemy.id, skill.damage, skill.casterId);
             if (killed) {
               // 골드 획득은 damageEnemy 내에서 자동 처리됨
               useRPGStore.getState().removeEnemy(enemy.id);
@@ -547,20 +578,10 @@ export function useRPGGameLoop() {
         soundManager.play('victory');
       }
 
-      // 두 기지 모두 파괴되면 보스 단계로
+      // 두 기지 모두 파괴되면 보스 단계로 (보스 스폰은 boss_phase에서 처리)
       const allBasesDestroyed = enemyBases.every(b => b.destroyed);
-      if (allBasesDestroyed && !bossesSpawnedRef.current) {
+      if (allBasesDestroyed) {
         useRPGStore.getState().setGamePhase('boss_phase');
-        showNotification('🔥 모든 기지 파괴! 보스 출현!');
-        soundManager.play('warning');
-        soundManager.play('boss_spawn');
-
-        // 보스 2마리 스폰
-        const bosses = createBosses(enemyBases, latestState.gameTime);
-        for (const boss of bosses) {
-          useRPGStore.getState().addEnemy(boss);
-        }
-        bossesSpawnedRef.current = true;
       }
     } else if (latestState.gamePhase === 'boss_phase') {
       // 보스 단계 진입 시 보스 스폰 (아직 스폰 안됐으면)
@@ -569,8 +590,11 @@ export function useRPGGameLoop() {
         soundManager.play('warning');
         soundManager.play('boss_spawn');
 
+        // 플레이어 수 계산 (자신 + 다른 플레이어)
+        const playerCount = 1 + latestState.otherHeroes.size;
+
         // 보스 2마리 스폰
-        const bosses = createBosses(latestState.enemyBases, latestState.gameTime);
+        const bosses = createBosses(latestState.enemyBases, playerCount);
         for (const boss of bosses) {
           useRPGStore.getState().addEnemy(boss);
         }
@@ -590,6 +614,18 @@ export function useRPGGameLoop() {
 
     // 이펙트 업데이트
     effectManager.update(deltaTime);
+
+    // 동기화된 기본 공격 이펙트 처리 (호스트 및 싱글플레이어)
+    const hostBasicAttackEffects = useRPGStore.getState().basicAttackEffects;
+    for (const effect of hostBasicAttackEffects) {
+      if (!processedEffectIdsRef.current.has(effect.id)) {
+        processedEffectIdsRef.current.add(effect.id);
+        const effectType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+        effectManager.createEffect(effectType, effect.x, effect.y);
+      }
+    }
+    // 오래된 기본 공격 이펙트 정리
+    useRPGStore.getState().cleanBasicAttackEffects();
 
     // 스킬 이펙트 업데이트
     const activeEffects = useRPGStore.getState().activeSkillEffects;
@@ -620,7 +656,7 @@ export function useRPGGameLoop() {
 
   // 스킬 결과 처리 공통 함수
   const processSkillResult = useCallback(
-    (result: ReturnType<typeof executeQSkill>, state: ReturnType<typeof useRPGStore.getState>) => {
+    (result: ReturnType<typeof executeQSkill>, state: ReturnType<typeof useRPGStore.getState>, killerHeroId?: string) => {
       // 상태 업데이트
       if (result.effect) {
         useRPGStore.setState((s) => ({
@@ -633,7 +669,7 @@ export function useRPGGameLoop() {
 
       // 적 데미지 적용
       for (const damage of result.enemyDamages) {
-        const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage);
+        const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage, killerHeroId);
         if (killed) {
           const enemy = state.enemies.find((e) => e.id === damage.enemyId);
           if (enemy) {
@@ -704,6 +740,7 @@ export function useRPGGameLoop() {
       const targetY = state.mousePosition.y;
 
       // 기존 스킬 처리 (하위 호환)
+      const legacyHeroId = state.multiplayer.myHeroId || state.hero?.id;
       switch (skillType) {
         case 'dash': {
           const result = executeDash(state.hero, state.enemies, targetX, targetY, gameTime);
@@ -712,7 +749,7 @@ export function useRPGGameLoop() {
             activeSkillEffects: [...s.activeSkillEffects, result.effect],
           }));
           for (const damage of result.enemyDamages) {
-            const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage);
+            const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage, legacyHeroId);
             if (killed) {
               const enemy = state.enemies.find((e) => e.id === damage.enemyId);
               if (enemy) {
@@ -730,7 +767,7 @@ export function useRPGGameLoop() {
             activeSkillEffects: [...s.activeSkillEffects, result.effect],
           }));
           for (const damage of result.enemyDamages) {
-            const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage);
+            const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage, legacyHeroId);
             if (killed) {
               const enemy = state.enemies.find((e) => e.id === damage.enemyId);
               if (enemy) {
@@ -755,18 +792,19 @@ export function useRPGGameLoop() {
 
       // 새로운 직업별 스킬 처리
       const classSkills = CLASS_SKILLS[heroClass];
+      const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
 
       // Q 스킬
       if (skillType === classSkills.q.type) {
         const result = executeQSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
-        processSkillResult(result, state);
+        processSkillResult(result, state, myHeroId);
         return;
       }
 
       // W 스킬
       if (skillType === classSkills.w.type) {
         const result = executeWSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
-        processSkillResult(result, state);
+        processSkillResult(result, state, myHeroId);
 
         // 기사 방패 돌진 알림
         if (heroClass === 'knight') {
@@ -778,8 +816,8 @@ export function useRPGGameLoop() {
 
       // E 스킬
       if (skillType === classSkills.e.type) {
-        const result = executeESkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
-        processSkillResult(result, state);
+        const result = executeESkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, myHeroId);
+        processSkillResult(result, state, myHeroId);
 
         // 특수 알림
         if (heroClass === 'knight') {
@@ -820,8 +858,14 @@ export function useRPGGameLoop() {
   useEffect(() => {
     if (running && !paused && !gameOver) {
       lastTimeRef.current = performance.now();
-      bossesSpawnedRef.current = false;  // 게임 시작 시 보스 스폰 플래그 리셋
+      // 게임이 새로 시작될 때만 보스 스폰 플래그 리셋 (running이 false→true로 변경될 때)
+      if (!wasRunningRef.current) {
+        bossesSpawnedRef.current = false;
+      }
+      wasRunningRef.current = true;
       animationIdRef.current = requestAnimationFrame(tick);
+    } else {
+      wasRunningRef.current = false;
     }
 
     return () => {
@@ -932,11 +976,22 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
     // 돌진 중이면 스킵
     if (hero.dashState) return;
 
-    // 스킬 쿨다운 업데이트
-    const updatedSkills = hero.skills.map(skill => ({
-      ...skill,
-      currentCooldown: Math.max(0, skill.currentCooldown - deltaTime),
-    }));
+    // 광전사 버프 확인 (공격속도 증가)
+    const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker');
+    const attackSpeedMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
+
+    // 스킬 쿨다운 업데이트 (광전사 버프 공격속도 적용)
+    const updatedSkills = hero.skills.map(skill => {
+      // Q스킬(기본 공격)에만 공격속도 버프 적용
+      const isQSkill = skill.type.endsWith('_q');
+      const cooldownReduction = isQSkill
+        ? deltaTime * attackSpeedMultiplier
+        : deltaTime;
+      return {
+        ...skill,
+        currentCooldown: Math.max(0, skill.currentCooldown - cooldownReduction),
+      };
+    });
 
     // 스킬 업데이트 적용
     state.updateOtherHero(heroId, { skills: updatedSkills });
@@ -961,14 +1016,70 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
         const baseDamage = hero.baseAttack;
         const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
         const attackBonus = playerUpgrades.attack * 5;
-        const totalDamage = baseDamage + attackBonus;
+        let totalDamage = baseDamage + attackBonus;
+
+        // 광전사 버프 공격력 보너스 적용
+        if (berserkerBuff?.attackBonus) {
+          totalDamage = Math.floor(totalDamage * (1 + berserkerBuff.attackBonus));
+        }
 
         // killerHeroId를 전달하여 해당 플레이어에게 골드 지급
         const killed = state.damageEnemy(nearestEnemy.id, totalDamage, heroId);
         if (killed) {
           state.removeEnemy(nearestEnemy.id);
-          effectManager.createEffect('attack_melee', nearestEnemy.x, nearestEnemy.y);
         }
+
+        // 피해흡혈 적용: 전사 패시브 (전사만) + 광전사 버프 (모든 클래스)
+        {
+          // 전사 패시브 피해흡혈 (전사만)
+          let passiveTotal = 0;
+          if (heroClass === 'warrior') {
+            const classConfig = CLASS_CONFIGS[heroClass];
+            const baseLifesteal = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
+            const growthLifesteal = hero.passiveGrowth?.currentValue || 0;
+            passiveTotal = baseLifesteal + growthLifesteal;
+          }
+
+          // 광전사 버프 피해흡혈 (모든 클래스에 적용)
+          const buffLifesteal = berserkerBuff?.lifesteal || 0;
+
+          // 곱연산: (1 + 패시브) * (1 + 버프) - 1
+          const totalLifesteal = passiveTotal > 0 || buffLifesteal > 0
+            ? (1 + passiveTotal) * (1 + buffLifesteal) - 1
+            : 0;
+
+          if (totalLifesteal > 0) {
+            const healAmount = Math.floor(totalDamage * totalLifesteal);
+            if (healAmount > 0) {
+              const currentHero = state.otherHeroes.get(heroId);
+              if (currentHero) {
+                const newHp = Math.min(currentHero.maxHp, currentHero.hp + healAmount);
+                state.updateOtherHero(heroId, { hp: newHp });
+              }
+            }
+          }
+        }
+
+        // 공격 방향 계산
+        const dirX = nearestEnemy.x - hero.x;
+        const dirY = nearestEnemy.y - hero.y;
+        const dirDist = Math.sqrt(dirX * dirX + dirY * dirY);
+        const normalizedDirX = dirDist > 0 ? dirX / dirDist : 1;
+        const normalizedDirY = dirDist > 0 ? dirY / dirDist : 0;
+
+        // 호스트와 동일한 SkillEffect 형식으로 이펙트 추가 (네트워크 동기화)
+        const isAoE = heroClass === 'warrior' || heroClass === 'knight' || heroClass === 'mage';
+        state.addSkillEffect({
+          type: qSkillType,
+          position: { x: hero.x, y: hero.y },
+          direction: { x: normalizedDirX, y: normalizedDirY },
+          radius: isAoE ? attackRange : undefined,
+          damage: totalDamage,
+          duration: 0.4,
+          startTime: _gameTime,
+          hitTargets: [{ x: nearestEnemy.x, y: nearestEnemy.y, damage: totalDamage }],
+          heroClass: heroClass,
+        });
 
         // Q 스킬 쿨다운 리셋
         const skillsWithCooldown = updatedSkills.map(s =>
@@ -1003,9 +1114,21 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           const baseDamage = hero.baseAttack;
           const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
           const attackBonus = playerUpgrades.attack * 5;
-          const totalDamage = baseDamage + attackBonus;
+          let baseTotalDamage = baseDamage + attackBonus;
 
-          const destroyed = state.damageBase(nearestBase.id, totalDamage);
+          // 광전사 버프 공격력 보너스 적용
+          if (berserkerBuff?.attackBonus) {
+            baseTotalDamage = Math.floor(baseTotalDamage * (1 + berserkerBuff.attackBonus));
+          }
+
+          const destroyed = state.damageBase(nearestBase.id, baseTotalDamage);
+
+          // 공격 방향 계산
+          const baseDirX = nearestBase.x - hero.x;
+          const baseDirY = nearestBase.y - hero.y;
+          const baseDirDist = Math.sqrt(baseDirX * baseDirX + baseDirY * baseDirY);
+          const normalizedBaseDirX = baseDirDist > 0 ? baseDirX / baseDirDist : 1;
+          const normalizedBaseDirY = baseDirDist > 0 ? baseDirY / baseDirDist : 0;
 
           // Q 스킬 쿨다운 리셋
           const skillsWithCooldown = updatedSkills.map(s =>
@@ -1016,7 +1139,20 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             facingAngle: Math.atan2(nearestBase.y - hero.y, nearestBase.x - hero.x),
           });
 
-          effectManager.createEffect('attack_melee', nearestBase.x, nearestBase.y);
+          // 호스트와 동일한 SkillEffect 형식으로 이펙트 추가 (네트워크 동기화)
+          const isAoE = heroClass === 'warrior' || heroClass === 'knight' || heroClass === 'mage';
+          state.addSkillEffect({
+            type: qSkillType,
+            position: { x: hero.x, y: hero.y },
+            direction: { x: normalizedBaseDirX, y: normalizedBaseDirY },
+            radius: isAoE ? attackRange : undefined,
+            damage: baseTotalDamage,
+            duration: 0.4,
+            startTime: _gameTime,
+            hitTargets: [{ x: nearestBase.x, y: nearestBase.y, damage: baseTotalDamage }],
+            heroClass: heroClass,
+          });
+
           if (heroClass === 'archer' || heroClass === 'mage') {
             soundManager.play('attack_ranged');
           } else {

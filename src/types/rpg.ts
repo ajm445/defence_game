@@ -41,6 +41,7 @@ export interface Buff {
   speedBonus?: number;   // 공속 증가율
   damageReduction?: number; // 데미지 감소율
   lifesteal?: number;    // 피해흡혈율 (0.5 = 50%)
+  casterId?: string;     // 시전자 영웅 ID (공유 버프의 경우 범위 체크용)
 }
 
 // 패시브 능력 설정
@@ -176,6 +177,8 @@ export interface RPGEnemy extends Unit {
   targetHeroId?: string;   // 타겟 영웅 ID
   isStunned?: boolean;     // 스턴 상태
   stunEndTime?: number;    // 스턴 종료 시간
+  // 보스 골드 분배용 - 데미지를 준 플레이어 ID 목록
+  damagedBy?: string[];
 }
 
 // 시야 시스템 설정
@@ -249,6 +252,7 @@ export interface PendingSkill {
   triggerTime: number;   // 발동 시간
   damage: number;
   radius: number;
+  casterId?: string;     // 스킬 시전자 ID (보스 골드 분배용)
 }
 
 // 레벨업 보너스 (계정 레벨 보너스)
@@ -281,6 +285,15 @@ export interface SkillEffect {
   startTime: number;      // 시작 시간
   hitTargets?: HitTarget[]; // 피격 대상 위치들 (공격 이펙트용)
   heroClass?: HeroClass;   // 발동한 영웅 직업 (이펙트 스타일 결정용)
+}
+
+// 기본 공격 이펙트 (네트워크 동기화용)
+export interface BasicAttackEffect {
+  id: string;           // 고유 ID (중복 생성 방지)
+  x: number;
+  y: number;
+  type: 'melee' | 'ranged';
+  timestamp: number;    // 생성 시간
 }
 
 // 경험치 테이블 (적 유닛별) - 레거시, 계정 경험치용

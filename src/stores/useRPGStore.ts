@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, UpgradeLevels, RPGGamePhase } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, UpgradeLevels, RPGGamePhase, BasicAttackEffect } from '../types/rpg';
 import { UnitType } from '../types/unit';
 import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
@@ -9,10 +9,18 @@ import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '
 import type { MultiplayerState, PlayerInput, SerializedGameState, SerializedHero, SerializedEnemy } from '../../shared/types/hostBasedNetwork';
 import type { CoopPlayerInfo } from '../../shared/types/rpgNetwork';
 import { wsClient } from '../services/WebSocketClient';
+import { distance } from '../utils/math';
+
+// 버프 공유 범위 상수 (useNetworkSync.ts와 동일)
+const BERSERKER_SHARE_RANGE = 300;
+const IRONWALL_SHARE_RANGE = Infinity;
 
 interface RPGState extends RPGGameState {
   // 활성 스킬 효과
   activeSkillEffects: SkillEffect[];
+
+  // 기본 공격 이펙트 (네트워크 동기화용)
+  basicAttackEffects: BasicAttackEffect[];
 
   // 결과
   result: RPGGameResult | null;
@@ -85,6 +93,10 @@ interface RPGActions {
   updateSkillCooldowns: (deltaTime: number) => void;
   addSkillEffect: (effect: SkillEffect) => void;
   removeSkillEffect: (index: number) => void;
+
+  // 기본 공격 이펙트 (네트워크 동기화용)
+  addBasicAttackEffect: (effect: BasicAttackEffect) => void;
+  cleanBasicAttackEffects: () => void;
 
   // 적 관리
   addEnemy: (enemy: RPGEnemy) => void;
@@ -241,6 +253,7 @@ const initialState: RPGState = {
   },
 
   activeSkillEffects: [],
+  basicAttackEffects: [],
   pendingSkills: [],
   result: null,
   mousePosition: { x: NEXUS_CONFIG.position.x, y: NEXUS_CONFIG.position.y },
@@ -385,6 +398,7 @@ export const useRPGStore = create<RPGStore>()(
         // 이전 게임 데이터 명시적 초기화
         enemies: [],
         activeSkillEffects: [],
+        basicAttackEffects: [],
         pendingSkills: [],
         gameOver: false,
         victory: false,
@@ -749,10 +763,22 @@ export const useRPGStore = create<RPGStore>()(
     updateSkillCooldowns: (deltaTime) => {
       set((state) => {
         if (!state.hero) return state;
-        const updatedSkills = state.hero.skills.map((skill) => ({
-          ...skill,
-          currentCooldown: Math.max(0, skill.currentCooldown - deltaTime),
-        }));
+
+        // 광전사 버프 확인 (공격속도 증가)
+        const berserkerBuff = state.hero.buffs?.find(b => b.type === 'berserker');
+        const attackSpeedMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
+
+        const updatedSkills = state.hero.skills.map((skill) => {
+          // Q스킬(기본 공격)에만 공격속도 버프 적용
+          const isQSkill = skill.type.endsWith('_q');
+          const cooldownReduction = isQSkill
+            ? deltaTime * attackSpeedMultiplier
+            : deltaTime;
+          return {
+            ...skill,
+            currentCooldown: Math.max(0, skill.currentCooldown - cooldownReduction),
+          };
+        });
         return {
           hero: { ...state.hero, skills: updatedSkills },
         };
@@ -768,6 +794,21 @@ export const useRPGStore = create<RPGStore>()(
     removeSkillEffect: (index) => {
       set((state) => ({
         activeSkillEffects: state.activeSkillEffects.filter((_, i) => i !== index),
+      }));
+    },
+
+    // 기본 공격 이펙트 추가 (네트워크 동기화용)
+    addBasicAttackEffect: (effect) => {
+      set((state) => ({
+        basicAttackEffects: [...state.basicAttackEffects, effect],
+      }));
+    },
+
+    // 오래된 기본 공격 이펙트 정리 (300ms 이후)
+    cleanBasicAttackEffects: () => {
+      const now = Date.now();
+      set((state) => ({
+        basicAttackEffects: state.basicAttackEffects.filter(e => now - e.timestamp < 300),
       }));
     },
 
@@ -792,6 +833,7 @@ export const useRPGStore = create<RPGStore>()(
       let killed = false;
       let goldReward = 0;
       let isBoss = false;
+      let bossDamagedBy: string[] = [];
       const gameTime = get().gameTime;
       const AGGRO_DURATION = 5; // 어그로 지속 시간 (초)
 
@@ -799,11 +841,19 @@ export const useRPGStore = create<RPGStore>()(
         const enemies = state.enemies.map((enemy) => {
           if (enemy.id === enemyId) {
             const newHp = enemy.hp - amount;
+
+            // 보스인 경우 데미지 관여자 추적
+            let updatedDamagedBy = enemy.damagedBy || [];
+            if (enemy.type === 'boss' && killerHeroId && !updatedDamagedBy.includes(killerHeroId)) {
+              updatedDamagedBy = [...updatedDamagedBy, killerHeroId];
+            }
+
             if (newHp <= 0) {
               killed = true;
               goldReward = enemy.goldReward || 0;
               isBoss = enemy.type === 'boss';
-              return { ...enemy, hp: 0 };
+              bossDamagedBy = updatedDamagedBy;
+              return { ...enemy, hp: 0, damagedBy: updatedDamagedBy };
             }
             // 피해를 입으면 어그로 설정 (킬러 영웅 ID도 저장)
             return {
@@ -812,6 +862,7 @@ export const useRPGStore = create<RPGStore>()(
               aggroOnHero: true,
               aggroExpireTime: gameTime + AGGRO_DURATION,
               targetHeroId: killerHeroId,
+              damagedBy: updatedDamagedBy,
             };
           }
           return enemy;
@@ -823,9 +874,25 @@ export const useRPGStore = create<RPGStore>()(
       if (killed && goldReward > 0) {
         const state = get();
         const myHeroId = state.multiplayer.myHeroId;
+        const isMultiplayer = state.multiplayer.isMultiplayer;
 
-        // 멀티플레이어에서 다른 플레이어가 처치한 경우
-        if (killerHeroId && state.multiplayer.isMultiplayer && killerHeroId !== myHeroId) {
+        // 멀티플레이어 보스 처치: 골드를 관여한 플레이어에게만 균등 분배
+        if (isBoss && isMultiplayer && bossDamagedBy.length > 0) {
+          const contributorCount = bossDamagedBy.length;
+          const goldPerContributor = Math.floor(goldReward / contributorCount);
+
+          // 관여한 플레이어에게만 분배
+          for (const heroId of bossDamagedBy) {
+            if (heroId === myHeroId) {
+              // 호스트(자신)에게 분배
+              get().addGold(goldPerContributor);
+            } else {
+              // 다른 플레이어에게 분배
+              state.addGoldToOtherPlayer(heroId, goldPerContributor);
+            }
+          }
+        } else if (killerHeroId && isMultiplayer && killerHeroId !== myHeroId) {
+          // 멀티플레이어에서 다른 플레이어가 일반 적 처치한 경우
           state.addGoldToOtherPlayer(killerHeroId, goldReward);
         } else {
           // 호스트가 처치하거나 싱글플레이어
@@ -1054,18 +1121,122 @@ export const useRPGStore = create<RPGStore>()(
 
     updateBuffs: (deltaTime: number) => {
       set((state) => {
-        if (!state.hero) return state;
-        const updatedBuffs = state.hero.buffs
-          .map(buff => ({
-            ...buff,
-            duration: buff.duration - deltaTime,
-          }))
-          .filter(buff => buff.duration > 0);
+        // ============================================
+        // 오라(Aura) 버프 시스템
+        // - 시전자의 버프가 활성화된 동안 범위 내 아군에게 지속적으로 버프 적용
+        // - 범위를 벗어나면 버프 해제, 다시 들어오면 재적용
+        // - 지속시간은 시전자의 남은 시간 기준
+        // ============================================
+
+        // 버프 공유 범위 결정
+        const getShareRange = (buffType: string): number => {
+          if (buffType === 'berserker') return BERSERKER_SHARE_RANGE;
+          if (buffType === 'ironwall') return IRONWALL_SHARE_RANGE;
+          return 0; // 공유 대상 아님
+        };
+
+        // 모든 영웅 정보 수집 (ID -> {hero, x, y})
+        const allHeroes = new Map<string, { hero: HeroUnit; x: number; y: number }>();
+        if (state.hero) {
+          allHeroes.set(state.hero.id, { hero: state.hero, x: state.hero.x, y: state.hero.y });
+        }
+        state.otherHeroes.forEach((hero, heroId) => {
+          allHeroes.set(heroId, { hero, x: hero.x, y: hero.y });
+        });
+
+        // 1단계: 본인 시전 버프(casterId 없음)의 지속시간 감소
+        // 공유받은 버프(casterId 있음)는 제거 (2단계에서 오라로 재적용)
+        const processOwnBuffs = (buffs: Buff[]): Buff[] => {
+          return buffs
+            .filter(buff => !buff.casterId) // 본인 시전 버프만
+            .map(buff => ({ ...buff, duration: buff.duration - deltaTime }))
+            .filter(buff => buff.duration > 0);
+        };
+
+        // 2단계: 시전자의 활성 오라 버프 수집
+        // { casterId, buffType, buff, casterX, casterY }
+        const activeAuras: Array<{
+          casterId: string;
+          buffType: string;
+          buff: Buff;
+          casterX: number;
+          casterY: number;
+          shareRange: number;
+        }> = [];
+
+        allHeroes.forEach(({ hero, x, y }, heroId) => {
+          // 본인이 시전한 버프 중 오라 타입 찾기
+          const ownBuffs = hero.buffs.filter(b => !b.casterId);
+          for (const buff of ownBuffs) {
+            const shareRange = getShareRange(buff.type);
+            if (shareRange > 0) {
+              // 지속시간 감소 적용
+              const newDuration = buff.duration - deltaTime;
+              if (newDuration > 0) {
+                activeAuras.push({
+                  casterId: heroId,
+                  buffType: buff.type,
+                  buff: { ...buff, duration: newDuration },
+                  casterX: x,
+                  casterY: y,
+                  shareRange,
+                });
+              }
+            }
+          }
+        });
+
+        // 3단계: 각 영웅에게 오라 버프 적용
+        const applyAuraBuffs = (heroId: string, heroX: number, heroY: number, ownBuffs: Buff[]): Buff[] => {
+          const resultBuffs = [...ownBuffs];
+
+          for (const aura of activeAuras) {
+            // 시전자 자신은 스킵 (이미 본인 버프로 처리됨)
+            if (aura.casterId === heroId) continue;
+
+            // 거리 체크
+            const dist = distance(heroX, heroY, aura.casterX, aura.casterY);
+            if (dist <= aura.shareRange) {
+              // 범위 내: 버프 적용 또는 갱신
+              const existingIdx = resultBuffs.findIndex(b => b.type === aura.buffType && b.casterId === aura.casterId);
+              const sharedBuff: Buff = {
+                ...aura.buff,
+                casterId: aura.casterId, // 시전자 ID 표시
+              };
+
+              if (existingIdx >= 0) {
+                // 이미 있으면 갱신 (시전자의 남은 시간으로)
+                resultBuffs[existingIdx] = sharedBuff;
+              } else {
+                // 없으면 새로 추가
+                resultBuffs.push(sharedBuff);
+              }
+            }
+            // 범위 밖: 공유받은 버프는 이미 processOwnBuffs에서 제거됨
+          }
+
+          return resultBuffs;
+        };
+
+        // 내 영웅 버프 업데이트
+        let updatedHero = state.hero;
+        if (state.hero) {
+          const ownBuffs = processOwnBuffs(state.hero.buffs);
+          const finalBuffs = applyAuraBuffs(state.hero.id, state.hero.x, state.hero.y, ownBuffs);
+          updatedHero = { ...state.hero, buffs: finalBuffs };
+        }
+
+        // 다른 영웅들 버프 업데이트
+        const updatedOtherHeroes = new Map(state.otherHeroes);
+        state.otherHeroes.forEach((otherHero, heroId) => {
+          const ownBuffs = processOwnBuffs(otherHero.buffs);
+          const finalBuffs = applyAuraBuffs(heroId, otherHero.x, otherHero.y, ownBuffs);
+          updatedOtherHeroes.set(heroId, { ...otherHero, buffs: finalBuffs });
+        });
+
         return {
-          hero: {
-            ...state.hero,
-            buffs: updatedBuffs,
-          },
+          hero: updatedHero,
+          otherHeroes: updatedOtherHeroes,
         };
       });
     },
@@ -1417,6 +1588,7 @@ export const useRPGStore = create<RPGStore>()(
         gold: state.gold,
         upgradeLevels: state.upgradeLevels,
         activeSkillEffects: state.activeSkillEffects,
+        basicAttackEffects: state.basicAttackEffects,
         pendingSkills: state.pendingSkills,
         running: state.running,
         paused: state.paused,
@@ -1530,6 +1702,7 @@ export const useRPGStore = create<RPGStore>()(
         gold: myGold,  // 내 골드 적용
         upgradeLevels: myUpgrades,  // 내 업그레이드 적용
         activeSkillEffects: serializedState.activeSkillEffects,
+        basicAttackEffects: serializedState.basicAttackEffects || [],
         pendingSkills: serializedState.pendingSkills,
         running: serializedState.running,
         paused: serializedState.paused,

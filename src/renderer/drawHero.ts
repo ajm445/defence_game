@@ -1026,10 +1026,11 @@ export function drawSkillEffect(
       break;
 
     case 'heal':
+    case 'knight_e':
     case 'knight_ironwall':
       // 힐/방어 이펙트 - 상승하는 파티클
       ctx.globalAlpha = 1 - progress;
-      const healColor = effect.type === 'knight_ironwall' ? '#4a90d9' : '#10b981';
+      const healColor = (effect.type === 'knight_ironwall' || effect.type === 'knight_e') ? '#4a90d9' : '#10b981';
       ctx.fillStyle = healColor;
 
       // 여러 개의 작은 원
@@ -1055,6 +1056,7 @@ export function drawSkillEffect(
       ctx.fill();
       break;
 
+    case 'warrior_e':
     case 'warrior_berserker':
       // 광전사 버프 이펙트 - 폭발적인 불꽃 활성화
       {

@@ -2,6 +2,7 @@ import React, { useCallback, useState, useEffect } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRPGStore } from '../../stores/useRPGStore';
 import { useAuthProfile, useAuthIsGuest, useAuthStore } from '../../stores/useAuthStore';
+import { useProfileStore } from '../../stores/useProfileStore';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { HeroClass } from '../../types/rpg';
 import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked, createDefaultStatUpgrades } from '../../types/auth';
@@ -196,7 +197,11 @@ export const RPGClassSelectScreen: React.FC = () => {
       const playerName = profile?.nickname || '플레이어';
 
       // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
-      const classProgress = useAuthStore.getState().classProgress;
+      // useProfileStore 우선, 비어있으면 useAuthStore 사용 (로그인 시 로드됨)
+      let classProgress = useProfileStore.getState().classProgress;
+      if (classProgress.length === 0) {
+        classProgress = useAuthStore.getState().classProgress;
+      }
       const progress = classProgress.find(p => p.className === selectedClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
@@ -232,7 +237,11 @@ export const RPGClassSelectScreen: React.FC = () => {
       const playerName = profile?.nickname || '플레이어';
 
       // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
-      const classProgress = useAuthStore.getState().classProgress;
+      // useProfileStore 우선, 비어있으면 useAuthStore 사용 (로그인 시 로드됨)
+      let classProgress = useProfileStore.getState().classProgress;
+      if (classProgress.length === 0) {
+        classProgress = useAuthStore.getState().classProgress;
+      }
       const progress = classProgress.find(p => p.className === selectedClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
@@ -260,6 +269,12 @@ export const RPGClassSelectScreen: React.FC = () => {
       setScreen('gameTypeSelect');
     }
   }, [setScreen, showJoinInput]);
+
+  const handleProfile = useCallback(() => {
+    soundManager.init();
+    soundManager.play('ui_click');
+    setScreen('profile');
+  }, [setScreen]);
 
   const heroClasses: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
 
@@ -384,6 +399,22 @@ export const RPGClassSelectScreen: React.FC = () => {
           </div>
         )}
       </div>
+
+      {/* 우측 상단 프로필 버튼 */}
+      <button
+        onClick={handleProfile}
+        className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2 bg-gray-800/80 hover:bg-gray-700/80 border border-gray-600 hover:border-yellow-500/50 rounded-lg transition-all cursor-pointer group"
+      >
+        <span className="text-xl">👤</span>
+        <div className="text-left">
+          <p className="text-white text-sm font-bold group-hover:text-yellow-400 transition-colors">
+            {profile?.nickname || '게스트'}
+          </p>
+          <p className="text-gray-400 text-xs">
+            Lv.{playerLevel}
+          </p>
+        </div>
+      </button>
 
       {/* 코너 장식 */}
       <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-yellow-500/30" />

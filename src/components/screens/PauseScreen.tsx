@@ -81,12 +81,15 @@ export const PauseScreen: React.FC = () => {
   const handleMainMenu = () => {
     resetGameUI(); // UI 상태 초기화
     if (isRPG) {
-      // RPG 모드 정리
+      // RPG 모드 정리 - 직업 선택 화면으로 이동
       useRPGStore.getState().resetGame();
+      setScreen('rpgClassSelect');
     } else if (isTutorial) {
       endTutorial();
+      setScreen('menu');
+    } else {
+      setScreen('menu');
     }
-    setScreen('menu');
   };
 
   // RPG 모드 게임 중단 (현재까지의 진행 저장 후 게임 오버 처리)

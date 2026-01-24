@@ -425,12 +425,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
         {/* 액션 버튼 */}
         <div className="flex gap-4 mt-4">
-          <button
+          {/* <button
             onClick={handleLeaveRoom}
             className="px-6 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
           >
             나가기
-          </button>
+          </button> */}
 
           {isHostPlayer ? (
             <button

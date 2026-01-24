@@ -747,7 +747,8 @@ export function executeESkill(
   targetX: number,
   targetY: number,
   gameTime: number,
-  enemyBases: EnemyBase[] = []  // 적 기지 (선택적)
+  enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
+  casterId?: string  // 스킬 시전자 ID (보스 골드 분배용)
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].e;
@@ -869,6 +870,7 @@ export function executeESkill(
           triggerTime: gameTime + delay,
           damage,
           radius,
+          casterId,
         };
 
         // 경고 이펙트

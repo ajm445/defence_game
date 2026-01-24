@@ -69,7 +69,15 @@ export const getClassProgress = async (playerId: string): Promise<ClassProgress[
       return [];
     }
 
-    return data.progress;
+    // 기존 데이터에 attackSpeed가 없을 수 있으므로 기본값과 병합
+    const defaultStats = createDefaultStatUpgrades();
+    return data.progress.map(p => ({
+      ...p,
+      statUpgrades: {
+        ...defaultStats,
+        ...p.statUpgrades,
+      },
+    }));
   } catch (err) {
     console.error('Get class progress error:', err);
     return [];
@@ -151,11 +159,12 @@ export const resetCharacterStats = async (
   className: HeroClass,
   currentProgress: ClassProgress
 ): Promise<ClassProgress | null> => {
-  // 사용한 SP 계산
+  // 사용한 SP 계산 (모든 스탯 포함)
   const spentSP =
     currentProgress.statUpgrades.attack +
     currentProgress.statUpgrades.speed +
     currentProgress.statUpgrades.hp +
+    currentProgress.statUpgrades.attackSpeed +
     currentProgress.statUpgrades.range +
     currentProgress.statUpgrades.hpRegen;
 
