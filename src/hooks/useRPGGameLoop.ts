@@ -448,6 +448,11 @@ export function useRPGGameLoop() {
         if (!hostAlive && !anyOtherAlive) {
           useRPGStore.getState().setGameOver(false);
           soundManager.play('defeat');
+          // 멀티플레이어: 클라이언트들에게 게임 종료 알림
+          const mpState = useRPGStore.getState().multiplayer;
+          if (mpState.isMultiplayer && mpState.isHost) {
+            wsClient.hostBroadcastGameOver({ victory: false });
+          }
           return;
         }
       } else {
@@ -489,6 +494,11 @@ export function useRPGGameLoop() {
         if (!nexusAfterDamage || nexusAfterDamage.hp <= 0) {
           useRPGStore.getState().setGameOver(false);
           soundManager.play('defeat');
+          // 멀티플레이어: 클라이언트들에게 게임 종료 알림
+          const mpState = useRPGStore.getState().multiplayer;
+          if (mpState.isMultiplayer && mpState.isHost) {
+            wsClient.hostBroadcastGameOver({ victory: false });
+          }
           return;
         }
       }
@@ -608,6 +618,11 @@ export function useRPGGameLoop() {
           useRPGStore.getState().setGameOver(true);
           showNotification('🏆 승리! 모든 보스를 처치했습니다!');
           soundManager.play('victory');
+          // 멀티플레이어: 클라이언트들에게 게임 종료 알림
+          const mpState = useRPGStore.getState().multiplayer;
+          if (mpState.isMultiplayer && mpState.isHost) {
+            wsClient.hostBroadcastGameOver({ victory: true });
+          }
         }
       }
     }
