@@ -792,6 +792,7 @@ export const useRPGStore = create<RPGStore>()(
       let killed = false;
       let goldReward = 0;
       let isBoss = false;
+      let bossDamagedBy: string[] = [];
       const gameTime = get().gameTime;
       const AGGRO_DURATION = 5; // 어그로 지속 시간 (초)
 
@@ -799,11 +800,19 @@ export const useRPGStore = create<RPGStore>()(
         const enemies = state.enemies.map((enemy) => {
           if (enemy.id === enemyId) {
             const newHp = enemy.hp - amount;
+
+            // 보스인 경우 데미지 관여자 추적
+            let updatedDamagedBy = enemy.damagedBy || [];
+            if (enemy.type === 'boss' && killerHeroId && !updatedDamagedBy.includes(killerHeroId)) {
+              updatedDamagedBy = [...updatedDamagedBy, killerHeroId];
+            }
+
             if (newHp <= 0) {
               killed = true;
               goldReward = enemy.goldReward || 0;
               isBoss = enemy.type === 'boss';
-              return { ...enemy, hp: 0 };
+              bossDamagedBy = updatedDamagedBy;
+              return { ...enemy, hp: 0, damagedBy: updatedDamagedBy };
             }
             // 피해를 입으면 어그로 설정 (킬러 영웅 ID도 저장)
             return {
@@ -812,6 +821,7 @@ export const useRPGStore = create<RPGStore>()(
               aggroOnHero: true,
               aggroExpireTime: gameTime + AGGRO_DURATION,
               targetHeroId: killerHeroId,
+              damagedBy: updatedDamagedBy,
             };
           }
           return enemy;
@@ -823,9 +833,25 @@ export const useRPGStore = create<RPGStore>()(
       if (killed && goldReward > 0) {
         const state = get();
         const myHeroId = state.multiplayer.myHeroId;
+        const isMultiplayer = state.multiplayer.isMultiplayer;
 
-        // 멀티플레이어에서 다른 플레이어가 처치한 경우
-        if (killerHeroId && state.multiplayer.isMultiplayer && killerHeroId !== myHeroId) {
+        // 멀티플레이어 보스 처치: 골드를 관여한 플레이어에게만 균등 분배
+        if (isBoss && isMultiplayer && bossDamagedBy.length > 0) {
+          const contributorCount = bossDamagedBy.length;
+          const goldPerContributor = Math.floor(goldReward / contributorCount);
+
+          // 관여한 플레이어에게만 분배
+          for (const heroId of bossDamagedBy) {
+            if (heroId === myHeroId) {
+              // 호스트(자신)에게 분배
+              get().addGold(goldPerContributor);
+            } else {
+              // 다른 플레이어에게 분배
+              state.addGoldToOtherPlayer(heroId, goldPerContributor);
+            }
+          }
+        } else if (killerHeroId && isMultiplayer && killerHeroId !== myHeroId) {
+          // 멀티플레이어에서 다른 플레이어가 일반 적 처치한 경우
           state.addGoldToOtherPlayer(killerHeroId, goldReward);
         } else {
           // 호스트가 처치하거나 싱글플레이어

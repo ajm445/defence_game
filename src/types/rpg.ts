@@ -176,6 +176,8 @@ export interface RPGEnemy extends Unit {
   targetHeroId?: string;   // 타겟 영웅 ID
   isStunned?: boolean;     // 스턴 상태
   stunEndTime?: number;    // 스턴 종료 시간
+  // 보스 골드 분배용 - 데미지를 준 플레이어 ID 목록
+  damagedBy?: string[];
 }
 
 // 시야 시스템 설정
@@ -249,6 +251,7 @@ export interface PendingSkill {
   triggerTime: number;   // 발동 시간
   damage: number;
   radius: number;
+  casterId?: string;     // 스킬 시전자 ID (보스 골드 분배용)
 }
 
 // 레벨업 보너스 (계정 레벨 보너스)

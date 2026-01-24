@@ -252,9 +252,11 @@ export function useRPGGameLoop() {
 
     // 영웅 공격 데미지 처리
     if (heroResult.enemyDamage) {
+      const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
       const killed = useRPGStore.getState().damageEnemy(
         heroResult.enemyDamage.targetId,
-        heroResult.enemyDamage.damage
+        heroResult.enemyDamage.damage,
+        myHeroId
       );
 
       if (killed) {
@@ -482,7 +484,7 @@ export function useRPGGameLoop() {
           if (enemy.hp <= 0) continue;
           const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
           if (dist <= skill.radius) {
-            const killed = useRPGStore.getState().damageEnemy(enemy.id, skill.damage);
+            const killed = useRPGStore.getState().damageEnemy(enemy.id, skill.damage, skill.casterId);
             if (killed) {
               // 골드 획득은 damageEnemy 내에서 자동 처리됨
               useRPGStore.getState().removeEnemy(enemy.id);
@@ -560,8 +562,11 @@ export function useRPGGameLoop() {
         soundManager.play('warning');
         soundManager.play('boss_spawn');
 
+        // 플레이어 수 계산 (자신 + 다른 플레이어)
+        const playerCount = 1 + latestState.otherHeroes.size;
+
         // 보스 2마리 스폰
-        const bosses = createBosses(latestState.enemyBases, latestState.gameTime);
+        const bosses = createBosses(latestState.enemyBases, playerCount);
         for (const boss of bosses) {
           useRPGStore.getState().addEnemy(boss);
         }
@@ -611,7 +616,7 @@ export function useRPGGameLoop() {
 
   // 스킬 결과 처리 공통 함수
   const processSkillResult = useCallback(
-    (result: ReturnType<typeof executeQSkill>, state: ReturnType<typeof useRPGStore.getState>) => {
+    (result: ReturnType<typeof executeQSkill>, state: ReturnType<typeof useRPGStore.getState>, killerHeroId?: string) => {
       // 상태 업데이트
       if (result.effect) {
         useRPGStore.setState((s) => ({
@@ -624,7 +629,7 @@ export function useRPGGameLoop() {
 
       // 적 데미지 적용
       for (const damage of result.enemyDamages) {
-        const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage);
+        const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage, killerHeroId);
         if (killed) {
           const enemy = state.enemies.find((e) => e.id === damage.enemyId);
           if (enemy) {
@@ -695,6 +700,7 @@ export function useRPGGameLoop() {
       const targetY = state.mousePosition.y;
 
       // 기존 스킬 처리 (하위 호환)
+      const legacyHeroId = state.multiplayer.myHeroId || state.hero?.id;
       switch (skillType) {
         case 'dash': {
           const result = executeDash(state.hero, state.enemies, targetX, targetY, gameTime);
@@ -703,7 +709,7 @@ export function useRPGGameLoop() {
             activeSkillEffects: [...s.activeSkillEffects, result.effect],
           }));
           for (const damage of result.enemyDamages) {
-            const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage);
+            const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage, legacyHeroId);
             if (killed) {
               const enemy = state.enemies.find((e) => e.id === damage.enemyId);
               if (enemy) {
@@ -721,7 +727,7 @@ export function useRPGGameLoop() {
             activeSkillEffects: [...s.activeSkillEffects, result.effect],
           }));
           for (const damage of result.enemyDamages) {
-            const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage);
+            const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage, legacyHeroId);
             if (killed) {
               const enemy = state.enemies.find((e) => e.id === damage.enemyId);
               if (enemy) {
@@ -746,18 +752,19 @@ export function useRPGGameLoop() {
 
       // 새로운 직업별 스킬 처리
       const classSkills = CLASS_SKILLS[heroClass];
+      const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
 
       // Q 스킬
       if (skillType === classSkills.q.type) {
         const result = executeQSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
-        processSkillResult(result, state);
+        processSkillResult(result, state, myHeroId);
         return;
       }
 
       // W 스킬
       if (skillType === classSkills.w.type) {
         const result = executeWSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
-        processSkillResult(result, state);
+        processSkillResult(result, state, myHeroId);
 
         // 기사 방패 돌진 알림
         if (heroClass === 'knight') {
@@ -769,8 +776,8 @@ export function useRPGGameLoop() {
 
       // E 스킬
       if (skillType === classSkills.e.type) {
-        const result = executeESkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
-        processSkillResult(result, state);
+        const result = executeESkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, myHeroId);
+        processSkillResult(result, state, myHeroId);
 
         // 특수 알림
         if (heroClass === 'knight') {

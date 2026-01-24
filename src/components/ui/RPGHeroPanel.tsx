@@ -1,6 +1,6 @@
 import React from 'react';
-import { useHero, useRPGStats, useUpgradeLevels, useGold } from '../../stores/useRPGStore';
-import { HeroClass, BuffType } from '../../types/rpg';
+import { useHero, useRPGStats, useUpgradeLevels, useGold, useIsMultiplayer, useOtherHeroes } from '../../stores/useRPGStore';
+import { HeroClass, BuffType, HeroUnit } from '../../types/rpg';
 import { calculateAllUpgradeBonuses } from '../../game/rpg/goldSystem';
 
 // 직업별 표시 정보
@@ -168,7 +168,7 @@ export const RPGHeroPanel: React.FC = () => {
       </div>
 
       {/* 스탯 정보 (업그레이드 보너스 포함) */}
-      <div className="grid grid-cols-3 gap-2 text-center text-xs">
+      <div className="grid grid-cols-4 gap-2 text-center text-xs">
         <div className="bg-dark-700/50 rounded-lg p-2">
           <div className="text-red-400">⚔️ 공격</div>
           <div className="text-white font-bold">
@@ -176,6 +176,12 @@ export const RPGHeroPanel: React.FC = () => {
             {upgradeBonuses.attackBonus > 0 && (
               <span className="text-green-400 text-[10px]"> +{upgradeBonuses.attackBonus}</span>
             )}
+          </div>
+        </div>
+        <div className="bg-dark-700/50 rounded-lg p-2">
+          <div className="text-cyan-400">⚡ 공속</div>
+          <div className="text-white font-bold">
+            {(hero.config.attackSpeed ?? 1.0).toFixed(2)}s
           </div>
         </div>
         <div className="bg-dark-700/50 rounded-lg p-2">
@@ -191,6 +197,66 @@ export const RPGHeroPanel: React.FC = () => {
           <div className="text-yellow-400">🎯 사거리</div>
           <div className="text-white font-bold">{hero.config.range}</div>
         </div>
+      </div>
+    </div>
+  );
+};
+
+// 아군 영웅 HP 바 컴포넌트 (멀티플레이용)
+const AllyHeroBar: React.FC<{ hero: HeroUnit }> = ({ hero }) => {
+  const hpPercent = (hero.hp / hero.maxHp) * 100;
+  const classInfo = CLASS_DISPLAY[hero.heroClass] || CLASS_DISPLAY.warrior;
+  const isDead = hero.hp <= 0;
+
+  const getHpColor = () => {
+    if (hpPercent > 50) return 'bg-green-500';
+    if (hpPercent > 25) return 'bg-yellow-500';
+    return 'bg-red-500';
+  };
+
+  return (
+    <div className={`flex items-center gap-2 bg-dark-700/50 rounded-lg p-2 ${isDead ? 'opacity-50' : ''}`}>
+      {/* 직업 아이콘 */}
+      <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${classInfo.bgColor} flex items-center justify-center`}>
+        <span className="text-lg">{classInfo.emoji}</span>
+      </div>
+      {/* HP 바 */}
+      <div className="flex-1">
+        <div className="flex justify-between text-[10px] mb-0.5">
+          <span className={`${classInfo.color} font-bold`}>{classInfo.name}</span>
+          <span className="text-gray-400">
+            {isDead ? '사망' : `${Math.floor(hero.hp)}/${hero.maxHp}`}
+          </span>
+        </div>
+        <div className="h-2 bg-dark-600 rounded-full overflow-hidden">
+          <div
+            className={`h-full ${getHpColor()} transition-all duration-300`}
+            style={{ width: `${hpPercent}%` }}
+          />
+        </div>
+      </div>
+    </div>
+  );
+};
+
+// 멀티플레이어 팀 패널
+export const RPGTeamPanel: React.FC = () => {
+  const hero = useHero();
+  const otherHeroes = useOtherHeroes();
+  const isMultiplayer = useIsMultiplayer();
+
+  if (!isMultiplayer || !hero) return null;
+
+  const allyHeroes = Array.from(otherHeroes.values());
+  if (allyHeroes.length === 0) return null;
+
+  return (
+    <div className="bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50 min-w-[200px] mt-3">
+      <div className="text-xs text-gray-400 mb-2 font-bold">아군</div>
+      <div className="space-y-2">
+        {allyHeroes.map((ally) => (
+          <AllyHeroBar key={ally.id} hero={ally} />
+        ))}
       </div>
     </div>
   );

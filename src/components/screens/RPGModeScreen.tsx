@@ -2,7 +2,7 @@ import React, { useEffect, useCallback, useState, useRef } from 'react';
 import { useRPGGameLoop } from '../../hooks/useRPGGameLoop';
 import { useRPGKeyboard } from '../../hooks/useRPGInput';
 import { RPGCanvas } from '../canvas/RPGCanvas';
-import { RPGHeroPanel } from '../ui/RPGHeroPanel';
+import { RPGHeroPanel, RPGTeamPanel } from '../ui/RPGHeroPanel';
 import { RPGSkillBar } from '../ui/RPGSkillBar';
 import { RPGWaveInfo } from '../ui/RPGWaveInfo';
 import { RPGGameTimer } from '../ui/RPGGameTimer';
@@ -172,9 +172,10 @@ export const RPGModeScreen: React.FC = () => {
 
       {/* 상단 UI */}
       <div className="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none">
-        {/* 왼쪽: 영웅 정보 */}
+        {/* 왼쪽: 영웅 정보 + 아군 정보 */}
         <div className="pointer-events-auto">
           <RPGHeroPanel />
+          <RPGTeamPanel />
         </div>
 
         {/* 오른쪽: 웨이브 정보 */}
