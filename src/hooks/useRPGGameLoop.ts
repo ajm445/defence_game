@@ -407,8 +407,12 @@ export function useRPGGameLoop() {
     const currentOtherHeroes = useRPGStore.getState().otherHeroes;
 
     if (currentHeroState) {
-      // 멀티플레이어 모드: 모든 영웅 수집
-      const allHeroes: HeroUnit[] = [currentHeroState];
+      // 멀티플레이어 모드: 살아있는 영웅만 수집
+      const allHeroes: HeroUnit[] = [];
+      // 호스트 영웅도 살아있을 때만 추가
+      if (currentHeroState.hp > 0) {
+        allHeroes.push(currentHeroState);
+      }
       if (isMultiplayer && currentOtherHeroes.size > 0) {
         currentOtherHeroes.forEach(hero => {
           if (hero.hp > 0) {
