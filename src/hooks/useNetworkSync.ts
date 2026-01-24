@@ -331,16 +331,12 @@ function executeOtherHeroSkill(
     }
   }
 
-  // 버프 적용 (영웅 자신에게)
+  // 버프 공유 (광전사, 철벽 방어)
+  // 버프는 이미 line 305-313에서 result.hero.buffs에 포함되어 적용됨
+  // 여기서는 아군에게 버프 공유만 처리
   if (result.buff) {
-    const currentHero = state.otherHeroes.get(heroId);
-    if (currentHero) {
-      const newBuffs = [...(currentHero.buffs || []), result.buff];
-      state.updateOtherHero(heroId, { buffs: newBuffs });
-
-      // 아군에게 버프 공유 (광전사, 철벽 방어)
-      shareBuffToAllies(result.buff, currentHero, heroId);
-    }
+    // result.hero는 스킬 실행 후의 영웅 상태 (정확한 위치 정보 포함)
+    shareBuffToAllies(result.buff, result.hero, heroId);
   }
 
   // 보류 스킬 (운석 낙하 등)
@@ -380,9 +376,6 @@ function executeOtherHeroSkill(
  * - 철벽 방어(ironwall): 모든 아군에게 버프 공유
  */
 function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
-  const state = useRPGStore.getState();
-  const hostHero = state.hero;
-
   // 공유 범위 결정
   let shareRange: number;
   if (buff.type === 'berserker') {
@@ -399,11 +392,13 @@ function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
   const healPercent = 0.2; // 20% HP 회복
 
   // 호스트 영웅에게 버프 공유 (시전자가 다른 플레이어인 경우)
-  if (hostHero && hostHero.id !== casterId) {
-    const distToHost = distance(caster.x, caster.y, hostHero.x, hostHero.y);
+  // 최신 상태에서 호스트 영웅 정보 조회 (stale data 방지)
+  const freshHostHero = useRPGStore.getState().hero;
+  if (freshHostHero && freshHostHero.id !== casterId) {
+    const distToHost = distance(caster.x, caster.y, freshHostHero.x, freshHostHero.y);
     if (distToHost <= shareRange) {
       // 같은 타입의 버프가 이미 있으면 제거 후 새로 추가
-      const filteredBuffs = (hostHero.buffs || []).filter(b => b.type !== buff.type);
+      const filteredBuffs = (freshHostHero.buffs || []).filter(b => b.type !== buff.type);
       // 공유 버프에 시전자 ID 추가 (범위 체크용)
       const sharedBuff: Buff = { ...buff, casterId };
       const updateData: Partial<HeroUnit> = {
@@ -412,8 +407,8 @@ function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
 
       // 철벽 방어: HP 20% 회복
       if (isIronwall) {
-        const healAmount = Math.floor(hostHero.maxHp * healPercent);
-        updateData.hp = Math.min(hostHero.maxHp, hostHero.hp + healAmount);
+        const healAmount = Math.floor(freshHostHero.maxHp * healPercent);
+        updateData.hp = Math.min(freshHostHero.maxHp, freshHostHero.hp + healAmount);
       }
 
       useRPGStore.getState().updateHeroState(updateData);
@@ -422,16 +417,23 @@ function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
   }
 
   // 다른 플레이어 영웅들에게 버프 공유
-  state.otherHeroes.forEach((otherHero, otherHeroId) => {
+  // 최신 상태에서 영웅 ID 목록 조회 후 개별적으로 fresh data 사용
+  const otherHeroIds = Array.from(useRPGStore.getState().otherHeroes.keys());
+  otherHeroIds.forEach((otherHeroId) => {
     // 시전자 자신은 스킵
     if (otherHeroId === casterId) return;
-    // 사망한 영웅은 스킵
-    if (otherHero.hp <= 0) return;
 
-    const distToOther = distance(caster.x, caster.y, otherHero.x, otherHero.y);
+    // 최신 상태에서 영웅 정보 조회
+    const currentOtherHero = useRPGStore.getState().otherHeroes.get(otherHeroId);
+    if (!currentOtherHero) return;
+
+    // 사망한 영웅은 스킵
+    if (currentOtherHero.hp <= 0) return;
+
+    const distToOther = distance(caster.x, caster.y, currentOtherHero.x, currentOtherHero.y);
     if (distToOther <= shareRange) {
       // 같은 타입의 버프가 이미 있으면 제거 후 새로 추가
-      const filteredBuffs = (otherHero.buffs || []).filter(b => b.type !== buff.type);
+      const filteredBuffs = (currentOtherHero.buffs || []).filter(b => b.type !== buff.type);
       // 공유 버프에 시전자 ID 추가 (범위 체크용)
       const sharedBuff: Buff = { ...buff, casterId };
       const updateData: Partial<HeroUnit> = {
@@ -440,11 +442,11 @@ function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
 
       // 철벽 방어: HP 20% 회복
       if (isIronwall) {
-        const healAmount = Math.floor(otherHero.maxHp * healPercent);
-        updateData.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
+        const healAmount = Math.floor(currentOtherHero.maxHp * healPercent);
+        updateData.hp = Math.min(currentOtherHero.maxHp, currentOtherHero.hp + healAmount);
       }
 
-      state.updateOtherHero(otherHeroId, updateData);
+      useRPGStore.getState().updateOtherHero(otherHeroId, updateData);
       console.log(`[NetworkSync] ${otherHeroId}에게 ${buff.type} 버프 공유${isIronwall ? ' + HP 회복' : ''}`);
     }
   });
