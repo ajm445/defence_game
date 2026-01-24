@@ -1146,10 +1146,19 @@ export const useRPGStore = create<RPGStore>()(
 
         // 1단계: 본인 시전 버프(casterId 없음)의 지속시간 감소
         // 공유받은 버프(casterId 있음)는 제거 (2단계에서 오라로 재적용)
+        // 새로 추가된 버프(현재 프레임)는 지속시간 감소 건너뛰기
         const processOwnBuffs = (buffs: Buff[]): Buff[] => {
           return buffs
             .filter(buff => !buff.casterId) // 본인 시전 버프만
-            .map(buff => ({ ...buff, duration: buff.duration - deltaTime }))
+            .map(buff => {
+              // 방금 추가된 버프인지 확인 (startTime이 현재 gameTime과 같거나 매우 가까움)
+              const isNewBuff = state.gameTime - buff.startTime < deltaTime;
+              if (isNewBuff) {
+                // 새 버프는 지속시간 감소 없이 유지
+                return buff;
+              }
+              return { ...buff, duration: buff.duration - deltaTime };
+            })
             .filter(buff => buff.duration > 0);
         };
 
@@ -1170,8 +1179,10 @@ export const useRPGStore = create<RPGStore>()(
           for (const buff of ownBuffs) {
             const shareRange = getShareRange(buff.type);
             if (shareRange > 0) {
-              // 지속시간 감소 적용
-              const newDuration = buff.duration - deltaTime;
+              // 새로 추가된 버프인지 확인
+              const isNewBuff = state.gameTime - buff.startTime < deltaTime;
+              // 지속시간 감소 적용 (새 버프는 건너뛰기)
+              const newDuration = isNewBuff ? buff.duration : buff.duration - deltaTime;
               if (newDuration > 0) {
                 activeAuras.push({
                   casterId: heroId,
@@ -1616,6 +1627,19 @@ export const useRPGStore = create<RPGStore>()(
           if (currentState.hero) {
             const localHero = currentState.hero;
 
+            // 위치 오차 계산 및 보정 (오차가 50px 이상이면 lerp 보정)
+            const posErrorX = Math.abs(hero.x - localHero.x);
+            const posErrorY = Math.abs(hero.y - localHero.y);
+            const maxPosError = 50;
+
+            let syncX = localHero.x;
+            let syncY = localHero.y;
+            if (posErrorX > maxPosError || posErrorY > maxPosError) {
+              // 부드러운 보정: 95% 로컬 + 5% 서버 (급격한 이동 방지)
+              syncX = localHero.x * 0.95 + hero.x * 0.05;
+              syncY = localHero.y * 0.95 + hero.y * 0.05;
+            }
+
             myHero = {
               ...localHero,
               // 서버에서만 동기화해야 하는 상태 (데미지, 힐, 스킬 쿨다운, 사망 시간, 업그레이드된 스탯)
@@ -1632,7 +1656,10 @@ export const useRPGStore = create<RPGStore>()(
                 range: hero.config.range,
               },
               baseAttackSpeed: hero.baseAttackSpeed,
-              // 나머지는 모두 로컬 유지 (위치, 이동, 상태 등)
+              // 위치 보정 적용 (오차가 큰 경우에만)
+              x: syncX,
+              y: syncY,
+              // 나머지는 모두 로컬 유지 (이동, 상태 등)
             };
           } else {
             // 첫 생성 시에만 서버 위치 사용
