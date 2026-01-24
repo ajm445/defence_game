@@ -1643,18 +1643,29 @@ export const useRPGStore = create<RPGStore>()(
           if (currentState.hero) {
             const localHero = currentState.hero;
 
-            // 위치 오차 계산 및 보정 (오차가 50px 이상이면 lerp 보정)
+            // 위치 오차 계산 및 보정
             const posErrorX = Math.abs(hero.x - localHero.x);
             const posErrorY = Math.abs(hero.y - localHero.y);
             const maxPosError = 50;
+            const criticalPosError = 150;  // 큰 오차는 즉시 보정
 
             let syncX = localHero.x;
             let syncY = localHero.y;
-            if (posErrorX > maxPosError || posErrorY > maxPosError) {
-              // 부드러운 보정: 95% 로컬 + 5% 서버 (급격한 이동 방지)
-              syncX = localHero.x * 0.95 + hero.x * 0.05;
-              syncY = localHero.y * 0.95 + hero.y * 0.05;
+
+            // 이동 중인지 확인 (이동 중이면 로컬 위치 우선)
+            const isMoving = localHero.moveDirection !== undefined &&
+              (localHero.moveDirection.x !== 0 || localHero.moveDirection.y !== 0);
+
+            if (posErrorX > criticalPosError || posErrorY > criticalPosError) {
+              // 큰 오차 (150px 이상): 즉시 서버 위치로 동기화
+              syncX = hero.x;
+              syncY = hero.y;
+            } else if (!isMoving && (posErrorX > maxPosError || posErrorY > maxPosError)) {
+              // 중간 오차 (50-150px) + 이동 중 아님: 빠른 lerp 보정
+              syncX = localHero.x * 0.7 + hero.x * 0.3;
+              syncY = localHero.y * 0.7 + hero.y * 0.3;
             }
+            // 이동 중이고 오차가 50px 미만이면 로컬 위치 유지 (부드러운 움직임)
 
             // 돌진 중일 때는 서버 위치/상태를 우선 적용 (돌진은 호스트에서 처리)
             const isDashing = hero.dashState !== undefined;
