@@ -133,6 +133,18 @@ export const ENEMY_BASE_CONFIG = {
     hp: 3000,
     radius: 60,
   },
+  top: {
+    x: 1500,   // 맵 중앙 X
+    y: 150,    // 상단 끝
+    hp: 3000,
+    radius: 60,
+  },
+  bottom: {
+    x: 1500,   // 맵 중앙 X
+    y: 1850,   // 하단 끝
+    hp: 3000,
+    radius: 60,
+  },
 } as const;
 
 // 레인 설정 (적이 이동하는 경로)

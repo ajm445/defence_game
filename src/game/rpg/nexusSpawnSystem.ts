@@ -1,4 +1,4 @@
-import { RPGEnemy, EnemyAIConfig, EnemyBase } from '../../types/rpg';
+import { RPGEnemy, EnemyAIConfig, EnemyBase, EnemyBaseId } from '../../types/rpg';
 import { UnitType } from '../../types/unit';
 import { CONFIG } from '../../constants/config';
 import { SPAWN_CONFIG, GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG } from '../../constants/rpgConfig';
@@ -72,7 +72,7 @@ export function createEnemyFromBase(
  */
 export function createNexusEnemy(
   type: UnitType,
-  fromBase: 'left' | 'right',
+  fromBase: EnemyBaseId,
   spawnX: number,
   spawnY: number,
   statMultiplier: number
@@ -121,7 +121,7 @@ export function createNexusEnemy(
  */
 export interface SpawnResult {
   shouldSpawn: boolean;
-  spawns: { baseId: 'left' | 'right'; count: number }[];
+  spawns: { baseId: EnemyBaseId; count: number }[];
 }
 
 /**

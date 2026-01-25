@@ -1,6 +1,6 @@
 // RPG 협동 모드 네트워크 타입 정의
 
-import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, PendingSkill, Nexus, EnemyBase, UpgradeLevels, RPGGamePhase } from '../../src/types/rpg';
+import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, PendingSkill, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase } from '../../src/types/rpg';
 import type { UnitType } from '../../src/types/unit';
 import type { Position } from '../../src/types/game';
 import type { CharacterStatUpgrades } from '../../src/types/auth';
@@ -122,7 +122,7 @@ export interface NetworkCoopEnemy {
   goldReward: number;
   targetHeroId?: string;  // 현재 타겟 영웅 ID
   aggroOnHero: boolean;   // 영웅에게 어그로가 끌렸는지
-  fromBase?: 'left' | 'right';  // 스폰된 기지
+  fromBase?: EnemyBaseId;  // 스폰된 기지
   buffs: Buff[];
 }
 

@@ -222,7 +222,13 @@ export function drawEnemyBase(
   ctx.fillStyle = '#ff6666';
   ctx.font = 'bold 11px sans-serif';
   ctx.textAlign = 'center';
-  ctx.fillText(base.id === 'left' ? 'LEFT BASE' : 'RIGHT BASE', screenX, screenY - radius - 8);
+  const baseLabels: Record<string, string> = {
+    left: 'LEFT BASE',
+    right: 'RIGHT BASE',
+    top: 'TOP BASE',
+    bottom: 'BOTTOM BASE',
+  };
+  ctx.fillText(baseLabels[base.id] || 'BASE', screenX, screenY - radius - 8);
 }
 
 /**

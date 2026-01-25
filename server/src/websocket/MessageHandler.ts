@@ -348,9 +348,17 @@ function handleLeaveCoopRoom(playerId: string): void {
   if (roomId) {
     const gameRoom = coopGameRooms.get(roomId);
     if (gameRoom) {
-      // 호스트가 나가면 방 파기
+      // 로비 상태면 호스트 위임 처리 (대기방처럼 동작)
+      if (gameRoom.isInLobby()) {
+        console.log(`[Coop] 로비 상태에서 플레이어 퇴장: ${roomId}`);
+        gameRoom.transferHostAndLeave(playerId);
+        if (player) player.roomId = null;
+        return;
+      }
+
+      // 게임 중/종료 상태에서 호스트가 나가면 방 파기
       if (gameRoom.isHost(playerId)) {
-        console.log(`[Coop] 호스트가 방 나가기 - 방 파기: ${roomId}`);
+        console.log(`[Coop] 호스트가 게임 중 나가기 - 방 파기: ${roomId}`);
         gameRoom.destroyRoom(playerId);
       } else {
         // 일반 플레이어는 퇴장 처리
