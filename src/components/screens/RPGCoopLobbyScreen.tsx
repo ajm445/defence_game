@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRPGStore, useMultiplayer } from '../../stores/useRPGStore';
 import { useGameStore } from '../../stores/useGameStore';
@@ -31,6 +31,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
   const playerLevel = profile?.playerLevel ?? 1;
+  const classProgress = useAuthStore((state) => state.classProgress);
 
   const [inputRoomCode, setInputRoomCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
@@ -59,6 +60,45 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       return () => clearTimeout(timer);
     }
   }, [error]);
+
+  // 이전 값 저장용 ref (불필요한 서버 요청 방지)
+  const prevClassRef = useRef<HeroClass | null>(null);
+  const prevStatUpgradesRef = useRef<string>('');
+
+  // 방에 있는 상태에서 classProgress(SP 업그레이드) 또는 직업 변경 시 서버에 업데이트 전송
+  useEffect(() => {
+    if (multiplayer.connectionState !== 'in_lobby') return;
+    if (!selectedClass) return;
+
+    const progress = classProgress.find(p => p.className === selectedClass);
+    const characterLevel = progress?.classLevel || 1;
+    const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+
+    // 변경 여부 확인 (직업 또는 statUpgrades가 변경된 경우에만 전송)
+    const statUpgradesStr = JSON.stringify(statUpgrades);
+    const isClassChanged = prevClassRef.current !== selectedClass;
+    const isStatUpgradesChanged = prevStatUpgradesRef.current !== statUpgradesStr;
+
+    if (!isClassChanged && !isStatUpgradesChanged) {
+      return; // 변경 없으면 스킵
+    }
+
+    // 이전 값 업데이트
+    prevClassRef.current = selectedClass;
+    prevStatUpgradesRef.current = statUpgradesStr;
+
+    // 로컬 플레이어 정보 업데이트
+    const currentPlayers = useRPGStore.getState().multiplayer.players;
+    const updatedPlayers = currentPlayers.map(p =>
+      p.id === wsClient.playerId
+        ? { ...p, heroClass: selectedClass, characterLevel, statUpgrades }
+        : p
+    );
+    useRPGStore.getState().setMultiplayerState({ players: updatedPlayers });
+
+    // 서버에 최신 정보 전송
+    wsClient.send({ type: 'CHANGE_COOP_CLASS', heroClass: selectedClass, characterLevel, statUpgrades });
+  }, [classProgress, multiplayer.connectionState, selectedClass]);
 
   // 방 목록 자동 갱신 (로비에 있지 않을 때만)
   useEffect(() => {
@@ -278,33 +318,20 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   }, []);
 
   const handleClassSelect = useCallback((heroClass: HeroClass) => {
+    // 준비 상태면 직업 변경 불가
+    const myPlayer = multiplayer.players.find(p => p.id === wsClient.playerId);
+    if (myPlayer?.isReady) {
+      setError('준비 상태에서는 직업을 변경할 수 없습니다.');
+      return;
+    }
     if (!isCharacterUnlocked(heroClass, playerLevel, isGuest)) {
       setError('해금되지 않은 직업입니다.');
       return;
     }
     soundManager.play('ui_click');
     selectClass(heroClass);
-
-    // 서버에 직업 변경 알림 (변경된 클래스의 레벨과 SP 업그레이드 전송)
-    if (multiplayer.connectionState === 'in_lobby') {
-      // 해당 클래스의 레벨과 statUpgrades 가져오기
-      const classProgress = useAuthStore.getState().classProgress;
-      const progress = classProgress.find(p => p.className === heroClass);
-      const characterLevel = progress?.classLevel || 1;
-      const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
-
-      // 로컬 플레이어 정보도 업데이트
-      const currentPlayers = useRPGStore.getState().multiplayer.players;
-      const updatedPlayers = currentPlayers.map(p =>
-        p.id === wsClient.playerId
-          ? { ...p, heroClass, characterLevel }
-          : p
-      );
-      useRPGStore.getState().setMultiplayerState({ players: updatedPlayers });
-
-      wsClient.send({ type: 'CHANGE_COOP_CLASS', heroClass, characterLevel, statUpgrades });
-    }
-  }, [playerLevel, isGuest, selectClass, multiplayer.connectionState]);
+    // 서버 전송은 useEffect에서 selectedClass 변경 감지 시 처리
+  }, [playerLevel, isGuest, selectClass, multiplayer.players]);
 
   const handleStartGame = useCallback(() => {
     soundManager.play('ui_click');
@@ -519,14 +546,26 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         </div>
 
         {/* 직업 변경 버튼 */}
-        <button
-          onClick={() => setShowClassModal(true)}
-          className="flex items-center gap-2 px-4 py-2 rounded-lg border border-neon-cyan/50 bg-neon-cyan/10 hover:bg-neon-cyan/20 transition-all cursor-pointer"
-        >
-          <span className="text-xl">{CLASS_CONFIGS[selectedClass || 'archer'].emoji}</span>
-          <span className="text-neon-cyan">{CLASS_CONFIGS[selectedClass || 'archer'].name}</span>
-          <span className="text-gray-400 text-sm ml-2">변경</span>
-        </button>
+        {(() => {
+          const isMyReady = multiplayer.players.find(p => p.id === wsClient.playerId)?.isReady;
+          return (
+            <button
+              onClick={() => !isMyReady && setShowClassModal(true)}
+              disabled={isMyReady}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+                isMyReady
+                  ? 'border-gray-600 bg-gray-800/50 cursor-not-allowed opacity-50'
+                  : 'border-neon-cyan/50 bg-neon-cyan/10 hover:bg-neon-cyan/20 cursor-pointer'
+              }`}
+            >
+              <span className="text-xl">{CLASS_CONFIGS[selectedClass || 'archer'].emoji}</span>
+              <span className={isMyReady ? 'text-gray-400' : 'text-neon-cyan'}>
+                {CLASS_CONFIGS[selectedClass || 'archer'].name}
+              </span>
+              <span className="text-gray-400 text-sm ml-2">변경</span>
+            </button>
+          );
+        })()}
 
         {error && <p className="text-red-400 text-sm">{error}</p>}
 

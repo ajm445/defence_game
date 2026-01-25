@@ -218,6 +218,9 @@ export interface RPGCoopGameResult {
 // ============================================
 
 export type CoopClientMessage =
+  // 사용자 인증
+  | { type: 'USER_LOGIN'; userId: string; nickname: string; isGuest: boolean; level?: number }
+  | { type: 'USER_LOGOUT'; userId: string; nickname: string }
   // 방 관련
   | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; isPrivate?: boolean }
   | { type: 'JOIN_COOP_ROOM'; roomCode: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
@@ -242,7 +245,12 @@ export type CoopClientMessage =
   // 게임 종료 후 로비 관련
   | { type: 'RETURN_TO_LOBBY' }
   | { type: 'RESTART_COOP_GAME' }
-  | { type: 'DESTROY_COOP_ROOM' };
+  | { type: 'DESTROY_COOP_ROOM' }
+  // 일시정지 (호스트 전용)
+  | { type: 'PAUSE_COOP_GAME' }
+  | { type: 'RESUME_COOP_GAME' }
+  // 게임 중단 (호스트 전용)
+  | { type: 'STOP_COOP_GAME' };
 
 // ============================================
 // 서버 → 클라이언트 메시지
@@ -256,7 +264,7 @@ export type CoopServerMessage =
   | { type: 'COOP_PLAYER_JOINED'; player: CoopPlayerInfo }
   | { type: 'COOP_PLAYER_LEFT'; playerId: string }
   | { type: 'COOP_PLAYER_READY'; playerId: string; isReady: boolean }
-  | { type: 'COOP_PLAYER_CLASS_CHANGED'; playerId: string; heroClass: HeroClass }
+  | { type: 'COOP_PLAYER_CLASS_CHANGED'; playerId: string; heroClass: HeroClass; characterLevel?: number }
   | { type: 'COOP_PLAYER_KICKED'; playerId: string; reason: string }
   | { type: 'COOP_ROOM_ERROR'; message: string }
   // 게임 시작 (레거시)
@@ -277,7 +285,12 @@ export type CoopServerMessage =
   | { type: 'COOP_PLAYER_INPUT'; input: PlayerInput }
   | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
   | { type: 'COOP_YOU_ARE_NOW_HOST' }
-  | { type: 'COOP_RECONNECT_INFO'; hostPlayerId: string; isHost: boolean; gameState: 'waiting' | 'countdown' | 'playing' | 'ended' };
+  | { type: 'COOP_RECONNECT_INFO'; hostPlayerId: string; isHost: boolean; gameState: 'waiting' | 'countdown' | 'playing' | 'ended' }
+  // 일시정지
+  | { type: 'COOP_GAME_PAUSED' }
+  | { type: 'COOP_GAME_RESUMED' }
+  // 게임 중단 (호스트가 중단)
+  | { type: 'COOP_GAME_STOPPED' };
 
 // ============================================
 // 연결 상태

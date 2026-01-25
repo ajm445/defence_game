@@ -185,6 +185,21 @@ export function useNetworkSync() {
         case 'COOP_COUNTDOWN':
           useRPGStore.getState().setMultiplayerState({ countdown: message.countdown });
           break;
+
+        // 게임 일시정지 (호스트가 일시정지)
+        case 'COOP_GAME_PAUSED':
+          handleHostPaused();
+          break;
+
+        // 게임 재개 (호스트가 재개)
+        case 'COOP_GAME_RESUMED':
+          handleHostResumed();
+          break;
+
+        // 게임 중단 (호스트가 게임 중단)
+        case 'COOP_GAME_STOPPED':
+          handleGameStopped();
+          break;
       }
     };
 
@@ -319,26 +334,27 @@ function handleGameRestart() {
 
   // 게임 상태 완전 리셋 후 새 게임 시작
   const state = useRPGStore.getState();
-  const { players, isHost, hostPlayerId, myPlayerId, myHeroId } = state.multiplayer;
+  const { players, isHost, hostPlayerId, myPlayerId, myHeroId, roomCode, roomId } = state.multiplayer;
 
   // 게임 리셋
   state.resetGame();
 
   // 멀티플레이어 상태 유지하면서 게임 재시작
   state.setMultiplayerState({
+    isMultiplayer: true,  // 멀티플레이어 상태 유지
     connectionState: 'in_game',
     players,
     isHost,
     hostPlayerId,
     myPlayerId,
     myHeroId,
+    roomCode,
+    roomId,
   });
 
-  // 게임 초기화 (호스트만 - 클라이언트는 호스트로부터 상태 수신)
-  if (isHost) {
-    state.initMultiplayerGame(players, isHost);
-  }
-  // 클라이언트는 호스트로부터 게임 상태를 받아서 적용함
+  // 게임 초기화 (모든 플레이어가 동일한 players 정보로 초기화)
+  // 호스트의 상태 동기화가 이후 일관성을 유지
+  useRPGStore.getState().initMultiplayerGame(players, isHost);
 
   // 게임 화면으로
   useUIStore.getState().setScreen('game');
@@ -358,6 +374,48 @@ function handleRoomDestroyed(reason: string) {
 
   // 직업 선택 화면으로
   useUIStore.getState().setScreen('rpgClassSelect');
+}
+
+/**
+ * 호스트가 게임 일시정지 (클라이언트가 수신)
+ */
+function handleHostPaused() {
+  console.log('[NetworkSync] 호스트가 게임 일시정지');
+
+  // RPG 상태 일시정지
+  useRPGStore.getState().setPaused(true);
+
+  // 일시정지 화면으로
+  useUIStore.getState().setScreen('paused');
+}
+
+/**
+ * 호스트가 게임 재개 (클라이언트가 수신)
+ */
+function handleHostResumed() {
+  console.log('[NetworkSync] 호스트가 게임 재개');
+
+  // RPG 상태 재개
+  useRPGStore.getState().setPaused(false);
+
+  // 게임 화면으로
+  useUIStore.getState().setScreen('game');
+}
+
+/**
+ * 호스트가 게임 중단 (모든 플레이어가 수신)
+ */
+function handleGameStopped() {
+  console.log('[NetworkSync] 호스트가 게임 중단');
+
+  // 일시정지 해제
+  useRPGStore.getState().setPaused(false);
+
+  // 게임 오버로 처리 (패배로 기록)
+  useRPGStore.getState().setGameOver(false);
+
+  // 게임 화면으로 (게임 오버 모달 표시)
+  useUIStore.getState().setScreen('game');
 }
 
 /**

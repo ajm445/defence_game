@@ -16,6 +16,7 @@ import { getClassProgress } from '../services/profileService';
 import { useProfileStore } from './useProfileStore';
 import { useUIStore } from './useUIStore';
 import { soundManager } from '../services/SoundManager';
+import { wsClient } from '../services/WebSocketClient';
 
 // 사용자 타입 정의
 interface User {
@@ -254,6 +255,9 @@ export const useAuthStore = create<AuthStore>()(
           classProgress: classProgressData,
           isLoading: false,
         });
+
+        // 서버에 로그인 알림
+        wsClient.notifyLogin(result.user.id, profile?.nickname || 'Unknown', false, profile?.playerLevel);
       }
 
       return true;
@@ -280,11 +284,23 @@ export const useAuthStore = create<AuthStore>()(
       // 로컬스토리지에 세션 저장
       saveSessionToStorage(user, profile);
 
+      // 서버에 로그인 알림
+      wsClient.notifyLogin(user.id, profile.nickname, true, profile.playerLevel);
+
       return true;
     },
 
     // 로그아웃
     signOut: async () => {
+      // 로그아웃 전 현재 사용자 정보 저장
+      const currentUser = get().user;
+      const currentProfile = get().profile;
+
+      // 서버에 로그아웃 알림
+      if (currentUser && currentProfile) {
+        wsClient.notifyLogout(currentUser.id, currentProfile.nickname);
+      }
+
       set({ isLoading: true });
 
       await authSignOut();

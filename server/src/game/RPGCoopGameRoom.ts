@@ -161,7 +161,7 @@ export class RPGCoopGameRoom {
   }
 
   /**
-   * 게임 종료 후 로비로 복귀
+   * 게임 중 또는 게임 종료 후 로비로 복귀
    * → 호스트만 호출 가능
    */
   public returnToLobby(playerId: string): void {
@@ -169,8 +169,15 @@ export class RPGCoopGameRoom {
       return;
     }
 
-    if (this.gameState !== 'ended') {
+    // 대기 중이거나 카운트다운 중에는 로비 복귀 불가
+    if (this.gameState === 'waiting' || this.gameState === 'countdown') {
       return;
+    }
+
+    // 카운트다운 타이머 정리
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
     }
 
     this.gameState = 'waiting';
@@ -210,7 +217,7 @@ export class RPGCoopGameRoom {
     if (this.playerInfos.length > 1) {
       const allReady = this.playerInfos.every(p => p.isHost || p.isReady);
       if (!allReady) {
-        this.sendToPlayer(playerId, {
+        sendToPlayer(playerId, {
           type: 'COOP_ROOM_ERROR',
           message: '모든 플레이어가 준비되지 않았습니다.',
         });
@@ -258,6 +265,102 @@ export class RPGCoopGameRoom {
 
     // 방 정리
     this.cleanup();
+  }
+
+  /**
+   * 게임 일시정지 (호스트 전용)
+   */
+  public pauseGame(playerId: string): void {
+    if (playerId !== this.hostPlayerId) {
+      return;
+    }
+
+    if (this.gameState !== 'playing') {
+      return;
+    }
+
+    // 모든 플레이어에게 일시정지 알림
+    this.broadcast({ type: 'COOP_GAME_PAUSED' });
+    console.log(`[Relay] 게임 일시정지: Room ${this.id}`);
+  }
+
+  /**
+   * 게임 재개 (호스트 전용)
+   */
+  public resumeGame(playerId: string): void {
+    if (playerId !== this.hostPlayerId) {
+      return;
+    }
+
+    if (this.gameState !== 'playing') {
+      return;
+    }
+
+    // 모든 플레이어에게 재개 알림
+    this.broadcast({ type: 'COOP_GAME_RESUMED' });
+    console.log(`[Relay] 게임 재개: Room ${this.id}`);
+  }
+
+  /**
+   * 게임 중단 (호스트 전용)
+   * → 모든 플레이어에게 게임 오버 알림
+   */
+  public stopGame(playerId: string): void {
+    if (playerId !== this.hostPlayerId) {
+      return;
+    }
+
+    if (this.gameState !== 'playing') {
+      return;
+    }
+
+    this.gameState = 'ended';
+
+    // 모든 플레이어에게 게임 중단 알림
+    this.broadcast({ type: 'COOP_GAME_STOPPED' });
+    console.log(`[Relay] 게임 중단: Room ${this.id}`);
+  }
+
+  /**
+   * 플레이어 직업 변경 (로비에서)
+   */
+  public changePlayerClass(playerId: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: any): void {
+    // 로비 상태에서만 직업 변경 가능
+    if (this.gameState !== 'waiting') {
+      return;
+    }
+
+    const playerInfo = this.playerInfos.find(p => p.id === playerId);
+    if (!playerInfo) {
+      return;
+    }
+
+    playerInfo.heroClass = heroClass;
+    playerInfo.characterLevel = characterLevel;
+    playerInfo.statUpgrades = statUpgrades;
+    // 직업 변경 시 준비 상태 해제 (호스트 제외)
+    if (!playerInfo.isHost) {
+      playerInfo.isReady = false;
+    }
+
+    // 모든 플레이어에게 직업 변경 알림
+    this.broadcast({
+      type: 'COOP_PLAYER_CLASS_CHANGED',
+      playerId,
+      heroClass,
+      characterLevel,
+    });
+
+    // 준비 상태도 함께 알림 (호스트 제외)
+    if (!playerInfo.isHost) {
+      this.broadcast({
+        type: 'COOP_PLAYER_READY',
+        playerId,
+        isReady: false,
+      });
+    }
+
+    console.log(`[Relay] ${playerId} 직업 변경: ${heroClass} (Lv.${characterLevel})`);
   }
 
   /**

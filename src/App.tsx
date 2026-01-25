@@ -47,7 +47,7 @@ function App() {
       {currentScreen === 'rpgCoopLobby' && <RPGCoopLobbyScreen />}
       {currentScreen === 'lobby' && <LobbyScreen />}
       {(currentScreen === 'countdown' || currentScreen === 'game') && gameMode !== 'rpg' && <GameScreen />}
-      {currentScreen === 'game' && gameMode === 'rpg' && <RPGModeScreen />}
+      {(currentScreen === 'game' || currentScreen === 'paused') && gameMode === 'rpg' && <RPGModeScreen />}
       {currentScreen === 'countdown' && <CountdownScreen />}
       {currentScreen === 'gameover' && <GameOverScreen />}
       {currentScreen === 'paused' && <PauseScreen />}

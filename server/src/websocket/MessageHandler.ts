@@ -89,6 +89,15 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleCollectResource(playerId, message.nodeId);
       break;
 
+    // 사용자 인증 메시지
+    case 'USER_LOGIN':
+      handleUserLogin(playerId, (message as any).userId, (message as any).nickname, (message as any).isGuest, (message as any).level);
+      break;
+
+    case 'USER_LOGOUT':
+      handleUserLogout(playerId, (message as any).userId, (message as any).nickname);
+      break;
+
     // 협동 모드 메시지
     case 'CREATE_COOP_ROOM':
       handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades, (message as any).isPrivate);
@@ -171,10 +180,40 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleDestroyCoopRoom(playerId);
       break;
 
+    case 'PAUSE_COOP_GAME':
+      handlePauseCoopGame(playerId);
+      break;
+
+    case 'RESUME_COOP_GAME':
+      handleResumeCoopGame(playerId);
+      break;
+
+    case 'STOP_COOP_GAME':
+      handleStopCoopGame(playerId);
+      break;
+
     default:
       console.warn(`알 수 없는 메시지 타입: ${(message as any).type}`);
   }
 }
+
+// ============================================
+// 사용자 인증 핸들러
+// ============================================
+
+function handleUserLogin(playerId: string, userId: string, nickname: string, isGuest: boolean, level?: number): void {
+  const accountType = isGuest ? '게스트' : '일반';
+  const levelInfo = level ? ` (Lv.${level})` : '';
+  console.log(`[Auth] 로그인: ${nickname}${levelInfo} [${accountType}] (userId: ${userId}, playerId: ${playerId})`);
+}
+
+function handleUserLogout(playerId: string, userId: string, nickname: string): void {
+  console.log(`[Auth] 로그아웃: ${nickname} (userId: ${userId}, playerId: ${playerId})`);
+}
+
+// ============================================
+// 방 핸들러
+// ============================================
 
 function handleCreateRoom(playerId: string, playerName: string): void {
   const player = players.get(playerId);
@@ -321,12 +360,34 @@ function handleCoopReady(playerId: string, isReady: boolean): void {
 
 function handleChangeCoopClass(playerId: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
   console.log(`[Coop] ${playerId} 직업 변경: ${heroClass} (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
+
+  // 먼저 대기 중인 방에서 찾기
   changeCoopClass(playerId, heroClass, characterLevel ?? 1, statUpgrades);
+
+  // 게임 방에서도 찾기 (게임 종료 후 로비 복귀 시)
+  const player = players.get(playerId);
+  if (player && player.roomId) {
+    const room = coopGameRooms.get(player.roomId);
+    if (room) {
+      room.changePlayerClass(playerId, heroClass, characterLevel ?? 1, statUpgrades);
+    }
+  }
 }
 
 function handleStartCoopGame(playerId: string): void {
   console.log(`[Coop] ${playerId} 게임 시작 요청`);
+
+  // 먼저 대기 중인 방에서 시작 시도
   startCoopGame(playerId);
+
+  // 게임 방에서도 시도 (게임 종료 후 로비 복귀 시 재시작)
+  const player = players.get(playerId);
+  if (player && player.roomId) {
+    const room = coopGameRooms.get(player.roomId);
+    if (room) {
+      room.restartGame(playerId);
+    }
+  }
 }
 
 function handleKickCoopPlayer(hostPlayerId: string, targetPlayerId: string): void {
@@ -452,5 +513,35 @@ function handleDestroyCoopRoom(playerId: string): void {
   const room = coopGameRooms.get(player.roomId);
   if (room) {
     room.destroyRoom(playerId);
+  }
+}
+
+function handlePauseCoopGame(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.pauseGame(playerId);
+  }
+}
+
+function handleResumeCoopGame(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.resumeGame(playerId);
+  }
+}
+
+function handleStopCoopGame(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.stopGame(playerId);
   }
 }
