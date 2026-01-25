@@ -218,6 +218,7 @@ export interface RPGGameState {
 
   // 타이머
   gameTime: number;       // 총 플레이 시간
+  goldAccumulator: number; // 패시브 골드 수급용 누적기
 
   // 카메라
   camera: {
