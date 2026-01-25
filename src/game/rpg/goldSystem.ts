@@ -13,11 +13,14 @@ export function getGoldReward(enemyType: UnitType, goldRateBonus: number = 0): n
 
 /**
  * 업그레이드 비용 계산
- * 공식: baseCost * (multiplier ^ currentLevel)
+ * - 1레벨 (0→1): 50골드 고정
+ * - 2레벨 이상: 레벨에 비례하여 증가 (50 * (currentLevel + 1))
+ * 예: 0→1: 50, 1→2: 100, 2→3: 150, 3→4: 200...
  */
 export function getUpgradeCost(currentLevel: number): number {
-  const { UPGRADE_BASE_COST, UPGRADE_COST_MULTIPLIER } = GOLD_CONFIG;
-  return Math.floor(UPGRADE_BASE_COST * Math.pow(UPGRADE_COST_MULTIPLIER, currentLevel));
+  const { UPGRADE_BASE_COST } = GOLD_CONFIG;
+  // 1레벨은 고정 비용, 이후 레벨에 비례하여 증가
+  return UPGRADE_BASE_COST * (currentLevel + 1);
 }
 
 /**

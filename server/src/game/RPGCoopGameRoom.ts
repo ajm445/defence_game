@@ -1,5 +1,6 @@
 import { players, sendToPlayer } from '../state/players';
 import { removeCoopRoom } from '../websocket/MessageHandler';
+import { setWaitingRoomState, syncWaitingRoomPlayers, deleteWaitingRoom } from '../room/CoopRoomManager';
 import type { HeroClass, SkillType, UpgradeLevels } from '../../../src/types/rpg';
 import type {
   CoopPlayerInfo,
@@ -16,6 +17,7 @@ import type { SerializedGameState, PlayerInput } from '../../../shared/types/hos
  */
 export class RPGCoopGameRoom {
   public id: string;
+  public roomCode: string;
   private playerIds: string[];
   private playerInfos: CoopPlayerInfo[];
   private hostPlayerId: string;
@@ -26,15 +28,16 @@ export class RPGCoopGameRoom {
   // 각 플레이어의 heroId 매핑 (호스트가 할당)
   private playerHeroMap: Map<string, string> = new Map();
 
-  constructor(id: string, playerIds: string[], playerInfos: CoopPlayerInfo[]) {
+  constructor(id: string, roomCode: string, playerIds: string[], playerInfos: CoopPlayerInfo[]) {
     this.id = id;
+    this.roomCode = roomCode;
     this.playerIds = playerIds;
     this.playerInfos = playerInfos;
 
     // 호스트 식별 (첫 번째 플레이어가 방장)
     this.hostPlayerId = playerInfos.find(p => p.isHost)?.id || playerIds[0];
 
-    console.log(`[Relay] 게임 방 생성: ${id}, 호스트: ${this.hostPlayerId}, 플레이어: ${playerIds.length}명`);
+    console.log(`[Relay] 게임 방 생성: ${id} (${roomCode}), 호스트: ${this.hostPlayerId}, 플레이어: ${playerIds.length}명`);
   }
 
   public startCountdown(): void {
@@ -140,7 +143,7 @@ export class RPGCoopGameRoom {
 
   /**
    * 호스트로부터 게임 종료 알림
-   * → 모든 플레이어에게 전달
+   * → 모든 플레이어에게 전달 (방은 유지)
    */
   public handleGameOver(playerId: string, result: any): void {
     // 호스트만 게임 종료를 선언할 수 있음
@@ -150,13 +153,261 @@ export class RPGCoopGameRoom {
 
     this.gameState = 'ended';
 
-    // 모든 플레이어에게 게임 종료 알림
+    // 모든 플레이어에게 게임 종료 알림 (방은 유지됨)
     this.broadcast({ type: 'COOP_GAME_OVER', result });
 
     console.log(`[Relay] 게임 종료: Room ${this.id}, 승리: ${result?.victory}`);
 
+    // cleanup() 호출 제거 - 방 유지하여 재시작 가능
+  }
+
+  /**
+   * 게임 중 또는 게임 종료 후 로비로 복귀
+   * → 호스트만 호출 가능
+   */
+  public returnToLobby(playerId: string): void {
+    console.log(`[Relay] 로비 복귀 요청: Room ${this.id}, playerId=${playerId}, hostPlayerId=${this.hostPlayerId}, gameState=${this.gameState}`);
+
+    if (playerId !== this.hostPlayerId) {
+      console.log(`[Relay] 로비 복귀 실패: 호스트가 아님 (${playerId} !== ${this.hostPlayerId})`);
+      return;
+    }
+
+    // 대기 중이거나 카운트다운 중에는 로비 복귀 불가
+    if (this.gameState === 'waiting' || this.gameState === 'countdown') {
+      console.log(`[Relay] 로비 복귀 실패: 이미 대기 중 또는 카운트다운 중 (${this.gameState})`);
+      return;
+    }
+
+    // 카운트다운 타이머 정리
+    if (this.countdownTimer) {
+      clearInterval(this.countdownTimer);
+      this.countdownTimer = null;
+    }
+
+    this.gameState = 'waiting';
+
+    // 플레이어 준비 상태 초기화
+    this.playerInfos = this.playerInfos.map(p => ({
+      ...p,
+      isReady: p.isHost, // 호스트는 항상 준비 상태
+    }));
+
+    // 모든 플레이어에게 로비 복귀 알림 (플레이어 정보 포함)
+    this.broadcast({
+      type: 'COOP_RETURN_TO_LOBBY',
+      roomCode: this.roomCode,
+      roomId: this.id,
+      players: this.playerInfos,
+      hostPlayerId: this.hostPlayerId,
+    });
+
+    // 대기 방 상태를 'waiting'으로 변경하여 로비에 표시
+    setWaitingRoomState(this.id, 'waiting');
+    syncWaitingRoomPlayers(this.id, this.playerIds, this.playerInfos);
+
+    console.log(`[Relay] 로비 복귀: Room ${this.id} (${this.roomCode})`);
+  }
+
+  /**
+   * 게임 재시작 (로비에서 호스트가 시작)
+   * → 호스트만 호출 가능
+   */
+  public restartGame(playerId: string): void {
+    console.log(`[Relay] 게임 재시작 요청: Room ${this.id}, playerId=${playerId}, hostPlayerId=${this.hostPlayerId}, gameState=${this.gameState}`);
+
+    if (playerId !== this.hostPlayerId) {
+      console.log(`[Relay] 게임 재시작 실패: 호스트가 아님 (${playerId} !== ${this.hostPlayerId})`);
+      return;
+    }
+
+    if (this.gameState !== 'waiting' && this.gameState !== 'ended') {
+      console.log(`[Relay] 게임 재시작 실패: 잘못된 상태 (${this.gameState})`);
+      return;
+    }
+
+    // 모든 플레이어가 준비되었는지 확인 (호스트 제외, 혼자일 때는 스킵)
+    if (this.playerInfos.length > 1) {
+      const readyStates = this.playerInfos.map(p => `${p.id.slice(0, 8)}: isHost=${p.isHost}, isReady=${p.isReady}`);
+      console.log(`[Relay] 플레이어 준비 상태: ${readyStates.join(', ')}`);
+      const allReady = this.playerInfos.every(p => p.isHost || p.isReady);
+      if (!allReady) {
+        console.log(`[Relay] 게임 재시작 실패: 모든 플레이어가 준비되지 않음`);
+        sendToPlayer(playerId, {
+          type: 'COOP_ROOM_ERROR',
+          message: '모든 플레이어가 준비되지 않았습니다.',
+        });
+        return;
+      }
+    }
+
+    // 카운트다운 시작
+    this.gameState = 'countdown';
+    this.broadcast({ type: 'COOP_RESTART_COUNTDOWN' });
+
+    console.log(`[Relay] 게임 재시작 카운트다운: Room ${this.id}`);
+
+    // 3초 카운트다운
+    let countdown = 3;
+    this.countdownTimer = setInterval(() => {
+      countdown--;
+      this.broadcast({ type: 'COOP_COUNTDOWN', countdown });
+
+      if (countdown <= 0) {
+        if (this.countdownTimer) {
+          clearInterval(this.countdownTimer);
+          this.countdownTimer = null;
+        }
+        this.gameState = 'playing';
+        this.broadcast({ type: 'COOP_GAME_RESTART' });
+        console.log(`[Relay] 게임 재시작: Room ${this.id}`);
+      }
+    }, 1000);
+  }
+
+  /**
+   * 호스트가 방 파기
+   * → 모든 플레이어에게 알림 후 방 삭제
+   */
+  public destroyRoom(playerId: string): void {
+    if (playerId !== this.hostPlayerId) {
+      return;
+    }
+
+    // 모든 플레이어에게 방 파기 알림
+    this.broadcast({ type: 'COOP_ROOM_DESTROYED', reason: '호스트가 방을 파기했습니다.' });
+
+    console.log(`[Relay] 방 파기: Room ${this.id}`);
+
     // 방 정리
     this.cleanup();
+  }
+
+  /**
+   * 게임 일시정지 (호스트 전용)
+   */
+  public pauseGame(playerId: string): void {
+    if (playerId !== this.hostPlayerId) {
+      return;
+    }
+
+    if (this.gameState !== 'playing') {
+      return;
+    }
+
+    // 모든 플레이어에게 일시정지 알림
+    this.broadcast({ type: 'COOP_GAME_PAUSED' });
+    console.log(`[Relay] 게임 일시정지: Room ${this.id}`);
+  }
+
+  /**
+   * 게임 재개 (호스트 전용)
+   */
+  public resumeGame(playerId: string): void {
+    if (playerId !== this.hostPlayerId) {
+      return;
+    }
+
+    if (this.gameState !== 'playing') {
+      return;
+    }
+
+    // 모든 플레이어에게 재개 알림
+    this.broadcast({ type: 'COOP_GAME_RESUMED' });
+    console.log(`[Relay] 게임 재개: Room ${this.id}`);
+  }
+
+  /**
+   * 게임 중단 (호스트 전용)
+   * → 모든 플레이어에게 게임 오버 알림
+   */
+  public stopGame(playerId: string): void {
+    if (playerId !== this.hostPlayerId) {
+      return;
+    }
+
+    if (this.gameState !== 'playing') {
+      return;
+    }
+
+    this.gameState = 'ended';
+
+    // 모든 플레이어에게 게임 중단 알림
+    this.broadcast({ type: 'COOP_GAME_STOPPED' });
+    console.log(`[Relay] 게임 중단: Room ${this.id}`);
+  }
+
+  /**
+   * 플레이어 직업 변경 (로비에서)
+   */
+  public changePlayerClass(playerId: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: any): void {
+    // 로비 상태에서만 직업 변경 가능
+    if (this.gameState !== 'waiting') {
+      return;
+    }
+
+    const playerInfo = this.playerInfos.find(p => p.id === playerId);
+    if (!playerInfo) {
+      return;
+    }
+
+    playerInfo.heroClass = heroClass;
+    playerInfo.characterLevel = characterLevel;
+    playerInfo.statUpgrades = statUpgrades;
+    // 직업 변경 시 준비 상태 해제 (호스트 제외)
+    if (!playerInfo.isHost) {
+      playerInfo.isReady = false;
+    }
+
+    // 모든 플레이어에게 직업 변경 알림
+    this.broadcast({
+      type: 'COOP_PLAYER_CLASS_CHANGED',
+      playerId,
+      heroClass,
+      characterLevel,
+    });
+
+    // 준비 상태도 함께 알림 (호스트 제외)
+    if (!playerInfo.isHost) {
+      this.broadcast({
+        type: 'COOP_PLAYER_READY',
+        playerId,
+        isReady: false,
+      });
+    }
+
+    console.log(`[Relay] ${playerId} 직업 변경: ${heroClass} (Lv.${characterLevel})`);
+  }
+
+  /**
+   * 플레이어 준비 상태 변경 (로비에서)
+   */
+  public setPlayerReady(playerId: string, isReady: boolean): void {
+    // 게임 종료 후 로비 상태에서만 준비 상태 변경 가능
+    if (this.gameState !== 'waiting') {
+      return;
+    }
+
+    const playerInfo = this.playerInfos.find(p => p.id === playerId);
+    if (!playerInfo) {
+      return;
+    }
+
+    // 호스트는 항상 준비 상태 유지
+    if (playerInfo.isHost) {
+      return;
+    }
+
+    playerInfo.isReady = isReady;
+
+    // 모든 플레이어에게 준비 상태 변경 알림
+    this.broadcast({
+      type: 'COOP_PLAYER_READY',
+      playerId,
+      isReady,
+    });
+
+    console.log(`[Coop] ${playerId} 준비 상태: ${isReady}`);
   }
 
   // ============================================
@@ -258,6 +509,9 @@ export class RPGCoopGameRoom {
     this.playerIds = this.playerIds.filter(id => id !== playerId);
     this.playerInfos = this.playerInfos.filter(p => p.id !== playerId);
 
+    // 대기 방 플레이어 동기화
+    syncWaitingRoomPlayers(this.id, this.playerIds, this.playerInfos);
+
     // 연결 해제 알림
     this.broadcast({
       type: 'COOP_PLAYER_DISCONNECTED',
@@ -317,8 +571,9 @@ export class RPGCoopGameRoom {
       this.countdownTimer = null;
     }
 
-    // 방 정리
+    // 방 정리 (coopGameRooms + waitingCoopRooms 모두 삭제)
     removeCoopRoom(this.id);
+    deleteWaitingRoom(this.id);
     this.playerIds.forEach(playerId => {
       const player = players.get(playerId);
       if (player) {

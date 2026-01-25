@@ -156,9 +156,49 @@ export function useNetworkSync() {
           handleGameOver(message.result);
           break;
 
+        // 로비 복귀
+        case 'COOP_RETURN_TO_LOBBY':
+          handleReturnToLobby(message);
+          break;
+
+        // 게임 재시작 카운트다운
+        case 'COOP_RESTART_COUNTDOWN':
+          handleRestartCountdown();
+          break;
+
+        // 게임 재시작
+        case 'COOP_GAME_RESTART':
+          handleGameRestart();
+          break;
+
+        // 방 파기됨
+        case 'COOP_ROOM_DESTROYED':
+          handleRoomDestroyed(message.reason);
+          break;
+
         // 카운트다운
         case 'COOP_GAME_COUNTDOWN':
           useRPGStore.getState().setMultiplayerState({ countdown: message.seconds });
+          break;
+
+        // 카운트다운 (재시작 시)
+        case 'COOP_COUNTDOWN':
+          useRPGStore.getState().setMultiplayerState({ countdown: message.countdown });
+          break;
+
+        // 게임 일시정지 (호스트가 일시정지)
+        case 'COOP_GAME_PAUSED':
+          handleHostPaused();
+          break;
+
+        // 게임 재개 (호스트가 재개)
+        case 'COOP_GAME_RESUMED':
+          handleHostResumed();
+          break;
+
+        // 게임 중단 (호스트가 게임 중단)
+        case 'COOP_GAME_STOPPED':
+          handleGameStopped();
           break;
       }
     };
@@ -253,6 +293,132 @@ function handleGameOver(result: any) {
   console.log('[NetworkSync] 게임 종료:', result);
 
   useRPGStore.getState().setGameOver(result?.victory || false);
+  // 멀티플레이어 상태를 post_game으로 변경 (방은 유지)
+  useRPGStore.getState().setMultiplayerState({ connectionState: 'post_game' });
+}
+
+function handleReturnToLobby(message?: any) {
+  console.log('[NetworkSync] 로비 복귀', message);
+
+  // 게임 상태 리셋
+  useRPGStore.getState().resetGame();
+
+  // 멀티플레이어 상태 업데이트 (플레이어 정보 유지)
+  if (message && message.players) {
+    // 현재 플레이어가 호스트인지 확인
+    const isHost = wsClient.playerId === message.hostPlayerId;
+
+    useRPGStore.getState().setMultiplayerState({
+      connectionState: 'in_lobby',
+      roomCode: message.roomCode,
+      roomId: message.roomId,
+      players: message.players,
+      hostPlayerId: message.hostPlayerId,
+      isHost,  // 호스트 여부 설정
+    });
+  } else {
+    useRPGStore.getState().setMultiplayerState({ connectionState: 'in_lobby' });
+  }
+
+  useUIStore.getState().setScreen('rpgCoopLobby');
+}
+
+function handleRestartCountdown() {
+  console.log('[NetworkSync] 게임 재시작 카운트다운 시작');
+
+  useRPGStore.getState().setMultiplayerState({
+    connectionState: 'countdown',
+    countdown: 3,  // 초기 카운트다운 값 설정
+  });
+}
+
+function handleGameRestart() {
+  console.log('[NetworkSync] 게임 재시작');
+
+  // 게임 상태 완전 리셋 후 새 게임 시작
+  const state = useRPGStore.getState();
+  const { players, isHost, hostPlayerId, myPlayerId, myHeroId, roomCode, roomId } = state.multiplayer;
+
+  // 게임 리셋
+  state.resetGame();
+
+  // 멀티플레이어 상태 유지하면서 게임 재시작
+  state.setMultiplayerState({
+    isMultiplayer: true,  // 멀티플레이어 상태 유지
+    connectionState: 'in_game',
+    players,
+    isHost,
+    hostPlayerId,
+    myPlayerId,
+    myHeroId,
+    roomCode,
+    roomId,
+  });
+
+  // 게임 초기화 (모든 플레이어가 동일한 players 정보로 초기화)
+  // 호스트의 상태 동기화가 이후 일관성을 유지
+  useRPGStore.getState().initMultiplayerGame(players, isHost);
+
+  // 게임 화면으로
+  useUIStore.getState().setScreen('game');
+}
+
+function handleRoomDestroyed(reason: string) {
+  console.log('[NetworkSync] 방 파기됨:', reason);
+
+  // 알림 표시
+  useUIStore.getState().showNotification(reason || '방이 파기되었습니다.');
+
+  // 멀티플레이어 상태 초기화
+  useRPGStore.getState().resetMultiplayerState();
+
+  // 게임 리셋
+  useRPGStore.getState().resetGame();
+
+  // 대기방 로비 화면으로
+  useUIStore.getState().setScreen('rpgCoopLobby');
+}
+
+/**
+ * 호스트가 게임 일시정지 (클라이언트가 수신)
+ */
+function handleHostPaused() {
+  console.log('[NetworkSync] 호스트가 게임 일시정지');
+
+  // RPG 상태 일시정지
+  useRPGStore.getState().setPaused(true);
+
+  // 일시정지 화면으로
+  useUIStore.getState().setScreen('paused');
+}
+
+/**
+ * 호스트가 게임 재개 (클라이언트가 수신)
+ */
+function handleHostResumed() {
+  console.log('[NetworkSync] 호스트가 게임 재개');
+
+  // RPG 상태 재개
+  useRPGStore.getState().setPaused(false);
+
+  // 게임 화면으로
+  useUIStore.getState().setScreen('game');
+}
+
+/**
+ * 호스트가 게임 중단 (모든 플레이어가 수신)
+ */
+function handleGameStopped() {
+  console.log('[NetworkSync] 호스트가 게임 중단');
+
+  // 일시정지 해제
+  useRPGStore.getState().setPaused(false);
+
+  // 게임 오버로 처리 (패배로 기록)
+  useRPGStore.getState().setGameOver(false);
+
+  // 게임 화면으로 (게임 오버 모달 표시)
+  useUIStore.getState().setScreen('game');
 }
 
 /**
@@ -307,12 +473,26 @@ function executeOtherHeroSkill(
 
   // 영웅 상태 업데이트 (스킬 쿨다운 포함)
   const updatedHero = result.hero;
+
+  // 스킬 쿨다운 리셋 (스킬 함수에서 skills를 업데이트하지 않으므로 여기서 처리)
+  const updatedSkills = hero.skills.map(s =>
+    s.type === skillType ? { ...s, currentCooldown: s.cooldown } : s
+  );
+
+  // 버프 적용 (result.buff가 있으면 영웅 버프에 추가)
+  let updatedBuffs = updatedHero.buffs || [];
+  if (result.buff) {
+    // 같은 타입의 버프가 있으면 교체, 없으면 추가
+    updatedBuffs = updatedBuffs.filter(b => b.type !== result.buff!.type);
+    updatedBuffs = [...updatedBuffs, result.buff];
+  }
+
   state.updateOtherHero(heroId, {
     x: updatedHero.x,
     y: updatedHero.y,
     hp: updatedHero.hp,
-    skills: updatedHero.skills,
-    buffs: updatedHero.buffs,
+    skills: updatedSkills,  // 쿨다운 리셋된 스킬
+    buffs: updatedBuffs,    // 새 버프 포함
     dashState: updatedHero.dashState,
     facingAngle: Math.atan2(targetY - hero.y, targetX - hero.x),
   });
@@ -336,10 +516,21 @@ function executeOtherHeroSkill(
     }
   }
 
+  // 기지 데미지 적용
+  if (result.baseDamages && result.baseDamages.length > 0) {
+    for (const baseDamage of result.baseDamages) {
+      const destroyed = state.damageBase(baseDamage.baseId, baseDamage.damage);
+      if (destroyed) {
+        const showNotification = useUIStore.getState().showNotification;
+        showNotification(`적 기지 파괴!`);
+        soundManager.play('victory');
+      }
+    }
+  }
+
   // 버프 공유 (광전사, 철벽 방어)
-  // 버프는 이미 line 305-313에서 result.hero.buffs에 포함되어 적용됨
-  // 여기서는 아군에게 버프 공유만 처리
-  if (result.buff) {
+  // 아군에게 버프 공유 처리 (버프는 위에서 이미 시전자에게 적용됨)
+  if (result.buff && (result.buff.type === 'berserker' || result.buff.type === 'ironwall')) {
     // result.hero는 스킬 실행 후의 영웅 상태 (정확한 위치 정보 포함)
     shareBuffToAllies(result.buff, result.hero, heroId);
   }
@@ -581,13 +772,13 @@ export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'gol
 /**
  * 멀티플레이 방 생성
  */
-export function createMultiplayerRoom(playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any) {
+export function createMultiplayerRoom(playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean) {
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
     connectionState: 'connecting',
   });
 
-  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades);
+  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false);
 }
 
 /**

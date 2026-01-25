@@ -11,6 +11,14 @@ import type { SerializedGameState, PlayerInput } from '@shared/types/hostBasedNe
 
 type MessageHandler = (message: ServerMessage) => void;
 
+// 보류 중인 로그인 정보
+interface PendingLoginInfo {
+  userId: string;
+  nickname: string;
+  isGuest: boolean;
+  level?: number;
+}
+
 class WebSocketClient {
   private ws: WebSocket | null = null;
   private messageHandlers: Set<MessageHandler> = new Set();
@@ -18,6 +26,7 @@ class WebSocketClient {
   private maxReconnectAttempts = 5;
   private reconnectDelay = 1000;
   private serverUrl: string;
+  private pendingLogin: PendingLoginInfo | null = null;
 
   public connectionState: ConnectionState = 'disconnected';
   public playerId: string | null = null;
@@ -43,6 +52,14 @@ class WebSocketClient {
           console.log('WebSocket 연결 성공');
           this.connectionState = 'connected';
           this.reconnectAttempts = 0;
+
+          // 보류 중인 로그인 알림 전송
+          if (this.pendingLogin) {
+            const { userId, nickname, isGuest, level } = this.pendingLogin;
+            this.send({ type: 'USER_LOGIN', userId, nickname, isGuest, level } as any);
+            this.pendingLogin = null;
+          }
+
           resolve();
         };
 
@@ -168,15 +185,54 @@ class WebSocketClient {
   }
 
   // ============================================
+  // 사용자 인증 메서드
+  // ============================================
+
+  /**
+   * 로그인 알림 (서버에 로그 기록용)
+   * WebSocket이 연결되지 않은 경우 연결 후 전송
+   */
+  public notifyLogin(userId: string, nickname: string, isGuest: boolean, level?: number): void {
+    if (this.isConnected()) {
+      this.send({ type: 'USER_LOGIN', userId, nickname, isGuest, level } as any);
+    } else {
+      // WebSocket이 연결되지 않은 경우, 연결 후 전송
+      this.pendingLogin = { userId, nickname, isGuest, level };
+      this.connect().catch((err) => {
+        console.warn('로그인 알림을 위한 WebSocket 연결 실패:', err);
+      });
+    }
+  }
+
+  /**
+   * 로그아웃 알림 (서버에 로그 기록용)
+   */
+  public notifyLogout(userId: string, nickname: string): void {
+    // 로그아웃 시 보류 중인 로그인 정보 삭제
+    this.pendingLogin = null;
+    if (this.isConnected()) {
+      this.send({ type: 'USER_LOGOUT', userId, nickname } as any);
+    }
+  }
+
+  // ============================================
   // 협동 모드 메서드
   // ============================================
 
-  public createCoopRoom(playerName: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
-    this.send({ type: 'CREATE_COOP_ROOM', playerName, heroClass, characterLevel, statUpgrades });
+  public createCoopRoom(playerName: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades, isPrivate: boolean = false): void {
+    this.send({ type: 'CREATE_COOP_ROOM', playerName, heroClass, characterLevel, statUpgrades, isPrivate } as any);
   }
 
   public joinCoopRoom(roomCode: string, playerName: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
     this.send({ type: 'JOIN_COOP_ROOM', roomCode, playerName, heroClass, characterLevel, statUpgrades });
+  }
+
+  public joinCoopRoomById(roomId: string, playerName: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
+    this.send({ type: 'JOIN_COOP_ROOM_BY_ID', roomId, playerName, heroClass, characterLevel, statUpgrades } as any);
+  }
+
+  public getCoopRoomList(): void {
+    this.send({ type: 'GET_COOP_ROOM_LIST' } as any);
   }
 
   public leaveCoopRoom(): void {
@@ -245,6 +301,48 @@ class WebSocketClient {
    */
   public hostBroadcastGameOver(result: any): void {
     this.send({ type: 'HOST_GAME_OVER', result } as any);
+  }
+
+  /**
+   * 로비 복귀 요청 (호스트만)
+   */
+  public returnToLobby(): void {
+    this.send({ type: 'RETURN_TO_LOBBY' } as any);
+  }
+
+  /**
+   * 게임 재시작 요청 (호스트만)
+   */
+  public restartCoopGame(): void {
+    this.send({ type: 'RESTART_COOP_GAME' } as any);
+  }
+
+  /**
+   * 방 파기 요청 (호스트만)
+   */
+  public destroyCoopRoom(): void {
+    this.send({ type: 'DESTROY_COOP_ROOM' } as any);
+  }
+
+  /**
+   * 게임 일시정지 요청 (호스트만)
+   */
+  public pauseCoopGame(): void {
+    this.send({ type: 'PAUSE_COOP_GAME' } as any);
+  }
+
+  /**
+   * 게임 재개 요청 (호스트만)
+   */
+  public resumeCoopGame(): void {
+    this.send({ type: 'RESUME_COOP_GAME' } as any);
+  }
+
+  /**
+   * 게임 중단 요청 (호스트만) - 모든 플레이어에게 게임 오버
+   */
+  public stopCoopGame(): void {
+    this.send({ type: 'STOP_COOP_GAME' } as any);
   }
 }
 

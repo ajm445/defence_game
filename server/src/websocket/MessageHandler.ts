@@ -4,13 +4,17 @@ import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import {
   createCoopRoom,
   joinCoopRoom,
+  joinCoopRoomById,
   leaveCoopRoom,
   setCoopReady,
   changeCoopClass,
   kickCoopPlayer,
   startCoopGame,
   handleCoopPlayerDisconnect,
+  getAllWaitingCoopRooms,
+  getCoopRoomByPlayerId,
 } from '../room/CoopRoomManager';
+import { sendToPlayer } from '../state/players';
 import { GameRoom } from '../game/GameRoom';
 import { RPGCoopGameRoom } from '../game/RPGCoopGameRoom';
 
@@ -86,13 +90,30 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleCollectResource(playerId, message.nodeId);
       break;
 
+    // 사용자 인증 메시지
+    case 'USER_LOGIN':
+      handleUserLogin(playerId, (message as any).userId, (message as any).nickname, (message as any).isGuest, (message as any).level);
+      break;
+
+    case 'USER_LOGOUT':
+      handleUserLogout(playerId, (message as any).userId, (message as any).nickname);
+      break;
+
     // 협동 모드 메시지
     case 'CREATE_COOP_ROOM':
-      handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades);
+      handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades, (message as any).isPrivate);
       break;
 
     case 'JOIN_COOP_ROOM':
       handleJoinCoopRoom(playerId, message.roomCode, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades);
+      break;
+
+    case 'JOIN_COOP_ROOM_BY_ID':
+      handleJoinCoopRoomById(playerId, (message as any).roomId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades);
+      break;
+
+    case 'GET_COOP_ROOM_LIST':
+      handleGetCoopRoomList(playerId);
       break;
 
     case 'LEAVE_COOP_ROOM':
@@ -148,10 +169,52 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleHostGameOver(playerId, (message as any).result);
       break;
 
+    case 'RETURN_TO_LOBBY':
+      handleReturnToLobby(playerId);
+      break;
+
+    case 'RESTART_COOP_GAME':
+      handleRestartCoopGame(playerId);
+      break;
+
+    case 'DESTROY_COOP_ROOM':
+      handleDestroyCoopRoom(playerId);
+      break;
+
+    case 'PAUSE_COOP_GAME':
+      handlePauseCoopGame(playerId);
+      break;
+
+    case 'RESUME_COOP_GAME':
+      handleResumeCoopGame(playerId);
+      break;
+
+    case 'STOP_COOP_GAME':
+      handleStopCoopGame(playerId);
+      break;
+
     default:
       console.warn(`알 수 없는 메시지 타입: ${(message as any).type}`);
   }
 }
+
+// ============================================
+// 사용자 인증 핸들러
+// ============================================
+
+function handleUserLogin(playerId: string, userId: string, nickname: string, isGuest: boolean, level?: number): void {
+  const accountType = isGuest ? '게스트' : '일반';
+  const levelInfo = level ? ` (Lv.${level})` : '';
+  console.log(`[Auth] 로그인: ${nickname}${levelInfo} [${accountType}] (userId: ${userId}, playerId: ${playerId})`);
+}
+
+function handleUserLogout(playerId: string, userId: string, nickname: string): void {
+  console.log(`[Auth] 로그아웃: ${nickname} (userId: ${userId}, playerId: ${playerId})`);
+}
+
+// ============================================
+// 방 핸들러
+// ============================================
 
 function handleCreateRoom(playerId: string, playerName: string): void {
   const player = players.get(playerId);
@@ -240,13 +303,13 @@ function handleCollectResource(playerId: string, nodeId: string): void {
 // 협동 모드 핸들러
 // ============================================
 
-function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
+function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean): void {
   const player = players.get(playerId);
   if (!player) return;
 
   const name = playerName || `Player_${playerId.slice(0, 4)}`;
-  console.log(`[Coop] ${name}(${playerId}) 방 생성 요청 (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
-  createCoopRoom(playerId, name, heroClass, characterLevel ?? 1, statUpgrades);
+  console.log(`[Coop] ${name}(${playerId}) 방 생성 요청 (Lv.${characterLevel ?? 1}, Private: ${isPrivate ?? false})`);
+  createCoopRoom(playerId, name, heroClass, characterLevel ?? 1, statUpgrades, isPrivate ?? false);
 }
 
 function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
@@ -258,24 +321,108 @@ function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: stri
   joinCoopRoom(roomCode, playerId, name, heroClass, characterLevel ?? 1, statUpgrades);
 }
 
+function handleJoinCoopRoomById(playerId: string, roomId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
+  const player = players.get(playerId);
+  if (!player) return;
+
+  const name = playerName || `Player_${playerId.slice(0, 4)}`;
+  console.log(`[Coop] ${name}(${playerId}) 방 참가 요청(ID): ${roomId} (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
+  joinCoopRoomById(roomId, playerId, name, heroClass, characterLevel ?? 1, statUpgrades);
+}
+
+function handleGetCoopRoomList(playerId: string): void {
+  const rooms = getAllWaitingCoopRooms();
+  sendToPlayer(playerId, {
+    type: 'COOP_ROOM_LIST',
+    rooms,
+  });
+}
+
 function handleLeaveCoopRoom(playerId: string): void {
   console.log(`[Coop] ${playerId} 방 나가기`);
+
+  const player = players.get(playerId);
+  const roomId = player?.roomId;
+
+  // 먼저 게임 방에서 찾기 (게임 중 또는 게임 종료 후)
+  if (roomId) {
+    const gameRoom = coopGameRooms.get(roomId);
+    if (gameRoom) {
+      // 호스트가 나가면 방 파기
+      if (gameRoom.isHost(playerId)) {
+        console.log(`[Coop] 호스트가 방 나가기 - 방 파기: ${roomId}`);
+        gameRoom.destroyRoom(playerId);
+      } else {
+        // 일반 플레이어는 퇴장 처리
+        console.log(`[Coop] 게임 방에서 플레이어 제거: ${roomId}`);
+        gameRoom.handlePlayerDisconnect(playerId);
+        if (player) player.roomId = null;
+      }
+      return;
+    }
+  }
+
+  // 대기 중인 방에서 찾기
   leaveCoopRoom(playerId);
 }
 
 function handleCoopReady(playerId: string, isReady: boolean): void {
   console.log(`[Coop] ${playerId} 준비 상태: ${isReady}`);
+
+  // 먼저 대기 중인 방에서 찾기
   setCoopReady(playerId, isReady);
+
+  // 게임 방에서도 찾기 (게임 종료 후 로비 복귀 시)
+  const player = players.get(playerId);
+  if (player && player.roomId) {
+    const room = coopGameRooms.get(player.roomId);
+    if (room) {
+      room.setPlayerReady(playerId, isReady);
+    }
+  }
 }
 
 function handleChangeCoopClass(playerId: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
   console.log(`[Coop] ${playerId} 직업 변경: ${heroClass} (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
+
+  // 먼저 대기 중인 방에서 찾기
   changeCoopClass(playerId, heroClass, characterLevel ?? 1, statUpgrades);
+
+  // 게임 방에서도 찾기 (게임 종료 후 로비 복귀 시)
+  const player = players.get(playerId);
+  if (player && player.roomId) {
+    const room = coopGameRooms.get(player.roomId);
+    if (room) {
+      room.changePlayerClass(playerId, heroClass, characterLevel ?? 1, statUpgrades);
+    }
+  }
 }
 
 function handleStartCoopGame(playerId: string): void {
   console.log(`[Coop] ${playerId} 게임 시작 요청`);
-  startCoopGame(playerId);
+
+  // 대기 중인 방에 있는지 확인
+  const waitingRoom = getCoopRoomByPlayerId(playerId);
+
+  if (waitingRoom) {
+    // 대기 중인 방에서 첫 게임 시작
+    console.log(`[Coop] 대기 방에서 게임 시작: ${waitingRoom.code}`);
+    startCoopGame(playerId);
+  } else {
+    // 게임 방에서 재시작 (게임 종료 후 로비 복귀 시)
+    const player = players.get(playerId);
+    if (player && player.roomId) {
+      const room = coopGameRooms.get(player.roomId);
+      if (room) {
+        console.log(`[Coop] 게임 방에서 재시작: ${room.roomCode}`);
+        room.restartGame(playerId);
+      } else {
+        console.log(`[Coop] 게임 시작 실패: 방을 찾을 수 없음 (roomId=${player.roomId})`);
+      }
+    } else {
+      console.log(`[Coop] 게임 시작 실패: 플레이어 정보 없음`);
+    }
+  }
 }
 
 function handleKickCoopPlayer(hostPlayerId: string, targetPlayerId: string): void {
@@ -371,5 +518,72 @@ function handleHostGameOver(playerId: string, result: any): void {
   const room = coopGameRooms.get(player.roomId);
   if (room) {
     room.handleGameOver(playerId, result);
+  }
+}
+
+function handleReturnToLobby(playerId: string): void {
+  console.log(`[Coop] ${playerId} 로비 복귀 요청`);
+  const player = players.get(playerId);
+  if (!player || !player.roomId) {
+    console.log(`[Coop] 로비 복귀 실패: 플레이어 정보 없음`);
+    return;
+  }
+
+  console.log(`[Coop] 플레이어 roomId: ${player.roomId}`);
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.returnToLobby(playerId);
+  } else {
+    console.log(`[Coop] 로비 복귀 실패: 방을 찾을 수 없음 (roomId=${player.roomId})`);
+  }
+}
+
+function handleRestartCoopGame(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.restartGame(playerId);
+  }
+}
+
+function handleDestroyCoopRoom(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.destroyRoom(playerId);
+  }
+}
+
+function handlePauseCoopGame(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.pauseGame(playerId);
+  }
+}
+
+function handleResumeCoopGame(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.resumeGame(playerId);
+  }
+}
+
+function handleStopCoopGame(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    room.stopGame(playerId);
   }
 }

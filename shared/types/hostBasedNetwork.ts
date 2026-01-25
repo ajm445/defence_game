@@ -214,7 +214,7 @@ export interface MultiplayerState {
   // 원격 입력 큐 (호스트용)
   remoteInputQueue: PlayerInput[];
   // 연결 상태
-  connectionState: 'disconnected' | 'connecting' | 'connected' | 'in_lobby' | 'countdown' | 'in_game';
+  connectionState: 'disconnected' | 'connecting' | 'connected' | 'in_lobby' | 'countdown' | 'in_game' | 'post_game';
   // 카운트다운
   countdown: number | null;
 }

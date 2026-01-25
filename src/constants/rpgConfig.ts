@@ -68,12 +68,14 @@ export const GOLD_CONFIG = {
     boss: 500,
   } as GoldTable,
 
-  // 업그레이드 비용
+  // 업그레이드 기본 비용 (1레벨 고정, 이후 레벨 비례 증가)
   UPGRADE_BASE_COST: 50,
-  UPGRADE_COST_MULTIPLIER: 1.5,
 
   // 시작 골드
   STARTING_GOLD: 0,
+
+  // 초당 자동 골드 수급 (goldRate 업그레이드 보너스 적용됨)
+  PASSIVE_GOLD_PER_SECOND: 2,
 } as const;
 
 // 업그레이드 설정 (레벨당 보너스)
@@ -95,8 +97,8 @@ export const UPGRADE_CONFIG = {
     description: '공격속도',
   },
   goldRate: {
-    perLevel: 2,           // 레벨당 +2 추가 골드
-    description: '추가 골드',
+    perLevel: 1,           // 레벨당 +1 초당 골드
+    description: '초당 골드',
   },
   range: {
     perLevel: 8,           // 레벨당 +8 사거리

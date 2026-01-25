@@ -149,6 +149,42 @@ export function drawRPGMinimap(
     }
   }
 
+  // 다른 플레이어(아군) 표시
+  if (state.otherHeroes && state.otherHeroes.size > 0) {
+    // 아군 색상 배열 (플레이어별 다른 색상)
+    const allyColors = ['#00ff88', '#00aaff', '#ff88ff'];
+    let colorIndex = 0;
+
+    state.otherHeroes.forEach((ally) => {
+      // 사망한 아군은 반투명하게 표시
+      const isDead = ally.hp <= 0;
+      const color = allyColors[colorIndex % allyColors.length];
+      colorIndex++;
+
+      const allyX = x + ally.x * scaleX;
+      const allyY = y + ally.y * scaleY;
+
+      // 아군 글로우
+      ctx.fillStyle = isDead ? 'rgba(100, 100, 100, 0.3)' : `${color}40`;
+      ctx.beginPath();
+      ctx.arc(allyX, allyY, 6, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 아군 위치
+      ctx.fillStyle = isDead ? '#666666' : color;
+      ctx.beginPath();
+      ctx.arc(allyX, allyY, 3, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 아군 테두리
+      ctx.strokeStyle = isDead ? '#888888' : color;
+      ctx.lineWidth = 1;
+      ctx.beginPath();
+      ctx.arc(allyX, allyY, 3, 0, Math.PI * 2);
+      ctx.stroke();
+    });
+  }
+
   // 카메라 뷰포트 표시
   const camWidth = 800 * scaleX / state.camera.zoom;
   const camHeight = 600 * scaleY / state.camera.zoom;

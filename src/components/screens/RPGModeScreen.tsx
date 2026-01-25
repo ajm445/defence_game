@@ -17,6 +17,7 @@ import { SkillType } from '../../types/rpg';
 import { LevelUpResult, calculatePlayerExp, calculateClassExp, createDefaultStatUpgrades } from '../../types/auth';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { soundManager } from '../../services/SoundManager';
+import { wsClient } from '../../services/WebSocketClient';
 
 export const RPGModeScreen: React.FC = () => {
   // 게임 루프 시작
@@ -34,6 +35,9 @@ export const RPGModeScreen: React.FC = () => {
   const clearLastGameResult = useProfileStore((state) => state.clearLastGameResult);
   const selectedClass = useSelectedClass();
   const classProgressList = useClassProgress();
+  const multiplayer = useRPGStore((state) => state.multiplayer);
+  const isMultiplayer = multiplayer.isMultiplayer;
+  const isHost = multiplayer.isHost;
 
   // 레벨업 알림 상태
   const [levelUpResult, setLevelUpResult] = useState<LevelUpResult | null>(null);
@@ -131,13 +135,13 @@ export const RPGModeScreen: React.FC = () => {
     [requestSkill]
   );
 
-  // 게임 오버 시 직업 선택 화면으로 이동
+  // 게임 오버 시 대기방 로비로 이동
   const handleBackToMenu = useCallback(() => {
     resetGame();
     clearLastGameResult();
     setLevelUpResult(null);
     setShowLevelUp(false);
-    setScreen('rpgClassSelect');
+    setScreen('rpgCoopLobby');
   }, [resetGame, clearLastGameResult, setScreen]);
 
   const handleRetry = useCallback(() => {
@@ -156,6 +160,38 @@ export const RPGModeScreen: React.FC = () => {
 
     useRPGStore.getState().initGame(characterLevel, statUpgrades);
   }, [resetGame, clearLastGameResult, classProgressList]);
+
+  // 멀티플레이어: 로비로 돌아가기 (호스트만)
+  const handleReturnToLobby = useCallback(() => {
+    wsClient.returnToLobby();
+  }, []);
+
+  // 멀티플레이어: 게임 재시작 (호스트만)
+  const handleRestartGame = useCallback(() => {
+    wsClient.restartCoopGame();
+  }, []);
+
+  // 멀티플레이어: 방 파기 후 대기방으로 이동 (호스트만)
+  const handleDestroyRoom = useCallback(() => {
+    wsClient.destroyCoopRoom();
+    useRPGStore.getState().resetMultiplayerState();
+    resetGame();
+    clearLastGameResult();
+    setLevelUpResult(null);
+    setShowLevelUp(false);
+    setScreen('rpgCoopLobby');
+  }, [resetGame, clearLastGameResult, setScreen]);
+
+  // 멀티플레이어: 방 나가기 (클라이언트)
+  const handleLeaveRoom = useCallback(() => {
+    wsClient.leaveCoopRoom();
+    useRPGStore.getState().resetMultiplayerState();
+    resetGame();
+    clearLastGameResult();
+    setLevelUpResult(null);
+    setShowLevelUp(false);
+    setScreen('rpgCoopLobby');
+  }, [resetGame, clearLastGameResult, setScreen]);
 
   // 레벨업 알림 닫기
   const handleCloseLevelUp = useCallback(() => {
@@ -297,20 +333,63 @@ export const RPGModeScreen: React.FC = () => {
             <div style={{ height: '10px' }} />
 
             {/* 버튼 */}
-            <div className="flex gap-3">
-              <button
-                onClick={handleRetry}
-                className="flex-1 px-6 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan rounded-lg font-bold transition-colors cursor-pointer"
-              >
-                다시 시작
-              </button>
-              <button
-                onClick={handleBackToMenu}
-                className="flex-1 px-6 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold transition-colors cursor-pointer"
-              >
-                메뉴로
-              </button>
-            </div>
+            {isMultiplayer ? (
+              // 멀티플레이어 버튼
+              <div className="flex flex-col gap-3">
+                {isHost ? (
+                  // 호스트 버튼
+                  <>
+                    <button
+                      onClick={handleRestartGame}
+                      className="w-full px-6 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan rounded-lg font-bold transition-colors cursor-pointer"
+                    >
+                      게임 재시작
+                    </button>
+                    <button
+                      onClick={handleReturnToLobby}
+                      className="w-full px-6 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold transition-colors cursor-pointer"
+                    >
+                      로비로 돌아가기
+                    </button>
+                    <button
+                      onClick={handleDestroyRoom}
+                      className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
+                    >
+                      나가기
+                    </button>
+                  </>
+                ) : (
+                  // 클라이언트 버튼
+                  <>
+                    <div className="text-center text-gray-400 py-2">
+                      호스트의 결정을 기다리는 중...
+                    </div>
+                    <button
+                      onClick={handleLeaveRoom}
+                      className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
+                    >
+                      방 나가기
+                    </button>
+                  </>
+                )}
+              </div>
+            ) : (
+              // 싱글플레이어 버튼
+              <div className="flex gap-3">
+                <button
+                  onClick={handleRetry}
+                  className="flex-1 px-6 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan rounded-lg font-bold transition-colors cursor-pointer"
+                >
+                  다시 시작
+                </button>
+                <button
+                  onClick={handleBackToMenu}
+                  className="flex-1 px-6 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold transition-colors cursor-pointer"
+                >
+                  메뉴로
+                </button>
+              </div>
+            )}
           </div>
         </div>
       )}
@@ -321,6 +400,18 @@ export const RPGModeScreen: React.FC = () => {
           result={levelUpResult}
           onClose={handleCloseLevelUp}
         />
+      )}
+
+      {/* 게임 재시작 카운트다운 오버레이 (멀티플레이어) */}
+      {isMultiplayer && multiplayer.connectionState === 'countdown' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-[60]">
+          <div className="text-center">
+            <p className="text-2xl text-gray-300 mb-4">게임 재시작</p>
+            <p className="text-8xl font-bold text-neon-cyan animate-pulse">
+              {multiplayer.countdown || 3}
+            </p>
+          </div>
+        </div>
       )}
 
       {/* 하단 코너 장식 */}

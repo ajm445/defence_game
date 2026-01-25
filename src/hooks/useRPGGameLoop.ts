@@ -204,12 +204,8 @@ export function useRPGGameLoop() {
         showNotification('부활했습니다! (2초간 무적)');
       }
 
-      // 싱글플레이어: 사망 상태에서는 게임 로직 스킵
-      // 멀티플레이어: 호스트 사망해도 게임 로직 계속 실행 (적 AI, 넥서스 데미지 등)
-      if (!state.multiplayer.isMultiplayer) {
-        animationIdRef.current = requestAnimationFrame(tick);
-        return;
-      }
+      // 싱글/멀티 모두: 사망해도 게임 로직 계속 실행 (적 AI, 넥서스 데미지 등)
+      // 영웅 관련 로직(스킬, 자동공격)만 스킵됨
     }
 
     // 스킬 쿨다운 업데이트 (호스트가 살아있을 때만)
@@ -369,8 +365,9 @@ export function useRPGGameLoop() {
     }
 
     // HP 재생 처리 (기사: 패시브, 전사/기사: SP hpRegen 업그레이드)
+    // 사망 상태(hp <= 0)에서는 HP 재생 적용 안함
     const heroForRegen = useRPGStore.getState().hero;
-    if (heroForRegen && heroForRegen.hp < heroForRegen.maxHp) {
+    if (heroForRegen && heroForRegen.hp > 0 && heroForRegen.hp < heroForRegen.maxHp) {
       const heroClass = heroForRegen.heroClass;
       let totalRegen = 0;
 
@@ -1025,6 +1022,35 @@ function updateOtherHeroesMovement(deltaTime: number) {
   state.otherHeroes.forEach((hero, heroId) => {
     // 사망 상태면 이동 스킵
     if (hero.hp <= 0) return;
+
+    // 돌진 중인 경우 - 일반 이동보다 우선
+    if (hero.dashState) {
+      const dash = hero.dashState;
+      const newProgress = dash.progress + deltaTime / dash.duration;
+
+      if (newProgress >= 1) {
+        // 돌진 완료
+        state.updateOtherHero(heroId, {
+          x: dash.targetX,
+          y: dash.targetY,
+          dashState: undefined,
+          state: 'idle',
+        });
+      } else {
+        // 돌진 중 - easeOutQuad 이징 적용 (가속 후 감속)
+        const easedProgress = 1 - (1 - newProgress) * (1 - newProgress);
+        const newX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
+        const newY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
+        state.updateOtherHero(heroId, {
+          x: newX,
+          y: newY,
+          dashState: { ...dash, progress: newProgress },
+          state: 'moving',
+        });
+      }
+      return; // 돌진 중이면 일반 이동 처리 안함
+    }
+
     if (!hero.moveDirection) return;
 
     const { x: dirX, y: dirY } = hero.moveDirection;
@@ -1199,18 +1225,104 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
         attackedTarget = true;
       }
     } else {
-      // 다른 클래스: 기존 로직 (단일 타겟 또는 범위 공격)
+      // 다른 클래스: 전사/기사/마법사 범위 공격
+      const isAoE = heroClass === 'warrior' || heroClass === 'knight' || heroClass === 'mage';
+
+      // 가장 가까운 적을 기준으로 공격 방향 결정
       const nearestEnemy = findNearestEnemyForHero(hero, enemies);
 
-      if (nearestEnemy) {
-        const dist = distance(hero.x, hero.y, nearestEnemy.x, nearestEnemy.y);
-        if (dist <= attackRange) {
-          // killerHeroId를 전달하여 해당 플레이어에게 골드 지급
+      // 적이 사거리 내에 있는지 확인
+      const hasEnemyInRange = nearestEnemy && distance(hero.x, hero.y, nearestEnemy.x, nearestEnemy.y) <= attackRange;
+
+      if (hasEnemyInRange && nearestEnemy) {
+        // 공격 방향 계산 (가장 가까운 적 방향)
+        const dirX = nearestEnemy.x - hero.x;
+        const dirY = nearestEnemy.y - hero.y;
+        const dirDist = Math.sqrt(dirX * dirX + dirY * dirY);
+        const normalizedDirX = dirDist > 0 ? dirX / dirDist : 1;
+        const normalizedDirY = dirDist > 0 ? dirY / dirDist : 0;
+
+        const hitTargets: { x: number; y: number; damage: number }[] = [];
+        let totalHealAmount = 0;
+        let hitCount = 0;
+
+        // 근거리(전사, 기사)는 약 110도, 원거리(마법사)는 90도
+        const isMelee = heroClass === 'warrior' || heroClass === 'knight';
+        const attackAngleThreshold = isMelee ? -0.3 : 0.0;
+        const baseAttackRange = attackRange + 50;  // 기지는 크기가 크므로 추가 사거리
+
+        if (isAoE) {
+          // 범위 공격: 사거리 내 + 전방 각도 내 모든 적 공격
+          for (const enemy of enemies) {
+            if (enemy.hp <= 0) continue;
+
+            const distToEnemy = distance(hero.x, hero.y, enemy.x, enemy.y);
+            if (distToEnemy > attackRange) continue;
+
+            // 바라보는 방향 체크 (내적 사용)
+            const enemyDx = enemy.x - hero.x;
+            const enemyDy = enemy.y - hero.y;
+            const enemyDist = Math.sqrt(enemyDx * enemyDx + enemyDy * enemyDy);
+            if (enemyDist === 0) continue;
+
+            const enemyDirX = enemyDx / enemyDist;
+            const enemyDirY = enemyDy / enemyDist;
+            const dot = normalizedDirX * enemyDirX + normalizedDirY * enemyDirY;
+
+            // 바라보는 방향 범위 밖이면 스킵
+            if (dot < attackAngleThreshold) continue;
+
+            // 데미지 적용
+            const killed = state.damageEnemy(enemy.id, totalDamage, heroId);
+            if (killed) {
+              state.removeEnemy(enemy.id);
+            }
+            hitTargets.push({ x: enemy.x, y: enemy.y, damage: totalDamage });
+            hitCount++;
+          }
+
+          // AoE 공격: 범위 내 기지도 함께 공격
+          for (const base of state.enemyBases) {
+            if (base.destroyed) continue;
+
+            const distToBase = distance(hero.x, hero.y, base.x, base.y);
+            if (distToBase > baseAttackRange) continue;
+
+            // 바라보는 방향 체크 (기지는 더 관대하게)
+            const baseDx = base.x - hero.x;
+            const baseDy = base.y - hero.y;
+            const baseDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
+            if (baseDist === 0) continue;
+
+            const baseDirX = baseDx / baseDist;
+            const baseDirY = baseDy / baseDist;
+            const dot = normalizedDirX * baseDirX + normalizedDirY * baseDirY;
+
+            // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대: -0.5)
+            if (dot < -0.5) continue;
+
+            // 기지 데미지 적용
+            const destroyed = state.damageBase(base.id, totalDamage);
+            hitTargets.push({ x: base.x, y: base.y, damage: totalDamage });
+
+            if (destroyed) {
+              const showNotification = useUIStore.getState().showNotification;
+              showNotification(`적 기지 파괴!`);
+              soundManager.play('victory');
+            }
+          }
+        } else {
+          // 단일 타겟 공격
           const killed = state.damageEnemy(nearestEnemy.id, totalDamage, heroId);
           if (killed) {
             state.removeEnemy(nearestEnemy.id);
           }
+          hitTargets.push({ x: nearestEnemy.x, y: nearestEnemy.y, damage: totalDamage });
+          hitCount = 1;
+        }
 
+        // 적중한 적이 있으면 처리
+        if (hitCount > 0) {
           // 피해흡혈 적용: 전사 패시브 (전사만) + 광전사 버프 (모든 클래스)
           {
             // 전사 패시브 피해흡혈 (전사만)
@@ -1231,26 +1343,25 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
               : 0;
 
             if (totalLifesteal > 0) {
-              const healAmount = Math.floor(totalDamage * totalLifesteal);
+              // 모든 적중에 대해 피해흡혈 적용
+              const totalDamageDealt = totalDamage * hitCount;
+              const healAmount = Math.floor(totalDamageDealt * totalLifesteal);
               if (healAmount > 0) {
-                const currentHero = state.otherHeroes.get(heroId);
-                if (currentHero) {
-                  const newHp = Math.min(currentHero.maxHp, currentHero.hp + healAmount);
-                  state.updateOtherHero(heroId, { hp: newHp });
-                }
+                totalHealAmount = healAmount;
               }
             }
           }
 
-          // 공격 방향 계산
-          const dirX = nearestEnemy.x - hero.x;
-          const dirY = nearestEnemy.y - hero.y;
-          const dirDist = Math.sqrt(dirX * dirX + dirY * dirY);
-          const normalizedDirX = dirDist > 0 ? dirX / dirDist : 1;
-          const normalizedDirY = dirDist > 0 ? dirY / dirDist : 0;
+          // 피해흡혈 적용
+          if (totalHealAmount > 0) {
+            const currentHero = state.otherHeroes.get(heroId);
+            if (currentHero) {
+              const newHp = Math.min(currentHero.maxHp, currentHero.hp + totalHealAmount);
+              state.updateOtherHero(heroId, { hp: newHp });
+            }
+          }
 
-          // 호스트와 동일한 SkillEffect 형식으로 이펙트 추가 (네트워크 동기화)
-          const isAoE = heroClass === 'warrior' || heroClass === 'knight' || heroClass === 'mage';
+          // 스킬 이펙트 추가
           state.addSkillEffect({
             type: qSkillType,
             position: { x: hero.x, y: hero.y },
@@ -1259,7 +1370,7 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             damage: totalDamage,
             duration: 0.4,
             startTime: _gameTime,
-            hitTargets: [{ x: nearestEnemy.x, y: nearestEnemy.y, damage: totalDamage }],
+            hitTargets,
             heroClass: heroClass,
           });
 
@@ -1268,12 +1379,13 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             s.type === qSkillType ? { ...s, currentCooldown: s.cooldown } : s
           );
 
-          // 기사 Q 스킬 적중 시 W 스킬 쿨다운 1초 감소
+          // 기사 Q 스킬 적중 시 W 스킬 쿨다운 1초 감소 (적중 수만큼)
           if (heroClass === 'knight') {
+            const cooldownReduction = 1.0 * hitCount;
             const wSkillType = CLASS_SKILLS.knight.w.type;
             skillsWithCooldown = skillsWithCooldown.map(s => {
               if (s.type === wSkillType && s.currentCooldown > 0) {
-                return { ...s, currentCooldown: Math.max(0, s.currentCooldown - 1.0) };
+                return { ...s, currentCooldown: Math.max(0, s.currentCooldown - cooldownReduction) };
               }
               return s;
             });

@@ -315,6 +315,53 @@ export class RPGCoopGameRoom {
 }
 ```
 
+### 방 상태 관리
+
+RPG 협동 모드는 두 개의 방 저장소를 사용합니다:
+
+| 저장소 | 용도 | 상태 |
+|--------|------|------|
+| `waitingCoopRooms` | 로비 목록 표시, 방 입장 관리 | `waiting`, `started` |
+| `coopGameRooms` | 게임 진행 중 메시지 릴레이 | 게임 방 인스턴스 |
+
+#### 방 생명주기
+
+```
+[방 생성]
+  → waitingCoopRooms에 추가 (state: 'waiting')
+  → 로비 목록에 표시됨
+       ↓
+[게임 시작]
+  → waitingCoopRooms 상태 변경 (state: 'started')
+  → coopGameRooms에 RPGCoopGameRoom 인스턴스 생성
+  → 로비에서 "게임 중" 표시, 입장 불가
+       ↓
+[로비 복귀]
+  → waitingCoopRooms 상태 변경 (state: 'waiting')
+  → 플레이어 목록 동기화
+  → 로비에서 다시 입장 가능
+       ↓
+[방 파기]
+  → waitingCoopRooms에서 삭제
+  → coopGameRooms에서 삭제
+```
+
+#### 플레이어 퇴장 처리
+
+```typescript
+// 게임 중 플레이어 퇴장 시
+function handleLeaveCoopRoom(playerId: string): void {
+  // 1. 게임 방에서 플레이어 제거
+  const gameRoom = coopGameRooms.get(roomId);
+  if (gameRoom) {
+    gameRoom.handlePlayerDisconnect(playerId);
+  }
+
+  // 2. 대기 방 플레이어 목록 동기화
+  syncWaitingRoomPlayers(roomId, playerIds, playerInfos);
+}
+```
+
 ### 동기화 방식
 
 | 방향 | 내용 | 주기 |
@@ -344,6 +391,7 @@ export class RPGCoopGameRoom {
 
 | 타입 | 설명 |
 |------|------|
+| `GET_COOP_ROOM_LIST` | 방 목록 조회 |
 | `CREATE_COOP_ROOM` | 협동 방 생성 |
 | `JOIN_COOP_ROOM` | 협동 방 입장 |
 | `LEAVE_COOP_ROOM` | 협동 방 퇴장 |
@@ -360,6 +408,7 @@ export class RPGCoopGameRoom {
 
 | 타입 | 설명 |
 |------|------|
+| `COOP_ROOM_LIST` | 방 목록 응답 (isInGame 포함) |
 | `COOP_ROOM_CREATED` | 방 생성 완료 |
 | `COOP_ROOM_JOINED` | 방 입장 완료 |
 | `COOP_PLAYER_JOINED` | 다른 플레이어 입장 |
@@ -386,6 +435,23 @@ interface PlayerInput {
   };
   upgradeRequested?: 'attack' | 'speed' | 'hp' | ...;
   timestamp: number;
+}
+```
+
+### 방 목록 정보 구조
+
+```typescript
+interface WaitingCoopRoomInfo {
+  roomId: string;
+  roomCode: string;
+  hostName: string;
+  hostHeroClass: HeroClass;
+  hostClassLevel: number;
+  playerCount: number;
+  maxPlayers: number;
+  createdAt: number;
+  isPrivate: boolean;
+  isInGame?: boolean;  // 게임 진행 중인 방 (입장 불가)
 }
 ```
 

@@ -3,7 +3,7 @@ import { players, sendToPlayer } from '../state/players';
 import { addCoopRoom } from '../websocket/MessageHandler';
 import { RPGCoopGameRoom } from '../game/RPGCoopGameRoom';
 import type { HeroClass } from '../../../src/types/rpg';
-import type { CoopPlayerInfo, COOP_CONFIG } from '../../../shared/types/rpgNetwork';
+import type { CoopPlayerInfo, COOP_CONFIG, WaitingCoopRoomInfo } from '../../../shared/types/rpgNetwork';
 import type { CharacterStatUpgrades } from '../../../src/types/auth';
 
 // 대기 중인 협동 방 정보
@@ -14,6 +14,7 @@ interface WaitingCoopRoom {
   players: Map<string, CoopPlayerInfo>;  // playerId -> CoopPlayerInfo
   createdAt: number;
   state: 'waiting' | 'countdown' | 'started';
+  isPrivate: boolean;  // 비밀방 여부
 }
 
 // 대기 중인 협동 방 저장소
@@ -44,7 +45,8 @@ export function createCoopRoom(
   playerName: string,
   heroClass: HeroClass,
   characterLevel: number = 1,
-  statUpgrades?: CharacterStatUpgrades
+  statUpgrades?: CharacterStatUpgrades,
+  isPrivate: boolean = false
 ): WaitingCoopRoom | null {
   const player = players.get(hostPlayerId);
   if (!player) {
@@ -79,6 +81,7 @@ export function createCoopRoom(
     players: new Map([[hostPlayerId, hostInfo]]),
     createdAt: Date.now(),
     state: 'waiting',
+    isPrivate,
   };
 
   waitingCoopRooms.set(roomId, room);
@@ -86,7 +89,7 @@ export function createCoopRoom(
   player.roomId = roomId;
   player.name = playerName;
 
-  console.log(`[Coop] 방 생성: ${code} (Host: ${playerName}, Class: ${heroClass})`);
+  console.log(`[Coop] 방 생성: ${code} (Host: ${playerName}, Class: ${heroClass}, Private: ${isPrivate})`);
 
   // 방 생성 완료 알림
   sendToPlayer(hostPlayerId, {
@@ -228,6 +231,7 @@ export function leaveCoopRoom(playerId: string): void {
           sendToPlayer(id, {
             type: 'COOP_ROOM_JOINED',
             roomId: room.id,
+            roomCode: room.code,
             players: Array.from(room.players.values()),
             yourIndex: Array.from(room.players.keys()).indexOf(id),
           });
@@ -292,6 +296,7 @@ export function changeCoopClass(playerId: string, heroClass: HeroClass, characte
       type: 'COOP_PLAYER_CLASS_CHANGED',
       playerId,
       heroClass,
+      characterLevel,
     });
     // 준비 상태도 함께 알림
     sendToPlayer(id, {
@@ -390,17 +395,15 @@ export function startCoopGame(hostPlayerId: string): void {
   const playerIds = Array.from(room.players.keys());
   const playerInfos = Array.from(room.players.values());
 
-  const gameRoom = new RPGCoopGameRoom(room.id, playerIds, playerInfos);
+  const gameRoom = new RPGCoopGameRoom(room.id, room.code, playerIds, playerInfos);
 
   // MessageHandler에 게임 방 등록
   addCoopRoom(gameRoom);
 
   console.log(`[Coop] 게임 시작: ${room.code} (${room.players.size}명)`);
 
-  // 대기 방에서 삭제 (GameRoom으로 이관)
+  // 대기 방 상태를 'started'로 변경 (방은 유지)
   room.state = 'started';
-  coopRoomCodeMap.delete(room.code);
-  waitingCoopRooms.delete(room.id);
 
   // 카운트다운 시작
   gameRoom.startCountdown();
@@ -426,4 +429,144 @@ export function getCoopRoomByPlayerId(playerId: string): WaitingCoopRoom | null 
     }
   }
   return null;
+}
+
+// 모든 방 목록 조회 (게임 중인 방도 포함)
+export function getAllWaitingCoopRooms(): WaitingCoopRoomInfo[] {
+  return Array.from(waitingCoopRooms.values())
+    .map(room => {
+      const host = room.players.get(room.hostPlayerId);
+      return {
+        roomId: room.id,
+        roomCode: room.code,
+        hostName: host?.name || '알 수 없음',
+        hostHeroClass: host?.heroClass || 'archer',
+        hostClassLevel: host?.characterLevel || 1,
+        playerCount: room.players.size,
+        maxPlayers: MAX_PLAYERS,
+        createdAt: room.createdAt,
+        isPrivate: room.isPrivate,
+        isInGame: room.state === 'started',  // 게임 중인 방 표시
+      };
+    });
+}
+
+// 대기 방 상태 업데이트 (게임 종료 후 로비 복귀 시 사용)
+export function setWaitingRoomState(roomId: string, state: 'waiting' | 'started'): void {
+  const room = waitingCoopRooms.get(roomId);
+  if (room) {
+    room.state = state;
+    console.log(`[Coop] 대기 방 상태 변경: ${room.code} → ${state}`);
+  }
+}
+
+// 대기 방 삭제 (방 파기 시 사용)
+export function deleteWaitingRoom(roomId: string): void {
+  const room = waitingCoopRooms.get(roomId);
+  if (room) {
+    console.log(`[Coop] 대기 방 삭제: ${room.code}`);
+    coopRoomCodeMap.delete(room.code);
+    waitingCoopRooms.delete(roomId);
+  }
+}
+
+// 대기 방 플레이어 동기화 (게임에서 플레이어가 나갔을 때)
+export function syncWaitingRoomPlayers(roomId: string, playerIds: string[], playerInfos: any[]): void {
+  const room = waitingCoopRooms.get(roomId);
+  if (room) {
+    // 현재 플레이어 목록 비우기
+    room.players.clear();
+    // 새 플레이어 목록으로 업데이트
+    playerInfos.forEach((info: any) => {
+      room.players.set(info.id, info);
+    });
+    // 호스트 업데이트
+    const newHost = playerInfos.find((p: any) => p.isHost);
+    if (newHost) {
+      room.hostPlayerId = newHost.id;
+    }
+    console.log(`[Coop] 대기 방 플레이어 동기화: ${room.code} (${room.players.size}명)`);
+  }
+}
+
+// roomId로 협동 방 참가
+export function joinCoopRoomById(
+  roomId: string,
+  playerId: string,
+  playerName: string,
+  heroClass: HeroClass,
+  characterLevel: number = 1,
+  statUpgrades?: CharacterStatUpgrades
+): boolean {
+  const player = players.get(playerId);
+  if (!player) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '플레이어를 찾을 수 없습니다.' });
+    return false;
+  }
+
+  // 이미 방에 있는지 확인
+  if (player.roomId) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '이미 방에 참가 중입니다.' });
+    return false;
+  }
+
+  const room = waitingCoopRooms.get(roomId);
+  if (!room) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '존재하지 않는 방입니다.' });
+    return false;
+  }
+
+  // 방이 이미 가득 찼는지 확인
+  if (room.players.size >= MAX_PLAYERS) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '방이 가득 찼습니다. (최대 4명)' });
+    return false;
+  }
+
+  // 방이 이미 시작됐는지 확인
+  if (room.state === 'started') {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '이미 시작된 방입니다.' });
+    return false;
+  }
+
+  // 참가 처리
+  const playerInfo: CoopPlayerInfo = {
+    id: playerId,
+    name: playerName,
+    heroClass,
+    isHost: false,
+    isReady: false,
+    connected: true,
+    characterLevel,
+    statUpgrades,
+  };
+
+  room.players.set(playerId, playerInfo);
+  player.roomId = roomId;
+  player.name = playerName;
+
+  const playersArray = Array.from(room.players.values());
+  const playerIndex = playersArray.findIndex(p => p.id === playerId);
+
+  console.log(`[Coop] 방 참가(ID): ${room.code} (Player: ${playerName}, Class: ${heroClass})`);
+
+  // 기존 플레이어들에게 새 플레이어 알림
+  room.players.forEach((p, id) => {
+    if (id !== playerId) {
+      sendToPlayer(id, {
+        type: 'COOP_PLAYER_JOINED',
+        player: playerInfo,
+      });
+    }
+  });
+
+  // 참가자에게 방 정보 전송
+  sendToPlayer(playerId, {
+    type: 'COOP_ROOM_JOINED',
+    roomId,
+    roomCode: room.code,
+    players: playersArray,
+    yourIndex: playerIndex,
+  });
+
+  return true;
 }

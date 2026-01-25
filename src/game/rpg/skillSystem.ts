@@ -1,7 +1,7 @@
 import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget, EnemyBase } from '../../types/rpg';
 import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
-import { calculateWarriorLifesteal, rollMultiTarget } from './passiveSystem';
+import { rollMultiTarget } from './passiveSystem';
 
 // 스킬 슬롯에서 스킬 타입 가져오기
 export function getSkillTypeForSlot(heroClass: HeroClass, slot: 'Q' | 'W' | 'E'): SkillType {
@@ -427,20 +427,25 @@ export function executeQSkill(
 
   let updatedHero = startSkillCooldown(hero, skillConfig.type);
 
-  // 전사: 피해흡혈 적용 (기본 패시브 레벨 5 이상 + 패시브 성장 곱연산 with 광전사 버프)
-  if (heroClass === 'warrior' && enemyDamages.length > 0) {
+  // 피해흡혈 적용: 전사 패시브 (전사만) + 광전사 버프 (모든 클래스)
+  if (enemyDamages.length > 0) {
     const totalDamage = enemyDamages.reduce((sum, ed) => sum + ed.damage, 0);
 
-    // 기본 패시브 (레벨 5 이상) + 패시브 성장 피해흡혈
-    const baseLifesteal = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
-    const growthLifesteal = hero.passiveGrowth?.currentValue || 0;
-    const passiveTotal = baseLifesteal + growthLifesteal;
+    // 전사 패시브 피해흡혈 (전사만)
+    let passiveTotal = 0;
+    if (heroClass === 'warrior') {
+      const baseLifesteal = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
+      const growthLifesteal = hero.passiveGrowth?.currentValue || 0;
+      passiveTotal = baseLifesteal + growthLifesteal;
+    }
 
-    // 광전사 버프 피해흡혈
+    // 광전사 버프 피해흡혈 (모든 클래스에 적용)
     const buffLifesteal = berserkerBuff?.lifesteal || 0;
 
     // 곱연산: (1 + 패시브) * (1 + 버프) - 1
-    const totalLifesteal = calculateWarriorLifesteal(passiveTotal, buffLifesteal);
+    const totalLifesteal = passiveTotal > 0 || buffLifesteal > 0
+      ? (1 + passiveTotal) * (1 + buffLifesteal) - 1
+      : 0;
 
     if (totalLifesteal > 0) {
       const healAmount = Math.floor(totalDamage * totalLifesteal);

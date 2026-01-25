@@ -218,9 +218,14 @@ export interface RPGCoopGameResult {
 // ============================================
 
 export type CoopClientMessage =
+  // 사용자 인증
+  | { type: 'USER_LOGIN'; userId: string; nickname: string; isGuest: boolean; level?: number }
+  | { type: 'USER_LOGOUT'; userId: string; nickname: string }
   // 방 관련
-  | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
+  | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; isPrivate?: boolean }
   | { type: 'JOIN_COOP_ROOM'; roomCode: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
+  | { type: 'JOIN_COOP_ROOM_BY_ID'; roomId: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
+  | { type: 'GET_COOP_ROOM_LIST' }
   | { type: 'LEAVE_COOP_ROOM' }
   | { type: 'COOP_READY' }
   | { type: 'COOP_UNREADY' }
@@ -236,7 +241,16 @@ export type CoopClientMessage =
   | { type: 'HOST_GAME_STATE_BROADCAST'; state: SerializedGameState }
   | { type: 'HOST_GAME_EVENT_BROADCAST'; event: any }
   | { type: 'HOST_PLAYER_INPUT'; input: PlayerInput }
-  | { type: 'HOST_GAME_OVER'; result: any };
+  | { type: 'HOST_GAME_OVER'; result: any }
+  // 게임 종료 후 로비 관련
+  | { type: 'RETURN_TO_LOBBY' }
+  | { type: 'RESTART_COOP_GAME' }
+  | { type: 'DESTROY_COOP_ROOM' }
+  // 일시정지 (호스트 전용)
+  | { type: 'PAUSE_COOP_GAME' }
+  | { type: 'RESUME_COOP_GAME' }
+  // 게임 중단 (호스트 전용)
+  | { type: 'STOP_COOP_GAME' };
 
 // ============================================
 // 서버 → 클라이언트 메시지
@@ -245,11 +259,12 @@ export type CoopClientMessage =
 export type CoopServerMessage =
   // 방 관련
   | { type: 'COOP_ROOM_CREATED'; roomCode: string; roomId: string }
-  | { type: 'COOP_ROOM_JOINED'; roomId: string; players: CoopPlayerInfo[]; yourIndex: number }
+  | { type: 'COOP_ROOM_JOINED'; roomId: string; roomCode: string; players: CoopPlayerInfo[]; yourIndex: number }
+  | { type: 'COOP_ROOM_LIST'; rooms: WaitingCoopRoomInfo[] }
   | { type: 'COOP_PLAYER_JOINED'; player: CoopPlayerInfo }
   | { type: 'COOP_PLAYER_LEFT'; playerId: string }
   | { type: 'COOP_PLAYER_READY'; playerId: string; isReady: boolean }
-  | { type: 'COOP_PLAYER_CLASS_CHANGED'; playerId: string; heroClass: HeroClass }
+  | { type: 'COOP_PLAYER_CLASS_CHANGED'; playerId: string; heroClass: HeroClass; characterLevel?: number }
   | { type: 'COOP_PLAYER_KICKED'; playerId: string; reason: string }
   | { type: 'COOP_ROOM_ERROR'; message: string }
   // 게임 시작 (레거시)
@@ -270,7 +285,12 @@ export type CoopServerMessage =
   | { type: 'COOP_PLAYER_INPUT'; input: PlayerInput }
   | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
   | { type: 'COOP_YOU_ARE_NOW_HOST' }
-  | { type: 'COOP_RECONNECT_INFO'; hostPlayerId: string; isHost: boolean; gameState: 'waiting' | 'countdown' | 'playing' | 'ended' };
+  | { type: 'COOP_RECONNECT_INFO'; hostPlayerId: string; isHost: boolean; gameState: 'waiting' | 'countdown' | 'playing' | 'ended' }
+  // 일시정지
+  | { type: 'COOP_GAME_PAUSED' }
+  | { type: 'COOP_GAME_RESUMED' }
+  // 게임 중단 (호스트가 중단)
+  | { type: 'COOP_GAME_STOPPED' };
 
 // ============================================
 // 연결 상태
@@ -295,4 +315,21 @@ export interface CoopRoomInfo {
   isHost: boolean;
   players: CoopPlayerInfo[];
   myIndex: number;
+}
+
+// ============================================
+// 대기방 정보 (목록 조회용)
+// ============================================
+
+export interface WaitingCoopRoomInfo {
+  roomId: string;
+  roomCode: string;
+  hostName: string;
+  hostHeroClass: HeroClass;
+  hostClassLevel: number;  // 호스트가 선택한 직업의 레벨
+  playerCount: number;
+  maxPlayers: number;
+  createdAt: number;
+  isPrivate: boolean;
+  isInGame?: boolean;  // 게임 진행 중인 방
 }

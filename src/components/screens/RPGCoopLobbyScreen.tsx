@@ -1,4 +1,4 @@
-import React, { useEffect, useState, useCallback } from 'react';
+import React, { useEffect, useState, useCallback, useRef } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useRPGStore, useMultiplayer } from '../../stores/useRPGStore';
 import { useGameStore } from '../../stores/useGameStore';
@@ -7,6 +7,7 @@ import { soundManager } from '../../services/SoundManager';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked, createDefaultStatUpgrades } from '../../types/auth';
 import type { HeroClass } from '../../types/rpg';
+import type { WaitingCoopRoomInfo } from '@shared/types/rpgNetwork';
 import { wsClient } from '../../services/WebSocketClient';
 import {
   createMultiplayerRoom,
@@ -14,6 +15,7 @@ import {
   leaveMultiplayerRoom,
   startMultiplayerGame,
 } from '../../hooks/useNetworkSync';
+import { ProfileButton } from '../ui/ProfileButton';
 
 const CLASS_LIST: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
 
@@ -29,11 +31,18 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
   const playerLevel = profile?.playerLevel ?? 1;
+  const classProgress = useAuthStore((state) => state.classProgress);
 
   const [inputRoomCode, setInputRoomCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [roomList, setRoomList] = useState<WaitingCoopRoomInfo[]>([]);
+  const [isLoadingRooms, setIsLoadingRooms] = useState(false);
+  const [showClassModal, setShowClassModal] = useState(false);
+  const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+  const [privateRoomToJoin, setPrivateRoomToJoin] = useState<WaitingCoopRoomInfo | null>(null);
+  const [privateRoomCode, setPrivateRoomCode] = useState('');
 
   // 게임 시작 시 게임 화면으로 전환
   useEffect(() => {
@@ -52,11 +61,87 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     }
   }, [error]);
 
+  // 이전 값 저장용 ref (불필요한 서버 요청 방지)
+  const prevClassRef = useRef<HeroClass | null>(null);
+  const prevStatUpgradesRef = useRef<string>('');
+
+  // 방에 있는 상태에서 classProgress(SP 업그레이드) 또는 직업 변경 시 서버에 업데이트 전송
+  useEffect(() => {
+    if (multiplayer.connectionState !== 'in_lobby') return;
+    if (!selectedClass) return;
+
+    const progress = classProgress.find(p => p.className === selectedClass);
+    const characterLevel = progress?.classLevel || 1;
+    const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+
+    // 변경 여부 확인 (직업 또는 statUpgrades가 변경된 경우에만 전송)
+    const statUpgradesStr = JSON.stringify(statUpgrades);
+    const isClassChanged = prevClassRef.current !== selectedClass;
+    const isStatUpgradesChanged = prevStatUpgradesRef.current !== statUpgradesStr;
+
+    if (!isClassChanged && !isStatUpgradesChanged) {
+      return; // 변경 없으면 스킵
+    }
+
+    // 이전 값 업데이트
+    prevClassRef.current = selectedClass;
+    prevStatUpgradesRef.current = statUpgradesStr;
+
+    // 로컬 플레이어 정보 업데이트
+    const currentPlayers = useRPGStore.getState().multiplayer.players;
+    const updatedPlayers = currentPlayers.map(p =>
+      p.id === wsClient.playerId
+        ? { ...p, heroClass: selectedClass, characterLevel, statUpgrades }
+        : p
+    );
+    useRPGStore.getState().setMultiplayerState({ players: updatedPlayers });
+
+    // 서버에 최신 정보 전송
+    wsClient.send({ type: 'CHANGE_COOP_CLASS', heroClass: selectedClass, characterLevel, statUpgrades });
+  }, [classProgress, multiplayer.connectionState, selectedClass]);
+
+  // 방 목록 자동 갱신 (로비에 있지 않을 때만)
+  useEffect(() => {
+    if (multiplayer.connectionState === 'in_lobby' || multiplayer.connectionState === 'countdown') {
+      return; // 이미 방에 있으면 목록 조회 안 함
+    }
+
+    // 초기 연결 및 방 목록 조회
+    const fetchRoomList = async () => {
+      try {
+        if (!wsClient.isConnected()) {
+          await wsClient.connect();
+        }
+        setIsLoadingRooms(true);
+        wsClient.getCoopRoomList();
+      } catch (e) {
+        console.error('방 목록 조회 실패:', e);
+        setIsLoadingRooms(false);
+      }
+    };
+
+    fetchRoomList();
+
+    // 3초마다 방 목록 갱신
+    const interval = setInterval(() => {
+      if (wsClient.isConnected()) {
+        wsClient.getCoopRoomList();
+      }
+    }, 3000);
+
+    return () => clearInterval(interval);
+  }, [multiplayer.connectionState]);
+
   // WebSocket 메시지 핸들러 설정
   useEffect(() => {
     const handleMessage = (message: any) => {
       switch (message.type) {
         case 'COOP_ROOM_CREATED':
+          // 현재 선택된 직업의 레벨 가져오기
+          const createdClassProgress = useAuthStore.getState().classProgress;
+          const createdProgress = createdClassProgress.find(p => p.className === (selectedClass || 'archer'));
+          const createdCharacterLevel = createdProgress?.classLevel || 1;
+
           useRPGStore.getState().setMultiplayerState({
             roomCode: message.roomCode,
             isHost: true,
@@ -65,7 +150,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               id: wsClient.playerId || '',
               name: profile?.nickname || '플레이어',
               heroClass: selectedClass || 'archer',
-              characterLevel: 1,
+              characterLevel: createdCharacterLevel,
               isHost: true,
               isReady: true,
               connected: true,
@@ -108,7 +193,9 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
         case 'COOP_PLAYER_CLASS_CHANGED':
           const playersWithClassChange = useRPGStore.getState().multiplayer.players.map(p =>
-            p.id === message.playerId ? { ...p, heroClass: message.heroClass } : p
+            p.id === message.playerId
+              ? { ...p, heroClass: message.heroClass, characterLevel: message.characterLevel || p.characterLevel || 1 }
+              : p
           );
           useRPGStore.getState().setMultiplayerState({ players: playersWithClassChange });
           break;
@@ -117,12 +204,59 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           setError(message.message);
           break;
 
+        case 'COOP_ROOM_LIST':
+          setRoomList(message.rooms || []);
+          setIsLoadingRooms(false);
+          break;
+
         case 'COOP_GAME_COUNTDOWN':
           useRPGStore.getState().setMultiplayerState({
             connectionState: 'countdown',
             countdown: message.seconds,
           });
           break;
+
+        // 재시작 카운트다운 (로비 복귀 후 재시작 시)
+        case 'COOP_RESTART_COUNTDOWN':
+          console.log('[Lobby] 게임 재시작 카운트다운');
+          useRPGStore.getState().setMultiplayerState({
+            connectionState: 'countdown',
+            countdown: 3,  // 초기 카운트다운 값 설정
+          });
+          break;
+
+        // 재시작 카운트다운 숫자 (재시작 시)
+        case 'COOP_COUNTDOWN':
+          useRPGStore.getState().setMultiplayerState({
+            countdown: message.countdown,
+          });
+          break;
+
+        // 게임 재시작 (로비 복귀 후 재시작 시)
+        case 'COOP_GAME_RESTART': {
+          console.log('[Lobby] 게임 재시작');
+          const state = useRPGStore.getState();
+          const { players, isHost, hostPlayerId, roomCode, roomId } = state.multiplayer;
+
+          // 게임 리셋
+          state.resetGame();
+
+          // 멀티플레이어 상태 설정
+          state.setMultiplayerState({
+            isMultiplayer: true,
+            connectionState: 'in_game',
+            players,
+            isHost,
+            hostPlayerId,
+            myPlayerId: wsClient.playerId,
+            roomCode,
+            roomId,
+          });
+
+          // 게임 초기화
+          state.initMultiplayerGame(players, isHost);
+          break;
+        }
 
         case 'COOP_GAME_START_HOST_BASED':
           // 멀티플레이어 상태 설정 (전체 초기화)
@@ -158,30 +292,64 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       await wsClient.connect();
 
       const playerName = profile?.nickname || '플레이어';
-      const heroClass = selectedClass || 'archer';
+      // 기본 직업으로 입장 (방 입장 후 변경 가능)
+      const defaultClass: HeroClass = 'archer';
 
       // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
       const classProgress = useAuthStore.getState().classProgress;
-      const progress = classProgress.find(p => p.className === heroClass);
+      const progress = classProgress.find(p => p.className === defaultClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
 
-      joinMultiplayerRoom(inputRoomCode.trim().toUpperCase(), playerName, heroClass, characterLevel, statUpgrades);
+      selectClass(defaultClass);
+      joinMultiplayerRoom(inputRoomCode.trim().toUpperCase(), playerName, defaultClass, characterLevel, statUpgrades);
     } catch (e) {
       setError('서버 연결 실패');
     }
     setIsConnecting(false);
-  }, [inputRoomCode, profile, selectedClass]);
+  }, [inputRoomCode, profile, selectClass]);
+
+  // 방 카드 클릭하여 참가
+  const handleJoinRoomById = useCallback(async (roomId: string) => {
+    soundManager.play('ui_click');
+    setIsConnecting(true);
+
+    try {
+      await wsClient.connect();
+
+      const playerName = profile?.nickname || '플레이어';
+      // 기본 직업으로 입장 (방 입장 후 변경 가능)
+      const defaultClass: HeroClass = 'archer';
+
+      // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
+      const classProgress = useAuthStore.getState().classProgress;
+      const progress = classProgress.find(p => p.className === defaultClass);
+      const characterLevel = progress?.classLevel || 1;
+      const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+
+      selectClass(defaultClass);
+      wsClient.joinCoopRoomById(roomId, playerName, defaultClass, characterLevel, statUpgrades);
+    } catch (e) {
+      setError('서버 연결 실패');
+    }
+    setIsConnecting(false);
+  }, [profile, selectClass]);
 
   const handleBack = useCallback(() => {
     soundManager.play('ui_click');
     if (multiplayer.connectionState === 'in_lobby' || multiplayer.connectionState === 'countdown') {
+      // 로비에서 뒤로가기는 방을 나가고 방 목록으로 이동
       leaveMultiplayerRoom();
+      useRPGStore.getState().resetMultiplayerState();
+      setShowJoinInput(false);
+      setInputRoomCode('');
+      return;
     }
+    // 방 목록에서 뒤로가기는 게임 타입 선택 화면으로 이동
     useRPGStore.getState().resetMultiplayerState();
     setShowJoinInput(false);
     setInputRoomCode('');
-    setScreen('rpgClassSelect');
+    setScreen('gameTypeSelect');
   }, [multiplayer.connectionState, setScreen]);
 
   const handleLeaveRoom = useCallback(() => {
@@ -192,24 +360,20 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   }, []);
 
   const handleClassSelect = useCallback((heroClass: HeroClass) => {
+    // 준비 상태면 직업 변경 불가
+    const myPlayer = multiplayer.players.find(p => p.id === wsClient.playerId);
+    if (myPlayer?.isReady) {
+      setError('준비 상태에서는 직업을 변경할 수 없습니다.');
+      return;
+    }
     if (!isCharacterUnlocked(heroClass, playerLevel, isGuest)) {
       setError('해금되지 않은 직업입니다.');
       return;
     }
     soundManager.play('ui_click');
     selectClass(heroClass);
-
-    // 서버에 직업 변경 알림 (변경된 클래스의 레벨과 SP 업그레이드 전송)
-    if (multiplayer.connectionState === 'in_lobby') {
-      // 해당 클래스의 레벨과 statUpgrades 가져오기
-      const classProgress = useAuthStore.getState().classProgress;
-      const progress = classProgress.find(p => p.className === heroClass);
-      const characterLevel = progress?.classLevel || 1;
-      const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
-
-      wsClient.send({ type: 'CHANGE_COOP_CLASS', heroClass, characterLevel, statUpgrades });
-    }
-  }, [playerLevel, isGuest, selectClass, multiplayer.connectionState]);
+    // 서버 전송은 useEffect에서 selectedClass 변경 감지 시 처리
+  }, [playerLevel, isGuest, selectClass, multiplayer.players]);
 
   const handleStartGame = useCallback(() => {
     soundManager.play('ui_click');
@@ -236,6 +400,77 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     }
   }, [multiplayer.roomCode]);
 
+  // 방 생성 (공개/비밀)
+  const handleCreateRoom = useCallback(async (isPrivate: boolean) => {
+    soundManager.play('ui_click');
+    setShowCreateRoomModal(false);
+    setIsConnecting(true);
+    try {
+      await wsClient.connect();
+      const playerName = profile?.nickname || '플레이어';
+      // 기본 직업으로 방 생성 (방 입장 후 변경 가능)
+      const defaultClass: HeroClass = 'archer';
+
+      const classProgress = useAuthStore.getState().classProgress;
+      const progress = classProgress.find(p => p.className === defaultClass);
+      const characterLevel = progress?.classLevel || 1;
+      const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+
+      selectClass(defaultClass);
+      createMultiplayerRoom(playerName, defaultClass, characterLevel, statUpgrades, isPrivate);
+    } catch (e) {
+      setError('서버 연결 실패');
+    }
+    setIsConnecting(false);
+  }, [profile, selectClass]);
+
+  // 비밀방 코드 확인 후 참가
+  const handleJoinPrivateRoom = useCallback(async () => {
+    if (!privateRoomToJoin) return;
+
+    // 초대 코드 확인
+    if (privateRoomCode.toUpperCase() !== privateRoomToJoin.roomCode) {
+      setError('초대 코드가 일치하지 않습니다.');
+      return;
+    }
+
+    soundManager.play('ui_click');
+    setPrivateRoomToJoin(null);
+    setPrivateRoomCode('');
+    setIsConnecting(true);
+
+    try {
+      await wsClient.connect();
+
+      const playerName = profile?.nickname || '플레이어';
+      const defaultClass: HeroClass = 'archer';
+
+      const classProgress = useAuthStore.getState().classProgress;
+      const progress = classProgress.find(p => p.className === defaultClass);
+      const characterLevel = progress?.classLevel || 1;
+      const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+
+      selectClass(defaultClass);
+      wsClient.joinCoopRoomById(privateRoomToJoin.roomId, playerName, defaultClass, characterLevel, statUpgrades);
+    } catch (e) {
+      setError('서버 연결 실패');
+    }
+    setIsConnecting(false);
+  }, [privateRoomToJoin, privateRoomCode, profile, selectClass]);
+
+  // 방 카드 클릭 처리
+  const handleRoomCardClick = useCallback((room: WaitingCoopRoomInfo) => {
+    if (room.isPrivate) {
+      // 비밀방이면 코드 입력 모달 표시
+      setPrivateRoomToJoin(room);
+      setPrivateRoomCode('');
+      setError(null);
+    } else {
+      // 공개방이면 바로 참가
+      handleJoinRoomById(room.roomId);
+    }
+  }, [handleJoinRoomById]);
+
   // 방 참가 입력 화면
   const renderJoinInput = () => (
     <div className="flex flex-col items-center gap-6">
@@ -251,42 +486,6 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         onKeyDown={(e) => e.key === 'Enter' && handleJoinRoom()}
         autoFocus
       />
-
-      {/* 직업 선택 */}
-      <div className="flex flex-col items-center gap-2">
-        <p className="text-gray-400 text-sm">직업 선택</p>
-        <div className="flex gap-2">
-          {CLASS_LIST.map((heroClass) => {
-            const config = CLASS_CONFIGS[heroClass];
-            const isSelected = selectedClass === heroClass;
-            const isLocked = !isCharacterUnlocked(heroClass, playerLevel, isGuest);
-            const requiredLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
-            return (
-              <button
-                key={heroClass}
-                onClick={() => handleClassSelect(heroClass)}
-                disabled={isLocked}
-                className={`relative px-3 py-1 rounded-lg border transition-all text-sm ${
-                  isLocked
-                    ? 'border-gray-700 text-gray-600 cursor-not-allowed opacity-50'
-                    : isSelected
-                      ? 'bg-neon-cyan/30 border-neon-cyan text-neon-cyan cursor-pointer'
-                      : 'border-gray-600 text-gray-400 hover:border-gray-400 cursor-pointer'
-                }`}
-                title={isLocked ? `레벨 ${requiredLevel} 필요` : config.name}
-              >
-                <span>{config.emoji}</span>
-                <span className="ml-1">{config.name}</span>
-                {isLocked && (
-                  <span className="absolute -top-1 -right-1 text-[10px] bg-gray-700 px-0.5 rounded">
-                    🔒
-                  </span>
-                )}
-              </button>
-            );
-          })}
-        </div>
-      </div>
 
       {error && <p className="text-red-400 text-sm">{error}</p>}
 
@@ -359,7 +558,10 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                         {player.name}
                         {player.isHost && <span className="ml-2 text-yellow-500 text-xs">(호스트)</span>}
                       </p>
-                      <p className="text-gray-500 text-xs">{config.name}</p>
+                      <p className="text-gray-500 text-xs">
+                        {config.name}
+                        <span className="ml-2 text-yellow-400"> Lv.{player.characterLevel || 1}</span>
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -385,41 +587,27 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           </div>
         </div>
 
-        {/* 직업 변경 */}
-        <div className="flex flex-col items-center gap-2">
-          <p className="text-gray-400 text-sm">직업 변경</p>
-          <div className="flex gap-2">
-            {CLASS_LIST.map((heroClass) => {
-              const config = CLASS_CONFIGS[heroClass];
-              const isSelected = selectedClass === heroClass;
-              const isLocked = !isCharacterUnlocked(heroClass, playerLevel, isGuest);
-              const requiredLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
-              return (
-                <button
-                  key={heroClass}
-                  onClick={() => handleClassSelect(heroClass)}
-                  disabled={isLocked}
-                  className={`relative px-3 py-1 rounded-lg border transition-all text-sm ${
-                    isLocked
-                      ? 'border-gray-700 text-gray-600 cursor-not-allowed opacity-50'
-                      : isSelected
-                        ? 'bg-neon-cyan/30 border-neon-cyan text-neon-cyan cursor-pointer'
-                        : 'border-gray-600 text-gray-400 hover:border-gray-400 cursor-pointer'
-                  }`}
-                  title={isLocked ? `레벨 ${requiredLevel} 필요` : config.name}
-                >
-                  <span>{config.emoji}</span>
-                  <span className="ml-1">{config.name}</span>
-                  {isLocked && (
-                    <span className="absolute -top-1 -right-1 text-[10px] bg-gray-700 px-0.5 rounded">
-                      🔒
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
+        {/* 직업 변경 버튼 */}
+        {(() => {
+          const isMyReady = multiplayer.players.find(p => p.id === wsClient.playerId)?.isReady;
+          return (
+            <button
+              onClick={() => !isMyReady && setShowClassModal(true)}
+              disabled={isMyReady}
+              className={`flex items-center gap-2 px-4 py-2 rounded-lg border transition-all ${
+                isMyReady
+                  ? 'border-gray-600 bg-gray-800/50 cursor-not-allowed opacity-50'
+                  : 'border-neon-cyan/50 bg-neon-cyan/10 hover:bg-neon-cyan/20 cursor-pointer'
+              }`}
+            >
+              <span className="text-xl">{CLASS_CONFIGS[selectedClass || 'archer'].emoji}</span>
+              <span className={isMyReady ? 'text-gray-400' : 'text-neon-cyan'}>
+                {CLASS_CONFIGS[selectedClass || 'archer'].name}
+              </span>
+              <span className="text-gray-400 text-sm ml-2">변경</span>
+            </button>
+          );
+        })()}
 
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
@@ -490,82 +678,129 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     }
 
     return (
-      <div className="flex flex-col items-center gap-6">
-        <p className="text-gray-400 mb-4">방을 생성하거나 참가하세요</p>
-
-        {/* 직업 선택 */}
-        <div className="flex flex-col items-center gap-2 mb-4">
-          <p className="text-gray-400 text-sm">직업 선택</p>
-          <div className="flex gap-2">
-            {CLASS_LIST.map((heroClass) => {
-              const config = CLASS_CONFIGS[heroClass];
-              const isSelected = selectedClass === heroClass;
-              const isLocked = !isCharacterUnlocked(heroClass, playerLevel, isGuest);
-              const requiredLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
-              return (
-                <button
-                  key={heroClass}
-                  onClick={() => handleClassSelect(heroClass)}
-                  disabled={isLocked}
-                  className={`relative px-4 py-2 rounded-lg border transition-all ${
-                    isLocked
-                      ? 'border-gray-700 text-gray-600 cursor-not-allowed opacity-50'
-                      : isSelected
-                        ? 'bg-neon-cyan/30 border-neon-cyan text-neon-cyan cursor-pointer'
-                        : 'border-gray-600 text-gray-400 hover:border-gray-400 cursor-pointer'
-                  }`}
-                  title={isLocked ? `레벨 ${requiredLevel} 필요` : config.name}
-                >
-                  <span className="text-lg">{config.emoji}</span>
-                  <span className="ml-1 text-sm">{config.name}</span>
-                  {isLocked && (
-                    <span className="absolute -top-1 -right-1 text-xs bg-gray-700 px-1 rounded">
-                      🔒{requiredLevel}
-                    </span>
-                  )}
-                </button>
-              );
-            })}
-          </div>
-        </div>
-
+      <div className="flex flex-col items-center gap-6 w-full max-w-[820px]">
         {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
 
-        <div className="flex gap-4">
-          <button
-            onClick={async () => {
-              soundManager.play('ui_click');
-              setIsConnecting(true);
-              try {
-                await wsClient.connect();
-                const playerName = profile?.nickname || '플레이어';
-                const heroClass = selectedClass || 'archer';
-
-                // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
-                const classProgress = useAuthStore.getState().classProgress;
-                const progress = classProgress.find(p => p.className === heroClass);
-                const characterLevel = progress?.classLevel || 1;
-                const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
-
-                createMultiplayerRoom(playerName, heroClass, characterLevel, statUpgrades);
-              } catch (e) {
-                setError('서버 연결 실패');
-              }
-              setIsConnecting(false);
-            }}
-            disabled={isConnecting}
-            className="px-8 py-4 rounded-lg bg-neon-cyan/20 border border-neon-cyan text-neon-cyan hover:bg-neon-cyan/30 disabled:opacity-50 transition-all text-lg cursor-pointer"
-          >
-            {isConnecting ? '연결 중...' : '방 생성'}
-          </button>
-
+        {/* 대기방 목록 헤더 */}
+        <div className="w-full flex items-center justify-between mb-2">
+          <div className="flex items-center gap-3">
+            <h2 className="text-xl font-bold text-white">대기방 목록</h2>
+            {isLoadingRooms && (
+              <span className="text-xs text-gray-500 animate-pulse">갱신 중...</span>
+            )}
+          </div>
           <button
             onClick={() => setShowJoinInput(true)}
-            className="px-8 py-4 rounded-lg bg-neon-purple/20 border border-neon-purple text-neon-purple hover:bg-neon-purple/30 transition-all text-lg cursor-pointer"
+            className="px-3 py-1 text-sm text-neon-purple border border-neon-purple/50 rounded-lg hover:bg-neon-purple/10 transition-all cursor-pointer"
+            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
           >
-            방 참가
+            코드로 참가
           </button>
         </div>
+
+        {/* 대기방 그리드 */}
+        <div className="w-full grid grid-cols-3 gap-5">
+          {/* 방 생성 카드 */}
+          <button
+            onClick={() => {
+              soundManager.play('ui_click');
+              setShowCreateRoomModal(true);
+            }}
+            disabled={isConnecting}
+            className="group flex flex-col items-center justify-center p-6 h-[150px] border-2 border-dashed border-gray-600 rounded-xl hover:border-neon-cyan hover:bg-neon-cyan/5 transition-all cursor-pointer disabled:opacity-50"
+          >
+            <span className="text-4xl text-gray-500 group-hover:text-neon-cyan mb-2 transition-colors">+</span>
+            <span className="text-gray-400 group-hover:text-neon-cyan text-sm font-bold transition-colors">
+              {isConnecting ? '연결 중...' : '새 방 생성'}
+            </span>
+          </button>
+
+          {/* 대기 중인 방 카드들 */}
+          {roomList.map((room) => {
+            const config = CLASS_CONFIGS[room.hostHeroClass];
+            const isFull = room.playerCount >= room.maxPlayers;
+            const isInGame = room.isInGame;
+            const canJoin = !isFull && !isInGame;
+            return (
+              <button
+                key={room.roomId}
+                onClick={() => canJoin && handleRoomCardClick(room)}
+                disabled={!canJoin || isConnecting}
+                className={`group relative flex flex-col px-7 py-5 h-[150px] border-2 rounded-xl transition-all text-left ${
+                  isInGame
+                    ? 'border-red-700 bg-red-900/20 cursor-not-allowed opacity-70'
+                    : isFull
+                      ? 'border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-60'
+                      : room.isPrivate
+                        ? 'border-yellow-500/70 hover:border-yellow-400 hover:bg-yellow-500/10 cursor-pointer'
+                        : 'border-neon-purple/70 hover:border-neon-purple hover:bg-neon-purple/10 cursor-pointer'
+                }`}
+              >
+                {/* 게임 중 표시 */}
+                {isInGame && (
+                  <div className="absolute top-3 right-3 px-2 py-0.5 bg-red-600 text-white text-xs font-bold rounded">
+                    게임 중
+                  </div>
+                )}
+                {/* 비밀방 아이콘 */}
+                {room.isPrivate && !isInGame && (
+                  <div className="absolute top-3 right-1 text-yellow-400 text-lg" title="비밀방">
+                    🔒
+                  </div>
+                )}
+
+                {/* 호스트 정보 */}
+                <div className="flex items-center gap-3 mb-3">
+                  <span className="text-3xl">{config.emoji}</span>
+                  <div className="flex-1 min-w-0">
+                    <p className="text-white font-bold text-lg truncate">
+                      {room.hostName}
+                      <span className="ml-2 text-m text-yellow-400 font-normal"> Lv.{room.hostClassLevel}</span>
+                    </p>
+                    <p className="text-gray-500 text-sm">{config.name}</p>
+                  </div>
+                </div>
+
+                {/* 인원수 */}
+                <div className="mt-auto flex items-center justify-between"
+                style={{ paddingLeft: '5px', paddingRight: '5px' }}>
+                  <div className="flex gap-1">
+                    {Array.from({ length: room.maxPlayers }).map((_, i) => (
+                      <div
+                        key={i}
+                        className={`w-3 h-3 rounded-full ${
+                          i < room.playerCount
+                            ? 'bg-green-400'
+                            : 'bg-gray-600'
+                        }`}
+                      />
+                    ))}
+                  </div>
+                  <span className={`text-sm font-bold ${isFull ? 'text-red-400' : 'text-gray-300'}`}>
+                    {room.playerCount}/{room.maxPlayers}
+                  </span>
+                </div>
+              </button>
+            );
+          })}
+
+          {/* 빈 슬롯들 (최소 5개 슬롯 보장) */}
+          {Array.from({ length: Math.max(0, 5 - roomList.length) }).map((_, i) => (
+            <div
+              key={`empty-${i}`}
+              className="flex flex-col items-center justify-center p-6 h-[150px] border border-gray-700/30 border-dashed rounded-xl"
+            >
+              <span className="text-gray-600 text-sm">
+                {i === 0 && roomList.length === 0 && !isLoadingRooms ? '대기 중인 방 없음' : ''}
+              </span>
+            </div>
+          ))}
+        </div>
+
+        {/* 안내 텍스트 */}
+        <p className="text-gray-500 text-xs text-center">
+          방을 클릭하여 참가하거나, 새 방을 생성하세요
+        </p>
       </div>
     );
   };
@@ -589,18 +824,26 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
       </div>
 
+      {/* 왼쪽 상단 프로필 버튼 */}
+      <div className="absolute top-8 left-8 z-20">
+        <ProfileButton />
+      </div>
+
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 flex flex-col items-center animate-fade-in">
         {/* 타이틀 */}
         <h1 className="font-game text-3xl md:text-4xl text-green-400 mb-4">
-          멀티플레이
+          RPG 게임
         </h1>
-        <p className="text-gray-400 mb-8">1~4명이 함께 웨이브를 클리어하세요 (혼자 시작 가능)</p>
+
+        <div style={{ height: '10px' }} />
+
+        <p className="text-gray-400 mb-8">1~4명이 함께 보스를 물리치세요 (혼자 시작 가능)</p>
 
         <div style={{ height: '30px' }} />
 
         {/* 연결 상태에 따른 UI */}
-        <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-8 min-w-[500px] min-h-[400px] flex flex-col items-center justify-center">
+        <div className="bg-gray-900/50 border border-gray-700 rounded-xl px-10 py-10 min-w-[900px] min-h-[480px] flex flex-col items-center justify-center">
           {renderContent()}
         </div>
 
@@ -621,6 +864,304 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       <div className="absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 border-green-500/30" />
       <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-green-500/30" />
       <div className="absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 border-green-500/30" />
+
+      {/* 직업 선택 모달 */}
+      {showClassModal && (
+        <div
+          className="fixed inset-0 bg-black/95 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={() => setShowClassModal(false)}
+        >
+          <div
+            className="animate-fade-in flex flex-col items-center"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 타이틀 */}
+            <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-4">
+              직업 선택
+            </h1>
+
+            <div style={{ height: '10px' }} />
+
+            <p className="text-gray-400 mb-8">플레이할 영웅의 직업을 선택하세요</p>
+
+            <div style={{ height: '50px' }} />
+
+            {/* 직업 카드들 */}
+            <div className="flex gap-6">
+              {CLASS_LIST.map((heroClass) => {
+                const config = CLASS_CONFIGS[heroClass];
+                const isSelected = selectedClass === heroClass;
+                const isLocked = !isCharacterUnlocked(heroClass, playerLevel, isGuest);
+                const unlockLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
+
+                const classColors: Record<HeroClass, { gradient: string; border: string; glow: string }> = {
+                  warrior: {
+                    gradient: 'from-red-500/20 to-orange-500/20',
+                    border: 'border-red-500',
+                    glow: 'shadow-[0_0_20px_rgba(239,68,68,0.3)]',
+                  },
+                  archer: {
+                    gradient: 'from-green-500/20 to-emerald-500/20',
+                    border: 'border-green-500',
+                    glow: 'shadow-[0_0_20px_rgba(34,197,94,0.3)]',
+                  },
+                  knight: {
+                    gradient: 'from-blue-500/20 to-cyan-500/20',
+                    border: 'border-blue-500',
+                    glow: 'shadow-[0_0_20px_rgba(59,130,246,0.3)]',
+                  },
+                  mage: {
+                    gradient: 'from-purple-500/20 to-pink-500/20',
+                    border: 'border-purple-500',
+                    glow: 'shadow-[0_0_20px_rgba(168,85,247,0.3)]',
+                  },
+                };
+
+                const colors = classColors[heroClass];
+
+                return (
+                  <button
+                    key={heroClass}
+                    onClick={() => {
+                      if (!isLocked) {
+                        handleClassSelect(heroClass);
+                        setShowClassModal(false);
+                      }
+                    }}
+                    disabled={isLocked}
+                    className={`
+                      group relative w-52 h-80 rounded-xl overflow-hidden
+                      transition-all duration-300
+                      ${isLocked
+                        ? 'cursor-not-allowed opacity-70'
+                        : 'hover:scale-105 active:scale-95 cursor-pointer'}
+                      ${isSelected && !isLocked ? `${colors.glow} scale-105` : ''}
+                    `}
+                  >
+                    {/* 배경 그라데이션 */}
+                    <div className={`absolute inset-0 bg-gradient-to-b ${colors.gradient} ${!isLocked ? 'group-hover:opacity-150' : ''} transition-all duration-300`} />
+
+                    {/* 테두리 */}
+                    <div className={`
+                      absolute inset-0 border-2 rounded-xl transition-all duration-300
+                      ${isLocked ? 'border-gray-700' : isSelected ? colors.border : 'border-gray-600'}
+                      ${isSelected && !isLocked ? colors.glow : ''}
+                    `} />
+
+                    {/* 잠금 오버레이 */}
+                    {isLocked && (
+                      <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-10 rounded-xl">
+                        <span className="text-4xl mb-2">🔒</span>
+                        <p className="text-gray-300 text-sm font-bold">
+                          {isGuest ? '회원 전용' : `Lv.${unlockLevel} 필요`}
+                        </p>
+                        {isGuest && (
+                          <p className="text-gray-400 text-xs mt-1">회원가입 후 이용 가능</p>
+                        )}
+                      </div>
+                    )}
+
+                    {/* 선택 표시 */}
+                    {isSelected && !isLocked && (
+                      <div className="absolute top-3 right-3 w-8 h-8 bg-green-500 rounded-full flex items-center justify-center z-20">
+                        <span className="text-white text-lg">✓</span>
+                      </div>
+                    )}
+
+                    {/* 컨텐츠 */}
+                    <div className={`relative h-full flex flex-col items-center justify-center p-6 ${isLocked ? 'opacity-50' : ''}`}
+                    style={{ paddingLeft: '5px', paddingRight: '5px' }}>
+                      {/* 이모지 아이콘 */}
+                      <div className={`text-7xl mb-4 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
+                        {config.emoji}
+                      </div>
+
+                      <div style={{ height: '30px' }} />
+
+                      {/* 직업명 */}
+                      <h2 className="font-game text-2xl text-white mb-1">{config.name}</h2>
+                      <p className="text-gray-400 text-sm mb-4">{config.nameEn}</p>
+
+                      <div style={{ height: '10px' }} />
+
+                      {/* 설명 */}
+                      <p className="text-gray-300 text-xs text-center mb-4 px-2">
+                        {config.description}
+                      </p>
+
+                      <div style={{ height: '10px' }} />
+
+                      {/* 스탯 미리보기 */}
+                      <div className="w-full space-y-1 text-xs">
+                        <div className="flex justify-between px-2">
+                          <span className="text-gray-400">HP</span>
+                          <span className="text-white font-bold">{config.hp}</span>
+                        </div>
+                        <div className="flex justify-between px-2">
+                          <span className="text-gray-400">공격력</span>
+                          <span className="text-red-400 font-bold">{config.attack}</span>
+                        </div>
+                        <div className="flex justify-between px-2">
+                          <span className="text-gray-400">공속</span>
+                          <span className="text-yellow-400 font-bold">{config.attackSpeed}초</span>
+                        </div>
+                        <div className="flex justify-between px-2">
+                          <span className="text-gray-400">이동속도</span>
+                          <span className="text-blue-400 font-bold">{config.speed}</span>
+                        </div>
+                        <div className="flex justify-between px-2">
+                          <span className="text-gray-400">사거리</span>
+                          <span className="text-green-400 font-bold">{config.range}</span>
+                        </div>
+                      </div>
+                    </div>
+                  </button>
+                );
+              })}
+            </div>
+
+            <div style={{ height: '50px' }} />
+
+            {/* 안내 텍스트 */}
+            <p className="text-gray-500 text-sm mt-8">카드를 클릭하여 직업을 선택하세요 (배경 클릭 시 닫기)</p>
+          </div>
+        </div>
+      )}
+
+      {/* 방 생성 모달 */}
+      {showCreateRoomModal && (
+        <div
+          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={() => setShowCreateRoomModal(false)}
+        >
+          <div
+            className="animate-fade-in flex flex-col items-center bg-gray-900/90 border border-gray-700 rounded-2xl p-8"
+            style={{ paddingLeft: '20px', paddingRight: '20px', paddingTop: '10px', paddingBottom: '20px' }}
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div style={{ height: '10px' }} />
+
+            {/* 타이틀 */}
+            <h2 className="font-game text-2xl text-yellow-400 mb-6">
+              방 생성
+            </h2>
+
+            <p className="text-gray-400 mb-8">방 유형을 선택하세요</p>
+
+            <div style={{ height: '10px' }} />
+            
+            {/* 공개/비밀 선택 버튼 */}
+            <div className="flex gap-6">
+              {/* 공개방 */}
+              <button
+                onClick={() => handleCreateRoom(false)}
+                disabled={isConnecting}
+                className="group flex flex-col items-center justify-center w-48 h-40 border-2 border-green-500/70 rounded-xl hover:border-green-400 hover:bg-green-500/10 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <span className="text-5xl mb-3">🌐</span>
+                <div style={{ height: '10px' }} />
+                <span className="text-green-400 font-bold text-lg">공개방</span>
+                <span className="text-gray-500 text-xs mt-2 text-center px-2">
+                  목록에 표시되며<br />누구나 참가 가능
+                </span>
+              </button>
+
+              {/* 비밀방 */}
+              <button
+                onClick={() => handleCreateRoom(true)}
+                disabled={isConnecting}
+                className="group flex flex-col items-center justify-center w-48 h-40 border-2 border-neon-purple/70 rounded-xl hover:border-neon-purple hover:bg-neon-purple/10 transition-all cursor-pointer disabled:opacity-50"
+              >
+                <span className="text-5xl mb-3">🔒</span>
+                <div style={{ height: '10px' }} />
+                <span className="text-neon-purple font-bold text-lg">비밀방</span>
+                <span className="text-gray-500 text-xs mt-2 text-center px-2">
+                  초대 코드로만<br />참가 가능
+                </span>
+              </button>
+            </div>
+
+            <div style={{ height: '10px' }} />
+
+            {/* 취소 버튼 */}
+            <button
+              onClick={() => setShowCreateRoomModal(false)}
+              className="mt-8 px-6 py-2 text-gray-400 hover:text-white transition-colors cursor-pointer"
+            >
+              취소
+            </button>
+          </div>
+        </div>
+      )}
+
+      {/* 비밀방 코드 입력 모달 */}
+      {privateRoomToJoin && (
+        <div
+          className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50"
+          onClick={() => {
+            setPrivateRoomToJoin(null);
+            setPrivateRoomCode('');
+            setError(null);
+          }}
+        >
+          <div
+            className="animate-fade-in flex flex-col items-center bg-gray-900/90 border border-yellow-500/50 rounded-2xl p-8"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* 타이틀 */}
+            <div className="flex items-center gap-3 mb-4">
+              <span className="text-3xl">🔒</span>
+              <h2 className="font-game text-2xl text-yellow-400">비밀방</h2>
+            </div>
+
+            {/* 방 정보 */}
+            <div className="flex items-center gap-3 mb-6 px-4 py-3 bg-gray-800/50 rounded-lg">
+              <span className="text-2xl">{CLASS_CONFIGS[privateRoomToJoin.hostHeroClass].emoji}</span>
+              <div>
+                <p className="text-white font-bold">{privateRoomToJoin.hostName}</p>
+                <p className="text-gray-500 text-sm">{privateRoomToJoin.playerCount}/{privateRoomToJoin.maxPlayers}명</p>
+              </div>
+            </div>
+
+            <p className="text-gray-400 mb-4">초대 코드를 입력하세요</p>
+
+            {/* 코드 입력 */}
+            <input
+              type="text"
+              value={privateRoomCode}
+              onChange={(e) => setPrivateRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
+              placeholder="6자리 코드"
+              maxLength={6}
+              className="w-48 px-4 py-4 bg-gray-800/50 border border-yellow-500/50 rounded-lg text-white text-center text-2xl tracking-[0.3em] font-mono focus:border-yellow-400 focus:outline-none uppercase"
+              onKeyDown={(e) => e.key === 'Enter' && handleJoinPrivateRoom()}
+              autoFocus
+            />
+
+            {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
+
+            {/* 버튼들 */}
+            <div className="flex gap-4 mt-6">
+              <button
+                onClick={() => {
+                  setPrivateRoomToJoin(null);
+                  setPrivateRoomCode('');
+                  setError(null);
+                }}
+                className="px-6 py-2 text-gray-400 hover:text-white transition-colors cursor-pointer"
+              >
+                취소
+              </button>
+              <button
+                onClick={handleJoinPrivateRoom}
+                disabled={privateRoomCode.length !== 6 || isConnecting}
+                className="px-6 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500 text-yellow-400 hover:bg-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+              >
+                {isConnecting ? '연결 중...' : '참가'}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };
