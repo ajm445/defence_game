@@ -12,6 +12,7 @@ import {
   startCoopGame,
   handleCoopPlayerDisconnect,
   getAllWaitingCoopRooms,
+  getCoopRoomByPlayerId,
 } from '../room/CoopRoomManager';
 import { sendToPlayer } from '../state/players';
 import { GameRoom } from '../game/GameRoom';
@@ -339,6 +340,22 @@ function handleGetCoopRoomList(playerId: string): void {
 
 function handleLeaveCoopRoom(playerId: string): void {
   console.log(`[Coop] ${playerId} 방 나가기`);
+
+  const player = players.get(playerId);
+  const roomId = player?.roomId;
+
+  // 먼저 게임 방에서 찾기 (게임 중 또는 게임 종료 후)
+  if (roomId) {
+    const gameRoom = coopGameRooms.get(roomId);
+    if (gameRoom) {
+      console.log(`[Coop] 게임 방에서 플레이어 제거: ${roomId}`);
+      gameRoom.handlePlayerDisconnect(playerId);
+      if (player) player.roomId = null;
+      return;
+    }
+  }
+
+  // 대기 중인 방에서 찾기
   leaveCoopRoom(playerId);
 }
 
@@ -377,15 +394,26 @@ function handleChangeCoopClass(playerId: string, heroClass: any, characterLevel?
 function handleStartCoopGame(playerId: string): void {
   console.log(`[Coop] ${playerId} 게임 시작 요청`);
 
-  // 먼저 대기 중인 방에서 시작 시도
-  startCoopGame(playerId);
+  // 대기 중인 방에 있는지 확인
+  const waitingRoom = getCoopRoomByPlayerId(playerId);
 
-  // 게임 방에서도 시도 (게임 종료 후 로비 복귀 시 재시작)
-  const player = players.get(playerId);
-  if (player && player.roomId) {
-    const room = coopGameRooms.get(player.roomId);
-    if (room) {
-      room.restartGame(playerId);
+  if (waitingRoom) {
+    // 대기 중인 방에서 첫 게임 시작
+    console.log(`[Coop] 대기 방에서 게임 시작: ${waitingRoom.code}`);
+    startCoopGame(playerId);
+  } else {
+    // 게임 방에서 재시작 (게임 종료 후 로비 복귀 시)
+    const player = players.get(playerId);
+    if (player && player.roomId) {
+      const room = coopGameRooms.get(player.roomId);
+      if (room) {
+        console.log(`[Coop] 게임 방에서 재시작: ${room.roomCode}`);
+        room.restartGame(playerId);
+      } else {
+        console.log(`[Coop] 게임 시작 실패: 방을 찾을 수 없음 (roomId=${player.roomId})`);
+      }
+    } else {
+      console.log(`[Coop] 게임 시작 실패: 플레이어 정보 없음`);
     }
   }
 }
@@ -487,12 +515,19 @@ function handleHostGameOver(playerId: string, result: any): void {
 }
 
 function handleReturnToLobby(playerId: string): void {
+  console.log(`[Coop] ${playerId} 로비 복귀 요청`);
   const player = players.get(playerId);
-  if (!player || !player.roomId) return;
+  if (!player || !player.roomId) {
+    console.log(`[Coop] 로비 복귀 실패: 플레이어 정보 없음`);
+    return;
+  }
 
+  console.log(`[Coop] 플레이어 roomId: ${player.roomId}`);
   const room = coopGameRooms.get(player.roomId);
   if (room) {
     room.returnToLobby(playerId);
+  } else {
+    console.log(`[Coop] 로비 복귀 실패: 방을 찾을 수 없음 (roomId=${player.roomId})`);
   }
 }
 

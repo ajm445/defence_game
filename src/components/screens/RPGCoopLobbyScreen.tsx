@@ -216,6 +216,48 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           });
           break;
 
+        // 재시작 카운트다운 (로비 복귀 후 재시작 시)
+        case 'COOP_RESTART_COUNTDOWN':
+          console.log('[Lobby] 게임 재시작 카운트다운');
+          useRPGStore.getState().setMultiplayerState({
+            connectionState: 'countdown',
+            countdown: 3,  // 초기 카운트다운 값 설정
+          });
+          break;
+
+        // 재시작 카운트다운 숫자 (재시작 시)
+        case 'COOP_COUNTDOWN':
+          useRPGStore.getState().setMultiplayerState({
+            countdown: message.countdown,
+          });
+          break;
+
+        // 게임 재시작 (로비 복귀 후 재시작 시)
+        case 'COOP_GAME_RESTART': {
+          console.log('[Lobby] 게임 재시작');
+          const state = useRPGStore.getState();
+          const { players, isHost, hostPlayerId, roomCode, roomId } = state.multiplayer;
+
+          // 게임 리셋
+          state.resetGame();
+
+          // 멀티플레이어 상태 설정
+          state.setMultiplayerState({
+            isMultiplayer: true,
+            connectionState: 'in_game',
+            players,
+            isHost,
+            hostPlayerId,
+            myPlayerId: wsClient.playerId,
+            roomCode,
+            roomId,
+          });
+
+          // 게임 초기화
+          state.initMultiplayerGame(players, isHost);
+          break;
+        }
+
         case 'COOP_GAME_START_HOST_BASED':
           // 멀티플레이어 상태 설정 (전체 초기화)
           useRPGStore.getState().setMultiplayerState({
@@ -677,21 +719,31 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           {roomList.map((room) => {
             const config = CLASS_CONFIGS[room.hostHeroClass];
             const isFull = room.playerCount >= room.maxPlayers;
+            const isInGame = room.isInGame;
+            const canJoin = !isFull && !isInGame;
             return (
               <button
                 key={room.roomId}
-                onClick={() => !isFull && handleRoomCardClick(room)}
-                disabled={isFull || isConnecting}
+                onClick={() => canJoin && handleRoomCardClick(room)}
+                disabled={!canJoin || isConnecting}
                 className={`group relative flex flex-col px-7 py-5 h-[150px] border-2 rounded-xl transition-all text-left ${
-                  isFull
-                    ? 'border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-60'
-                    : room.isPrivate
-                      ? 'border-yellow-500/70 hover:border-yellow-400 hover:bg-yellow-500/10 cursor-pointer'
-                      : 'border-neon-purple/70 hover:border-neon-purple hover:bg-neon-purple/10 cursor-pointer'
+                  isInGame
+                    ? 'border-red-700 bg-red-900/20 cursor-not-allowed opacity-70'
+                    : isFull
+                      ? 'border-gray-700 bg-gray-800/30 cursor-not-allowed opacity-60'
+                      : room.isPrivate
+                        ? 'border-yellow-500/70 hover:border-yellow-400 hover:bg-yellow-500/10 cursor-pointer'
+                        : 'border-neon-purple/70 hover:border-neon-purple hover:bg-neon-purple/10 cursor-pointer'
                 }`}
               >
+                {/* 게임 중 표시 */}
+                {isInGame && (
+                  <div className="absolute top-3 right-3 px-2 py-0.5 bg-red-600 text-white text-xs font-bold rounded">
+                    게임 중
+                  </div>
+                )}
                 {/* 비밀방 아이콘 */}
-                {room.isPrivate && (
+                {room.isPrivate && !isInGame && (
                   <div className="absolute top-3 right-1 text-yellow-400 text-lg" title="비밀방">
                     🔒
                   </div>

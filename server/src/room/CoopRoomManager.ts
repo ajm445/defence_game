@@ -402,10 +402,8 @@ export function startCoopGame(hostPlayerId: string): void {
 
   console.log(`[Coop] 게임 시작: ${room.code} (${room.players.size}명)`);
 
-  // 대기 방에서 삭제 (GameRoom으로 이관)
+  // 대기 방 상태를 'started'로 변경 (방은 유지)
   room.state = 'started';
-  coopRoomCodeMap.delete(room.code);
-  waitingCoopRooms.delete(room.id);
 
   // 카운트다운 시작
   gameRoom.startCountdown();
@@ -433,10 +431,9 @@ export function getCoopRoomByPlayerId(playerId: string): WaitingCoopRoom | null 
   return null;
 }
 
-// 대기 중인 모든 방 목록 조회 (공개방만)
+// 모든 방 목록 조회 (게임 중인 방도 포함)
 export function getAllWaitingCoopRooms(): WaitingCoopRoomInfo[] {
   return Array.from(waitingCoopRooms.values())
-    .filter(room => room.state === 'waiting')  // 비밀방도 목록에 표시
     .map(room => {
       const host = room.players.get(room.hostPlayerId);
       return {
@@ -449,8 +446,37 @@ export function getAllWaitingCoopRooms(): WaitingCoopRoomInfo[] {
         maxPlayers: MAX_PLAYERS,
         createdAt: room.createdAt,
         isPrivate: room.isPrivate,
+        isInGame: room.state === 'started',  // 게임 중인 방 표시
       };
     });
+}
+
+// 대기 방 상태 업데이트 (게임 종료 후 로비 복귀 시 사용)
+export function setWaitingRoomState(roomId: string, state: 'waiting' | 'started'): void {
+  const room = waitingCoopRooms.get(roomId);
+  if (room) {
+    room.state = state;
+    console.log(`[Coop] 대기 방 상태 변경: ${room.code} → ${state}`);
+  }
+}
+
+// 대기 방 플레이어 동기화 (게임에서 플레이어가 나갔을 때)
+export function syncWaitingRoomPlayers(roomId: string, playerIds: string[], playerInfos: any[]): void {
+  const room = waitingCoopRooms.get(roomId);
+  if (room) {
+    // 현재 플레이어 목록 비우기
+    room.players.clear();
+    // 새 플레이어 목록으로 업데이트
+    playerInfos.forEach((info: any) => {
+      room.players.set(info.id, info);
+    });
+    // 호스트 업데이트
+    const newHost = playerInfos.find((p: any) => p.isHost);
+    if (newHost) {
+      room.hostPlayerId = newHost.id;
+    }
+    console.log(`[Coop] 대기 방 플레이어 동기화: ${room.code} (${room.players.size}명)`);
+  }
 }
 
 // roomId로 협동 방 참가

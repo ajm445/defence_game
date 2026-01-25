@@ -326,7 +326,10 @@ function handleReturnToLobby(message?: any) {
 function handleRestartCountdown() {
   console.log('[NetworkSync] 게임 재시작 카운트다운 시작');
 
-  useRPGStore.getState().setMultiplayerState({ connectionState: 'countdown' });
+  useRPGStore.getState().setMultiplayerState({
+    connectionState: 'countdown',
+    countdown: 3,  // 초기 카운트다운 값 설정
+  });
 }
 
 function handleGameRestart() {
@@ -372,8 +375,8 @@ function handleRoomDestroyed(reason: string) {
   // 게임 리셋
   useRPGStore.getState().resetGame();
 
-  // 직업 선택 화면으로
-  useUIStore.getState().setScreen('rpgClassSelect');
+  // 대기방 로비 화면으로
+  useUIStore.getState().setScreen('rpgCoopLobby');
 }
 
 /**

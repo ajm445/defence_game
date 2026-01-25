@@ -331,4 +331,5 @@ export interface WaitingCoopRoomInfo {
   maxPlayers: number;
   createdAt: number;
   isPrivate: boolean;
+  isInGame?: boolean;  // 게임 진행 중인 방
 }

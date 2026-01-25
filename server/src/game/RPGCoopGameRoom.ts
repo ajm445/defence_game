@@ -1,5 +1,6 @@
 import { players, sendToPlayer } from '../state/players';
 import { removeCoopRoom } from '../websocket/MessageHandler';
+import { setWaitingRoomState, syncWaitingRoomPlayers } from '../room/CoopRoomManager';
 import type { HeroClass, SkillType, UpgradeLevels } from '../../../src/types/rpg';
 import type {
   CoopPlayerInfo,
@@ -165,12 +166,16 @@ export class RPGCoopGameRoom {
    * → 호스트만 호출 가능
    */
   public returnToLobby(playerId: string): void {
+    console.log(`[Relay] 로비 복귀 요청: Room ${this.id}, playerId=${playerId}, hostPlayerId=${this.hostPlayerId}, gameState=${this.gameState}`);
+
     if (playerId !== this.hostPlayerId) {
+      console.log(`[Relay] 로비 복귀 실패: 호스트가 아님 (${playerId} !== ${this.hostPlayerId})`);
       return;
     }
 
     // 대기 중이거나 카운트다운 중에는 로비 복귀 불가
     if (this.gameState === 'waiting' || this.gameState === 'countdown') {
+      console.log(`[Relay] 로비 복귀 실패: 이미 대기 중 또는 카운트다운 중 (${this.gameState})`);
       return;
     }
 
@@ -197,6 +202,10 @@ export class RPGCoopGameRoom {
       hostPlayerId: this.hostPlayerId,
     });
 
+    // 대기 방 상태를 'waiting'으로 변경하여 로비에 표시
+    setWaitingRoomState(this.id, 'waiting');
+    syncWaitingRoomPlayers(this.id, this.playerIds, this.playerInfos);
+
     console.log(`[Relay] 로비 복귀: Room ${this.id} (${this.roomCode})`);
   }
 
@@ -205,18 +214,25 @@ export class RPGCoopGameRoom {
    * → 호스트만 호출 가능
    */
   public restartGame(playerId: string): void {
+    console.log(`[Relay] 게임 재시작 요청: Room ${this.id}, playerId=${playerId}, hostPlayerId=${this.hostPlayerId}, gameState=${this.gameState}`);
+
     if (playerId !== this.hostPlayerId) {
+      console.log(`[Relay] 게임 재시작 실패: 호스트가 아님 (${playerId} !== ${this.hostPlayerId})`);
       return;
     }
 
     if (this.gameState !== 'waiting' && this.gameState !== 'ended') {
+      console.log(`[Relay] 게임 재시작 실패: 잘못된 상태 (${this.gameState})`);
       return;
     }
 
     // 모든 플레이어가 준비되었는지 확인 (호스트 제외, 혼자일 때는 스킵)
     if (this.playerInfos.length > 1) {
+      const readyStates = this.playerInfos.map(p => `${p.id.slice(0, 8)}: isHost=${p.isHost}, isReady=${p.isReady}`);
+      console.log(`[Relay] 플레이어 준비 상태: ${readyStates.join(', ')}`);
       const allReady = this.playerInfos.every(p => p.isHost || p.isReady);
       if (!allReady) {
+        console.log(`[Relay] 게임 재시작 실패: 모든 플레이어가 준비되지 않음`);
         sendToPlayer(playerId, {
           type: 'COOP_ROOM_ERROR',
           message: '모든 플레이어가 준비되지 않았습니다.',
@@ -492,6 +508,9 @@ export class RPGCoopGameRoom {
     // 플레이어 목록에서 제거
     this.playerIds = this.playerIds.filter(id => id !== playerId);
     this.playerInfos = this.playerInfos.filter(p => p.id !== playerId);
+
+    // 대기 방 플레이어 동기화
+    syncWaitingRoomPlayers(this.id, this.playerIds, this.playerInfos);
 
     // 연결 해제 알림
     this.broadcast({

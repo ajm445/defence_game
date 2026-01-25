@@ -135,13 +135,13 @@ export const RPGModeScreen: React.FC = () => {
     [requestSkill]
   );
 
-  // 게임 오버 시 직업 선택 화면으로 이동
+  // 게임 오버 시 대기방 로비로 이동
   const handleBackToMenu = useCallback(() => {
     resetGame();
     clearLastGameResult();
     setLevelUpResult(null);
     setShowLevelUp(false);
-    setScreen('rpgClassSelect');
+    setScreen('rpgCoopLobby');
   }, [resetGame, clearLastGameResult, setScreen]);
 
   const handleRetry = useCallback(() => {
@@ -190,7 +190,7 @@ export const RPGModeScreen: React.FC = () => {
     clearLastGameResult();
     setLevelUpResult(null);
     setShowLevelUp(false);
-    setScreen('rpgClassSelect');
+    setScreen('rpgCoopLobby');
   }, [resetGame, clearLastGameResult, setScreen]);
 
   // 레벨업 알림 닫기
@@ -400,6 +400,18 @@ export const RPGModeScreen: React.FC = () => {
           result={levelUpResult}
           onClose={handleCloseLevelUp}
         />
+      )}
+
+      {/* 게임 재시작 카운트다운 오버레이 (멀티플레이어) */}
+      {isMultiplayer && multiplayer.connectionState === 'countdown' && (
+        <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-[60]">
+          <div className="text-center">
+            <p className="text-2xl text-gray-300 mb-4">게임 재시작</p>
+            <p className="text-8xl font-bold text-neon-cyan animate-pulse">
+              {multiplayer.countdown || 3}
+            </p>
+          </div>
+        </div>
       )}
 
       {/* 하단 코너 장식 */}
