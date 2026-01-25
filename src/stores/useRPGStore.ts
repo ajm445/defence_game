@@ -48,6 +48,7 @@ interface RPGState extends RPGGameState {
   // 다른 플레이어별 골드 및 업그레이드 (멀티플레이 시 각자 별개)
   otherPlayersGold: Map<string, number>;
   otherPlayersUpgrades: Map<string, UpgradeLevels>;
+  otherPlayersGoldAccumulator: Map<string, number>; // 다른 플레이어 패시브 골드 누적기
 }
 
 interface RPGActions {
@@ -234,6 +235,7 @@ const initialState: RPGState = {
   spawnTimer: 0,
 
   gameTime: 0,
+  goldAccumulator: 0, // 패시브 골드 수급용 시간 누적기
 
   camera: {
     x: NEXUS_CONFIG.position.x,
@@ -277,6 +279,7 @@ const initialState: RPGState = {
   otherHeroes: new Map(),
   otherPlayersGold: new Map(),
   otherPlayersUpgrades: new Map(),
+  otherPlayersGoldAccumulator: new Map(),
 };
 
 // 직업별 스킬 생성
@@ -404,6 +407,7 @@ export const useRPGStore = create<RPGStore>()(
         victory: false,
         paused: false,
         gameTime: 0,
+        goldAccumulator: 0,
         lastSpawnTime: 0,
         spawnTimer: 0,
         // 멀티플레이 상태 초기화
@@ -423,6 +427,7 @@ export const useRPGStore = create<RPGStore>()(
         otherHeroes: new Map(),
         otherPlayersGold: new Map(),
         otherPlayersUpgrades: new Map(),
+        otherPlayersGoldAccumulator: new Map(),
         visibility: {
           exploredCells: new Set<string>(),
           visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
@@ -623,18 +628,13 @@ export const useRPGStore = create<RPGStore>()(
 
     // 골드 추가 (추가 골드 보너스 적용)
     addGold: (amount) => {
-      set((state) => {
-        // 추가 골드 = 레벨 * perLevel (레벨당 +2)
-        const bonusGold = calculateAllUpgradeBonuses(state.upgradeLevels).goldRateBonus;
-        const actualAmount = amount + bonusGold;
-        return {
-          gold: state.gold + actualAmount,
-          stats: {
-            ...state.stats,
-            totalGoldEarned: state.stats.totalGoldEarned + actualAmount,
-          },
-        };
-      });
+      set((state) => ({
+        gold: state.gold + amount,
+        stats: {
+          ...state.stats,
+          totalGoldEarned: state.stats.totalGoldEarned + amount,
+        },
+      }));
     },
 
     // 영웅 스탯 업그레이드
@@ -1049,13 +1049,53 @@ export const useRPGStore = create<RPGStore>()(
     },
 
     updateGameTime: (deltaTime) => {
-      set((state) => ({
+      const state = get();
+
+      // 호스트 자신의 초당 골드 수급량 계산
+      const myGoldPerSecond = GOLD_CONFIG.PASSIVE_GOLD_PER_SECOND +
+        calculateAllUpgradeBonuses(state.upgradeLevels).goldRateBonus;
+
+      // 이번 프레임에 얻은 소수점 골드를 누적
+      const myGoldGained = myGoldPerSecond * deltaTime;
+      const newAccumulator = state.goldAccumulator + myGoldGained;
+
+      // 1 이상이면 정수 부분만 골드로 추가, 나머지는 계속 누적
+      const goldToAdd = Math.floor(newAccumulator);
+      const remainder = newAccumulator - goldToAdd;
+
+      // 멀티플레이어: 다른 플레이어에게도 패시브 골드 지급 (호스트가 처리)
+      const newOtherAccumulators = new Map(state.otherPlayersGoldAccumulator);
+      if (state.multiplayer.isMultiplayer && state.multiplayer.isHost) {
+        state.otherPlayersGold.forEach((_, heroId) => {
+          const otherUpgrades = state.otherPlayersUpgrades.get(heroId);
+          const otherGoldPerSecond = GOLD_CONFIG.PASSIVE_GOLD_PER_SECOND +
+            (otherUpgrades ? calculateAllUpgradeBonuses(otherUpgrades).goldRateBonus : 0);
+
+          // 다른 플레이어의 골드 누적
+          const otherCurrentAccumulator = state.otherPlayersGoldAccumulator.get(heroId) || 0;
+          const otherNewAccumulator = otherCurrentAccumulator + (otherGoldPerSecond * deltaTime);
+          const otherGoldToAdd = Math.floor(otherNewAccumulator);
+          const otherRemainder = otherNewAccumulator - otherGoldToAdd;
+
+          newOtherAccumulators.set(heroId, otherRemainder);
+
+          if (otherGoldToAdd > 0) {
+            get().addGoldToOtherPlayer(heroId, otherGoldToAdd);
+          }
+        });
+      }
+
+      set({
         gameTime: state.gameTime + deltaTime,
+        goldAccumulator: remainder,
+        gold: state.gold + goldToAdd,
+        otherPlayersGoldAccumulator: newOtherAccumulators,
         stats: {
           ...state.stats,
           timePlayed: state.stats.timePlayed + deltaTime,
+          totalGoldEarned: state.stats.totalGoldEarned + goldToAdd,
         },
-      }));
+      });
     },
 
     incrementKills: () => {
@@ -1342,6 +1382,7 @@ export const useRPGStore = create<RPGStore>()(
         otherHeroes: new Map(),
         otherPlayersGold: new Map(),
         otherPlayersUpgrades: new Map(),
+        otherPlayersGoldAccumulator: new Map(),
       });
     },
 
@@ -1352,6 +1393,7 @@ export const useRPGStore = create<RPGStore>()(
       const otherHeroes = new Map<string, HeroUnit>();
       const otherPlayersGold = new Map<string, number>();
       const otherPlayersUpgrades = new Map<string, UpgradeLevels>();
+      const otherPlayersGoldAccumulator = new Map<string, number>();
       const spawnPositions = getMultiplayerSpawnPositions(players.length);
 
       players.forEach((player, index) => {
@@ -1390,6 +1432,7 @@ export const useRPGStore = create<RPGStore>()(
           // 각 플레이어별 골드와 업그레이드 초기화
           otherPlayersGold.set(heroId, GOLD_CONFIG.STARTING_GOLD);
           otherPlayersUpgrades.set(heroId, createInitialUpgradeLevels());
+          otherPlayersGoldAccumulator.set(heroId, 0);
         }
       });
 
@@ -1397,11 +1440,13 @@ export const useRPGStore = create<RPGStore>()(
         otherHeroes,
         otherPlayersGold,
         otherPlayersUpgrades,
+        otherPlayersGoldAccumulator,
         running: true,
         nexus: createInitialNexus(),
         enemyBases: createInitialEnemyBases(),
         gamePhase: 'playing',
         gold: GOLD_CONFIG.STARTING_GOLD,
+        goldAccumulator: 0,
         upgradeLevels: createInitialUpgradeLevels(),
       });
     },

@@ -253,8 +253,11 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
               const nextBonus = getStatBonus(statType, currentLevel + 1);
               const isMaxed = currentLevel >= statConfig.maxLevel;
               const canUpgrade = canUpgradeStat(heroClass, statType);
-              const bonusDisplay = statType === 'speed' ? currentBonus.toFixed(1) : currentBonus;
-              const perLevelDisplay = statType === 'speed' ? statConfig.perLevel.toFixed(1) : statConfig.perLevel;
+              // 소수점 표시가 필요한 스탯들 (부동소수점 오류 방지)
+              const needsDecimalFormat = statType === 'speed' || statType === 'attackSpeed';
+              const decimalPlaces = statType === 'attackSpeed' ? 2 : 1;
+              const bonusDisplay = needsDecimalFormat ? currentBonus.toFixed(decimalPlaces) : currentBonus;
+              const perLevelDisplay = needsDecimalFormat ? statConfig.perLevel.toFixed(decimalPlaces) : statConfig.perLevel;
 
               return (
                 <div

@@ -348,9 +348,16 @@ function handleLeaveCoopRoom(playerId: string): void {
   if (roomId) {
     const gameRoom = coopGameRooms.get(roomId);
     if (gameRoom) {
-      console.log(`[Coop] 게임 방에서 플레이어 제거: ${roomId}`);
-      gameRoom.handlePlayerDisconnect(playerId);
-      if (player) player.roomId = null;
+      // 호스트가 나가면 방 파기
+      if (gameRoom.isHost(playerId)) {
+        console.log(`[Coop] 호스트가 방 나가기 - 방 파기: ${roomId}`);
+        gameRoom.destroyRoom(playerId);
+      } else {
+        // 일반 플레이어는 퇴장 처리
+        console.log(`[Coop] 게임 방에서 플레이어 제거: ${roomId}`);
+        gameRoom.handlePlayerDisconnect(playerId);
+        if (player) player.roomId = null;
+      }
       return;
     }
   }

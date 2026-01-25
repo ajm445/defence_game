@@ -1,6 +1,6 @@
 import { players, sendToPlayer } from '../state/players';
 import { removeCoopRoom } from '../websocket/MessageHandler';
-import { setWaitingRoomState, syncWaitingRoomPlayers } from '../room/CoopRoomManager';
+import { setWaitingRoomState, syncWaitingRoomPlayers, deleteWaitingRoom } from '../room/CoopRoomManager';
 import type { HeroClass, SkillType, UpgradeLevels } from '../../../src/types/rpg';
 import type {
   CoopPlayerInfo,
@@ -571,8 +571,9 @@ export class RPGCoopGameRoom {
       this.countdownTimer = null;
     }
 
-    // 방 정리
+    // 방 정리 (coopGameRooms + waitingCoopRooms 모두 삭제)
     removeCoopRoom(this.id);
+    deleteWaitingRoom(this.id);
     this.playerIds.forEach(playerId => {
       const player = players.get(playerId);
       if (player) {

@@ -204,12 +204,8 @@ export function useRPGGameLoop() {
         showNotification('부활했습니다! (2초간 무적)');
       }
 
-      // 싱글플레이어: 사망 상태에서는 게임 로직 스킵
-      // 멀티플레이어: 호스트 사망해도 게임 로직 계속 실행 (적 AI, 넥서스 데미지 등)
-      if (!state.multiplayer.isMultiplayer) {
-        animationIdRef.current = requestAnimationFrame(tick);
-        return;
-      }
+      // 싱글/멀티 모두: 사망해도 게임 로직 계속 실행 (적 AI, 넥서스 데미지 등)
+      // 영웅 관련 로직(스킬, 자동공격)만 스킵됨
     }
 
     // 스킬 쿨다운 업데이트 (호스트가 살아있을 때만)

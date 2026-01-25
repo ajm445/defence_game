@@ -460,6 +460,16 @@ export function setWaitingRoomState(roomId: string, state: 'waiting' | 'started'
   }
 }
 
+// 대기 방 삭제 (방 파기 시 사용)
+export function deleteWaitingRoom(roomId: string): void {
+  const room = waitingCoopRooms.get(roomId);
+  if (room) {
+    console.log(`[Coop] 대기 방 삭제: ${room.code}`);
+    coopRoomCodeMap.delete(room.code);
+    waitingCoopRooms.delete(roomId);
+  }
+}
+
 // 대기 방 플레이어 동기화 (게임에서 플레이어가 나갔을 때)
 export function syncWaitingRoomPlayers(roomId: string, playerIds: string[], playerInfos: any[]): void {
   const room = waitingCoopRooms.get(roomId);
