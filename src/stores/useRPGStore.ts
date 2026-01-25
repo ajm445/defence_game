@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, UpgradeLevels, RPGGamePhase, BasicAttackEffect } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect } from '../types/rpg';
 import { UnitType } from '../types/unit';
 import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
@@ -107,7 +107,7 @@ interface RPGActions {
 
   // 넥서스/기지
   damageNexus: (amount: number) => void;
-  damageBase: (baseId: 'left' | 'right', amount: number) => boolean; // returns true if destroyed
+  damageBase: (baseId: EnemyBaseId, amount: number) => boolean; // returns true if destroyed
   spawnBosses: () => void;
   setGamePhase: (phase: RPGGamePhase) => void;
 
@@ -188,25 +188,56 @@ const createInitialNexus = (): Nexus => ({
   maxHp: NEXUS_CONFIG.hp,
 });
 
-// 적 기지 초기 상태 생성
-const createInitialEnemyBases = (): EnemyBase[] => [
-  {
-    id: 'left',
-    x: ENEMY_BASE_CONFIG.left.x,
-    y: ENEMY_BASE_CONFIG.left.y,
-    hp: ENEMY_BASE_CONFIG.left.hp,
-    maxHp: ENEMY_BASE_CONFIG.left.hp,
-    destroyed: false,
-  },
-  {
-    id: 'right',
-    x: ENEMY_BASE_CONFIG.right.x,
-    y: ENEMY_BASE_CONFIG.right.y,
-    hp: ENEMY_BASE_CONFIG.right.hp,
-    maxHp: ENEMY_BASE_CONFIG.right.hp,
-    destroyed: false,
-  },
-];
+// 적 기지 초기 상태 생성 (플레이어 수에 따라 기지 수 결정)
+// - 싱글플레이 / 2인: 좌, 우 (2개)
+// - 3인: 좌, 우, 상 (3개)
+// - 4인: 좌, 우, 상, 하 (4개)
+const createInitialEnemyBases = (playerCount: number = 1): EnemyBase[] => {
+  const bases: EnemyBase[] = [
+    {
+      id: 'left',
+      x: ENEMY_BASE_CONFIG.left.x,
+      y: ENEMY_BASE_CONFIG.left.y,
+      hp: ENEMY_BASE_CONFIG.left.hp,
+      maxHp: ENEMY_BASE_CONFIG.left.hp,
+      destroyed: false,
+    },
+    {
+      id: 'right',
+      x: ENEMY_BASE_CONFIG.right.x,
+      y: ENEMY_BASE_CONFIG.right.y,
+      hp: ENEMY_BASE_CONFIG.right.hp,
+      maxHp: ENEMY_BASE_CONFIG.right.hp,
+      destroyed: false,
+    },
+  ];
+
+  // 3인 이상: 상단 기지 추가
+  if (playerCount >= 3) {
+    bases.push({
+      id: 'top',
+      x: ENEMY_BASE_CONFIG.top.x,
+      y: ENEMY_BASE_CONFIG.top.y,
+      hp: ENEMY_BASE_CONFIG.top.hp,
+      maxHp: ENEMY_BASE_CONFIG.top.hp,
+      destroyed: false,
+    });
+  }
+
+  // 4인 이상: 하단 기지 추가
+  if (playerCount >= 4) {
+    bases.push({
+      id: 'bottom',
+      x: ENEMY_BASE_CONFIG.bottom.x,
+      y: ENEMY_BASE_CONFIG.bottom.y,
+      hp: ENEMY_BASE_CONFIG.bottom.hp,
+      maxHp: ENEMY_BASE_CONFIG.bottom.hp,
+      destroyed: false,
+    });
+  }
+
+  return bases;
+};
 
 const initialState: RPGState = {
   running: false,
@@ -939,7 +970,7 @@ export const useRPGStore = create<RPGStore>()(
     },
 
     // 적 기지 피해
-    damageBase: (baseId: 'left' | 'right', amount: number) => {
+    damageBase: (baseId: EnemyBaseId, amount: number) => {
       let destroyed = false;
 
       set((state) => {
@@ -1443,7 +1474,7 @@ export const useRPGStore = create<RPGStore>()(
         otherPlayersGoldAccumulator,
         running: true,
         nexus: createInitialNexus(),
-        enemyBases: createInitialEnemyBases(),
+        enemyBases: createInitialEnemyBases(players.length), // 플레이어 수에 따른 기지 생성
         gamePhase: 'playing',
         gold: GOLD_CONFIG.STARTING_GOLD,
         goldAccumulator: 0,

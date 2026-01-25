@@ -159,9 +159,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           break;
 
         case 'COOP_ROOM_JOINED':
+          // 호스트 위임 시 자신이 새 호스트인지 확인
+          const myPlayerId = wsClient.playerId;
+          const amIHost = message.players?.some((p: any) => p.id === myPlayerId && p.isHost) || false;
           useRPGStore.getState().setMultiplayerState({
             roomCode: message.roomCode,
-            isHost: false,
+            roomId: message.roomId,
+            isHost: amIHost,
             connectionState: 'in_lobby',
             players: message.players || [],
           });

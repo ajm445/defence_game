@@ -68,8 +68,10 @@ export interface Nexus {
 }
 
 // Enemy Base (적 기지)
+export type EnemyBaseId = 'left' | 'right' | 'top' | 'bottom';
+
 export interface EnemyBase {
-  id: 'left' | 'right';
+  id: EnemyBaseId;
   x: number;
   y: number;
   hp: number;
@@ -170,7 +172,7 @@ export interface RPGEnemy extends Unit {
   targetHero: boolean;     // 영웅을 타겟으로 하는지
   aiConfig: EnemyAIConfig; // AI 설정
   buffs: Buff[];           // 활성 버프/디버프 목록
-  fromBase?: 'left' | 'right'; // 스폰된 기지 (넥서스 디펜스용)
+  fromBase?: EnemyBaseId; // 스폰된 기지 (넥서스 디펜스용)
   aggroOnHero: boolean;    // 영웅에게 어그로가 끌렸는지 (공격당하면 true)
   aggroExpireTime?: number; // 어그로 만료 시간 (게임 시간 기준)
   // 멀티플레이어 동기화용

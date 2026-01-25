@@ -597,4 +597,74 @@ export class RPGCoopGameRoom {
   public getPlayerIds(): string[] {
     return this.playerIds;
   }
+
+  public getGameState(): string {
+    return this.gameState;
+  }
+
+  /**
+   * 로비 상태인지 확인 (대기 중)
+   */
+  public isInLobby(): boolean {
+    return this.gameState === 'waiting';
+  }
+
+  /**
+   * 호스트 위임 후 나가기 (로비 상태에서만 사용)
+   * - 다른 플레이어에게 호스트 위임
+   * - 나가는 플레이어 제거
+   * - 아무도 없으면 방 삭제
+   */
+  public transferHostAndLeave(playerId: string): void {
+    if (!this.isHost(playerId)) {
+      // 호스트가 아니면 그냥 퇴장 처리
+      this.handlePlayerDisconnect(playerId);
+      return;
+    }
+
+    // 호스트가 나감
+    const playerIndex = this.playerIds.indexOf(playerId);
+    if (playerIndex !== -1) {
+      this.playerIds.splice(playerIndex, 1);
+      this.playerInfos = this.playerInfos.filter(p => p.id !== playerId);
+    }
+
+    if (this.playerIds.length === 0) {
+      // 아무도 없으면 방 삭제
+      console.log(`[Relay] 마지막 플레이어 퇴장 - 방 삭제: ${this.id}`);
+      this.cleanup();
+      return;
+    }
+
+    // 다음 플레이어를 새 호스트로 지정
+    const newHostId = this.playerIds[0];
+    this.hostPlayerId = newHostId;
+
+    // playerInfos에서 호스트 상태 업데이트
+    this.playerInfos = this.playerInfos.map(p => ({
+      ...p,
+      isHost: p.id === newHostId,
+    }));
+
+    console.log(`[Relay] 호스트 위임: ${playerId} → ${newHostId}, Room ${this.id}`);
+
+    // 모든 플레이어에게 알림
+    this.playerIds.forEach((pid, index) => {
+      sendToPlayer(pid, {
+        type: 'COOP_PLAYER_LEFT',
+        playerId,
+      });
+      // 새 호스트 정보로 방 정보 갱신
+      sendToPlayer(pid, {
+        type: 'COOP_ROOM_JOINED',
+        roomId: this.id,
+        roomCode: this.roomCode,
+        players: this.playerInfos,
+        yourIndex: index,
+      });
+    });
+
+    // 대기 방 정보도 동기화
+    syncWaitingRoomPlayers(this.id, this.playerIds, this.playerInfos);
+  }
 }

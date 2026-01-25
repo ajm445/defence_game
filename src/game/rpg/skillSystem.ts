@@ -1,4 +1,4 @@
-import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget, EnemyBase } from '../../types/rpg';
+import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget, EnemyBase, EnemyBaseId } from '../../types/rpg';
 import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
 import { rollMultiTarget } from './passiveSystem';
@@ -275,7 +275,7 @@ export interface ClassSkillResult {
   hero: HeroUnit;
   effect?: SkillEffect;
   enemyDamages: { enemyId: string; damage: number }[];
-  baseDamages: { baseId: 'left' | 'right'; damage: number }[];  // 기지 데미지
+  baseDamages: { baseId: EnemyBaseId; damage: number }[];  // 기지 데미지
   buff?: Buff;
   pendingSkill?: PendingSkill;
   stunTargets?: string[];
@@ -317,7 +317,7 @@ export function executeQSkill(
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
-  const baseDamages: { baseId: 'left' | 'right'; damage: number }[] = [];
+  const baseDamages: { baseId: EnemyBaseId; damage: number }[] = [];
   const hitTargets: HitTarget[] = []; // 피격 대상 위치 수집
   // 직업별 기본 공격 사거리 사용
   const attackRange = hero.config.range || CLASS_CONFIGS[heroClass].range;
@@ -502,7 +502,7 @@ export function executeWSkill(
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
-  const baseDamages: { baseId: 'left' | 'right'; damage: number }[] = [];
+  const baseDamages: { baseId: EnemyBaseId; damage: number }[] = [];
   const stunTargets: string[] = [];
   let effect: SkillEffect | undefined;
   let updatedHero = hero;
@@ -769,7 +769,7 @@ export function executeESkill(
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
-  const baseDamages: { baseId: 'left' | 'right'; damage: number }[] = [];
+  const baseDamages: { baseId: EnemyBaseId; damage: number }[] = [];
   let effect: SkillEffect | undefined;
   let buff: Buff | undefined;
   let pendingSkill: PendingSkill | undefined;

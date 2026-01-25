@@ -1,4 +1,4 @@
-import { RPGEnemy, EnemyBase, EnemyAIConfig } from '../../types/rpg';
+import { RPGEnemy, EnemyBase, EnemyBaseId, EnemyAIConfig } from '../../types/rpg';
 import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG } from '../../constants/rpgConfig';
 import { CONFIG } from '../../constants/config';
 import { generateId } from '../../utils/math';
@@ -48,7 +48,7 @@ export function createBosses(
  * @param playerCount 플레이어 수 (1~4)
  */
 export function createBoss(
-  baseId: 'left' | 'right',
+  baseId: EnemyBaseId,
   spawnX: number,
   spawnY: number,
   playerCount: number
