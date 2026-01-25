@@ -171,10 +171,16 @@ export const RPGModeScreen: React.FC = () => {
     wsClient.restartCoopGame();
   }, []);
 
-  // 멀티플레이어: 방 파기 (호스트만)
+  // 멀티플레이어: 방 파기 후 대기방으로 이동 (호스트만)
   const handleDestroyRoom = useCallback(() => {
     wsClient.destroyCoopRoom();
-  }, []);
+    useRPGStore.getState().resetMultiplayerState();
+    resetGame();
+    clearLastGameResult();
+    setLevelUpResult(null);
+    setShowLevelUp(false);
+    setScreen('rpgCoopLobby');
+  }, [resetGame, clearLastGameResult, setScreen]);
 
   // 멀티플레이어: 방 나가기 (클라이언트)
   const handleLeaveRoom = useCallback(() => {
@@ -349,7 +355,7 @@ export const RPGModeScreen: React.FC = () => {
                       onClick={handleDestroyRoom}
                       className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
                     >
-                      방 파기
+                      나가기
                     </button>
                   </>
                 ) : (

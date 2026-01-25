@@ -100,9 +100,18 @@ export const signInWithEmail = async (
     };
   } catch (err) {
     console.error('Sign in error:', err);
+    let errorMessage = '로그인 중 오류가 발생했습니다.';
+    if (err instanceof Error) {
+      // 서버 에러 메시지를 한글로 변환
+      if (err.message === 'Invalid login credentials') {
+        errorMessage = '계정을 다시 확인해주세요.';
+      } else {
+        errorMessage = err.message;
+      }
+    }
     return {
       success: false,
-      error: err instanceof Error ? err.message : '로그인 중 오류가 발생했습니다.'
+      error: errorMessage
     };
   }
 };

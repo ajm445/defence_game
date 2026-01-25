@@ -15,6 +15,7 @@ import {
   leaveMultiplayerRoom,
   startMultiplayerGame,
 } from '../../hooks/useNetworkSync';
+import { ProfileButton } from '../ui/ProfileButton';
 
 const CLASS_LIST: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
 
@@ -96,6 +97,11 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     const handleMessage = (message: any) => {
       switch (message.type) {
         case 'COOP_ROOM_CREATED':
+          // 현재 선택된 직업의 레벨 가져오기
+          const createdClassProgress = useAuthStore.getState().classProgress;
+          const createdProgress = createdClassProgress.find(p => p.className === (selectedClass || 'archer'));
+          const createdCharacterLevel = createdProgress?.classLevel || 1;
+
           useRPGStore.getState().setMultiplayerState({
             roomCode: message.roomCode,
             isHost: true,
@@ -104,7 +110,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               id: wsClient.playerId || '',
               name: profile?.nickname || '플레이어',
               heroClass: selectedClass || 'archer',
-              characterLevel: 1,
+              characterLevel: createdCharacterLevel,
               isHost: true,
               isReady: true,
               connected: true,
@@ -147,7 +153,9 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
         case 'COOP_PLAYER_CLASS_CHANGED':
           const playersWithClassChange = useRPGStore.getState().multiplayer.players.map(p =>
-            p.id === message.playerId ? { ...p, heroClass: message.heroClass } : p
+            p.id === message.playerId
+              ? { ...p, heroClass: message.heroClass, characterLevel: message.characterLevel || p.characterLevel || 1 }
+              : p
           );
           useRPGStore.getState().setMultiplayerState({ players: playersWithClassChange });
           break;
@@ -284,6 +292,15 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       const progress = classProgress.find(p => p.className === heroClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+
+      // 로컬 플레이어 정보도 업데이트
+      const currentPlayers = useRPGStore.getState().multiplayer.players;
+      const updatedPlayers = currentPlayers.map(p =>
+        p.id === wsClient.playerId
+          ? { ...p, heroClass, characterLevel }
+          : p
+      );
+      useRPGStore.getState().setMultiplayerState({ players: updatedPlayers });
 
       wsClient.send({ type: 'CHANGE_COOP_CLASS', heroClass, characterLevel, statUpgrades });
     }
@@ -472,7 +489,10 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                         {player.name}
                         {player.isHost && <span className="ml-2 text-yellow-500 text-xs">(호스트)</span>}
                       </p>
-                      <p className="text-gray-500 text-xs">{config.name}</p>
+                      <p className="text-gray-500 text-xs">
+                        {config.name}
+                        <span className="ml-2 text-yellow-400"> Lv.{player.characterLevel || 1}</span>
+                      </p>
                     </div>
                   </div>
                   <div className="flex items-center gap-2">
@@ -713,6 +733,11 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
       </div>
 
+      {/* 왼쪽 상단 프로필 버튼 */}
+      <div className="absolute top-8 left-8 z-20">
+        <ProfileButton />
+      </div>
+
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 flex flex-col items-center animate-fade-in">
         {/* 타이틀 */}
@@ -920,8 +945,11 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         >
           <div
             className="animate-fade-in flex flex-col items-center bg-gray-900/90 border border-gray-700 rounded-2xl p-8"
+            style={{ paddingLeft: '20px', paddingRight: '20px', paddingTop: '10px', paddingBottom: '20px' }}
             onClick={(e) => e.stopPropagation()}
           >
+            <div style={{ height: '10px' }} />
+
             {/* 타이틀 */}
             <h2 className="font-game text-2xl text-yellow-400 mb-6">
               방 생성
@@ -929,6 +957,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
             <p className="text-gray-400 mb-8">방 유형을 선택하세요</p>
 
+            <div style={{ height: '10px' }} />
+            
             {/* 공개/비밀 선택 버튼 */}
             <div className="flex gap-6">
               {/* 공개방 */}
@@ -938,6 +968,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                 className="group flex flex-col items-center justify-center w-48 h-40 border-2 border-green-500/70 rounded-xl hover:border-green-400 hover:bg-green-500/10 transition-all cursor-pointer disabled:opacity-50"
               >
                 <span className="text-5xl mb-3">🌐</span>
+                <div style={{ height: '10px' }} />
                 <span className="text-green-400 font-bold text-lg">공개방</span>
                 <span className="text-gray-500 text-xs mt-2 text-center px-2">
                   목록에 표시되며<br />누구나 참가 가능
@@ -951,12 +982,15 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                 className="group flex flex-col items-center justify-center w-48 h-40 border-2 border-neon-purple/70 rounded-xl hover:border-neon-purple hover:bg-neon-purple/10 transition-all cursor-pointer disabled:opacity-50"
               >
                 <span className="text-5xl mb-3">🔒</span>
+                <div style={{ height: '10px' }} />
                 <span className="text-neon-purple font-bold text-lg">비밀방</span>
                 <span className="text-gray-500 text-xs mt-2 text-center px-2">
                   초대 코드로만<br />참가 가능
                 </span>
               </button>
             </div>
+
+            <div style={{ height: '10px' }} />
 
             {/* 취소 버튼 */}
             <button

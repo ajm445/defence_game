@@ -140,8 +140,10 @@ export const LoginScreen: React.FC = () => {
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-md px-6">
         {/* 타이틀 */}
-        <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-3">
-          RPG 모드
+        <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-3 text-center">
+          RPG 모드<br></br>
+          <div style={{ height: '8px' }} />
+          # 현재 RTS 모드는 지원 X
         </h1>
 
         <div style={{ height: '20px' }} />

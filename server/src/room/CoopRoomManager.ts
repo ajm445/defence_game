@@ -296,6 +296,7 @@ export function changeCoopClass(playerId: string, heroClass: HeroClass, characte
       type: 'COOP_PLAYER_CLASS_CHANGED',
       playerId,
       heroClass,
+      characterLevel,
     });
     // 준비 상태도 함께 알림
     sendToPlayer(id, {
