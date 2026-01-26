@@ -17,7 +17,10 @@ export type EffectType =
   // 보스 스킬 이펙트
   | 'boss_smash'
   | 'boss_shockwave'
-  | 'boss_summon';
+  | 'boss_summon'
+  | 'boss_knockback'
+  | 'boss_charge'
+  | 'boss_heal';
 
 export type ParticleShape = 'circle' | 'square' | 'star' | 'emoji' | 'cross';
 

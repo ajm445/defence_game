@@ -281,4 +281,49 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     shape: 'circle',
     spread: Math.PI * 2,
   },
+
+  // 보스 밀어내기 - 노란색/주황색 충격파
+  boss_knockback: {
+    count: 25,
+    colors: ['#ffff00', '#ffcc00', '#ff9900', '#ffaa00', '#ffffff'],
+    sizeMin: 5,
+    sizeMax: 12,
+    speedMin: 200,
+    speedMax: 400,
+    lifeMin: 0.3,
+    lifeMax: 0.5,
+    gravity: 0,
+    shape: 'circle',
+    spread: Math.PI * 2,  // 전방위
+  },
+
+  // 보스 돌진 - 파란색/청록색 돌진 궤적
+  boss_charge: {
+    count: 20,
+    colors: ['#0066ff', '#0099ff', '#00ccff', '#0044cc', '#ffffff'],
+    sizeMin: 4,
+    sizeMax: 10,
+    speedMin: 150,
+    speedMax: 300,
+    lifeMin: 0.2,
+    lifeMax: 0.4,
+    gravity: 0,
+    shape: 'circle',
+    spread: Math.PI / 4,
+  },
+
+  // 보스 회복 - 녹색 힐링 파티클
+  boss_heal: {
+    count: 20,
+    colors: ['#00ff00', '#33ff33', '#66ff66', '#00cc00', '#99ff99'],
+    sizeMin: 5,
+    sizeMax: 10,
+    speedMin: 30,
+    speedMax: 60,
+    lifeMin: 0.8,
+    lifeMax: 1.2,
+    gravity: -40,  // 위로 상승
+    shape: 'cross',
+    spread: Math.PI * 2,
+  },
 };

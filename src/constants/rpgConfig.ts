@@ -773,6 +773,10 @@ export interface BossSkillConfig {
   stunDuration?: number;     // 기절 지속시간 (초)
   summonCount?: number;      // 소환 수 (소환용)
   hpThreshold?: number;      // HP 조건 (0~1, 이하일 때만 사용)
+  knockbackDistance?: number; // 밀어내기 거리 (px)
+  oneTimeUse?: boolean;       // 한 번만 사용 가능 여부
+  chargeDistance?: number;    // 돌진 거리 (px)
+  healPercent?: number;       // 회복량 (최대 HP 대비 %)
 }
 
 export const BOSS_SKILL_CONFIGS: Record<BossSkillType, BossSkillConfig> = {
@@ -811,14 +815,51 @@ export const BOSS_SKILL_CONFIGS: Record<BossSkillType, BossSkillConfig> = {
     castTime: 1.5,            // 1.5초 시전
     hpThreshold: 0.5,         // HP 50% 이하부터 사용
   },
+  // 밀어내기 - 전방위 넉백 (1회용)
+  knockback: {
+    type: 'knockback',
+    name: '밀어내기',
+    nameEn: 'Knockback',
+    cooldown: 18,             // 쿨다운 (1회용이므로 의미 없음)
+    damage: 0.5,              // 50% 데미지 (약함)
+    radius: 200,              // 200px 반경
+    castTime: 1.0,            // 1초 시전
+    hpThreshold: 0.5,         // HP 50% 이하부터 사용
+    knockbackDistance: 700,   // 700px 밀어내기
+    oneTimeUse: true,         // 한 번만 사용
+  },
+  // 돌진 - 타겟 방향으로 돌진
+  charge: {
+    type: 'charge',
+    name: '돌진',
+    nameEn: 'Charge',
+    cooldown: 10,             // 10초 쿨다운
+    damage: 2.0,              // 200% 데미지
+    radius: 50,               // 경로 폭 50px
+    castTime: 2.0,            // 2초 기 모으기
+    hpThreshold: 0.9,         // HP 90% 이하부터 사용
+    chargeDistance: 300,      // 300px 돌진
+  },
+  // 회복 - 자가 회복
+  heal: {
+    type: 'heal',
+    name: '회복',
+    nameEn: 'Heal',
+    cooldown: 60,             // 60초 쿨다운
+    damage: 0,                // 데미지 없음
+    radius: 0,                // 범위 없음 (자신만)
+    castTime: 3.0,            // 3초 시전
+    hpThreshold: 0.6,         // HP 60% 이하부터 사용
+    healPercent: 0.1,         // 최대 HP의 10% 회복
+  },
 };
 
 // 난이도별 보스 스킬 활성화
 export const DIFFICULTY_BOSS_SKILLS: Record<RPGDifficulty, BossSkillType[]> = {
   easy: [],                           // 쉬움: 스킬 없음 (기본 공격만)
-  normal: ['smash'],                  // 중간: 강타
-  hard: ['smash', 'summon'],          // 어려움: 강타 + 소환
-  extreme: ['smash', 'summon', 'shockwave'], // 극한: 모든 스킬
+  normal: ['smash', 'summon'],        // 중간: 강타 + 소환
+  hard: ['smash', 'summon', 'knockback', 'heal'],  // 어려움: 강타 + 소환 + 밀어내기 + 회복
+  extreme: ['smash', 'summon', 'shockwave', 'knockback', 'charge', 'heal'], // 극한: 모든 스킬
 };
 
 // ============================================

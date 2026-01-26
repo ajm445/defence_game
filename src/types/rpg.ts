@@ -37,7 +37,7 @@ export type AdvancedHeroClass =
   | 'archmage' | 'healer';
 
 // 보스 스킬 타입
-export type BossSkillType = 'smash' | 'summon' | 'shockwave';
+export type BossSkillType = 'smash' | 'summon' | 'shockwave' | 'knockback' | 'charge' | 'heal';
 
 // 보스 스킬 인터페이스
 export interface BossSkill {
@@ -51,6 +51,12 @@ export interface BossSkill {
   stunDuration?: number;     // 기절 지속시간
   summonCount?: number;      // 소환 수
   hpThreshold?: number;      // HP 조건 (0~1, 이하일 때 사용)
+  hpThresholdActivated?: boolean; // HP 조건 첫 충족 여부 (쿨다운 리셋용)
+  knockbackDistance?: number; // 밀어내기 거리 (px)
+  oneTimeUse?: boolean;       // 한 번만 사용 가능 여부
+  used?: boolean;             // 사용 완료 여부 (oneTimeUse용)
+  chargeDistance?: number;    // 돌진 거리 (px)
+  healPercent?: number;       // 회복량 (최대 HP 대비 %)
 }
 
 // 보스 스킬 시전 상태
@@ -333,6 +339,9 @@ export interface BossSkillWarning {
   angle?: number;          // 강타용 (부채꼴 방향)
   startTime: number;
   duration: number;        // 경고 표시 시간 (시전 시간과 동일)
+  // 돌진용 (직선 경로 표시)
+  targetX?: number;        // 돌진 끝점 X
+  targetY?: number;        // 돌진 끝점 Y
 }
 
 // 보류 중인 스킬 (지연 발동)

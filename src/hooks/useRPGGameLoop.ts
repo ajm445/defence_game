@@ -88,6 +88,49 @@ export function useRPGGameLoop() {
         }
       }
 
+      // 동기화된 보스 스킬 경고 이펙트 처리 (클라이언트)
+      // 보스 스킬 경고가 끝나갈 때(95% 이상) 이펙트와 사운드 재생
+      const clientBossSkillWarnings = useRPGStore.getState().bossSkillWarnings;
+      const clientGameTime = useRPGStore.getState().gameTime;
+      for (const warning of clientBossSkillWarnings) {
+        const elapsed = clientGameTime - warning.startTime;
+        const progress = elapsed / warning.duration;
+
+        // 경고가 거의 끝날 때 (95% 이상) 이펙트 재생 (한 번만)
+        const effectId = `boss_skill_${warning.skillType}_${warning.startTime}`;
+        if (progress >= 0.95 && !processedEffectIdsRef.current.has(effectId)) {
+          processedEffectIdsRef.current.add(effectId);
+
+          // 스킬 타입별 이펙트 및 사운드
+          switch (warning.skillType) {
+            case 'smash':
+              effectManager.createEffect('boss_smash', warning.x, warning.y);
+              soundManager.play('attack_melee');
+              break;
+            case 'shockwave':
+              effectManager.createEffect('boss_shockwave', warning.x, warning.y);
+              soundManager.play('warning');
+              break;
+            case 'summon':
+              effectManager.createEffect('boss_summon', warning.x, warning.y);
+              soundManager.play('boss_spawn');
+              break;
+            case 'knockback':
+              effectManager.createEffect('boss_knockback', warning.x, warning.y);
+              soundManager.play('warning');
+              break;
+            case 'charge':
+              effectManager.createEffect('boss_charge', warning.x, warning.y);
+              soundManager.play('warning');
+              break;
+            case 'heal':
+              effectManager.createEffect('boss_heal', warning.x, warning.y);
+              soundManager.play('hero_revive');
+              break;
+          }
+        }
+      }
+
       // 오래된 이펙트 ID 정리 (300ms 이후)
       const now = Date.now();
       for (const effectId of processedEffectIdsRef.current) {
@@ -708,6 +751,42 @@ export function useRPGGameLoop() {
           effectManager.createEffect('boss_summon', summonedEnemy.x, summonedEnemy.y);
         }
 
+        // 밀어내기(knockback) 처리 - 영웅 위치 변경
+        bossSkillResult.knockbackHeroes.forEach((newPos, heroId) => {
+          if (heroId === latestHero?.id) {
+            useRPGStore.getState().updateHeroState({ x: newPos.x, y: newPos.y });
+            effectManager.createEffect('boss_knockback', newPos.x, newPos.y);
+          } else {
+            useRPGStore.getState().updateOtherHero(heroId, { x: newPos.x, y: newPos.y });
+            const otherHero = latestOtherHeroes.get(heroId);
+            if (otherHero) {
+              effectManager.createEffect('boss_knockback', newPos.x, newPos.y);
+            }
+          }
+        });
+
+        // 돌진(charge) 처리 - 보스 위치 변경
+        if (bossSkillResult.bossNewPosition) {
+          const bossEnemyList = useRPGStore.getState().enemies.map(e =>
+            e.id === boss.id
+              ? { ...e, x: bossSkillResult.bossNewPosition!.x, y: bossSkillResult.bossNewPosition!.y }
+              : e
+          );
+          useRPGStore.getState().updateEnemies(bossEnemyList);
+        }
+
+        // 회복(heal) 처리 - 보스 HP 회복
+        if (bossSkillResult.bossHeal && bossSkillResult.bossHeal > 0) {
+          const healAmount = bossSkillResult.bossHeal;
+          const bossHealList = useRPGStore.getState().enemies.map(e =>
+            e.id === boss.id
+              ? { ...e, hp: Math.min(e.maxHp, e.hp + healAmount) }
+              : e
+          );
+          useRPGStore.getState().updateEnemies(bossHealList);
+          effectManager.createEffect('boss_heal', boss.x, boss.y);
+        }
+
         // 스킬 실행 시 이펙트 및 사운드
         if (bossSkillResult.skillExecuted === 'smash') {
           effectManager.createEffect('boss_smash', boss.x, boss.y);
@@ -718,6 +797,15 @@ export function useRPGGameLoop() {
         } else if (bossSkillResult.skillExecuted === 'summon') {
           effectManager.createEffect('boss_summon', boss.x, boss.y);
           soundManager.play('boss_spawn');
+        } else if (bossSkillResult.skillExecuted === 'knockback') {
+          effectManager.createEffect('boss_knockback', boss.x, boss.y);
+          soundManager.play('warning');
+        } else if (bossSkillResult.skillExecuted === 'charge') {
+          effectManager.createEffect('boss_charge', boss.x, boss.y);
+          soundManager.play('warning');
+        } else if (bossSkillResult.skillExecuted === 'heal') {
+          effectManager.createEffect('boss_heal', boss.x, boss.y);
+          soundManager.play('hero_revive');
         }
       }
 
