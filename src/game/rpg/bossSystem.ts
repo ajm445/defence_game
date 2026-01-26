@@ -1,5 +1,5 @@
-import { RPGEnemy, EnemyBase, EnemyBaseId, EnemyAIConfig } from '../../types/rpg';
-import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG } from '../../constants/rpgConfig';
+import { RPGEnemy, EnemyBase, EnemyBaseId, EnemyAIConfig, RPGDifficulty } from '../../types/rpg';
+import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS } from '../../constants/rpgConfig';
 import { CONFIG } from '../../constants/config';
 import { generateId } from '../../utils/math';
 
@@ -26,16 +26,18 @@ const BOSS_CONFIG = {
 /**
  * 보스 2마리 생성 (각 파괴된 기지 위치에서 스폰)
  * @param playerCount 플레이어 수 (1~4)
+ * @param difficulty 난이도 (easy/normal/hard/extreme)
  */
 export function createBosses(
   destroyedBases: EnemyBase[],
-  playerCount: number
+  playerCount: number,
+  difficulty: RPGDifficulty = 'easy'
 ): RPGEnemy[] {
   const bosses: RPGEnemy[] = [];
 
   for (const base of destroyedBases) {
     if (base.destroyed) {
-      const boss = createBoss(base.id, base.x, base.y, playerCount);
+      const boss = createBoss(base.id, base.x, base.y, playerCount, difficulty);
       bosses.push(boss);
     }
   }
@@ -46,20 +48,30 @@ export function createBosses(
 /**
  * 보스 유닛 생성
  * @param playerCount 플레이어 수 (1~4)
+ * @param difficulty 난이도 (easy/normal/hard/extreme)
  */
 export function createBoss(
   baseId: EnemyBaseId,
   spawnX: number,
   spawnY: number,
-  playerCount: number
+  playerCount: number,
+  difficulty: RPGDifficulty = 'easy'
 ): RPGEnemy {
   const unitConfig = CONFIG.UNITS.boss;
   const baseAIConfig = ENEMY_AI_CONFIGS.boss;
+  const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
 
-  // 플레이어 수에 따른 보스 스탯 (고정값)
+  // 플레이어 수에 따른 보스 스탯 (고정값) + 난이도 배율 적용
   const clampedPlayerCount = Math.max(1, Math.min(4, playerCount));
-  const bossHp = BOSS_CONFIG.HP_BY_PLAYER_COUNT[clampedPlayerCount] || BOSS_CONFIG.HP_BY_PLAYER_COUNT[1];
-  const bossDamage = BOSS_CONFIG.DAMAGE_BY_PLAYER_COUNT[clampedPlayerCount] || BOSS_CONFIG.DAMAGE_BY_PLAYER_COUNT[1];
+  const baseBossHp = BOSS_CONFIG.HP_BY_PLAYER_COUNT[clampedPlayerCount] || BOSS_CONFIG.HP_BY_PLAYER_COUNT[1];
+  const baseBossDamage = BOSS_CONFIG.DAMAGE_BY_PLAYER_COUNT[clampedPlayerCount] || BOSS_CONFIG.DAMAGE_BY_PLAYER_COUNT[1];
+
+  // 난이도 배율 적용
+  const bossHp = Math.floor(baseBossHp * difficultyConfig.bossHpMultiplier);
+  const bossDamage = Math.floor(baseBossDamage * difficultyConfig.bossAttackMultiplier);
+
+  // 골드 보상에도 난이도 보상 배율 적용
+  const goldReward = Math.floor(BOSS_CONFIG.GOLD_REWARD * difficultyConfig.goldRewardMultiplier);
 
   // AI 설정
   const aiConfig: EnemyAIConfig = {
@@ -84,7 +96,7 @@ export function createBoss(
     state: 'idle',
     attackCooldown: 0,
     team: 'enemy',
-    goldReward: BOSS_CONFIG.GOLD_REWARD,
+    goldReward,
     targetHero: false,
     aiConfig,
     buffs: [],

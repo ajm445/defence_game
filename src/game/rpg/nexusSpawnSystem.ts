@@ -1,28 +1,38 @@
-import { RPGEnemy, EnemyAIConfig, EnemyBase, EnemyBaseId } from '../../types/rpg';
+import { RPGEnemy, EnemyAIConfig, EnemyBase, EnemyBaseId, RPGDifficulty, DifficultyConfig } from '../../types/rpg';
 import { UnitType } from '../../types/unit';
 import { CONFIG } from '../../constants/config';
-import { SPAWN_CONFIG, GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG } from '../../constants/rpgConfig';
+import { SPAWN_CONFIG, GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS } from '../../constants/rpgConfig';
 import { generateId } from '../../utils/math';
 
 /**
- * 스폰 설정 가져오기 (게임 시간 기반)
+ * 스폰 설정 가져오기 (게임 시간 및 난이도 기반)
  */
-export function getSpawnConfig(gameTime: number): {
+export function getSpawnConfig(gameTime: number, difficulty: RPGDifficulty = 'easy'): {
   spawnInterval: number;
   statMultiplier: number;
+  attackMultiplier: number;
+  goldMultiplier: number;
   enemyTypes: { type: UnitType; weight: number }[];
+  difficultyConfig: DifficultyConfig;
 } {
   const minutes = gameTime / 60;
+  const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
 
-  // 스폰 간격: 시간이 지날수록 빨라짐 (최소 1.5초)
-  const spawnInterval = Math.max(
+  // 스폰 간격: 시간이 지날수록 빨라짐 (최소 1.5초) + 난이도 배율
+  const baseSpawnInterval = Math.max(
     SPAWN_CONFIG.MIN_INTERVAL,
     SPAWN_CONFIG.BASE_INTERVAL - minutes * SPAWN_CONFIG.INTERVAL_DECREASE_PER_MINUTE
   );
+  const spawnInterval = baseSpawnInterval * difficultyConfig.spawnIntervalMultiplier;
 
-  // 스탯 배율: 시간에 따른 강화 (난이도 시스템 도입 전까지 비활성화)
-  // const statMultiplier = 1 + minutes * SPAWN_CONFIG.STAT_MULTIPLIER_PER_MINUTE;
-  const statMultiplier = 1; // 고정 배율 (난이도 시스템에서 조절 예정)
+  // 스탯 배율: 난이도에 따른 HP 배율
+  const statMultiplier = difficultyConfig.enemyHpMultiplier;
+
+  // 공격력 배율: 난이도에 따른 공격력 배율
+  const attackMultiplier = difficultyConfig.enemyAttackMultiplier;
+
+  // 골드 배율: 난이도에 따른 보상 배율
+  const goldMultiplier = difficultyConfig.goldRewardMultiplier;
 
   // 적 구성: 시간에 따라 다양해짐
   const enemyTypes = SPAWN_CONFIG.getEnemyTypesForTime(minutes);
@@ -30,7 +40,10 @@ export function getSpawnConfig(gameTime: number): {
   return {
     spawnInterval,
     statMultiplier,
+    attackMultiplier,
+    goldMultiplier,
     enemyTypes,
+    difficultyConfig,
   };
 }
 
@@ -58,14 +71,23 @@ export function selectRandomEnemyType(
  */
 export function createEnemyFromBase(
   base: EnemyBase,
-  gameTime: number
+  gameTime: number,
+  difficulty: RPGDifficulty = 'easy'
 ): RPGEnemy | null {
   if (base.destroyed) return null;
 
-  const config = getSpawnConfig(gameTime);
+  const config = getSpawnConfig(gameTime, difficulty);
   const enemyType = selectRandomEnemyType(config.enemyTypes);
 
-  return createNexusEnemy(enemyType, base.id, base.x, base.y, config.statMultiplier);
+  return createNexusEnemy(
+    enemyType,
+    base.id,
+    base.x,
+    base.y,
+    config.statMultiplier,
+    config.attackMultiplier,
+    config.goldMultiplier
+  );
 }
 
 /**
@@ -76,20 +98,23 @@ export function createNexusEnemy(
   fromBase: EnemyBaseId,
   spawnX: number,
   spawnY: number,
-  statMultiplier: number
+  statMultiplier: number,
+  attackMultiplier: number = 1.0,
+  goldMultiplier: number = 1.0
 ): RPGEnemy {
   const unitConfig = CONFIG.UNITS[type];
 
-  // 골드 보상
-  const goldReward = GOLD_CONFIG.REWARDS[type] || 5;
+  // 골드 보상 (난이도 보상 배율 적용)
+  const baseGoldReward = GOLD_CONFIG.REWARDS[type] || 5;
+  const goldReward = Math.floor(baseGoldReward * goldMultiplier);
 
-  // AI 설정
+  // AI 설정 (난이도 공격력 배율 적용)
   const baseAIConfig = ENEMY_AI_CONFIGS[type];
   const aiConfig: EnemyAIConfig = {
     detectionRange: baseAIConfig.detectionRange,
     attackRange: baseAIConfig.attackRange,
     moveSpeed: baseAIConfig.moveSpeed,
-    attackDamage: Math.floor(baseAIConfig.attackDamage * statMultiplier),
+    attackDamage: Math.floor(baseAIConfig.attackDamage * attackMultiplier),
     attackSpeed: baseAIConfig.attackSpeed,
   };
 
@@ -108,7 +133,7 @@ export function createNexusEnemy(
     state: 'moving',
     attackCooldown: 0,
     team: 'enemy',
-    goldReward: Math.floor(goldReward * statMultiplier),
+    goldReward,
     targetHero: false,
     aiConfig,
     buffs: [],
@@ -132,9 +157,10 @@ export interface SpawnResult {
 export function shouldSpawnEnemy(
   gameTime: number,
   lastSpawnTime: number,
-  bases: EnemyBase[]
+  bases: EnemyBase[],
+  difficulty: RPGDifficulty = 'easy'
 ): SpawnResult {
-  const config = getSpawnConfig(gameTime);
+  const config = getSpawnConfig(gameTime, difficulty);
   const timeSinceLastSpawn = gameTime - lastSpawnTime;
 
   if (timeSinceLastSpawn < config.spawnInterval) {

@@ -2,6 +2,24 @@ import { Position } from './game';
 import { Unit, UnitType } from './unit';
 import { CharacterStatUpgrades } from './auth';
 
+// 난이도 타입
+export type RPGDifficulty = 'easy' | 'normal' | 'hard' | 'extreme';
+
+// 난이도 설정 인터페이스
+export interface DifficultyConfig {
+  id: RPGDifficulty;
+  name: string;
+  nameEn: string;
+  description: string;
+  enemyHpMultiplier: number;      // 적 HP 배율
+  enemyAttackMultiplier: number;  // 적 공격력 배율
+  spawnIntervalMultiplier: number; // 스폰 간격 배율 (낮을수록 빠름)
+  goldRewardMultiplier: number;   // 골드 보상 배율
+  bossHpMultiplier: number;       // 보스 HP 배율
+  bossAttackMultiplier: number;   // 보스 공격력 배율
+  enemyBaseHpMultiplier: number;  // 적 기지 HP 배율
+}
+
 // 영웅 직업 타입
 export type HeroClass = 'warrior' | 'archer' | 'knight' | 'mage';
 

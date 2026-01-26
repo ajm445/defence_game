@@ -772,13 +772,13 @@ export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'gol
 /**
  * 멀티플레이 방 생성
  */
-export function createMultiplayerRoom(playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean) {
+export function createMultiplayerRoom(playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean, difficulty?: string) {
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
     connectionState: 'connecting',
   });
 
-  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false);
+  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false, difficulty ?? 'easy');
 }
 
 /**

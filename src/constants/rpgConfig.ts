@@ -1,5 +1,64 @@
 import { UnitType } from '../types/unit';
-import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig, GoldTable } from '../types/rpg';
+import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig, GoldTable, RPGDifficulty, DifficultyConfig } from '../types/rpg';
+
+// ============================================
+// 난이도 설정
+// ============================================
+
+export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
+  easy: {
+    id: 'easy',
+    name: '쉬움',
+    nameEn: 'Easy',
+    description: '기본 난이도',
+    enemyHpMultiplier: 1.0,
+    enemyAttackMultiplier: 1.0,
+    spawnIntervalMultiplier: 1.0,
+    goldRewardMultiplier: 1.0,
+    bossHpMultiplier: 1.0,
+    bossAttackMultiplier: 1.0,
+    enemyBaseHpMultiplier: 1.0,
+  },
+  normal: {
+    id: 'normal',
+    name: '중간',
+    nameEn: 'Normal',
+    description: '적 강화, 보상 증가',
+    enemyHpMultiplier: 1.3,
+    enemyAttackMultiplier: 1.2,
+    spawnIntervalMultiplier: 0.9,
+    goldRewardMultiplier: 1.1,
+    bossHpMultiplier: 1.3,
+    bossAttackMultiplier: 1.2,
+    enemyBaseHpMultiplier: 1.3,
+  },
+  hard: {
+    id: 'hard',
+    name: '어려움',
+    nameEn: 'Hard',
+    description: '도전적인 난이도',
+    enemyHpMultiplier: 1.6,
+    enemyAttackMultiplier: 1.4,
+    spawnIntervalMultiplier: 0.8,
+    goldRewardMultiplier: 1.2,
+    bossHpMultiplier: 1.6,
+    bossAttackMultiplier: 1.4,
+    enemyBaseHpMultiplier: 1.6,
+  },
+  extreme: {
+    id: 'extreme',
+    name: '극한',
+    nameEn: 'Extreme',
+    description: '최고의 도전',
+    enemyHpMultiplier: 2.0,
+    enemyAttackMultiplier: 1.8,
+    spawnIntervalMultiplier: 0.7,
+    goldRewardMultiplier: 1.3,
+    bossHpMultiplier: 2.0,
+    bossAttackMultiplier: 1.8,
+    enemyBaseHpMultiplier: 2.0,
+  },
+};
 
 // 패시브 시스템 상수
 export const PASSIVE_UNLOCK_LEVEL = 5;      // 기본 패시브 활성화 레벨
@@ -256,35 +315,35 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
 // 적 유형별 AI 설정
 export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
   melee: {
-    detectionRange: 600,    // 플레이어 탐지 범위 확대 (400 → 600)
+    detectionRange: 400,
     attackRange: 60,
     moveSpeed: 2.25,
     attackDamage: 15,
     attackSpeed: 1.0,
   },
   ranged: {
-    detectionRange: 700,    // 플레이어 탐지 범위 확대 (500 → 700)
+    detectionRange: 550,
     attackRange: 150,
     moveSpeed: 2.4,
     attackDamage: 20,
     attackSpeed: 0.8,
   },
   knight: {
-    detectionRange: 550,    // 플레이어 탐지 범위 확대 (350 → 550)
+    detectionRange: 400,
     attackRange: 70,
     moveSpeed: 1.95,
     attackDamage: 12,
     attackSpeed: 1.2,
   },
   mage: {
-    detectionRange: 650,    // 플레이어 탐지 범위 확대 (450 → 650)
+    detectionRange: 550,
     attackRange: 180,
     moveSpeed: 2.1,
     attackDamage: 35,
     attackSpeed: 1.5,
   },
   boss: {
-    detectionRange: 800,    // 플레이어 탐지 범위 확대 (600 → 800)
+    detectionRange: 700,
     attackRange: 100,
     moveSpeed: 1.5,
     attackDamage: 50,

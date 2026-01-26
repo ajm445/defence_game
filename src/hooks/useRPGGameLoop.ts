@@ -628,12 +628,13 @@ export function useRPGGameLoop() {
     // 넥서스 디펜스: 연속 스폰 처리
     const latestState = useRPGStore.getState();
     const showNotification = useUIStore.getState().showNotification;
+    const difficulty = latestState.selectedDifficulty;
 
     // 게임 단계에 따른 처리
     if (latestState.gamePhase === 'playing') {
       // 적 기지에서 동시 스폰 (양쪽에서 여러 마리)
       const enemyBases = latestState.enemyBases;
-      const spawnResult = shouldSpawnEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases);
+      const spawnResult = shouldSpawnEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases, difficulty);
 
       if (spawnResult.shouldSpawn && spawnResult.spawns.length > 0) {
         // 각 기지에서 스폰
@@ -642,7 +643,7 @@ export function useRPGGameLoop() {
           if (base && !base.destroyed) {
             // 해당 기지에서 count만큼 적 생성
             for (let i = 0; i < spawn.count; i++) {
-              const enemy = createEnemyFromBase(base, latestState.gameTime);
+              const enemy = createEnemyFromBase(base, latestState.gameTime, difficulty);
               if (enemy) {
                 useRPGStore.getState().addEnemy(enemy);
               }
@@ -674,8 +675,8 @@ export function useRPGGameLoop() {
         // 플레이어 수 계산 (자신 + 다른 플레이어)
         const playerCount = 1 + latestState.otherHeroes.size;
 
-        // 보스 2마리 스폰
-        const bosses = createBosses(latestState.enemyBases, playerCount);
+        // 보스 2마리 스폰 (난이도 전달)
+        const bosses = createBosses(latestState.enemyBases, playerCount, difficulty);
         for (const boss of bosses) {
           useRPGStore.getState().addEnemy(boss);
         }
@@ -894,12 +895,14 @@ export function useRPGGameLoop() {
     if (running && !paused && !gameOver) {
       lastTimeRef.current = performance.now();
       // 게임이 새로 시작될 때만 보스 스폰 플래그 리셋 (running이 false→true로 변경될 때)
+      // paused 상태에서는 wasRunningRef를 유지해야 함
       if (!wasRunningRef.current) {
         bossesSpawnedRef.current = false;
       }
       wasRunningRef.current = true;
       animationIdRef.current = requestAnimationFrame(tick);
-    } else {
+    } else if (!running) {
+      // 게임이 완전히 멈췄을 때만 wasRunningRef 리셋 (paused 상태에서는 유지)
       wasRunningRef.current = false;
     }
 

@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty } from '../types/rpg';
 import { UnitType } from '../types/unit';
-import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
 import { createInitialUpgradeLevels, getUpgradeCost, canUpgrade, getGoldReward, calculateAllUpgradeBonuses, UpgradeType } from '../game/rpg/goldSystem';
 import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '../types/auth';
@@ -16,6 +16,9 @@ const BERSERKER_SHARE_RANGE = 300;
 const IRONWALL_SHARE_RANGE = Infinity;
 
 interface RPGState extends RPGGameState {
+  // 선택된 난이도
+  selectedDifficulty: RPGDifficulty;
+
   // 활성 스킬 효과
   activeSkillEffects: SkillEffect[];
 
@@ -53,8 +56,11 @@ interface RPGState extends RPGGameState {
 
 interface RPGActions {
   // 게임 초기화
-  initGame: (characterLevel?: number, statUpgrades?: CharacterStatUpgrades) => void;
+  initGame: (characterLevel?: number, statUpgrades?: CharacterStatUpgrades, difficulty?: RPGDifficulty) => void;
   resetGame: () => void;
+
+  // 난이도 선택
+  setDifficulty: (difficulty: RPGDifficulty) => void;
 
   // 직업 선택
   selectClass: (heroClass: HeroClass) => void;
@@ -149,7 +155,7 @@ interface RPGActions {
   resetMultiplayerState: () => void;
 
   // 멀티플레이 게임 초기화 (호스트용)
-  initMultiplayerGame: (players: CoopPlayerInfo[], _isHost: boolean) => void;
+  initMultiplayerGame: (players: CoopPlayerInfo[], _isHost: boolean, difficulty?: RPGDifficulty) => void;
 
   // 다른 플레이어 영웅 관리
   addOtherHero: (hero: HeroUnit) => void;
@@ -192,22 +198,25 @@ const createInitialNexus = (): Nexus => ({
 // - 싱글플레이 / 2인: 좌, 우 (2개)
 // - 3인: 좌, 우, 상 (3개)
 // - 4인: 좌, 우, 상, 하 (4개)
-const createInitialEnemyBases = (playerCount: number = 1): EnemyBase[] => {
+const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficulty = 'easy'): EnemyBase[] => {
+  const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
+  const hpMultiplier = difficultyConfig.enemyBaseHpMultiplier;
+
   const bases: EnemyBase[] = [
     {
       id: 'left',
       x: ENEMY_BASE_CONFIG.left.x,
       y: ENEMY_BASE_CONFIG.left.y,
-      hp: ENEMY_BASE_CONFIG.left.hp,
-      maxHp: ENEMY_BASE_CONFIG.left.hp,
+      hp: Math.floor(ENEMY_BASE_CONFIG.left.hp * hpMultiplier),
+      maxHp: Math.floor(ENEMY_BASE_CONFIG.left.hp * hpMultiplier),
       destroyed: false,
     },
     {
       id: 'right',
       x: ENEMY_BASE_CONFIG.right.x,
       y: ENEMY_BASE_CONFIG.right.y,
-      hp: ENEMY_BASE_CONFIG.right.hp,
-      maxHp: ENEMY_BASE_CONFIG.right.hp,
+      hp: Math.floor(ENEMY_BASE_CONFIG.right.hp * hpMultiplier),
+      maxHp: Math.floor(ENEMY_BASE_CONFIG.right.hp * hpMultiplier),
       destroyed: false,
     },
   ];
@@ -218,8 +227,8 @@ const createInitialEnemyBases = (playerCount: number = 1): EnemyBase[] => {
       id: 'top',
       x: ENEMY_BASE_CONFIG.top.x,
       y: ENEMY_BASE_CONFIG.top.y,
-      hp: ENEMY_BASE_CONFIG.top.hp,
-      maxHp: ENEMY_BASE_CONFIG.top.hp,
+      hp: Math.floor(ENEMY_BASE_CONFIG.top.hp * hpMultiplier),
+      maxHp: Math.floor(ENEMY_BASE_CONFIG.top.hp * hpMultiplier),
       destroyed: false,
     });
   }
@@ -230,8 +239,8 @@ const createInitialEnemyBases = (playerCount: number = 1): EnemyBase[] => {
       id: 'bottom',
       x: ENEMY_BASE_CONFIG.bottom.x,
       y: ENEMY_BASE_CONFIG.bottom.y,
-      hp: ENEMY_BASE_CONFIG.bottom.hp,
-      maxHp: ENEMY_BASE_CONFIG.bottom.hp,
+      hp: Math.floor(ENEMY_BASE_CONFIG.bottom.hp * hpMultiplier),
+      maxHp: Math.floor(ENEMY_BASE_CONFIG.bottom.hp * hpMultiplier),
       destroyed: false,
     });
   }
@@ -247,6 +256,7 @@ const initialState: RPGState = {
 
   hero: null,
   selectedClass: null,
+  selectedDifficulty: 'easy',
 
   // 골드 시스템
   gold: GOLD_CONFIG.STARTING_GOLD,
@@ -412,19 +422,22 @@ export const useRPGStore = create<RPGStore>()(
   subscribeWithSelector((set, get) => ({
     ...initialState,
 
-    initGame: (characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades) => {
+    initGame: (characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades, difficulty?: RPGDifficulty) => {
       const state = get();
       // 선택된 직업이 없으면 기본값 warrior 사용
       const heroClass = state.selectedClass || 'warrior';
+      // 난이도가 전달되지 않으면 스토어의 선택된 난이도 사용
+      const gameDifficulty = difficulty || state.selectedDifficulty;
       const hero = createHeroUnit(heroClass, characterLevel, statUpgrades);
       set({
         ...initialState,
         running: true,
         selectedClass: heroClass,
+        selectedDifficulty: gameDifficulty,
         hero,
         // 넥서스 디펜스 초기화
         nexus: createInitialNexus(),
-        enemyBases: createInitialEnemyBases(),
+        enemyBases: createInitialEnemyBases(1, gameDifficulty),
         gamePhase: 'playing',
         gold: GOLD_CONFIG.STARTING_GOLD,
         upgradeLevels: createInitialUpgradeLevels(),
@@ -474,8 +487,9 @@ export const useRPGStore = create<RPGStore>()(
 
     resetGame: () => set((state) => ({
       ...initialState,
-      // 선택된 직업은 유지 (다시 시작할 때 사용)
+      // 선택된 직업과 난이도는 유지 (다시 시작할 때 사용)
       selectedClass: state.selectedClass,
+      selectedDifficulty: state.selectedDifficulty,
       nexus: null,
       enemyBases: [],
       gamePhase: 'playing',
@@ -487,6 +501,10 @@ export const useRPGStore = create<RPGStore>()(
         visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
       },
     })),
+
+    setDifficulty: (difficulty: RPGDifficulty) => {
+      set({ selectedDifficulty: difficulty });
+    },
 
     selectClass: (heroClass: HeroClass) => {
       set({ selectedClass: heroClass });
@@ -1420,8 +1438,10 @@ export const useRPGStore = create<RPGStore>()(
       });
     },
 
-    initMultiplayerGame: (players: CoopPlayerInfo[], _isHost: boolean) => {
+    initMultiplayerGame: (players: CoopPlayerInfo[], _isHost: boolean, difficulty?: RPGDifficulty) => {
       const state = get();
+      // 난이도가 전달되지 않으면 스토어의 선택된 난이도 사용
+      const gameDifficulty = difficulty || state.selectedDifficulty;
 
       // 각 플레이어에 대한 영웅 생성
       const otherHeroes = new Map<string, HeroUnit>();
@@ -1477,11 +1497,12 @@ export const useRPGStore = create<RPGStore>()(
         otherPlayersGoldAccumulator,
         running: true,
         nexus: createInitialNexus(),
-        enemyBases: createInitialEnemyBases(players.length), // 플레이어 수에 따른 기지 생성
+        enemyBases: createInitialEnemyBases(players.length, gameDifficulty), // 플레이어 수와 난이도에 따른 기지 생성
         gamePhase: 'playing',
         gold: GOLD_CONFIG.STARTING_GOLD,
         goldAccumulator: 0,
         upgradeLevels: createInitialUpgradeLevels(),
+        selectedDifficulty: gameDifficulty,
       });
     },
 
@@ -1978,6 +1999,7 @@ export const useRPGResult = () => useRPGStore((state) => state.result);
 export const useRPGStats = () => useRPGStore((state) => state.stats);
 export const useActiveSkillEffects = () => useRPGStore((state) => state.activeSkillEffects);
 export const useSelectedClass = () => useRPGStore((state) => state.selectedClass);
+export const useSelectedDifficulty = () => useRPGStore((state) => state.selectedDifficulty);
 export const useVisibility = () => useRPGStore((state) => state.visibility);
 export const usePendingSkills = () => useRPGStore((state) => state.pendingSkills);
 export const useShowAttackRange = () => useRPGStore((state) => state.showAttackRange);

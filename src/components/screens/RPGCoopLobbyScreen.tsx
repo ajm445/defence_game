@@ -4,9 +4,9 @@ import { useRPGStore, useMultiplayer } from '../../stores/useRPGStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useAuthProfile, useAuthIsGuest, useAuthStore } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
-import { CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { CLASS_CONFIGS, DIFFICULTY_CONFIGS } from '../../constants/rpgConfig';
 import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked, createDefaultStatUpgrades } from '../../types/auth';
-import type { HeroClass } from '../../types/rpg';
+import type { HeroClass, RPGDifficulty } from '../../types/rpg';
 import type { WaitingCoopRoomInfo } from '@shared/types/rpgNetwork';
 import { wsClient } from '../../services/WebSocketClient';
 import {
@@ -16,6 +16,14 @@ import {
   startMultiplayerGame,
 } from '../../hooks/useNetworkSync';
 import { ProfileButton } from '../ui/ProfileButton';
+
+// 난이도 색상 설정
+const difficultyColors: Record<RPGDifficulty, { bg: string; border: string; text: string; hoverBg: string }> = {
+  easy: { bg: 'bg-green-500/20', border: 'border-green-500', text: 'text-green-400', hoverBg: 'hover:bg-green-500/30' },
+  normal: { bg: 'bg-yellow-500/20', border: 'border-yellow-500', text: 'text-yellow-400', hoverBg: 'hover:bg-yellow-500/30' },
+  hard: { bg: 'bg-orange-500/20', border: 'border-orange-500', text: 'text-orange-400', hoverBg: 'hover:bg-orange-500/30' },
+  extreme: { bg: 'bg-red-500/20', border: 'border-red-500', text: 'text-red-400', hoverBg: 'hover:bg-red-500/30' },
+};
 
 const CLASS_LIST: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
 
@@ -41,8 +49,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const [isLoadingRooms, setIsLoadingRooms] = useState(false);
   const [showClassModal, setShowClassModal] = useState(false);
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
+  const [selectedRoomType, setSelectedRoomType] = useState<'public' | 'private' | null>(null);
+  const [selectedModalDifficulty, setSelectedModalDifficulty] = useState<RPGDifficulty | null>(null);
   const [privateRoomToJoin, setPrivateRoomToJoin] = useState<WaitingCoopRoomInfo | null>(null);
   const [privateRoomCode, setPrivateRoomCode] = useState('');
+  // 현재 방 설정 (로비에서 표시/변경용)
+  const [roomIsPrivate, setRoomIsPrivate] = useState(false);
+  const [roomDifficulty, setRoomDifficulty] = useState<RPGDifficulty>('easy');
 
   // 게임 시작 시 게임 화면으로 전환
   useEffect(() => {
@@ -152,7 +165,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               heroClass: selectedClass || 'archer',
               characterLevel: createdCharacterLevel,
               isHost: true,
-              isReady: true,
+              isReady: false,  // 호스트는 준비 상태가 필요 없음 (게임 시작 권한 보유)
               connected: true,
             }],
           });
@@ -206,6 +219,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
         case 'COOP_ROOM_ERROR':
           setError(message.message);
+          break;
+
+        case 'COOP_ROOM_SETTINGS_CHANGED':
+          setRoomIsPrivate(message.isPrivate);
+          setRoomDifficulty(message.difficulty as RPGDifficulty);
+          // 난이도 변경 시 스토어에도 저장
+          useRPGStore.getState().setDifficulty(message.difficulty as RPGDifficulty);
           break;
 
         case 'COOP_ROOM_LIST':
@@ -404,11 +424,27 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     }
   }, [multiplayer.roomCode]);
 
-  // 방 생성 (공개/비밀)
-  const handleCreateRoom = useCallback(async (isPrivate: boolean) => {
+  // 방 생성 (공개/비밀 + 난이도)
+  const handleCreateRoom = useCallback(async () => {
+    if (selectedRoomType === null || selectedModalDifficulty === null) return;
+
+    // 값을 먼저 저장 (상태 리셋 전에)
+    const roomType = selectedRoomType;
+    const difficulty = selectedModalDifficulty;
+
     soundManager.play('ui_click');
     setShowCreateRoomModal(false);
+    setSelectedRoomType(null);
+    setSelectedModalDifficulty(null);
     setIsConnecting(true);
+
+    // 난이도를 스토어에 저장
+    useRPGStore.getState().setDifficulty(difficulty);
+
+    // 로컬 상태에도 저장 (로비 UI용)
+    setRoomIsPrivate(roomType === 'private');
+    setRoomDifficulty(difficulty);
+
     try {
       await wsClient.connect();
       const playerName = profile?.nickname || '플레이어';
@@ -421,12 +457,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
 
       selectClass(defaultClass);
-      createMultiplayerRoom(playerName, defaultClass, characterLevel, statUpgrades, isPrivate);
+      createMultiplayerRoom(playerName, defaultClass, characterLevel, statUpgrades, roomType === 'private', difficulty);
     } catch (e) {
       setError('서버 연결 실패');
     }
     setIsConnecting(false);
-  }, [profile, selectClass]);
+  }, [profile, selectClass, selectedRoomType, selectedModalDifficulty]);
 
   // 비밀방 코드 확인 후 참가
   const handleJoinPrivateRoom = useCallback(async () => {
@@ -522,20 +558,102 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
     return (
       <div className="flex flex-col items-center gap-4">
-        {/* 초대 코드 */}
+        {/* 초대 코드 및 방 설정 */}
         {multiplayer.roomCode && (
-          <div className="mb-4">
-            <p className="text-neon-cyan text-sm mb-1 text-center">초대 코드</p>
-            <div
-              className="px-6 py-2 bg-gray-800/50 border-2 border-neon-cyan rounded-lg cursor-pointer hover:bg-gray-800/70 transition-all"
-              onClick={copyRoomCode}
-              title="클릭하여 복사"
-            >
-              <p className="text-2xl font-bold tracking-[0.3em] text-white font-mono">
-                {multiplayer.roomCode}
-              </p>
+          <div className="mb-4 flex items-start gap-6">
+            {/* 초대 코드 */}
+            <div>
+              <p className="text-neon-cyan text-sm mb-1 text-center">초대 코드</p>
+              <div
+                className="px-6 py-2 bg-gray-800/50 border-2 border-neon-cyan rounded-lg cursor-pointer hover:bg-gray-800/70 transition-all"
+                onClick={copyRoomCode}
+                title="클릭하여 복사"
+              >
+                <p className="text-2xl font-bold tracking-[0.3em] text-white font-mono">
+                  {multiplayer.roomCode}
+                </p>
+              </div>
+              <p className="text-gray-500 text-xs text-center mt-1">(클릭하여 복사)</p>
             </div>
-            <p className="text-gray-500 text-xs text-center mt-1">(클릭하여 복사)</p>
+
+            {/* 방 설정 */}
+            <div>
+              <p className="text-gray-400 text-sm mb-1 text-center">방 설정</p>
+              <div className="flex flex-col gap-2">
+                {/* 방 유형 */}
+                <div className="flex gap-2">
+                  <button
+                    onClick={() => {
+                      if (isHostPlayer && !roomIsPrivate) return;
+                      if (!isHostPlayer) return;
+                      soundManager.play('ui_click');
+                      wsClient.send({ type: 'UPDATE_COOP_ROOM_SETTINGS', isPrivate: false });
+                    }}
+                    disabled={!isHostPlayer}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                      !roomIsPrivate
+                        ? 'border-green-400 bg-green-500/20 text-green-400'
+                        : isHostPlayer
+                          ? 'border-gray-600 text-gray-500 hover:border-green-500/50 hover:text-green-400/70 cursor-pointer'
+                          : 'border-gray-700 text-gray-600 cursor-not-allowed'
+                    }`}
+                  >
+                    🌐 공개
+                  </button>
+                  <button
+                    onClick={() => {
+                      if (isHostPlayer && roomIsPrivate) return;
+                      if (!isHostPlayer) return;
+                      soundManager.play('ui_click');
+                      wsClient.send({ type: 'UPDATE_COOP_ROOM_SETTINGS', isPrivate: true });
+                    }}
+                    disabled={!isHostPlayer}
+                    className={`px-3 py-1.5 text-xs rounded-lg border transition-all ${
+                      roomIsPrivate
+                        ? 'border-yellow-400 bg-yellow-500/20 text-yellow-400'
+                        : isHostPlayer
+                          ? 'border-gray-600 text-gray-500 hover:border-yellow-500/50 hover:text-yellow-400/70 cursor-pointer'
+                          : 'border-gray-700 text-gray-600 cursor-not-allowed'
+                    }`}
+                  >
+                    🔒 비밀
+                  </button>
+                </div>
+                {/* 난이도 */}
+                <div className="flex gap-1">
+                  {(Object.keys(DIFFICULTY_CONFIGS) as RPGDifficulty[]).map((diff) => {
+                    const config = DIFFICULTY_CONFIGS[diff];
+                    const colors = difficultyColors[diff];
+                    const isSelected = roomDifficulty === diff;
+                    return (
+                      <button
+                        key={diff}
+                        onClick={() => {
+                          if (isHostPlayer && isSelected) return;
+                          if (!isHostPlayer) return;
+                          soundManager.play('ui_click');
+                          wsClient.send({ type: 'UPDATE_COOP_ROOM_SETTINGS', difficulty: diff });
+                        }}
+                        disabled={!isHostPlayer}
+                        className={`px-2 py-1 text-xs rounded-lg border transition-all ${
+                          isSelected
+                            ? `${colors.border} ${colors.bg} ${colors.text}`
+                            : isHostPlayer
+                              ? `border-gray-600 text-gray-500 hover:${colors.border} cursor-pointer`
+                              : 'border-gray-700 text-gray-600 cursor-not-allowed'
+                        }`}
+                        title={config.description}
+                      >
+                        {config.name}
+                      </button>
+                    );
+                  })}
+                </div>
+              </div>
+              {!isHostPlayer && (
+                <p className="text-gray-600 text-xs text-center mt-1">호스트만 변경 가능</p>
+              )}
+            </div>
           </div>
         )}
 
@@ -725,6 +843,9 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             const isFull = room.playerCount >= room.maxPlayers;
             const isInGame = room.isInGame;
             const canJoin = !isFull && !isInGame;
+            const roomDifficulty = (room.difficulty || 'easy') as RPGDifficulty;
+            const diffConfig = DIFFICULTY_CONFIGS[roomDifficulty];
+            const diffColors = difficultyColors[roomDifficulty];
             return (
               <button
                 key={room.roomId}
@@ -765,23 +886,29 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                   </div>
                 </div>
 
-                {/* 인원수 */}
+                {/* 인원수 및 난이도 */}
                 <div className="mt-auto flex items-center justify-between"
                 style={{ paddingLeft: '5px', paddingRight: '5px' }}>
-                  <div className="flex gap-1">
-                    {Array.from({ length: room.maxPlayers }).map((_, i) => (
-                      <div
-                        key={i}
-                        className={`w-3 h-3 rounded-full ${
-                          i < room.playerCount
-                            ? 'bg-green-400'
-                            : 'bg-gray-600'
-                        }`}
-                      />
-                    ))}
+                  <div className="flex items-center gap-3">
+                    <div className="flex gap-1">
+                      {Array.from({ length: room.maxPlayers }).map((_, i) => (
+                        <div
+                          key={i}
+                          className={`w-3 h-3 rounded-full ${
+                            i < room.playerCount
+                              ? 'bg-green-400'
+                              : 'bg-gray-600'
+                          }`}
+                        />
+                      ))}
+                    </div>
+                    <span className={`text-sm font-bold ${isFull ? 'text-red-400' : 'text-gray-300'}`}>
+                      {room.playerCount}/{room.maxPlayers}
+                    </span>
                   </div>
-                  <span className={`text-sm font-bold ${isFull ? 'text-red-400' : 'text-gray-300'}`}>
-                    {room.playerCount}/{room.maxPlayers}
+                  {/* 난이도 표시 */}
+                  <span className={`text-xs font-bold px-2 py-0.5 rounded ${diffColors.bg} ${diffColors.text} border ${diffColors.border}`}>
+                    {diffConfig.name}
                   </span>
                 </div>
               </button>
@@ -1036,64 +1163,130 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       {showCreateRoomModal && (
         <div
           className="fixed inset-0 bg-black/90 backdrop-blur-sm flex items-center justify-center z-50"
-          onClick={() => setShowCreateRoomModal(false)}
+          onClick={() => {
+            setShowCreateRoomModal(false);
+            setSelectedRoomType(null);
+            setSelectedModalDifficulty(null);
+          }}
         >
           <div
             className="animate-fade-in flex flex-col items-center bg-gray-900/90 border border-gray-700 rounded-2xl p-8"
-            style={{ paddingLeft: '20px', paddingRight: '20px', paddingTop: '10px', paddingBottom: '20px' }}
+            style={{ paddingLeft: '30px', paddingRight: '30px', paddingTop: '20px', paddingBottom: '25px' }}
             onClick={(e) => e.stopPropagation()}
           >
-            <div style={{ height: '10px' }} />
-
             {/* 타이틀 */}
             <h2 className="font-game text-2xl text-yellow-400 mb-6">
               방 생성
             </h2>
 
-            <p className="text-gray-400 mb-8">방 유형을 선택하세요</p>
+            <div style={{ height: '3px' }} />
 
-            <div style={{ height: '10px' }} />
+            {/* 방 유형 선택 */}
+            <div className="mb-6">
+              <p className="text-gray-400 text-sm mb-3 text-center">방 유형</p>
+
+              <div style={{ height: '10px' }} />
+              
+              <div className="flex gap-4">
+                {/* 공개방 */}
+                <button
+                  onClick={() => {
+                    soundManager.play('ui_click');
+                    setSelectedRoomType('public');
+                  }}
+                  className={`group flex flex-col items-center justify-center w-36 h-28 border-2 rounded-xl transition-all cursor-pointer ${
+                    selectedRoomType === 'public'
+                      ? 'border-green-400 bg-green-500/20'
+                      : 'border-gray-600 hover:border-green-500/70 hover:bg-green-500/10'
+                  }`}
+                >
+                  <span className="text-3xl mb-2">🌐</span>
+                  <span className={`font-bold ${selectedRoomType === 'public' ? 'text-green-400' : 'text-gray-400'}`}>공개방</span>
+                  <span className="text-gray-500 text-xs mt-1">누구나 참가</span>
+                </button>
+
+                {/* 비밀방 */}
+                <button
+                  onClick={() => {
+                    soundManager.play('ui_click');
+                    setSelectedRoomType('private');
+                  }}
+                  className={`group flex flex-col items-center justify-center w-36 h-28 border-2 rounded-xl transition-all cursor-pointer ${
+                    selectedRoomType === 'private'
+                      ? 'border-neon-purple bg-neon-purple/20'
+                      : 'border-gray-600 hover:border-neon-purple/70 hover:bg-neon-purple/10'
+                  }`}
+                >
+                  <span className="text-3xl mb-2">🔒</span>
+                  <span className={`font-bold ${selectedRoomType === 'private' ? 'text-neon-purple' : 'text-gray-400'}`}>비밀방</span>
+                  <span className="text-gray-500 text-xs mt-1">코드로 참가</span>
+                </button>
+              </div>
+            </div>
             
-            {/* 공개/비밀 선택 버튼 */}
-            <div className="flex gap-6">
-              {/* 공개방 */}
-              <button
-                onClick={() => handleCreateRoom(false)}
-                disabled={isConnecting}
-                className="group flex flex-col items-center justify-center w-48 h-40 border-2 border-green-500/70 rounded-xl hover:border-green-400 hover:bg-green-500/10 transition-all cursor-pointer disabled:opacity-50"
-              >
-                <span className="text-5xl mb-3">🌐</span>
-                <div style={{ height: '10px' }} />
-                <span className="text-green-400 font-bold text-lg">공개방</span>
-                <span className="text-gray-500 text-xs mt-2 text-center px-2">
-                  목록에 표시되며<br />누구나 참가 가능
-                </span>
-              </button>
+            <div style={{ height: '10px' }} />
 
-              {/* 비밀방 */}
-              <button
-                onClick={() => handleCreateRoom(true)}
-                disabled={isConnecting}
-                className="group flex flex-col items-center justify-center w-48 h-40 border-2 border-neon-purple/70 rounded-xl hover:border-neon-purple hover:bg-neon-purple/10 transition-all cursor-pointer disabled:opacity-50"
-              >
-                <span className="text-5xl mb-3">🔒</span>
-                <div style={{ height: '10px' }} />
-                <span className="text-neon-purple font-bold text-lg">비밀방</span>
-                <span className="text-gray-500 text-xs mt-2 text-center px-2">
-                  초대 코드로만<br />참가 가능
-                </span>
-              </button>
+            {/* 난이도 선택 */}
+            <div className="mb-6">
+              <p className="text-gray-400 text-sm mb-3 text-center">난이도</p>
+
+              <div style={{ height: '10px' }} />
+
+              <div className="flex gap-3">
+                {(Object.keys(DIFFICULTY_CONFIGS) as RPGDifficulty[]).map((diff) => {
+                  const config = DIFFICULTY_CONFIGS[diff];
+                  const colors = difficultyColors[diff];
+                  const isSelected = selectedModalDifficulty === diff;
+                  return (
+                    <button
+                      key={diff}
+                      onClick={() => {
+                        soundManager.play('ui_click');
+                        setSelectedModalDifficulty(diff);
+                      }}
+                      className={`flex flex-col items-center justify-center w-20 h-20 border-2 rounded-xl transition-all cursor-pointer ${
+                        isSelected
+                          ? `${colors.border} ${colors.bg}`
+                          : `border-gray-600 hover:${colors.border} ${colors.hoverBg}`
+                      }`}
+                    >
+                      <span className={`font-bold text-sm ${isSelected ? colors.text : 'text-gray-400'}`}>
+                        {config.name}
+                      </span>
+                      <span className="text-gray-500 text-xs mt-1">{config.nameEn}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ height: '10px' }} />
             </div>
 
-            <div style={{ height: '10px' }} />
-
-            {/* 취소 버튼 */}
-            <button
-              onClick={() => setShowCreateRoomModal(false)}
-              className="mt-8 px-6 py-2 text-gray-400 hover:text-white transition-colors cursor-pointer"
-            >
-              취소
-            </button>
+            {/* 버튼들 */}
+            <div className="flex gap-4 mt-4">
+              <button
+                onClick={() => {
+                  setShowCreateRoomModal(false);
+                  setSelectedRoomType(null);
+                  setSelectedModalDifficulty(null);
+                }}
+                className="px-6 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+                style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+              >
+                취소
+              </button>
+              <button
+                onClick={handleCreateRoom}
+                disabled={selectedRoomType === null || selectedModalDifficulty === null || isConnecting}
+                className={`px-6 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+                  selectedRoomType !== null && selectedModalDifficulty !== null && !isConnecting
+                    ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-400 hover:to-orange-400'
+                    : 'bg-gray-700 text-gray-500 cursor-not-allowed'
+                }`}
+                style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+              >
+                {isConnecting ? '생성 중...' : '생성하기'}
+              </button>
+            </div>
           </div>
         </div>
       )}
