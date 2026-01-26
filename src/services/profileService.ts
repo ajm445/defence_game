@@ -271,7 +271,8 @@ export const processGameResult = async (
     gameData.basesDestroyed,
     gameData.bossesKilled,
     gameData.kills,
-    difficulty
+    difficulty,
+    gameData.victory
   );
 
   // 플레이어 레벨업 계산

@@ -326,7 +326,8 @@ export const RPGModeScreen: React.FC = () => {
                         result.basesDestroyed,
                         result.bossesKilled,
                         isMultiplayer ? personalKills : result.totalKills,
-                        selectedDifficulty
+                        selectedDifficulty,
+                        result.victory
                       )}
                     </span>
                   </div>
