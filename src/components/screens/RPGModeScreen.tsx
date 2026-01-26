@@ -265,11 +265,11 @@ export const RPGModeScreen: React.FC = () => {
             <div className="space-y-3 mb-6">
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">기지 파괴</span>
-                <span className="text-red-400 font-bold">{result.basesDestroyed}/2</span>
+                <span className="text-red-400 font-bold">{result.basesDestroyed}/{result.totalBases}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">보스 처치</span>
-                <span className="text-purple-400 font-bold">{result.bossesKilled}/2</span>
+                <span className="text-purple-400 font-bold">{result.bossesKilled}/{result.totalBosses}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">총 처치</span>

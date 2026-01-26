@@ -79,29 +79,14 @@ export function updateEnemyAINexus(
   // 살아있는 영웅만 타겟 가능
   const canTargetHero = hero.hp > 0;
 
-  // 2순위: 공격 범위 내 플레이어 확인 (지나가는 길에 있으면 공격)
+  // 범위 확인
   const isHeroInAttackRange = canTargetHero && distToHero <= aiConfig.attackRange;
+  const isHeroInDetectionRange = canTargetHero && distToHero <= aiConfig.detectionRange;
 
   // AI 행동 결정
-  if (isHeroInAttackRange) {
-    // 2순위: 공격 범위 내 플레이어 공격
-    if (updatedEnemy.attackCooldown <= 0) {
-      heroDamage = aiConfig.attackDamage;
-      updatedEnemy.attackCooldown = aiConfig.attackSpeed;
-      updatedEnemy.state = 'attacking';
-      isAttacking = true;
-    } else {
-      // 공격 쿨다운 중에도 넥서스로 이동 (멈추지 않음)
-      const angle = Math.atan2(nexusY - enemy.y, nexusX - enemy.x);
-      const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
-      const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
-      updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);
-      updatedEnemy.y = clamp(enemy.y + moveY, 30, RPG_CONFIG.MAP_HEIGHT - 30);
-      updatedEnemy.state = 'moving';
-    }
-  } else if (hasAggro) {
-    // 3순위: 어그로 상태 - 플레이어 추적
-    if (distToHero <= aiConfig.attackRange) {
+  // 어그로 또는 탐지 범위 내 플레이어가 있으면 추적/공격
+  if (hasAggro || isHeroInDetectionRange) {
+    if (isHeroInAttackRange) {
       // 공격 범위 내: 공격
       if (updatedEnemy.attackCooldown <= 0) {
         heroDamage = aiConfig.attackDamage;
@@ -109,10 +94,11 @@ export function updateEnemyAINexus(
         updatedEnemy.state = 'attacking';
         isAttacking = true;
       } else {
+        // 공격 쿨다운 중: 플레이어 따라다니며 대기
         updatedEnemy.state = 'idle';
       }
     } else {
-      // 플레이어 방향으로 추적
+      // 공격 범위 밖: 플레이어 방향으로 추적
       const angle = Math.atan2(heroY - enemy.y, heroX - enemy.x);
       const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
       const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
@@ -546,58 +532,46 @@ function updateEnemyAIMultiplayer(
     }
   }
 
-  // 2순위: 공격 범위 내 플레이어 찾기 (근접 클래스 우선)
-  let heroInAttackRange: HeroUnit | null = null;
-  let heroInAttackRangeDist = Infinity;
-  let heroInAttackRangePriority = 0;
+  // 탐지 범위 내 플레이어 찾기 (근접 클래스 우선)
+  let heroInDetectionRange: HeroUnit | null = null;
+  let heroInDetectionRangeDist = Infinity;
+  let heroInDetectionRangePriority = 0;
 
   for (const hero of aliveHeroes) {
     const dist = distance(enemy.x, enemy.y, hero.x, hero.y);
-    if (dist <= aiConfig.attackRange) {
+    if (dist <= aiConfig.detectionRange) {
       const priority = getClassTargetPriority(hero.heroClass);
       // 우선순위가 더 높거나, 같은 우선순위에서 더 가까우면 타겟 변경
-      if (priority > heroInAttackRangePriority ||
-          (priority === heroInAttackRangePriority && dist < heroInAttackRangeDist)) {
-        heroInAttackRange = hero;
-        heroInAttackRangeDist = dist;
-        heroInAttackRangePriority = priority;
+      if (priority > heroInDetectionRangePriority ||
+          (priority === heroInDetectionRangePriority && dist < heroInDetectionRangeDist)) {
+        heroInDetectionRange = hero;
+        heroInDetectionRangeDist = dist;
+        heroInDetectionRangePriority = priority;
       }
     }
   }
 
+  // 타겟 결정: 어그로 대상 > 탐지 범위 내 플레이어
+  const targetHero = aggroHero || heroInDetectionRange;
+  const distToTargetHero = targetHero ? distance(enemy.x, enemy.y, targetHero.x, targetHero.y) : Infinity;
+
   // AI 행동 결정
-  if (heroInAttackRange) {
-    // 2순위: 공격 범위 내 플레이어 공격
-    if (updatedEnemy.attackCooldown <= 0) {
-      heroDamage = aiConfig.attackDamage;
-      targetHeroId = heroInAttackRange.id;
-      updatedEnemy.attackCooldown = aiConfig.attackSpeed;
-      updatedEnemy.state = 'attacking';
-    } else {
-      // 공격 쿨다운 중에도 넥서스로 이동 (멈추지 않음)
-      const angle = Math.atan2(nexusY - enemy.y, nexusX - enemy.x);
-      const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
-      const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
-      updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);
-      updatedEnemy.y = clamp(enemy.y + moveY, 30, RPG_CONFIG.MAP_HEIGHT - 30);
-      updatedEnemy.state = 'moving';
-    }
-  } else if (aggroHero) {
-    // 3순위: 어그로 상태 - 해당 플레이어 추적
-    const distToAggroHero = distance(enemy.x, enemy.y, aggroHero.x, aggroHero.y);
-    if (distToAggroHero <= aiConfig.attackRange) {
+  if (targetHero) {
+    // 탐지 범위 내 플레이어 또는 어그로 대상 추적/공격
+    if (distToTargetHero <= aiConfig.attackRange) {
       // 공격 범위 내: 공격
       if (updatedEnemy.attackCooldown <= 0) {
         heroDamage = aiConfig.attackDamage;
-        targetHeroId = aggroHero.id;
+        targetHeroId = targetHero.id;
         updatedEnemy.attackCooldown = aiConfig.attackSpeed;
         updatedEnemy.state = 'attacking';
       } else {
+        // 공격 쿨다운 중: 대기
         updatedEnemy.state = 'idle';
       }
     } else {
-      // 플레이어 방향으로 추적
-      const angle = Math.atan2(aggroHero.y - enemy.y, aggroHero.x - enemy.x);
+      // 공격 범위 밖: 플레이어 방향으로 추적
+      const angle = Math.atan2(targetHero.y - enemy.y, targetHero.x - enemy.x);
       const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
       const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
       updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);

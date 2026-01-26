@@ -311,6 +311,8 @@ export interface RPGGameResult {
   totalGoldEarned: number;
   basesDestroyed: number;
   bossesKilled: number;
+  totalBases: number;      // 총 기지 수 (플레이어 수에 따라 2~4)
+  totalBosses: number;     // 총 보스 수 (기지 수와 동일)
   timePlayed: number;
   heroClass: HeroClass;
   finalUpgradeLevels: UpgradeLevels;

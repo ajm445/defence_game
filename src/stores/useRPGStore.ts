@@ -1057,6 +1057,7 @@ export const useRPGStore = create<RPGStore>()(
 
     setGameOver: (victory) => {
       const state = get();
+      const totalBases = state.enemyBases.length;
       set({
         gameOver: true,
         victory,
@@ -1068,6 +1069,8 @@ export const useRPGStore = create<RPGStore>()(
           totalGoldEarned: state.stats.totalGoldEarned,
           basesDestroyed: state.stats.basesDestroyed,
           bossesKilled: state.stats.bossesKilled,
+          totalBases,
+          totalBosses: totalBases, // 보스 수 = 기지 수
           timePlayed: state.stats.timePlayed,
           heroClass: state.hero?.heroClass || 'warrior',
           finalUpgradeLevels: state.upgradeLevels,

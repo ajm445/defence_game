@@ -20,8 +20,9 @@ export function getSpawnConfig(gameTime: number): {
     SPAWN_CONFIG.BASE_INTERVAL - minutes * SPAWN_CONFIG.INTERVAL_DECREASE_PER_MINUTE
   );
 
-  // 스탯 배율: 시간이 지날수록 강해짐
-  const statMultiplier = 1 + minutes * SPAWN_CONFIG.STAT_MULTIPLIER_PER_MINUTE;
+  // 스탯 배율: 시간에 따른 강화 (난이도 시스템 도입 전까지 비활성화)
+  // const statMultiplier = 1 + minutes * SPAWN_CONFIG.STAT_MULTIPLIER_PER_MINUTE;
+  const statMultiplier = 1; // 고정 배율 (난이도 시스템에서 조절 예정)
 
   // 적 구성: 시간에 따라 다양해짐
   const enemyTypes = SPAWN_CONFIG.getEnemyTypesForTime(minutes);
