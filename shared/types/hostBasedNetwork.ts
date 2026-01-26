@@ -67,6 +67,8 @@ export interface SerializedHero {
   };
   // SP 스탯 업그레이드 (hpRegen 등 적용용)
   statUpgrades?: CharacterStatUpgrades;
+  // 개인 처치 수 (멀티플레이어용)
+  kills: number;
 }
 
 // ============================================

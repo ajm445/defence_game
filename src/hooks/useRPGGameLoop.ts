@@ -160,6 +160,9 @@ export function useRPGGameLoop() {
         }
       }
 
+      // 다른 플레이어 영웅 위치 보간 업데이트 (부드러운 움직임)
+      useRPGStore.getState().updateOtherHeroesInterpolation();
+
       animationIdRef.current = requestAnimationFrame(tick);
       return;
     }
