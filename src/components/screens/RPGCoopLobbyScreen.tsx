@@ -182,6 +182,14 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             connectionState: 'in_lobby',
             players: message.players || [],
           });
+          // 방 설정 동기화
+          if (message.isPrivate !== undefined) {
+            setRoomIsPrivate(message.isPrivate);
+          }
+          if (message.difficulty) {
+            setRoomDifficulty(message.difficulty as RPGDifficulty);
+            useRPGStore.getState().setDifficulty(message.difficulty as RPGDifficulty);
+          }
           break;
 
         case 'COOP_PLAYER_JOINED':
@@ -466,14 +474,9 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
   // 비밀방 코드 확인 후 참가
   const handleJoinPrivateRoom = useCallback(async () => {
-    if (!privateRoomToJoin) return;
+    if (!privateRoomToJoin || privateRoomCode.length !== 6) return;
 
-    // 초대 코드 확인
-    if (privateRoomCode.toUpperCase() !== privateRoomToJoin.roomCode) {
-      setError('초대 코드가 일치하지 않습니다.');
-      return;
-    }
-
+    const roomCode = privateRoomCode.toUpperCase();
     soundManager.play('ui_click');
     setPrivateRoomToJoin(null);
     setPrivateRoomCode('');
@@ -491,7 +494,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
 
       selectClass(defaultClass);
-      wsClient.joinCoopRoomById(privateRoomToJoin.roomId, playerName, defaultClass, characterLevel, statUpgrades);
+      // 비밀방은 코드로 참가 (서버에서 코드 검증)
+      wsClient.joinCoopRoom(roomCode, playerName, defaultClass, characterLevel, statUpgrades);
     } catch (e) {
       setError('서버 연결 실패');
     }

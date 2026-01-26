@@ -189,6 +189,8 @@ export function joinCoopRoom(
     roomCode: room.code,
     players: playersArray,
     yourIndex: playerIndex,
+    isPrivate: room.isPrivate,
+    difficulty: room.difficulty,
   });
 
   return true;
@@ -238,6 +240,8 @@ export function leaveCoopRoom(playerId: string): void {
             roomCode: room.code,
             players: Array.from(room.players.values()),
             yourIndex: Array.from(room.players.keys()).indexOf(id),
+            isPrivate: room.isPrivate,
+            difficulty: room.difficulty,
           });
         });
       }
@@ -565,6 +569,12 @@ export function joinCoopRoomById(
     return false;
   }
 
+  // 비밀방인 경우 직접 참가 불가 (초대 코드로만 참가 가능)
+  if (room.isPrivate) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '비밀방입니다. 초대 코드를 입력해주세요.' });
+    return false;
+  }
+
   // 방이 이미 가득 찼는지 확인
   if (room.players.size >= MAX_PLAYERS) {
     sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '방이 가득 찼습니다. (최대 4명)' });
@@ -615,6 +625,8 @@ export function joinCoopRoomById(
     roomCode: room.code,
     players: playersArray,
     yourIndex: playerIndex,
+    isPrivate: room.isPrivate,
+    difficulty: room.difficulty,
   });
 
   return true;
