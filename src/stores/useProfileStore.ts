@@ -14,7 +14,7 @@ import {
   STAT_UPGRADE_CONFIG,
   getUpgradeableStats,
 } from '../types/auth';
-import { HeroClass } from '../types/rpg';
+import { HeroClass, RPGDifficulty } from '../types/rpg';
 import {
   getClassProgress,
   getGameHistory,
@@ -69,6 +69,7 @@ interface ProfileActions {
     kills: number;
     playTime: number;  // 초 단위
     victory: boolean;
+    difficulty?: RPGDifficulty;  // 난이도 (경험치 배율 적용)
   }) => Promise<LevelUpResult | null>;
 
   // 협동 모드 게임 결과 처리 (넥서스 디펜스)
@@ -79,6 +80,7 @@ interface ProfileActions {
     kills: number;
     playTime: number;
     victory: boolean;
+    difficulty?: RPGDifficulty;  // 난이도 (경험치 배율 적용)
   }) => Promise<LevelUpResult | null>;
 
   // 클래스 진행 상황 가져오기

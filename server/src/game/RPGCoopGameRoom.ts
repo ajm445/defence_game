@@ -79,6 +79,7 @@ export class RPGCoopGameRoom {
         playerIndex: index,
         players: this.playerInfos,
         hostPlayerId: this.hostPlayerId,
+        difficulty: this.difficulty,  // 난이도 전달
       });
     });
   }

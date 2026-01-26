@@ -314,8 +314,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             connectionState: 'in_game',
             countdown: null,
           });
-          // 게임 초기화 (영웅, 넥서스, 적 기지 등 생성)
-          useRPGStore.getState().initMultiplayerGame(message.players, message.isHost);
+          // 난이도 설정 (서버에서 전달된 값 사용)
+          if (message.difficulty) {
+            useRPGStore.getState().setDifficulty(message.difficulty as RPGDifficulty);
+          }
+          // 게임 초기화 (영웅, 넥서스, 적 기지 등 생성) - 난이도 명시적 전달
+          useRPGStore.getState().initMultiplayerGame(message.players, message.isHost, message.difficulty as RPGDifficulty);
           break;
       }
     };

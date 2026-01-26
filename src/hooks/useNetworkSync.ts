@@ -221,9 +221,9 @@ export function useNetworkSync() {
 // ============================================
 
 function handleGameStartHostBased(message: any) {
-  const { isHost, playerIndex, players, hostPlayerId } = message;
+  const { isHost, playerIndex, players, hostPlayerId, difficulty } = message;
 
-  console.log(`[NetworkSync] 호스트 기반 게임 시작: 호스트=${isHost}, 인덱스=${playerIndex}`);
+  console.log(`[NetworkSync] 호스트 기반 게임 시작: 호스트=${isHost}, 인덱스=${playerIndex}, 난이도=${difficulty}`);
 
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
@@ -235,9 +235,14 @@ function handleGameStartHostBased(message: any) {
     countdown: null,
   });
 
+  // 난이도 설정 (서버에서 전달된 값 사용)
+  if (difficulty) {
+    useRPGStore.getState().setDifficulty(difficulty);
+  }
+
   // 호스트는 게임 초기화 및 상태 관리
   // 클라이언트는 호스트로부터 상태를 받아서 적용
-  useRPGStore.getState().initMultiplayerGame(players, isHost);
+  useRPGStore.getState().initMultiplayerGame(players, isHost, difficulty);
 }
 
 function handleGameStateFromHost(serializedState: SerializedGameState) {

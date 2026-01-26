@@ -632,12 +632,16 @@ export function useRPGGameLoop() {
     const latestState = useRPGStore.getState();
     const showNotification = useUIStore.getState().showNotification;
     const difficulty = latestState.selectedDifficulty;
+    // 멀티플레이어 인원 수 (싱글=1, 멀티=실제 인원 수)
+    const playerCount = latestState.multiplayer.isMultiplayer
+      ? Object.keys(latestState.otherHeroes).length + 1  // 내 영웅 + 다른 플레이어들
+      : 1;
 
     // 게임 단계에 따른 처리
     if (latestState.gamePhase === 'playing') {
       // 적 기지에서 동시 스폰 (양쪽에서 여러 마리)
       const enemyBases = latestState.enemyBases;
-      const spawnResult = shouldSpawnEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases, difficulty);
+      const spawnResult = shouldSpawnEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases, difficulty, playerCount);
 
       if (spawnResult.shouldSpawn && spawnResult.spawns.length > 0) {
         // 각 기지에서 스폰
@@ -646,7 +650,7 @@ export function useRPGGameLoop() {
           if (base && !base.destroyed) {
             // 해당 기지에서 count만큼 적 생성
             for (let i = 0; i < spawn.count; i++) {
-              const enemy = createEnemyFromBase(base, latestState.gameTime, difficulty);
+              const enemy = createEnemyFromBase(base, latestState.gameTime, difficulty, playerCount);
               if (enemy) {
                 useRPGStore.getState().addEnemy(enemy);
               }
