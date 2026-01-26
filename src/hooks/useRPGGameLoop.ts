@@ -1,13 +1,10 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG, UPGRADE_CONFIG } from '../constants/rpgConfig';
 import { getStatBonus } from '../types/auth';
 import { updateHeroUnit, findNearestEnemy, findNearestEnemyBase } from '../game/rpg/heroUnit';
 import {
-  executeDash,
-  executeSpin,
-  executeHeal,
   updateSkillCooldowns,
   executeQSkill,
   executeWSkill,
@@ -264,16 +261,10 @@ export function useRPGGameLoop() {
               // 영웅 공격력 계산 (업그레이드 보너스 포함)
               const baseAttack = heroForAutoAttack.baseAttack;
               const upgradeLevels = useRPGStore.getState().upgradeLevels;
-              const attackBonus = upgradeLevels.attack * 5; // 업그레이드당 5 공격력
+              const attackBonus = upgradeLevels.attack * UPGRADE_CONFIG.attack.perLevel; // 업그레이드당 공격력
               let totalAttack = baseAttack + attackBonus;
 
-              // 마법사 데미지 보너스 패시브 적용
-              if (heroClass === 'mage') {
-                const classConfig = CLASS_CONFIGS[heroClass];
-                const baseDamageBonus = heroForAutoAttack.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
-                const growthDamageBonus = heroForAutoAttack.passiveGrowth?.currentValue || 0;
-                totalAttack = Math.floor(totalAttack * (1 + baseDamageBonus + growthDamageBonus));
-              }
+              // 마법사 보스 데미지 보너스는 기지에 적용되지 않음 (보스에게만 적용)
 
               // 광전사 버프 공격력 보너스 적용
               const hostBerserkerBuff = heroForAutoAttack.buffs?.find(b => b.type === 'berserker');
@@ -598,7 +589,11 @@ export function useRPGGameLoop() {
           if (enemy.hp <= 0) continue;
           const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
           if (dist <= skill.radius) {
-            const killed = useRPGStore.getState().damageEnemy(enemy.id, skill.damage, skill.casterId);
+            // 마법사: 보스에게만 데미지 보너스 적용
+            const actualDamage = (enemy.type === 'boss' && skill.bossDamageMultiplier)
+              ? Math.floor(skill.damage * skill.bossDamageMultiplier)
+              : skill.damage;
+            const killed = useRPGStore.getState().damageEnemy(enemy.id, actualDamage, skill.casterId);
             if (killed) {
               // 골드 획득은 damageEnemy 내에서 자동 처리됨
               useRPGStore.getState().removeEnemy(enemy.id);
@@ -830,58 +825,7 @@ export function useRPGGameLoop() {
       const targetX = state.mousePosition.x;
       const targetY = state.mousePosition.y;
 
-      // 기존 스킬 처리 (하위 호환)
-      const legacyHeroId = state.multiplayer.myHeroId || state.hero?.id;
-      switch (skillType) {
-        case 'dash': {
-          const result = executeDash(state.hero, state.enemies, targetX, targetY, gameTime);
-          useRPGStore.setState((s) => ({
-            hero: result.hero,
-            activeSkillEffects: [...s.activeSkillEffects, result.effect],
-          }));
-          for (const damage of result.enemyDamages) {
-            const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage, legacyHeroId);
-            if (killed) {
-              const enemy = state.enemies.find((e) => e.id === damage.enemyId);
-              if (enemy) {
-                // 골드 획득은 damageEnemy 내에서 자동 처리됨
-                useRPGStore.getState().removeEnemy(enemy.id);
-              }
-            }
-          }
-          return;
-        }
-        case 'spin': {
-          const result = executeSpin(state.hero, state.enemies, gameTime);
-          useRPGStore.setState((s) => ({
-            hero: result.hero,
-            activeSkillEffects: [...s.activeSkillEffects, result.effect],
-          }));
-          for (const damage of result.enemyDamages) {
-            const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage, legacyHeroId);
-            if (killed) {
-              const enemy = state.enemies.find((e) => e.id === damage.enemyId);
-              if (enemy) {
-                // 골드 획득은 damageEnemy 내에서 자동 처리됨
-                useRPGStore.getState().removeEnemy(enemy.id);
-              }
-            }
-          }
-          return;
-        }
-        case 'heal': {
-          const result = executeHeal(state.hero, gameTime);
-          useRPGStore.setState((s) => ({
-            hero: result.hero,
-            activeSkillEffects: [...s.activeSkillEffects, result.effect],
-          }));
-          const showNotification = useUIStore.getState().showNotification;
-          showNotification(`HP ${result.healAmount} 회복!`);
-          return;
-        }
-      }
-
-      // 새로운 직업별 스킬 처리
+      // 직업별 스킬 처리
       const classSkills = CLASS_SKILLS[heroClass];
       const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
 
@@ -1129,15 +1073,16 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
     // 데미지 계산 (모든 타겟에 공통 적용)
     const baseDamage = hero.baseAttack;
     const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
-    const attackBonus = playerUpgrades.attack * 5;
+    const attackBonus = playerUpgrades.attack * UPGRADE_CONFIG.attack.perLevel;
     let totalDamage = baseDamage + attackBonus;
 
-    // 마법사 데미지 보너스 패시브 적용
+    // 마법사: 보스 데미지 배율 계산 (보스에게만 적용)
+    let bossDamageMultiplier = 1.0;
     if (heroClass === 'mage') {
       const classConfig = CLASS_CONFIGS[heroClass];
-      const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
-      const growthDamageBonus = hero.passiveGrowth?.currentValue || 0;
-      totalDamage = Math.floor(totalDamage * (1 + baseDamageBonus + growthDamageBonus));
+      const baseBossDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.bossDamageBonus || 0) : 0;
+      const growthBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
+      bossDamageMultiplier = 1 + baseBossDamageBonus + growthBossDamageBonus;
     }
 
     // 광전사 버프 공격력 보너스 적용
@@ -1172,15 +1117,17 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
         let totalHealAmount = 0;
 
         for (const { enemy } of targets) {
-          const killed = state.damageEnemy(enemy.id, totalDamage, heroId);
+          // 마법사: 보스에게만 데미지 보너스 적용
+          const actualDamage = enemy.type === 'boss' ? Math.floor(totalDamage * bossDamageMultiplier) : totalDamage;
+          const killed = state.damageEnemy(enemy.id, actualDamage, heroId);
           if (killed) {
             state.removeEnemy(enemy.id);
           }
-          hitTargets.push({ x: enemy.x, y: enemy.y, damage: totalDamage });
+          hitTargets.push({ x: enemy.x, y: enemy.y, damage: actualDamage });
 
           // 광전사 버프 피해흡혈 (궁수도 버프 받으면 적용)
           if (berserkerBuff?.lifesteal) {
-            totalHealAmount += Math.floor(totalDamage * berserkerBuff.lifesteal);
+            totalHealAmount += Math.floor(actualDamage * berserkerBuff.lifesteal);
           }
         }
 
@@ -1272,12 +1219,13 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             // 바라보는 방향 범위 밖이면 스킵
             if (dot < attackAngleThreshold) continue;
 
-            // 데미지 적용
-            const killed = state.damageEnemy(enemy.id, totalDamage, heroId);
+            // 마법사: 보스에게만 데미지 보너스 적용
+            const actualDamage = enemy.type === 'boss' ? Math.floor(totalDamage * bossDamageMultiplier) : totalDamage;
+            const killed = state.damageEnemy(enemy.id, actualDamage, heroId);
             if (killed) {
               state.removeEnemy(enemy.id);
             }
-            hitTargets.push({ x: enemy.x, y: enemy.y, damage: totalDamage });
+            hitTargets.push({ x: enemy.x, y: enemy.y, damage: actualDamage });
             hitCount++;
           }
 
@@ -1420,16 +1368,10 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           // 기지 공격 - 해당 플레이어의 업그레이드 레벨 사용
           const baseDamage = hero.baseAttack;
           const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
-          const attackBonus = playerUpgrades.attack * 5;
+          const attackBonus = playerUpgrades.attack * UPGRADE_CONFIG.attack.perLevel;
           let baseTotalDamage = baseDamage + attackBonus;
 
-          // 마법사 데미지 보너스 패시브 적용
-          if (heroClass === 'mage') {
-            const classConfig = CLASS_CONFIGS[heroClass];
-            const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
-            const growthDamageBonus = hero.passiveGrowth?.currentValue || 0;
-            baseTotalDamage = Math.floor(baseTotalDamage * (1 + baseDamageBonus + growthDamageBonus));
-          }
+          // 마법사 보스 데미지 보너스는 기지에 적용되지 않음 (보스에게만 적용)
 
           // 광전사 버프 공격력 보너스 적용
           if (berserkerBuff?.attackBonus) {

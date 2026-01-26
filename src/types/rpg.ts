@@ -49,7 +49,7 @@ export interface PassiveAbility {
   lifesteal?: number;       // 피해흡혈 비율 (0.1 = 10%)
   multiTarget?: number;     // 기본 공격 대상 수
   hpRegen?: number;         // 초당 HP 재생
-  damageBonus?: number;     // 데미지 증가 비율 (0.2 = 20%)
+  bossDamageBonus?: number; // 보스에게 주는 데미지 증가 비율 (0.2 = 20%)
 }
 
 // 패시브 성장 상태
@@ -257,6 +257,7 @@ export interface PendingSkill {
   damage: number;
   radius: number;
   casterId?: string;     // 스킬 시전자 ID (보스 골드 분배용)
+  bossDamageMultiplier?: number; // 보스 데미지 배율 (마법사 패시브)
 }
 
 // 레벨업 보너스 (계정 레벨 보너스)

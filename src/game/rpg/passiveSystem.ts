@@ -149,7 +149,7 @@ export function formatPassiveValue(heroClass: HeroClass, state: PassiveGrowthSta
   switch (config.type) {
     case 'lifesteal':
     case 'multiTarget':
-    case 'damageBonus':
+    case 'bossDamageBonus':
       valueText = `${(state.currentValue * 100).toFixed(1)}%`;
       break;
     case 'hpRegen':

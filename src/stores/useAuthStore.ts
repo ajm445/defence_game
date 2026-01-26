@@ -108,34 +108,34 @@ const clearSoundSettingsFromStorage = () => {
 // 세션 저장 키
 const SESSION_KEY = 'defence_game_session';
 
-// localStorage에 세션 저장
+// sessionStorage에 세션 저장 (브라우저/탭 종료 시 자동 삭제)
 const saveSessionToStorage = (user: { id: string; email?: string; isGuest?: boolean }, profile: PlayerProfile) => {
   try {
-    localStorage.setItem(SESSION_KEY, JSON.stringify({ user, profile }));
+    sessionStorage.setItem(SESSION_KEY, JSON.stringify({ user, profile }));
   } catch (e) {
-    console.error('Failed to save session to localStorage:', e);
+    console.error('Failed to save session to sessionStorage:', e);
   }
 };
 
-// localStorage에서 세션 로드
+// sessionStorage에서 세션 로드
 const loadSessionFromStorage = (): { user: { id: string; email?: string; isGuest?: boolean }; profile: PlayerProfile } | null => {
   try {
-    const stored = localStorage.getItem(SESSION_KEY);
+    const stored = sessionStorage.getItem(SESSION_KEY);
     if (stored) {
       return JSON.parse(stored);
     }
   } catch (e) {
-    console.error('Failed to load session from localStorage:', e);
+    console.error('Failed to load session from sessionStorage:', e);
   }
   return null;
 };
 
-// localStorage에서 세션 삭제
+// sessionStorage에서 세션 삭제
 const clearSessionFromStorage = () => {
   try {
-    localStorage.removeItem(SESSION_KEY);
+    sessionStorage.removeItem(SESSION_KEY);
   } catch (e) {
-    console.error('Failed to clear session from localStorage:', e);
+    console.error('Failed to clear session from sessionStorage:', e);
   }
 };
 
@@ -328,13 +328,28 @@ export const useAuthStore = create<AuthStore>()(
     initialize: async () => {
       set({ isLoading: true });
 
+      // 기존 localStorage 세션 정리 (마이그레이션)
       try {
-        // localStorage에서 세션 복원
+        localStorage.removeItem(SESSION_KEY);
+      } catch (e) {
+        // ignore
+      }
+
+      // 타임아웃 설정 (5초 내 응답 없으면 로그아웃 상태로)
+      const timeoutPromise = new Promise<null>((resolve) => {
+        setTimeout(() => resolve(null), 5000);
+      });
+
+      try {
+        // sessionStorage에서 세션 복원
         const storedSession = loadSessionFromStorage();
 
         if (storedSession?.user && storedSession?.profile) {
-          // 저장된 세션이 있으면 서버에서 프로필 확인
-          const profile = await getPlayerProfile(storedSession.user.id);
+          // 저장된 세션이 있으면 서버에서 프로필 확인 (타임아웃 적용)
+          const profile = await Promise.race([
+            getPlayerProfile(storedSession.user.id),
+            timeoutPromise,
+          ]);
 
           if (profile) {
             // 프로필이 존재하면 세션 유효
@@ -343,7 +358,11 @@ export const useAuthStore = create<AuthStore>()(
             // 게스트가 아니면 classProgress도 로드
             let classProgressData: ClassProgress[] = [];
             if (!profile.isGuest) {
-              classProgressData = await getClassProgress(storedSession.user.id);
+              const classProgressResult = await Promise.race([
+                getClassProgress(storedSession.user.id),
+                timeoutPromise.then(() => [] as ClassProgress[]),
+              ]);
+              classProgressData = classProgressResult || [];
             }
 
             set({
@@ -354,7 +373,8 @@ export const useAuthStore = create<AuthStore>()(
               isLoading: false,
             });
           } else {
-            // 프로필이 없으면 세션 무효 (탈퇴된 계정 등)
+            // 프로필이 없거나 타임아웃 → 세션 무효
+            console.log('Session invalid or timeout - clearing session');
             clearSessionFromStorage();
             set({
               status: 'unauthenticated',
@@ -391,6 +411,7 @@ export const useAuthStore = create<AuthStore>()(
         });
       } catch (err) {
         console.error('Auth initialization error:', err);
+        clearSessionFromStorage();
         set({
           status: 'unauthenticated',
           isLoading: false,
