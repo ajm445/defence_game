@@ -20,6 +20,21 @@ export function updateHeroUnit(
   let enemyDamage: { targetId: string; damage: number } | undefined;
   let reachedTarget = false;
 
+  // 사망 상태면 이동/공격 불가 - 위치 고정
+  if (updatedHero.hp <= 0) {
+    return {
+      hero: {
+        ...updatedHero,
+        state: 'idle',
+        moveDirection: undefined,
+        targetPosition: undefined,
+        attackTarget: undefined,
+      },
+      enemyDamage: undefined,
+      reachedTarget: false,
+    };
+  }
+
   // 쿨다운 감소
   if (updatedHero.attackCooldown > 0) {
     updatedHero.attackCooldown -= deltaTime;

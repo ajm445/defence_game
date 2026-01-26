@@ -1,6 +1,6 @@
 // 호스트 기반 싱글/멀티플레이 통합 네트워크 타입 정의
 
-import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, PendingSkill, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect } from '../../src/types/rpg';
+import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, PendingSkill, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, NexusLaserEffect } from '../../src/types/rpg';
 import type { UnitType } from '../../src/types/unit';
 import type { CharacterStatUpgrades } from '../../src/types/auth';
 import type { CoopPlayerInfo } from './rpgNetwork';
@@ -67,6 +67,8 @@ export interface SerializedHero {
   };
   // SP 스탯 업그레이드 (hpRegen 등 적용용)
   statUpgrades?: CharacterStatUpgrades;
+  // 개인 처치 수 (멀티플레이어용)
+  kills: number;
 }
 
 // ============================================
@@ -105,6 +107,7 @@ export interface SerializedGameState {
   upgradeLevels: UpgradeLevels;
   activeSkillEffects: SkillEffect[];
   basicAttackEffects: BasicAttackEffect[];
+  nexusLaserEffects: NexusLaserEffect[];
   pendingSkills: PendingSkill[];
   // 게임 상태
   running: boolean;

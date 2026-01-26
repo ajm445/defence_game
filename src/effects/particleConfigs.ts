@@ -218,4 +218,19 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     shape: 'circle',
     spread: Math.PI * 2,
   },
+
+  // 넥서스 레이저 - 청록색 빔 파티클
+  nexus_laser: {
+    count: 12,
+    colors: ['#00ffff', '#00ccff', '#00aaff', '#66ffff', '#ffffff'],
+    sizeMin: 2,
+    sizeMax: 5,
+    speedMin: 300,
+    speedMax: 500,
+    lifeMin: 0.15,
+    lifeMax: 0.3,
+    gravity: 0,
+    shape: 'circle',
+    spread: Math.PI / 8, // 좁은 확산 (레이저처럼)
+  },
 };

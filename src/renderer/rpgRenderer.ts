@@ -6,7 +6,7 @@ import { effectManager } from '../effects';
 import { drawRPGMinimap, getMinimapConfig } from './drawRPGMinimap';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useAuthStore } from '../stores/useAuthStore';
-import { drawNexus, drawAllEnemyBases } from './drawNexusEntities';
+import { drawNexus, drawAllEnemyBases, drawNexusLaserBeams } from './drawNexusEntities';
 
 /**
  * RPG 모드 렌더링
@@ -50,6 +50,12 @@ export function renderRPG(
   // 넥서스 디펜스 엔티티 렌더링 (다른 엔티티와 동일한 카메라 사용)
   if (state.nexus) {
     drawNexus(ctx, state.nexus, camera, scaledWidth, scaledHeight);
+
+    // 넥서스 레이저 빔 렌더링
+    const nexusLaserEffects = useRPGStore.getState().nexusLaserEffects;
+    if (nexusLaserEffects.length > 0) {
+      drawNexusLaserBeams(ctx, state.nexus, nexusLaserEffects, camera);
+    }
   }
 
   if (state.enemyBases && state.enemyBases.length > 0) {

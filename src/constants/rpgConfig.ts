@@ -14,7 +14,9 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     enemyHpMultiplier: 1.0,
     enemyAttackMultiplier: 1.0,
     spawnIntervalMultiplier: 1.0,
+    spawnCountMultiplier: 1.0,    // 기본 스폰 수
     goldRewardMultiplier: 1.0,
+    expRewardMultiplier: 1.0,     // 기본 경험치
     bossHpMultiplier: 1.0,
     bossAttackMultiplier: 1.0,
     enemyBaseHpMultiplier: 1.0,
@@ -27,7 +29,9 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     enemyHpMultiplier: 1.3,
     enemyAttackMultiplier: 1.2,
     spawnIntervalMultiplier: 0.9,
-    goldRewardMultiplier: 1.1,
+    spawnCountMultiplier: 1.2,    // 스폰 수 20% 증가
+    goldRewardMultiplier: 1.15,
+    expRewardMultiplier: 1.2,     // 경험치 20% 증가
     bossHpMultiplier: 1.3,
     bossAttackMultiplier: 1.2,
     enemyBaseHpMultiplier: 1.3,
@@ -39,8 +43,10 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     description: '도전적인 난이도',
     enemyHpMultiplier: 1.6,
     enemyAttackMultiplier: 1.4,
-    spawnIntervalMultiplier: 0.8,
-    goldRewardMultiplier: 1.2,
+    spawnIntervalMultiplier: 0.85,
+    spawnCountMultiplier: 1.5,    // 스폰 수 50% 증가
+    goldRewardMultiplier: 1.3,
+    expRewardMultiplier: 1.5,     // 경험치 50% 증가
     bossHpMultiplier: 1.6,
     bossAttackMultiplier: 1.4,
     enemyBaseHpMultiplier: 1.6,
@@ -52,8 +58,10 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     description: '최고의 도전',
     enemyHpMultiplier: 2.0,
     enemyAttackMultiplier: 1.8,
-    spawnIntervalMultiplier: 0.7,
-    goldRewardMultiplier: 1.3,
+    spawnIntervalMultiplier: 0.8,
+    spawnCountMultiplier: 2.0,    // 스폰 수 2배
+    goldRewardMultiplier: 1.5,
+    expRewardMultiplier: 2.0,     // 경험치 2배
     bossHpMultiplier: 2.0,
     bossAttackMultiplier: 1.8,
     enemyBaseHpMultiplier: 2.0,
@@ -177,6 +185,12 @@ export const NEXUS_CONFIG = {
   },
   hp: 5000,
   radius: 80,  // 넥서스 크기
+  // 넥서스 레이저 방어 시스템
+  laser: {
+    range: 200,         // 공격 범위 (넥서스 중심 기준)
+    damage: 15,         // 기본 데미지 (약한 데미지)
+    attackSpeed: 1.2,   // 공격 간격 (초)
+  },
 } as const;
 
 export const ENEMY_BASE_CONFIG = {
@@ -274,8 +288,8 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     emoji: '🏹',
     description: '기본 공격 중심의 원거리 딜러',
     hp: 280,
-    attack: 38,
-    attackSpeed: 0.7,
+    attack: 40,
+    attackSpeed: 0.75,
     speed: 3.0,
     range: 180,
     passive: {
@@ -315,35 +329,35 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
 // 적 유형별 AI 설정
 export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
   melee: {
-    detectionRange: 400,
+    detectionRange: 300,
     attackRange: 60,
     moveSpeed: 2.25,
     attackDamage: 15,
     attackSpeed: 1.0,
   },
   ranged: {
-    detectionRange: 550,
+    detectionRange: 450,
     attackRange: 150,
     moveSpeed: 2.4,
     attackDamage: 20,
     attackSpeed: 0.8,
   },
   knight: {
-    detectionRange: 400,
+    detectionRange: 300,
     attackRange: 70,
     moveSpeed: 1.95,
     attackDamage: 12,
     attackSpeed: 1.2,
   },
   mage: {
-    detectionRange: 550,
+    detectionRange: 450,
     attackRange: 180,
     moveSpeed: 2.1,
     attackDamage: 35,
     attackSpeed: 1.5,
   },
   boss: {
-    detectionRange: 700,
+    detectionRange: 650,
     attackRange: 100,
     moveSpeed: 1.5,
     attackDamage: 50,
@@ -355,6 +369,53 @@ export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
   gatherer: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
   goldminer: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
   healer: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
+};
+
+// RPG 모드 전용 적 기본 스탯 설정
+export interface RPGEnemyConfig {
+  name: string;
+  hp: number;
+  attack: number;
+  attackSpeed: number;
+  speed: number;
+}
+
+export const RPG_ENEMY_CONFIGS: Record<string, RPGEnemyConfig> = {
+  melee: {
+    name: '검병',
+    hp: 100,
+    attack: 15,
+    attackSpeed: 1.0,
+    speed: 2.25,
+  },
+  ranged: {
+    name: '궁수',
+    hp: 70,       // 50 → 70 (생존력 향상)
+    attack: 18,   // 20 → 18 (약간 하향)
+    attackSpeed: 0.8,
+    speed: 2.4,
+  },
+  knight: {
+    name: '기사',
+    hp: 280,      // 300 → 280 (약간 하향)
+    attack: 18,   // 12 → 18 (위협적으로)
+    attackSpeed: 1.2,
+    speed: 1.95,
+  },
+  mage: {
+    name: '마법사',
+    hp: 55,       // 40 → 55 (생존력 향상)
+    attack: 30,   // 35 → 30 (약간 하향)
+    attackSpeed: 1.5,
+    speed: 2.1,
+  },
+  boss: {
+    name: '보스',
+    hp: 2000,
+    attack: 50,
+    attackSpeed: 2.0,
+    speed: 1.5,
+  },
 };
 
 // 직업별 스킬 설정

@@ -1,4 +1,5 @@
-import { HeroClass } from './rpg';
+import { HeroClass, RPGDifficulty } from './rpg';
+import { DIFFICULTY_CONFIGS } from '../constants/rpgConfig';
 
 // 플레이어 프로필
 export interface PlayerProfile {
@@ -67,7 +68,8 @@ export const calculatePlayerExp = (
   kills: number,
   playTimeSeconds: number,
   victory: boolean,
-  mode: 'single' | 'coop'
+  mode: 'single' | 'coop',
+  difficulty: RPGDifficulty = 'easy'
 ): number => {
   // 기지 파괴: 각 30점
   const baseExp = basesDestroyed * 30;
@@ -82,15 +84,21 @@ export const calculatePlayerExp = (
 
   const totalExp = baseExp + bossExp + killExp + survivalBonus + victoryBonus;
 
-  // 협동 모드: 1.2배
-  return mode === 'coop' ? Math.floor(totalExp * 1.2) : totalExp;
+  // 난이도 경험치 배율 적용
+  const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
+  const difficultyMultiplier = difficultyConfig?.expRewardMultiplier ?? 1.0;
+
+  // 협동 모드: 1.2배 + 난이도 배율
+  const modeMultiplier = mode === 'coop' ? 1.2 : 1.0;
+  return Math.floor(totalExp * modeMultiplier * difficultyMultiplier);
 };
 
 // 직업 경험치 계산 (넥서스 디펜스)
 export const calculateClassExp = (
   basesDestroyed: number,
   bossesKilled: number,
-  kills: number
+  kills: number,
+  difficulty: RPGDifficulty = 'easy'
 ): number => {
   // 기지 파괴: 각 15점
   const baseExp = basesDestroyed * 15;
@@ -99,7 +107,11 @@ export const calculateClassExp = (
   // 킬당: 1점
   const killExp = kills;
 
-  return baseExp + bossExp + killExp;
+  // 난이도 경험치 배율 적용
+  const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
+  const difficultyMultiplier = difficultyConfig?.expRewardMultiplier ?? 1.0;
+
+  return Math.floor((baseExp + bossExp + killExp) * difficultyMultiplier);
 };
 
 // ============================================

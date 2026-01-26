@@ -23,6 +23,7 @@ import { SkillType, PendingSkill, SkillEffect, HeroUnit, Buff } from '../types/r
 import { distance } from '../utils/math';
 import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy } from '../game/rpg/nexusSpawnSystem';
 import { createBosses, areAllBossesDead, hasBosses } from '../game/rpg/bossSystem';
+import { processNexusLaser, isNexusAlive } from '../game/rpg/nexusLaserSystem';
 import { rollMultiTarget } from '../game/rpg/passiveSystem';
 import { useNetworkSync, shareHostBuffToAllies } from './useNetworkSync';
 import { wsClient } from '../services/WebSocketClient';
@@ -73,6 +74,20 @@ export function useRPGGameLoop() {
           effectManager.createEffect(effectType, effect.x, effect.y);
         }
       }
+
+      // 동기화된 넥서스 레이저 이펙트 처리 (클라이언트)
+      const clientNexus = useRPGStore.getState().nexus;
+      const clientLaserEffects = useRPGStore.getState().nexusLaserEffects;
+      for (const effect of clientLaserEffects) {
+        if (!processedEffectIdsRef.current.has(effect.id)) {
+          processedEffectIdsRef.current.add(effect.id);
+          if (clientNexus) {
+            effectManager.createEffect('nexus_laser', clientNexus.x, clientNexus.y, effect.targetX, effect.targetY);
+            soundManager.play('laser_attack');
+          }
+        }
+      }
+
       // 오래된 이펙트 ID 정리 (300ms 이후)
       const now = Date.now();
       for (const effectId of processedEffectIdsRef.current) {
@@ -159,6 +174,9 @@ export function useRPGGameLoop() {
           useRPGStore.getState().updateHeroState({ hp: newHp });
         }
       }
+
+      // 다른 플레이어 영웅 위치 보간 업데이트 (부드러운 움직임)
+      useRPGStore.getState().updateOtherHeroesInterpolation();
 
       animationIdRef.current = requestAnimationFrame(tick);
       return;
@@ -570,6 +588,43 @@ export function useRPGGameLoop() {
         }
       }
 
+      // ============================================
+      // 넥서스 레이저 공격 처리
+      // ============================================
+      const latestNexus = useRPGStore.getState().nexus;
+      if (isNexusAlive(latestNexus)) {
+        const laserResult = processNexusLaser(latestNexus!, updatedEnemies, deltaTime);
+
+        // 넥서스 쿨다운 업데이트
+        if (laserResult.updatedNexus.laserCooldown !== latestNexus!.laserCooldown) {
+          useRPGStore.setState({ nexus: laserResult.updatedNexus });
+        }
+
+        // 레이저 이펙트 추가 (시각 효과 + 네트워크 동기화)
+        for (const effect of laserResult.laserEffects) {
+          useRPGStore.getState().addNexusLaserEffect(effect);
+          // 시각 이펙트 생성 (넥서스에서 타겟으로)
+          effectManager.createEffect('nexus_laser', latestNexus!.x, latestNexus!.y, effect.targetX, effect.targetY);
+          soundManager.play('laser_attack');
+        }
+
+        // 레이저 데미지 적용
+        for (const { enemyId, damage } of laserResult.damagedEnemies) {
+          const targetEnemy = updatedEnemies.find(e => e.id === enemyId);
+          if (targetEnemy) {
+            targetEnemy.hp -= damage;
+            if (targetEnemy.hp <= 0) {
+              // 넥서스가 처치한 경우 - 호스트에게 골드 (또는 아무도 안 받음)
+              // 여기서는 간단히 아무도 골드를 받지 않도록 처리
+              useRPGStore.getState().incrementKills();
+            }
+          }
+        }
+      }
+
+      // 오래된 넥서스 레이저 이펙트 정리
+      useRPGStore.getState().cleanNexusLaserEffects();
+
       // 적 상태 업데이트
       useRPGStore.getState().updateEnemies(updatedEnemies.filter((e) => e.hp > 0));
     }
@@ -629,12 +684,16 @@ export function useRPGGameLoop() {
     const latestState = useRPGStore.getState();
     const showNotification = useUIStore.getState().showNotification;
     const difficulty = latestState.selectedDifficulty;
+    // 멀티플레이어 인원 수 (싱글=1, 멀티=실제 인원 수)
+    const playerCount = latestState.multiplayer.isMultiplayer
+      ? Object.keys(latestState.otherHeroes).length + 1  // 내 영웅 + 다른 플레이어들
+      : 1;
 
     // 게임 단계에 따른 처리
     if (latestState.gamePhase === 'playing') {
       // 적 기지에서 동시 스폰 (양쪽에서 여러 마리)
       const enemyBases = latestState.enemyBases;
-      const spawnResult = shouldSpawnEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases, difficulty);
+      const spawnResult = shouldSpawnEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases, difficulty, playerCount);
 
       if (spawnResult.shouldSpawn && spawnResult.spawns.length > 0) {
         // 각 기지에서 스폰
@@ -643,7 +702,7 @@ export function useRPGGameLoop() {
           if (base && !base.destroyed) {
             // 해당 기지에서 count만큼 적 생성
             for (let i = 0; i < spawn.count; i++) {
-              const enemy = createEnemyFromBase(base, latestState.gameTime, difficulty);
+              const enemy = createEnemyFromBase(base, latestState.gameTime, difficulty, playerCount);
               if (enemy) {
                 useRPGStore.getState().addEnemy(enemy);
               }

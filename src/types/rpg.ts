@@ -11,13 +11,15 @@ export interface DifficultyConfig {
   name: string;
   nameEn: string;
   description: string;
-  enemyHpMultiplier: number;      // 적 HP 배율
-  enemyAttackMultiplier: number;  // 적 공격력 배율
+  enemyHpMultiplier: number;       // 적 HP 배율
+  enemyAttackMultiplier: number;   // 적 공격력 배율
   spawnIntervalMultiplier: number; // 스폰 간격 배율 (낮을수록 빠름)
-  goldRewardMultiplier: number;   // 골드 보상 배율
-  bossHpMultiplier: number;       // 보스 HP 배율
-  bossAttackMultiplier: number;   // 보스 공격력 배율
-  enemyBaseHpMultiplier: number;  // 적 기지 HP 배율
+  spawnCountMultiplier: number;    // 스폰 수 배율 (높을수록 많이 스폰)
+  goldRewardMultiplier: number;    // 골드 보상 배율
+  expRewardMultiplier: number;     // 경험치 보상 배율
+  bossHpMultiplier: number;        // 보스 HP 배율
+  bossAttackMultiplier: number;    // 보스 공격력 배율
+  enemyBaseHpMultiplier: number;   // 적 기지 HP 배율
 }
 
 // 영웅 직업 타입
@@ -83,6 +85,15 @@ export interface Nexus {
   y: number;
   hp: number;
   maxHp: number;
+  laserCooldown: number;  // 레이저 공격 쿨다운 (초)
+}
+
+// 넥서스 레이저 효과 (시각화용)
+export interface NexusLaserEffect {
+  id: string;
+  targetX: number;
+  targetY: number;
+  timestamp: number;
 }
 
 // Enemy Base (적 기지)

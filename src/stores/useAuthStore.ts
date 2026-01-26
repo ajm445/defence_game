@@ -178,6 +178,7 @@ const syncSoundSettings = (profile: PlayerProfile) => {
   useUIStore.getState().setSoundVolume(volume);
   useUIStore.getState().setSoundMuted(muted);
   soundManager.setVolume(volume);
+  soundManager.setBGMVolume(volume); // BGM도 마스터 볼륨과 동기화
   soundManager.setMuted(muted);
 };
 
@@ -471,6 +472,7 @@ export const useAuthStore = create<AuthStore>()(
       useUIStore.getState().setSoundVolume(volume);
       useUIStore.getState().setSoundMuted(muted);
       soundManager.setVolume(volume);
+      soundManager.setBGMVolume(volume); // BGM도 마스터 볼륨과 동기화
       soundManager.setMuted(muted);
 
       if (profile.isGuest) {

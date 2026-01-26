@@ -12,7 +12,7 @@ import {
   SP_PER_CLASS_LEVEL,
   StatUpgradeType,
 } from '../types/auth';
-import { HeroClass } from '../types/rpg';
+import { HeroClass, RPGDifficulty } from '../types/rpg';
 
 // API 기본 URL
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -246,6 +246,7 @@ export const processGameResult = async (
     kills: number;
     playTime: number;  // 초 단위
     victory: boolean;
+    difficulty?: RPGDifficulty;  // 난이도 (경험치 배율 적용)
   }
 ): Promise<{
   playerExpGained: number;
@@ -254,19 +255,23 @@ export const processGameResult = async (
   newProfile: PlayerProfile;
   newClassProgress: ClassProgress;
 }> => {
-  // 경험치 계산 (넥서스 디펜스)
+  const difficulty = gameData.difficulty || 'easy';
+
+  // 경험치 계산 (넥서스 디펜스) - 난이도 배율 적용
   const playerExpGained = calculatePlayerExp(
     gameData.basesDestroyed,
     gameData.bossesKilled,
     gameData.kills,
     gameData.playTime,
     gameData.victory,
-    gameData.mode
+    gameData.mode,
+    difficulty
   );
   const classExpGained = calculateClassExp(
     gameData.basesDestroyed,
     gameData.bossesKilled,
-    gameData.kills
+    gameData.kills,
+    difficulty
   );
 
   // 플레이어 레벨업 계산
