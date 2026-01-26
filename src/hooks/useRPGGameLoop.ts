@@ -221,6 +221,34 @@ export function useRPGGameLoop() {
       // 다른 플레이어 영웅 위치 보간 업데이트 (부드러운 움직임)
       useRPGStore.getState().updateOtherHeroesInterpolation();
 
+      // 클라이언트: 보류 스킬(운석 등) 이펙트/사운드 처리 (데미지는 호스트가 처리)
+      const clientPendingSkills = useRPGStore.getState().pendingSkills;
+      const clientCurrentGameTime = useRPGStore.getState().gameTime;
+      for (const skill of clientPendingSkills) {
+        // 스킬 발동 시점에 이펙트/사운드 재생 (한 번만)
+        const pendingEffectId = `pending_${skill.type}_${skill.triggerTime}`;
+        if (clientCurrentGameTime >= skill.triggerTime && !processedEffectIdsRef.current.has(pendingEffectId)) {
+          processedEffectIdsRef.current.add(pendingEffectId);
+
+          // 운석 폭발 이펙트 (mage_e)
+          if (skill.type === 'mage_e') {
+            const explosionEffect: SkillEffect = {
+              type: 'mage_meteor' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              damage: skill.damage,
+              duration: 0.5,
+              startTime: clientCurrentGameTime,
+            };
+            useRPGStore.getState().addSkillEffect(explosionEffect);
+          } else {
+            // 기본 이펙트
+            effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
+          }
+          soundManager.play('attack_melee');
+        }
+      }
+
       animationIdRef.current = requestAnimationFrame(tick);
       return;
     }

@@ -9,6 +9,7 @@ export const RPGWaveInfo: React.FC = () => {
 
   const aliveEnemies = enemies.filter((e) => e.hp > 0).length;
   const bossEnemies = enemies.filter((e) => e.hp > 0 && e.type === 'boss').length;
+  const totalBosses = enemies.filter((e) => e.type === 'boss').length;
   const destroyedBases = enemyBases.filter((b) => b.destroyed).length;
   const isBossPhase = gamePhase === 'boss_phase';
 
@@ -98,7 +99,7 @@ export const RPGWaveInfo: React.FC = () => {
         {isBossPhase && bossEnemies > 0 && (
           <div className="flex justify-between text-sm">
             <span className="text-gray-400">보스</span>
-            <span className="text-purple-400 font-bold">{bossEnemies}/2</span>
+            <span className="text-purple-400 font-bold">{bossEnemies}/{totalBosses}</span>
           </div>
         )}
       </div>

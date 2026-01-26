@@ -72,16 +72,32 @@ export function useNetworkSync() {
       return;
     }
 
-    // 이동 방향 업데이트
+    // 이동 방향 및 위치 업데이트
     if (input.moveDirection !== undefined) {
-      state.updateOtherHero(heroId, {
+      const updateData: Record<string, any> = {
         moveDirection: input.moveDirection || undefined,
         state: input.moveDirection ? 'moving' : 'idle',
-      });
+      };
+
+      // 클라이언트가 보낸 실제 위치가 있으면 업데이트 (보스 스킬 데미지 정확도 향상)
+      if (input.position) {
+        updateData.x = input.position.x;
+        updateData.y = input.position.y;
+      }
+
+      state.updateOtherHero(heroId, updateData);
     }
 
     // 스킬 사용
     if (input.skillUsed) {
+      // 스킬 사용 시에도 위치 업데이트
+      if (input.position) {
+        state.updateOtherHero(heroId, {
+          x: input.position.x,
+          y: input.position.y,
+        });
+      }
+
       executeOtherHeroSkill(
         heroId,
         hero,
@@ -738,9 +754,12 @@ export function sendMoveDirection(direction: { x: number; y: number } | null) {
 
   // 호스트가 아닐 때만 서버로 전송
   if (!state.multiplayer.isHost) {
+    const hero = state.hero;
     const input: PlayerInput = {
       playerId: state.multiplayer.myPlayerId || '',
       moveDirection: direction,
+      // 클라이언트 실제 위치 전송 (보스 스킬 데미지 계산용)
+      position: hero ? { x: hero.x, y: hero.y } : undefined,
       timestamp: Date.now(),
     };
     wsClient.hostSendPlayerInput(input);
@@ -756,9 +775,12 @@ export function sendSkillUse(skillSlot: 'Q' | 'W' | 'E', targetX: number, target
 
   // 호스트가 아닐 때만 서버로 전송
   if (!state.multiplayer.isHost) {
+    const hero = state.hero;
     const input: PlayerInput = {
       playerId: state.multiplayer.myPlayerId || '',
       moveDirection: null,
+      // 클라이언트 실제 위치 전송 (보스 스킬 데미지 계산용)
+      position: hero ? { x: hero.x, y: hero.y } : undefined,
       skillUsed: { skillSlot, targetX, targetY },
       timestamp: Date.now(),
     };
