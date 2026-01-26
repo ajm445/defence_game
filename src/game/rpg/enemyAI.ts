@@ -15,14 +15,12 @@ export interface EnemyAIResult {
 const AGGRO_DURATION = 5;
 
 /**
- * 적 AI 업데이트 - 넥서스 디펜스용
+ * 적 AI 업데이트 - 넥서스 디펜스용 (싱글플레이어)
  *
- * 기본 행동: 넥서스를 향해 이동하고 공격
- * 어그로 행동: 영웅에게 공격당하면 해당 영웅을 추적하고 공격
- *
- * 우선순위:
- * 1. 어그로가 있으면 영웅 추적/공격
- * 2. 어그로가 없으면 넥서스 추적/공격
+ * 타겟 우선순위:
+ * 1순위: 넥서스 (기본 목표)
+ * 2순위: 공격 범위 내 플레이어 (지나가는 길에 있으면 공격)
+ * 3순위: 피격 시 해당 플레이어 추적 (어그로)
  */
 export function updateEnemyAINexus(
   enemy: RPGEnemy,
@@ -38,6 +36,19 @@ export function updateEnemyAINexus(
       enemy: {
         ...enemy,
         state: 'idle',
+        buffs: updateBuffs(enemy.buffs, deltaTime),
+      },
+      isAttacking: false,
+      isAttackingNexus: false,
+    };
+  }
+
+  // 보스가 스킬 시전 중이면 이동하지 않음
+  if (enemy.type === 'boss' && enemy.currentCast) {
+    return {
+      enemy: {
+        ...enemy,
+        state: 'casting',
         buffs: updateBuffs(enemy.buffs, deltaTime),
       },
       isAttacking: false,
@@ -78,31 +89,38 @@ export function updateEnemyAINexus(
     updatedEnemy.aggroExpireTime = undefined;
   }
 
+  // 살아있는 영웅만 타겟 가능
+  const canTargetHero = hero.hp > 0;
+
+  // 범위 확인
+  const isHeroInAttackRange = canTargetHero && distToHero <= aiConfig.attackRange;
+  const isHeroInDetectionRange = canTargetHero && distToHero <= aiConfig.detectionRange;
+
   // AI 행동 결정
-  if (hasAggro) {
-    // 어그로 상태: 영웅 추적/공격
-    if (distToHero <= aiConfig.attackRange) {
-      // 영웅 공격 범위 내: 공격
+  // 어그로 또는 탐지 범위 내 플레이어가 있으면 추적/공격
+  if (hasAggro || isHeroInDetectionRange) {
+    if (isHeroInAttackRange) {
+      // 공격 범위 내: 공격
       if (updatedEnemy.attackCooldown <= 0) {
         heroDamage = aiConfig.attackDamage;
         updatedEnemy.attackCooldown = aiConfig.attackSpeed;
         updatedEnemy.state = 'attacking';
         isAttacking = true;
       } else {
+        // 공격 쿨다운 중: 플레이어 따라다니며 대기
         updatedEnemy.state = 'idle';
       }
     } else {
-      // 영웅 방향으로 이동
+      // 공격 범위 밖: 플레이어 방향으로 추적
       const angle = Math.atan2(heroY - enemy.y, heroX - enemy.x);
       const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
       const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
-
       updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);
       updatedEnemy.y = clamp(enemy.y + moveY, 30, RPG_CONFIG.MAP_HEIGHT - 30);
       updatedEnemy.state = 'moving';
     }
   } else {
-    // 기본 상태: 넥서스 추적/공격
+    // 1순위: 넥서스로 이동/공격
     if (distToNexus <= aiConfig.attackRange) {
       // 넥서스 공격 범위 내: 공격
       if (updatedEnemy.attackCooldown <= 0) {
@@ -118,7 +136,6 @@ export function updateEnemyAINexus(
       const angle = Math.atan2(nexusY - enemy.y, nexusX - enemy.x);
       const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
       const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
-
       updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);
       updatedEnemy.y = clamp(enemy.y + moveY, 30, RPG_CONFIG.MAP_HEIGHT - 30);
       updatedEnemy.state = 'moving';
@@ -401,8 +418,24 @@ export interface MultiplayerEnemyAIResult {
 }
 
 /**
+ * 클래스별 타겟 우선순위 (높을수록 우선)
+ * 근접 클래스 우선: 기사 > 전사 > 기타
+ */
+function getClassTargetPriority(heroClass: string | undefined): number {
+  switch (heroClass) {
+    case 'knight': return 3;  // 기사: 최우선 (탱커)
+    case 'warrior': return 2; // 전사: 높음 (근접 딜러)
+    default: return 1;        // 궁수/마법사: 기본 (원거리)
+  }
+}
+
+/**
  * 적 그룹 AI 업데이트 - 멀티플레이어용
- * 모든 영웅을 고려하여 가장 가까운 영웅을 타겟팅
+ *
+ * 타겟 우선순위 (싱글플레이와 동일):
+ * 1순위: 넥서스 (기본 목표)
+ * 2순위: 공격 범위 내 플레이어 (근접 클래스 우선, 없으면 원거리도 타겟)
+ * 3순위: 피격 시 해당 플레이어 추적 (어그로)
  */
 export function updateAllEnemiesAINexusMultiplayer(
   enemies: RPGEnemy[],
@@ -418,47 +451,29 @@ export function updateAllEnemiesAINexusMultiplayer(
   // 살아있는 영웅만 필터링
   const aliveHeroes = allHeroes.filter(h => h.hp > 0);
 
+  const nexusX = nexus?.x ?? NEXUS_CONFIG.position.x;
+  const nexusY = nexus?.y ?? NEXUS_CONFIG.position.y;
+
   for (const enemy of enemies) {
     if (enemy.hp <= 0) {
       updatedEnemies.push(enemy);
       continue;
     }
 
-    // 가장 가까운 영웅 찾기
-    let nearestHero: HeroUnit | null = null;
-    let minDistToHero = Infinity;
-
-    for (const hero of aliveHeroes) {
-      const dist = distance(enemy.x, enemy.y, hero.x, hero.y);
-      if (dist < minDistToHero) {
-        minDistToHero = dist;
-        nearestHero = hero;
-      }
-    }
-
-    // 어그로가 있는 영웅이 있으면 우선 타겟팅
-    if (enemy.aggroOnHero && enemy.targetHeroId) {
-      const aggroHero = aliveHeroes.find(h => h.id === enemy.targetHeroId);
-      if (aggroHero && enemy.aggroExpireTime && gameTime < enemy.aggroExpireTime) {
-        nearestHero = aggroHero;
-        minDistToHero = distance(enemy.x, enemy.y, aggroHero.x, aggroHero.y);
-      }
-    }
-
-    const result = updateEnemyAINexusWithTarget(
+    const result = updateEnemyAIMultiplayer(
       enemy,
-      nearestHero,
-      minDistToHero,
-      nexus,
+      aliveHeroes,
+      nexusX,
+      nexusY,
       deltaTime,
       gameTime
     );
 
     updatedEnemies.push(result.enemy);
 
-    if (result.heroDamage && nearestHero) {
-      const currentDamage = heroDamages.get(nearestHero.id) || 0;
-      heroDamages.set(nearestHero.id, currentDamage + result.heroDamage);
+    if (result.heroDamage && result.targetHeroId) {
+      const currentDamage = heroDamages.get(result.targetHeroId) || 0;
+      heroDamages.set(result.targetHeroId, currentDamage + result.heroDamage);
     }
 
     if (result.nexusDamage) {
@@ -470,16 +485,23 @@ export function updateAllEnemiesAINexusMultiplayer(
 }
 
 /**
- * 타겟이 지정된 적 AI 업데이트
+ * 단일 적 AI 업데이트 - 멀티플레이어용
  */
-function updateEnemyAINexusWithTarget(
+interface MultiplayerSingleEnemyResult {
+  enemy: RPGEnemy;
+  heroDamage?: number;
+  targetHeroId?: string;
+  nexusDamage?: number;
+}
+
+function updateEnemyAIMultiplayer(
   enemy: RPGEnemy,
-  targetHero: HeroUnit | null,
-  distToHero: number,
-  nexus: Nexus | null,
+  aliveHeroes: HeroUnit[],
+  nexusX: number,
+  nexusY: number,
   deltaTime: number,
   gameTime: number
-): EnemyAIResult {
+): MultiplayerSingleEnemyResult {
   // 기절 상태면 아무것도 하지 않음
   const isStunned = enemy.buffs?.some(b => b.type === 'stun' && b.duration > 0);
   if (isStunned) {
@@ -489,21 +511,27 @@ function updateEnemyAINexusWithTarget(
         state: 'idle',
         buffs: updateBuffs(enemy.buffs, deltaTime),
       },
-      isAttacking: false,
-      isAttackingNexus: false,
+    };
+  }
+
+  // 보스가 스킬 시전 중이면 이동하지 않음
+  if (enemy.type === 'boss' && enemy.currentCast) {
+    return {
+      enemy: {
+        ...enemy,
+        state: 'casting',
+        buffs: updateBuffs(enemy.buffs, deltaTime),
+      },
     };
   }
 
   const aiConfig = enemy.aiConfig;
-  const nexusX = nexus?.x ?? NEXUS_CONFIG.position.x;
-  const nexusY = nexus?.y ?? NEXUS_CONFIG.position.y;
   const distToNexus = distance(enemy.x, enemy.y, nexusX, nexusY);
 
   let updatedEnemy = { ...enemy };
   let heroDamage: number | undefined;
+  let targetHeroId: string | undefined;
   let nexusDamage: number | undefined;
-  let isAttacking = false;
-  let isAttackingNexus = false;
 
   // 쿨다운 감소
   if (updatedEnemy.attackCooldown > 0) {
@@ -517,44 +545,71 @@ function updateEnemyAINexusWithTarget(
     updatedEnemy.aggroExpireTime = undefined;
   }
 
-  // 영웅이 있고 살아있으며 탐지 범위 내인 경우 영웅 추적
-  const shouldTargetHero = targetHero && targetHero.hp > 0 && (
-    updatedEnemy.aggroOnHero ||
-    distToHero <= aiConfig.detectionRange
-  );
+  // 어그로 대상 확인
+  let aggroHero: HeroUnit | null = null;
+  if (updatedEnemy.aggroOnHero && updatedEnemy.targetHeroId) {
+    aggroHero = aliveHeroes.find(h => h.id === updatedEnemy.targetHeroId) || null;
+    if (!aggroHero || (updatedEnemy.aggroExpireTime && gameTime >= updatedEnemy.aggroExpireTime)) {
+      aggroHero = null;
+      updatedEnemy.aggroOnHero = false;
+      updatedEnemy.targetHeroId = undefined;
+    }
+  }
 
-  if (shouldTargetHero && targetHero) {
-    // 영웅 타겟팅
-    if (distToHero <= aiConfig.attackRange) {
+  // 탐지 범위 내 플레이어 찾기 (근접 클래스 우선)
+  let heroInDetectionRange: HeroUnit | null = null;
+  let heroInDetectionRangeDist = Infinity;
+  let heroInDetectionRangePriority = 0;
+
+  for (const hero of aliveHeroes) {
+    const dist = distance(enemy.x, enemy.y, hero.x, hero.y);
+    if (dist <= aiConfig.detectionRange) {
+      const priority = getClassTargetPriority(hero.heroClass);
+      // 우선순위가 더 높거나, 같은 우선순위에서 더 가까우면 타겟 변경
+      if (priority > heroInDetectionRangePriority ||
+          (priority === heroInDetectionRangePriority && dist < heroInDetectionRangeDist)) {
+        heroInDetectionRange = hero;
+        heroInDetectionRangeDist = dist;
+        heroInDetectionRangePriority = priority;
+      }
+    }
+  }
+
+  // 타겟 결정: 어그로 대상 > 탐지 범위 내 플레이어
+  const targetHero = aggroHero || heroInDetectionRange;
+  const distToTargetHero = targetHero ? distance(enemy.x, enemy.y, targetHero.x, targetHero.y) : Infinity;
+
+  // AI 행동 결정
+  if (targetHero) {
+    // 탐지 범위 내 플레이어 또는 어그로 대상 추적/공격
+    if (distToTargetHero <= aiConfig.attackRange) {
       // 공격 범위 내: 공격
       if (updatedEnemy.attackCooldown <= 0) {
         heroDamage = aiConfig.attackDamage;
+        targetHeroId = targetHero.id;
         updatedEnemy.attackCooldown = aiConfig.attackSpeed;
         updatedEnemy.state = 'attacking';
-        updatedEnemy.targetHeroId = targetHero.id;
-        isAttacking = true;
       } else {
+        // 공격 쿨다운 중: 대기
         updatedEnemy.state = 'idle';
       }
     } else {
-      // 영웅 방향으로 이동
+      // 공격 범위 밖: 플레이어 방향으로 추적
       const angle = Math.atan2(targetHero.y - enemy.y, targetHero.x - enemy.x);
       const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
       const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
-
       updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);
       updatedEnemy.y = clamp(enemy.y + moveY, 30, RPG_CONFIG.MAP_HEIGHT - 30);
       updatedEnemy.state = 'moving';
     }
   } else {
-    // 기본 상태: 넥서스 추적/공격
+    // 1순위: 넥서스로 이동/공격
     if (distToNexus <= aiConfig.attackRange) {
       // 넥서스 공격 범위 내: 공격
       if (updatedEnemy.attackCooldown <= 0) {
         nexusDamage = aiConfig.attackDamage;
         updatedEnemy.attackCooldown = aiConfig.attackSpeed;
         updatedEnemy.state = 'attacking';
-        isAttackingNexus = true;
       } else {
         updatedEnemy.state = 'idle';
       }
@@ -563,7 +618,6 @@ function updateEnemyAINexusWithTarget(
       const angle = Math.atan2(nexusY - enemy.y, nexusX - enemy.x);
       const moveX = Math.cos(angle) * aiConfig.moveSpeed * deltaTime * 60;
       const moveY = Math.sin(angle) * aiConfig.moveSpeed * deltaTime * 60;
-
       updatedEnemy.x = clamp(enemy.x + moveX, 30, RPG_CONFIG.MAP_WIDTH - 30);
       updatedEnemy.y = clamp(enemy.y + moveY, 30, RPG_CONFIG.MAP_HEIGHT - 30);
       updatedEnemy.state = 'moving';
@@ -576,8 +630,8 @@ function updateEnemyAINexusWithTarget(
   return {
     enemy: updatedEnemy,
     heroDamage,
+    targetHeroId,
     nexusDamage,
-    isAttacking,
-    isAttackingNexus,
   };
 }
+

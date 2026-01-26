@@ -4,6 +4,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useTutorialStore } from '../../stores/useTutorialStore';
 import { useRPGStore } from '../../stores/useRPGStore';
 import { useProfileStore } from '../../stores/useProfileStore';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { createDefaultStatUpgrades } from '../../types/auth';
 import { soundManager } from '../../services/SoundManager';
 import { leaveMultiplayerRoom } from '../../hooks/useNetworkSync';
@@ -22,6 +23,7 @@ export const PauseScreen: React.FC = () => {
   const setSoundMuted = useUIStore((state) => state.setSoundMuted);
   const endTutorial = useTutorialStore((state) => state.endTutorial);
   const startTutorial = useTutorialStore((state) => state.startTutorial);
+  const saveSoundSettings = useAuthStore((state) => state.saveSoundSettings);
 
   const [showSettings, setShowSettings] = useState(false);
 
@@ -162,6 +164,7 @@ export const PauseScreen: React.FC = () => {
     if (!showSettings) {
       // 설정 열 때 soundManager 동기화
       soundManager.setVolume(soundVolume);
+      soundManager.setBGMVolume(soundVolume); // BGM도 동기화
       soundManager.setMuted(soundMuted);
     }
     setShowSettings(!showSettings);
@@ -171,12 +174,17 @@ export const PauseScreen: React.FC = () => {
     const newVolume = parseFloat(e.target.value);
     setSoundVolume(newVolume);
     soundManager.setVolume(newVolume);
+    soundManager.setBGMVolume(newVolume); // BGM도 동기화
+    // 설정 저장 (로그인 사용자: DB, 게스트: localStorage)
+    saveSoundSettings(newVolume, soundMuted);
   };
 
   const handleToggleMute = () => {
     const newMuted = !soundMuted;
     setSoundMuted(newMuted);
     soundManager.setMuted(newMuted);
+    // 설정 저장 (로그인 사용자: DB, 게스트: localStorage)
+    saveSoundSettings(soundVolume, newMuted);
     // 음소거 해제 시 테스트 사운드 재생
     if (!newMuted) {
       soundManager.play('ui_click');

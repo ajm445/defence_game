@@ -15,6 +15,7 @@ interface WaitingCoopRoom {
   createdAt: number;
   state: 'waiting' | 'countdown' | 'started';
   isPrivate: boolean;  // 비밀방 여부
+  difficulty: string;  // 난이도 ('easy' | 'normal' | 'hard' | 'extreme')
 }
 
 // 대기 중인 협동 방 저장소
@@ -46,7 +47,8 @@ export function createCoopRoom(
   heroClass: HeroClass,
   characterLevel: number = 1,
   statUpgrades?: CharacterStatUpgrades,
-  isPrivate: boolean = false
+  isPrivate: boolean = false,
+  difficulty: string = 'easy'
 ): WaitingCoopRoom | null {
   const player = players.get(hostPlayerId);
   if (!player) {
@@ -82,6 +84,7 @@ export function createCoopRoom(
     createdAt: Date.now(),
     state: 'waiting',
     isPrivate,
+    difficulty,
   };
 
   waitingCoopRooms.set(roomId, room);
@@ -89,7 +92,8 @@ export function createCoopRoom(
   player.roomId = roomId;
   player.name = playerName;
 
-  console.log(`[Coop] 방 생성: ${code} (Host: ${playerName}, Class: ${heroClass}, Private: ${isPrivate})`);
+  const roomType = isPrivate ? '비밀방' : '공개방';
+  console.log(`[Coop] 방 생성 완료: ${code} (Host: ${playerName}, Class: ${heroClass}, ${roomType})`);
 
   // 방 생성 완료 알림
   sendToPlayer(hostPlayerId, {
@@ -185,6 +189,8 @@ export function joinCoopRoom(
     roomCode: room.code,
     players: playersArray,
     yourIndex: playerIndex,
+    isPrivate: room.isPrivate,
+    difficulty: room.difficulty,
   });
 
   return true;
@@ -234,6 +240,8 @@ export function leaveCoopRoom(playerId: string): void {
             roomCode: room.code,
             players: Array.from(room.players.values()),
             yourIndex: Array.from(room.players.keys()).indexOf(id),
+            isPrivate: room.isPrivate,
+            difficulty: room.difficulty,
           });
         });
       }
@@ -354,6 +362,50 @@ export function kickCoopPlayer(hostPlayerId: string, targetPlayerId: string): vo
   });
 }
 
+// 방 설정 변경 (호스트 전용)
+export function updateCoopRoomSettings(hostPlayerId: string, isPrivate?: boolean, difficulty?: string): void {
+  const player = players.get(hostPlayerId);
+  if (!player || !player.roomId) return;
+
+  const room = waitingCoopRooms.get(player.roomId);
+  if (!room || room.state !== 'waiting') return;
+
+  // 호스트인지 확인
+  if (room.hostPlayerId !== hostPlayerId) {
+    sendToPlayer(hostPlayerId, { type: 'COOP_ROOM_ERROR', message: '호스트만 방 설정을 변경할 수 있습니다.' });
+    return;
+  }
+
+  // 설정 변경
+  if (isPrivate !== undefined) {
+    room.isPrivate = isPrivate;
+  }
+  if (difficulty !== undefined) {
+    room.difficulty = difficulty;
+  }
+
+  const hostInfo = room.players.get(hostPlayerId);
+  const roomType = room.isPrivate ? '비밀방' : '공개방';
+  const DIFFICULTY_NAMES: Record<string, string> = {
+    easy: '쉬움',
+    normal: '중간',
+    hard: '어려움',
+    extreme: '극한',
+  };
+  const difficultyName = DIFFICULTY_NAMES[room.difficulty] || '쉬움';
+
+  console.log(`[Coop] 방 설정 변경: ${room.code} (Host: ${hostInfo?.name}, ${roomType}, 난이도: ${difficultyName})`);
+
+  // 모든 플레이어에게 설정 변경 알림
+  room.players.forEach((p, id) => {
+    sendToPlayer(id, {
+      type: 'COOP_ROOM_SETTINGS_CHANGED',
+      isPrivate: room.isPrivate,
+      difficulty: room.difficulty,
+    });
+  });
+}
+
 // 게임 시작 (호스트 전용)
 export function startCoopGame(hostPlayerId: string): void {
   const player = players.get(hostPlayerId);
@@ -395,7 +447,7 @@ export function startCoopGame(hostPlayerId: string): void {
   const playerIds = Array.from(room.players.keys());
   const playerInfos = Array.from(room.players.values());
 
-  const gameRoom = new RPGCoopGameRoom(room.id, room.code, playerIds, playerInfos);
+  const gameRoom = new RPGCoopGameRoom(room.id, room.code, playerIds, playerInfos, room.isPrivate, room.difficulty);
 
   // MessageHandler에 게임 방 등록
   addCoopRoom(gameRoom);
@@ -447,6 +499,7 @@ export function getAllWaitingCoopRooms(): WaitingCoopRoomInfo[] {
         createdAt: room.createdAt,
         isPrivate: room.isPrivate,
         isInGame: room.state === 'started',  // 게임 중인 방 표시
+        difficulty: room.difficulty,  // 난이도
       };
     });
 }
@@ -516,6 +569,12 @@ export function joinCoopRoomById(
     return false;
   }
 
+  // 비밀방인 경우 직접 참가 불가 (초대 코드로만 참가 가능)
+  if (room.isPrivate) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '비밀방입니다. 초대 코드를 입력해주세요.' });
+    return false;
+  }
+
   // 방이 이미 가득 찼는지 확인
   if (room.players.size >= MAX_PLAYERS) {
     sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '방이 가득 찼습니다. (최대 4명)' });
@@ -566,6 +625,8 @@ export function joinCoopRoomById(
     roomCode: room.code,
     players: playersArray,
     yourIndex: playerIndex,
+    isPrivate: room.isPrivate,
+    difficulty: room.difficulty,
   });
 
   return true;

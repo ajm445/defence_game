@@ -2,8 +2,66 @@ import { Position } from './game';
 import { Unit, UnitType } from './unit';
 import { CharacterStatUpgrades } from './auth';
 
+// 난이도 타입
+export type RPGDifficulty = 'easy' | 'normal' | 'hard' | 'extreme';
+
+// 난이도 설정 인터페이스
+export interface DifficultyConfig {
+  id: RPGDifficulty;
+  name: string;
+  nameEn: string;
+  description: string;
+  enemyHpMultiplier: number;       // 적 HP 배율
+  enemyAttackMultiplier: number;   // 적 공격력 배율
+  spawnIntervalMultiplier: number; // 스폰 간격 배율 (낮을수록 빠름)
+  spawnCountMultiplier: number;    // 스폰 수 배율 (높을수록 많이 스폰)
+  goldRewardMultiplier: number;    // 골드 보상 배율
+  expRewardMultiplier: number;     // 경험치 보상 배율
+  bossHpMultiplier: number;        // 보스 HP 배율
+  bossAttackMultiplier: number;    // 보스 공격력 배율
+  enemyBaseHpMultiplier: number;   // 적 기지 HP 배율
+}
+
 // 영웅 직업 타입
 export type HeroClass = 'warrior' | 'archer' | 'knight' | 'mage';
+
+// 전직 직업 타입
+export type AdvancedHeroClass =
+  // 전사 계열
+  | 'berserker' | 'guardian'
+  // 궁수 계열
+  | 'sniper' | 'ranger'
+  // 기사 계열
+  | 'paladin' | 'darkKnight'
+  // 마법사 계열
+  | 'archmage' | 'healer';
+
+// 보스 스킬 타입
+export type BossSkillType = 'smash' | 'summon' | 'shockwave';
+
+// 보스 스킬 인터페이스
+export interface BossSkill {
+  type: BossSkillType;
+  cooldown: number;          // 기본 쿨다운 (초)
+  currentCooldown: number;   // 현재 남은 쿨다운
+  damage?: number;           // 데미지 (배율)
+  radius?: number;           // 범위
+  angle?: number;            // 각도 (강타용)
+  castTime?: number;         // 시전 시간
+  stunDuration?: number;     // 기절 지속시간
+  summonCount?: number;      // 소환 수
+  hpThreshold?: number;      // HP 조건 (0~1, 이하일 때 사용)
+}
+
+// 보스 스킬 시전 상태
+export interface BossSkillCast {
+  skillType: BossSkillType;
+  startTime: number;         // 시전 시작 시간
+  castTime: number;          // 총 시전 시간
+  targetX?: number;          // 목표 위치 X
+  targetY?: number;          // 목표 위치 Y
+  targetAngle?: number;      // 목표 방향 (강타용)
+}
 
 // 직업별 스킬 타입
 export type SkillType =
@@ -49,7 +107,7 @@ export interface PassiveAbility {
   lifesteal?: number;       // 피해흡혈 비율 (0.1 = 10%)
   multiTarget?: number;     // 기본 공격 대상 수
   hpRegen?: number;         // 초당 HP 재생
-  damageBonus?: number;     // 데미지 증가 비율 (0.2 = 20%)
+  bossDamageBonus?: number; // 보스에게 주는 데미지 증가 비율 (0.2 = 20%)
 }
 
 // 패시브 성장 상태
@@ -65,6 +123,15 @@ export interface Nexus {
   y: number;
   hp: number;
   maxHp: number;
+  laserCooldown: number;  // 레이저 공격 쿨다운 (초)
+}
+
+// 넥서스 레이저 효과 (시각화용)
+export interface NexusLaserEffect {
+  id: string;
+  targetX: number;
+  targetY: number;
+  timestamp: number;
 }
 
 // Enemy Base (적 기지)
@@ -132,6 +199,7 @@ export interface DashState {
 export interface HeroUnit extends Omit<Unit, 'type'> {
   type: 'hero';
   heroClass: HeroClass;      // 영웅 직업
+  advancedClass?: AdvancedHeroClass; // 전직 직업 (전직 후에만 존재)
   characterLevel: number;    // 계정 캐릭터 레벨 (프로필에서 가져옴)
   statUpgrades?: CharacterStatUpgrades; // SP로 업그레이드한 스탯
   skills: Skill[];           // 보유 스킬
@@ -181,6 +249,9 @@ export interface RPGEnemy extends Unit {
   stunEndTime?: number;    // 스턴 종료 시간
   // 보스 골드 분배용 - 데미지를 준 플레이어 ID 목록
   damagedBy?: string[];
+  // 보스 스킬 시스템
+  bossSkills?: BossSkill[];       // 보스가 사용 가능한 스킬 목록
+  currentCast?: BossSkillCast;    // 현재 시전 중인 스킬
 }
 
 // 시야 시스템 설정
@@ -247,6 +318,21 @@ export interface RPGGameState {
 
   // 보류 중인 스킬 (운석 낙하 등)
   pendingSkills: PendingSkill[];
+
+  // 보스 스킬 시각적 경고 (클라이언트 렌더링용)
+  bossSkillWarnings: BossSkillWarning[];
+}
+
+// 보스 스킬 경고 (바닥 표시용)
+export interface BossSkillWarning {
+  id: string;
+  skillType: BossSkillType;
+  x: number;
+  y: number;
+  radius: number;
+  angle?: number;          // 강타용 (부채꼴 방향)
+  startTime: number;
+  duration: number;        // 경고 표시 시간 (시전 시간과 동일)
 }
 
 // 보류 중인 스킬 (지연 발동)
@@ -257,6 +343,7 @@ export interface PendingSkill {
   damage: number;
   radius: number;
   casterId?: string;     // 스킬 시전자 ID (보스 골드 분배용)
+  bossDamageMultiplier?: number; // 보스 데미지 배율 (마법사 패시브)
 }
 
 // 레벨업 보너스 (계정 레벨 보너스)
@@ -310,6 +397,8 @@ export interface RPGGameResult {
   totalGoldEarned: number;
   basesDestroyed: number;
   bossesKilled: number;
+  totalBases: number;      // 총 기지 수 (플레이어 수에 따라 2~4)
+  totalBosses: number;     // 총 보스 수 (기지 수와 동일)
   timePlayed: number;
   heroClass: HeroClass;
   finalUpgradeLevels: UpgradeLevels;

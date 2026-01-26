@@ -1,12 +1,12 @@
-import { RPGGameState } from '../types/rpg';
-import { RPG_CONFIG, LANE_CONFIG, NEXUS_CONFIG, ENEMY_BASE_CONFIG } from '../constants/rpgConfig';
+import { RPGGameState, BossSkillWarning, BossSkillType } from '../types/rpg';
+import { RPG_CONFIG, NEXUS_CONFIG, ENEMY_BASE_CONFIG, BOSS_SKILL_CONFIGS } from '../constants/rpgConfig';
 import { drawGrid } from './drawGrid';
 import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange, drawSkillRange } from './drawHero';
 import { effectManager } from '../effects';
 import { drawRPGMinimap, getMinimapConfig } from './drawRPGMinimap';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useAuthStore } from '../stores/useAuthStore';
-import { drawNexus, drawAllEnemyBases } from './drawNexusEntities';
+import { drawNexus, drawAllEnemyBases, drawNexusLaserBeams } from './drawNexusEntities';
 
 /**
  * RPG 모드 렌더링
@@ -44,19 +44,29 @@ export function renderRPG(
   // 배경 그리드
   drawGrid(ctx, camera, scaledWidth, scaledHeight);
 
-  // 레인 (적 이동 경로) 렌더링
-  drawLanes(ctx, camera, scaledWidth, scaledHeight);
-
   // 맵 경계 표시
   drawMapBoundary(ctx, camera, scaledWidth, scaledHeight);
 
   // 넥서스 디펜스 엔티티 렌더링 (다른 엔티티와 동일한 카메라 사용)
   if (state.nexus) {
     drawNexus(ctx, state.nexus, camera, scaledWidth, scaledHeight);
+
+    // 넥서스 레이저 빔 렌더링
+    const nexusLaserEffects = useRPGStore.getState().nexusLaserEffects;
+    if (nexusLaserEffects.length > 0) {
+      drawNexusLaserBeams(ctx, state.nexus, nexusLaserEffects, camera);
+    }
   }
 
   if (state.enemyBases && state.enemyBases.length > 0) {
     drawAllEnemyBases(ctx, state.enemyBases, camera, scaledWidth, scaledHeight);
+  }
+
+  // 보스 스킬 경고 표시 렌더링
+  if (state.bossSkillWarnings && state.bossSkillWarnings.length > 0) {
+    for (const warning of state.bossSkillWarnings) {
+      drawBossSkillWarning(ctx, warning, camera, state.gameTime);
+    }
   }
 
   // 스킬 이펙트 렌더링
@@ -259,89 +269,129 @@ function drawPausedOverlay(
 }
 
 /**
- * 레인 (적 이동 경로) 렌더링
+ * 보스 스킬 경고 표시 렌더링
  */
-function drawLanes(
+function drawBossSkillWarning(
   ctx: CanvasRenderingContext2D,
+  warning: BossSkillWarning,
   camera: { x: number; y: number },
-  _canvasWidth: number,
-  canvasHeight: number
+  gameTime: number
 ) {
+  const screenX = warning.x - camera.x;
+  const screenY = warning.y - camera.y;
+
+  // 진행도 계산 (0 ~ 1)
+  const elapsed = gameTime - warning.startTime;
+  const progress = Math.min(1, elapsed / warning.duration);
+
+  // 깜빡임 효과
+  const blink = Math.sin(elapsed * 10) * 0.2 + 0.8;
+  const baseAlpha = 0.3 + progress * 0.3;
+  const alpha = baseAlpha * blink;
+
   ctx.save();
 
-  const laneY = LANE_CONFIG.centerY;
-  const laneHalfWidth = LANE_CONFIG.width / 2;
-  const nexusX = NEXUS_CONFIG.position.x;
-  const leftBaseX = ENEMY_BASE_CONFIG.left.x;
-  const rightBaseX = ENEMY_BASE_CONFIG.right.x;
+  switch (warning.skillType) {
+    case 'smash': {
+      // 강타: 부채꼴 범위
+      const config = BOSS_SKILL_CONFIGS.smash;
+      const angle = warning.angle ?? 0;
+      const halfAngle = (config.angle ?? Math.PI / 3) / 2;
 
-  // 화면에 보이는지 확인
-  const screenTop = camera.y;
-  const screenBottom = camera.y + canvasHeight;
+      ctx.beginPath();
+      ctx.moveTo(screenX, screenY);
+      ctx.arc(screenX, screenY, warning.radius * (0.5 + progress * 0.5), angle - halfAngle, angle + halfAngle);
+      ctx.closePath();
 
-  // 레인이 화면에 보이지 않으면 그리지 않음
-  if (laneY + laneHalfWidth < screenTop || laneY - laneHalfWidth > screenBottom) {
-    ctx.restore();
-    return;
+      // 그라데이션 채우기
+      const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, warning.radius);
+      gradient.addColorStop(0, `rgba(255, 100, 0, ${alpha * 0.8})`);
+      gradient.addColorStop(1, `rgba(255, 50, 0, ${alpha * 0.4})`);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // 테두리
+      ctx.strokeStyle = `rgba(255, 200, 0, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      break;
+    }
+
+    case 'shockwave': {
+      // 충격파: 원형 범위 (퍼져나가는 애니메이션)
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * progress, 0, Math.PI * 2);
+
+      // 그라데이션 채우기
+      const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, warning.radius);
+      gradient.addColorStop(0, `rgba(150, 0, 255, ${alpha * 0.3})`);
+      gradient.addColorStop(0.7, `rgba(200, 50, 255, ${alpha * 0.5})`);
+      gradient.addColorStop(1, `rgba(255, 100, 255, ${alpha * 0.2})`);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // 바깥쪽 링
+      ctx.strokeStyle = `rgba(255, 150, 255, ${alpha})`;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // 안쪽 링 (진행 표시)
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * 0.3, 0, Math.PI * 2 * progress);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      break;
+    }
+
+    case 'summon': {
+      // 소환: 원형 마법진
+      const innerRadius = warning.radius * 0.5;
+      const outerRadius = warning.radius;
+
+      // 외부 원
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, outerRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(100, 0, 150, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // 내부 원 (회전 애니메이션)
+      ctx.beginPath();
+      const rotation = elapsed * 2;
+      ctx.arc(screenX, screenY, innerRadius, rotation, rotation + Math.PI * 1.5);
+      ctx.strokeStyle = `rgba(150, 50, 200, ${alpha})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 마법진 십자 패턴
+      ctx.strokeStyle = `rgba(180, 100, 255, ${alpha * 0.6})`;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        const lineAngle = rotation + (Math.PI / 2) * i;
+        ctx.beginPath();
+        ctx.moveTo(screenX + Math.cos(lineAngle) * innerRadius, screenY + Math.sin(lineAngle) * innerRadius);
+        ctx.lineTo(screenX + Math.cos(lineAngle) * outerRadius, screenY + Math.sin(lineAngle) * outerRadius);
+        ctx.stroke();
+      }
+
+      // 중앙 채우기
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, innerRadius * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(100, 0, 150, ${alpha * 0.5})`;
+      ctx.fill();
+      break;
+    }
   }
 
-  // 왼쪽 레인 (왼쪽 기지 → 넥서스)
-  drawLanePath(ctx, camera, leftBaseX, nexusX, laneY, laneHalfWidth);
-
-  // 오른쪽 레인 (오른쪽 기지 → 넥서스)
-  drawLanePath(ctx, camera, nexusX, rightBaseX, laneY, laneHalfWidth);
+  // 스킬 이름 표시
+  const config = BOSS_SKILL_CONFIGS[warning.skillType];
+  ctx.font = 'bold 14px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+  ctx.fillText(config.name, screenX, screenY - warning.radius - 15);
 
   ctx.restore();
 }
 
-/**
- * 레인 경로 그리기
- */
-function drawLanePath(
-  ctx: CanvasRenderingContext2D,
-  camera: { x: number; y: number },
-  startX: number,
-  endX: number,
-  centerY: number,
-  halfWidth: number
-) {
-  const screenStartX = startX - camera.x;
-  const screenEndX = endX - camera.x;
-  const screenY = centerY - camera.y;
-
-  // 레인 배경 (길)
-  ctx.fillStyle = LANE_CONFIG.color;
-  ctx.fillRect(
-    screenStartX,
-    screenY - halfWidth,
-    screenEndX - screenStartX,
-    halfWidth * 2
-  );
-
-  // 레인 테두리 (상단)
-  ctx.fillStyle = LANE_CONFIG.borderColor;
-  ctx.fillRect(
-    screenStartX,
-    screenY - halfWidth,
-    screenEndX - screenStartX,
-    4
-  );
-
-  // 레인 테두리 (하단)
-  ctx.fillRect(
-    screenStartX,
-    screenY + halfWidth - 4,
-    screenEndX - screenStartX,
-    4
-  );
-
-  // 중앙 점선 (가이드라인)
-  ctx.strokeStyle = 'rgba(80, 70, 60, 0.3)';
-  ctx.lineWidth = 2;
-  ctx.setLineDash([20, 20]);
-  ctx.beginPath();
-  ctx.moveTo(screenStartX, screenY);
-  ctx.lineTo(screenEndX, screenY);
-  ctx.stroke();
-  ctx.setLineDash([]);
-}

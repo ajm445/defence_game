@@ -1,5 +1,72 @@
 import { UnitType } from '../types/unit';
-import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig, GoldTable } from '../types/rpg';
+import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig, GoldTable, RPGDifficulty, DifficultyConfig, BossSkillType, BossSkill, AdvancedHeroClass } from '../types/rpg';
+
+// ============================================
+// 난이도 설정
+// ============================================
+
+export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
+  easy: {
+    id: 'easy',
+    name: '쉬움',
+    nameEn: 'Easy',
+    description: '기본 난이도',
+    enemyHpMultiplier: 1.0,
+    enemyAttackMultiplier: 1.0,
+    spawnIntervalMultiplier: 1.0,
+    spawnCountMultiplier: 1.0,    // 기본 스폰 수
+    goldRewardMultiplier: 1.0,
+    expRewardMultiplier: 1.0,     // 기본 경험치
+    bossHpMultiplier: 1.0,
+    bossAttackMultiplier: 1.0,
+    enemyBaseHpMultiplier: 1.0,
+  },
+  normal: {
+    id: 'normal',
+    name: '중간',
+    nameEn: 'Normal',
+    description: '적 강화, 보상 증가',
+    enemyHpMultiplier: 1.3,
+    enemyAttackMultiplier: 1.2,
+    spawnIntervalMultiplier: 0.9,
+    spawnCountMultiplier: 1.2,    // 스폰 수 20% 증가
+    goldRewardMultiplier: 1.15,
+    expRewardMultiplier: 1.2,     // 경험치 20% 증가
+    bossHpMultiplier: 1.3,
+    bossAttackMultiplier: 1.2,
+    enemyBaseHpMultiplier: 1.3,
+  },
+  hard: {
+    id: 'hard',
+    name: '어려움',
+    nameEn: 'Hard',
+    description: '도전적인 난이도',
+    enemyHpMultiplier: 1.6,
+    enemyAttackMultiplier: 1.4,
+    spawnIntervalMultiplier: 0.85,
+    spawnCountMultiplier: 1.5,    // 스폰 수 50% 증가
+    goldRewardMultiplier: 1.3,
+    expRewardMultiplier: 1.5,     // 경험치 50% 증가
+    bossHpMultiplier: 1.6,
+    bossAttackMultiplier: 1.4,
+    enemyBaseHpMultiplier: 1.6,
+  },
+  extreme: {
+    id: 'extreme',
+    name: '극한',
+    nameEn: 'Extreme',
+    description: '최고의 도전',
+    enemyHpMultiplier: 2.0,
+    enemyAttackMultiplier: 1.8,
+    spawnIntervalMultiplier: 0.8,
+    spawnCountMultiplier: 2.0,    // 스폰 수 2배
+    goldRewardMultiplier: 1.5,
+    expRewardMultiplier: 2.0,     // 경험치 2배
+    bossHpMultiplier: 2.0,
+    bossAttackMultiplier: 1.8,
+    enemyBaseHpMultiplier: 2.0,
+  },
+};
 
 // 패시브 시스템 상수
 export const PASSIVE_UNLOCK_LEVEL = 5;      // 기본 패시브 활성화 레벨
@@ -8,7 +75,7 @@ export const PASSIVE_GROWTH_INTERVAL = 10;  // 성장 간격 (10웨이브마다)
 
 // 패시브 성장 설정 (직업별)
 export interface PassiveGrowthConfig {
-  type: 'lifesteal' | 'multiTarget' | 'hpRegen' | 'damageBonus';
+  type: 'lifesteal' | 'multiTarget' | 'hpRegen' | 'bossDamageBonus';
   startValue: number;      // 시작 값
   growthPerLevel: number;  // 레벨당 성장량
   maxValue: number;        // 최대 값
@@ -45,7 +112,7 @@ export const PASSIVE_GROWTH_CONFIGS: Record<HeroClass, PassiveGrowthConfig> = {
     overflowPerLevel: 0.005, // 초과 시 체력 +0.5%
   },
   mage: {
-    type: 'damageBonus',
+    type: 'bossDamageBonus',
     startValue: 0,
     growthPerLevel: 0.01,    // +1%/레벨
     maxValue: 1.0,           // 100% 최대
@@ -81,7 +148,7 @@ export const GOLD_CONFIG = {
 // 업그레이드 설정 (레벨당 보너스)
 export const UPGRADE_CONFIG = {
   attack: {
-    perLevel: 3,           // 레벨당 +3 공격력
+    perLevel: 5,           // 레벨당 +5 공격력
     description: '공격력',
   },
   speed: {
@@ -118,6 +185,12 @@ export const NEXUS_CONFIG = {
   },
   hp: 5000,
   radius: 80,  // 넥서스 크기
+  // 넥서스 레이저 방어 시스템
+  laser: {
+    range: 200,         // 공격 범위 (넥서스 중심 기준)
+    damage: 15,         // 기본 데미지 (약한 데미지)
+    attackSpeed: 1.2,   // 공격 간격 (초)
+  },
 } as const;
 
 export const ENEMY_BASE_CONFIG = {
@@ -145,17 +218,6 @@ export const ENEMY_BASE_CONFIG = {
     hp: 3000,
     radius: 60,
   },
-} as const;
-
-// 레인 설정 (적이 이동하는 경로)
-export const LANE_CONFIG = {
-  // 레인 폭 (시각적 표시용)
-  width: 200,
-  // 레인 중심 Y 좌표
-  centerY: 1000,
-  // 레인 색상
-  color: 'rgba(50, 40, 30, 0.4)',  // 어두운 길 색상
-  borderColor: 'rgba(100, 80, 60, 0.3)',
 } as const;
 
 // 스폰 설정
@@ -211,24 +273,24 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     nameEn: 'Warrior',
     emoji: '⚔️',
     description: '균형잡힌 스탯의 근접 전사',
-    hp: 350,
-    attack: 35,
+    hp: 400,
+    attack: 45,
     attackSpeed: 1.0,
-    speed: 2.7,
+    speed: 2.8,
     range: 80,
     passive: {
-      lifesteal: 0.15, // 15% 피해흡혈
+      lifesteal: 0.20, // 20% 피해흡혈
     },
   },
   archer: {
     name: '궁수',
     nameEn: 'Archer',
     emoji: '🏹',
-    description: '높은 공격력과 빠른 공속의 원거리 딜러',
-    hp: 250,
-    attack: 45,
-    attackSpeed: 0.7,
-    speed: 3.3,
+    description: '기본 공격 중심의 원거리 딜러',
+    hp: 280,
+    attack: 40,
+    attackSpeed: 0.75,
+    speed: 3.0,
     range: 180,
     passive: {
       multiTarget: 3, // 기본 공격 3명 동시 공격
@@ -239,13 +301,13 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     nameEn: 'Knight',
     emoji: '🛡️',
     description: '높은 체력과 방어력의 탱커',
-    hp: 450,
-    attack: 30,
-    attackSpeed: 1.3,
-    speed: 2.1,
+    hp: 550,
+    attack: 40,
+    attackSpeed: 1.1,
+    speed: 2.4,
     range: 80,
     passive: {
-      hpRegen: 5, // 초당 5 HP 재생
+      hpRegen: 10, // 초당 10 HP 재생
     },
   },
   mage: {
@@ -253,13 +315,13 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     nameEn: 'Mage',
     emoji: '🔮',
     description: '높은 공격력과 범위 공격의 마법사',
-    hp: 220,
-    attack: 55,
-    attackSpeed: 1.8,
-    speed: 2.85,
-    range: 190,
+    hp: 230,
+    attack: 60,
+    attackSpeed: 1.4,
+    speed: 2.8,
+    range: 210,
     passive: {
-      damageBonus: 0.25, // 25% 데미지 증가
+      bossDamageBonus: 0.25, // 보스에게 25% 데미지 증가
     },
   },
 };
@@ -267,21 +329,21 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
 // 적 유형별 AI 설정
 export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
   melee: {
-    detectionRange: 400,
+    detectionRange: 300,
     attackRange: 60,
     moveSpeed: 2.25,
     attackDamage: 15,
     attackSpeed: 1.0,
   },
   ranged: {
-    detectionRange: 500,
+    detectionRange: 450,
     attackRange: 150,
     moveSpeed: 2.4,
     attackDamage: 20,
     attackSpeed: 0.8,
   },
   knight: {
-    detectionRange: 350,
+    detectionRange: 300,
     attackRange: 70,
     moveSpeed: 1.95,
     attackDamage: 12,
@@ -295,7 +357,7 @@ export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
     attackSpeed: 1.5,
   },
   boss: {
-    detectionRange: 600,
+    detectionRange: 650,
     attackRange: 100,
     moveSpeed: 1.5,
     attackDamage: 50,
@@ -307,6 +369,53 @@ export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
   gatherer: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
   goldminer: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
   healer: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
+};
+
+// RPG 모드 전용 적 기본 스탯 설정
+export interface RPGEnemyConfig {
+  name: string;
+  hp: number;
+  attack: number;
+  attackSpeed: number;
+  speed: number;
+}
+
+export const RPG_ENEMY_CONFIGS: Record<string, RPGEnemyConfig> = {
+  melee: {
+    name: '검병',
+    hp: 100,
+    attack: 15,
+    attackSpeed: 1.0,
+    speed: 2.25,
+  },
+  ranged: {
+    name: '궁수',
+    hp: 70,       // 50 → 70 (생존력 향상)
+    attack: 18,   // 20 → 18 (약간 하향)
+    attackSpeed: 0.8,
+    speed: 2.4,
+  },
+  knight: {
+    name: '기사',
+    hp: 280,      // 300 → 280 (약간 하향)
+    attack: 18,   // 12 → 18 (위협적으로)
+    attackSpeed: 1.2,
+    speed: 1.95,
+  },
+  mage: {
+    name: '마법사',
+    hp: 55,       // 40 → 55 (생존력 향상)
+    attack: 30,   // 35 → 30 (약간 하향)
+    attackSpeed: 1.5,
+    speed: 2.1,
+  },
+  boss: {
+    name: '보스',
+    hp: 2000,
+    attack: 50,
+    attackSpeed: 2.0,
+    speed: 1.5,
+  },
 };
 
 // 직업별 스킬 설정
@@ -324,7 +433,7 @@ export const CLASS_SKILLS = {
       type: 'warrior_w' as SkillType,
       name: '돌진',
       key: 'W',
-      cooldown: 6,
+      cooldown: 5,
       description: '전방으로 돌진하며 경로상 적에게 공격력 150% 데미지 (돌진 후 2초 무적)',
       distance: 200,
       damageMultiplier: 1.5,
@@ -355,7 +464,7 @@ export const CLASS_SKILLS = {
       type: 'archer_w' as SkillType,
       name: '관통 화살',
       key: 'W',
-      cooldown: 5,
+      cooldown: 8,
       description: '일직선 관통 공격 (공격력 150%)',
       damageMultiplier: 1.5,
       pierceDistance: 300,
@@ -364,7 +473,7 @@ export const CLASS_SKILLS = {
       type: 'archer_e' as SkillType,
       name: '화살 비',
       key: 'E',
-      cooldown: 25,
+      cooldown: 30,
       description: '범위 내 모든 적에게 공격력 200% 데미지',
       damageMultiplier: 2.0,
       radius: 150,
@@ -375,7 +484,7 @@ export const CLASS_SKILLS = {
       type: 'knight_q' as SkillType,
       name: '방패 타격',
       key: 'Q',
-      cooldown: 1.3,
+      cooldown: 1.1,
       description: '근접 공격 (공격력 100%)',
       damageMultiplier: 1.0,
     },
@@ -383,7 +492,7 @@ export const CLASS_SKILLS = {
       type: 'knight_w' as SkillType,
       name: '방패 돌진',
       key: 'W',
-      cooldown: 8,
+      cooldown: 6,
       description: '전방 돌진하며 경로상 적에게 최대 HP 10% 데미지 + 2초 기절',
       distance: 150,
       hpDamagePercent: 0.1, // 최대 HP의 10% 데미지
@@ -405,7 +514,7 @@ export const CLASS_SKILLS = {
       type: 'mage_q' as SkillType,
       name: '마법 화살',
       key: 'Q',
-      cooldown: 1.8,
+      cooldown: 1.4,
       description: '원거리 마법 공격 (공격력 100%)',
       damageMultiplier: 1.0,
     },
@@ -482,60 +591,6 @@ export const RPG_CONFIG = {
     mage: 30,     // 마법사
     boss: 200,    // 보스
   } as ExpTable,
-
-  // 스킬 설정
-  SKILLS: {
-    dash: {
-      name: '돌진',
-      key: 'Q',
-      cooldown: 5,
-      damage: 50,         // 경로상 적에게 주는 데미지
-      distance: 200,      // 돌진 거리
-    },
-    spin: {
-      name: '회전 베기',
-      key: 'W',
-      cooldown: 8,
-      damageMultiplier: 1.5, // 공격력의 150%
-      radius: 100,        // 범위
-    },
-    heal: {
-      name: '회복',
-      key: 'E',
-      cooldown: 15,
-      healPercent: 0.3,   // HP 30% 회복
-    },
-  } as Record<SkillType, {
-    name: string;
-    key: string;
-    cooldown: number;
-    damage?: number;
-    damageMultiplier?: number;
-    distance?: number;
-    radius?: number;
-    healPercent?: number;
-  }>,
-
-  // 스킬 레벨업 보너스 (레벨당)
-  SKILL_UPGRADE: {
-    dash: {
-      cooldownReduction: 0.5, // 초
-      damageBonus: 10,
-    },
-    spin: {
-      cooldownReduction: 0.5,
-      damageMultiplierBonus: 0.1,
-    },
-    heal: {
-      cooldownReduction: 1,
-      healPercentBonus: 0.05, // 5%
-    },
-  } as Record<SkillType, {
-    cooldownReduction: number;
-    damageBonus?: number;
-    damageMultiplierBonus?: number;
-    healPercentBonus?: number;
-  }>,
 
   // 카메라 설정
   CAMERA: {
@@ -700,3 +755,373 @@ export const COOP_CONFIG = {
 } as const;
 
 export type CoopConfig = typeof COOP_CONFIG;
+
+// ============================================
+// 보스 스킬 설정
+// ============================================
+
+// 보스 스킬 기본 설정
+export interface BossSkillConfig {
+  type: BossSkillType;
+  name: string;
+  nameEn: string;
+  cooldown: number;          // 기본 쿨다운 (초)
+  damage: number;            // 데미지 배율 (보스 공격력 기준)
+  radius: number;            // 범위 (px)
+  angle?: number;            // 부채꼴 각도 (라디안, 강타용)
+  castTime: number;          // 시전 시간 (초)
+  stunDuration?: number;     // 기절 지속시간 (초)
+  summonCount?: number;      // 소환 수 (소환용)
+  hpThreshold?: number;      // HP 조건 (0~1, 이하일 때만 사용)
+}
+
+export const BOSS_SKILL_CONFIGS: Record<BossSkillType, BossSkillConfig> = {
+  // 강타 - 전방 부채꼴 범위 공격
+  smash: {
+    type: 'smash',
+    name: '강타',
+    nameEn: 'Smash',
+    cooldown: 8,              // 8초 쿨다운
+    damage: 2.0,              // 200% 데미지
+    radius: 150,              // 150px 반경
+    angle: Math.PI * 2 / 3,   // 120도 부채꼴
+    castTime: 1.0,            // 1초 시전
+    stunDuration: 0.5,        // 0.5초 기절
+  },
+  // 소환 - 졸개 소환
+  summon: {
+    type: 'summon',
+    name: '소환',
+    nameEn: 'Summon',
+    cooldown: 15,             // 15초 쿨다운
+    damage: 0,                // 데미지 없음
+    radius: 100,              // 100px 반경 내 소환
+    castTime: 1.5,            // 1.5초 시전
+    summonCount: 2,           // 2마리 소환
+    hpThreshold: 0.7,         // HP 70% 이하부터 사용
+  },
+  // 충격파 - 전방위 범위 공격
+  shockwave: {
+    type: 'shockwave',
+    name: '충격파',
+    nameEn: 'Shockwave',
+    cooldown: 20,             // 20초 쿨다운
+    damage: 1.5,              // 150% 데미지
+    radius: 250,              // 250px 반경
+    castTime: 1.5,            // 1.5초 시전
+    hpThreshold: 0.5,         // HP 50% 이하부터 사용
+  },
+};
+
+// 난이도별 보스 스킬 활성화
+export const DIFFICULTY_BOSS_SKILLS: Record<RPGDifficulty, BossSkillType[]> = {
+  easy: [],                           // 쉬움: 스킬 없음 (기본 공격만)
+  normal: ['smash'],                  // 중간: 강타
+  hard: ['smash', 'summon'],          // 어려움: 강타 + 소환
+  extreme: ['smash', 'summon', 'shockwave'], // 극한: 모든 스킬
+};
+
+// ============================================
+// 전직 시스템 설정
+// ============================================
+
+// 전직 조건
+export const JOB_ADVANCEMENT_REQUIREMENTS = {
+  minClassLevel: 10,  // 최소 클래스 레벨
+} as const;
+
+// 기본 직업 → 전직 직업 매핑
+export const ADVANCEMENT_OPTIONS: Record<HeroClass, AdvancedHeroClass[]> = {
+  warrior: ['berserker', 'guardian'],
+  archer: ['sniper', 'ranger'],
+  knight: ['paladin', 'darkKnight'],
+  mage: ['archmage', 'healer'],
+};
+
+// 전직 직업 설정
+export interface AdvancedClassConfig {
+  name: string;
+  nameEn: string;
+  emoji: string;
+  description: string;
+  baseClass: HeroClass;
+  // 스탯 배율 (기본 직업 대비)
+  statMultipliers: {
+    hp: number;
+    attack: number;
+    attackSpeed: number;
+    speed: number;
+    range: number;
+  };
+  // 특수 효과
+  specialEffects: {
+    damageReduction?: number;      // 받는 피해 감소 (0.3 = 30%)
+    lifestealMultiplier?: number;  // 피해흡혈 배율 (2.0 = 2배)
+    critChance?: number;           // 크리티컬 확률 (0.5 = 50%)
+    multiTarget?: number;          // 다중 타겟 수
+    healAlly?: boolean;            // 아군 힐 가능
+    bossBonus?: number;            // 보스 추가 데미지 (0.5 = 50%)
+  };
+}
+
+export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConfig> = {
+  // 전사 계열
+  berserker: {
+    name: '버서커',
+    nameEn: 'Berserker',
+    emoji: '🔥',
+    description: '공격력과 공격속도에 특화된 광전사',
+    baseClass: 'warrior',
+    statMultipliers: {
+      hp: 0.8,           // HP -20%
+      attack: 1.4,       // 공격력 +40%
+      attackSpeed: 0.8,  // 공격속도 +20% (더 빠름)
+      speed: 1.0,
+      range: 1.0,
+    },
+    specialEffects: {
+      lifestealMultiplier: 2.0,  // 피해흡혈 2배
+    },
+  },
+  guardian: {
+    name: '가디언',
+    nameEn: 'Guardian',
+    emoji: '🛡️',
+    description: '높은 방어력과 체력의 수호자',
+    baseClass: 'warrior',
+    statMultipliers: {
+      hp: 1.3,           // HP +30%
+      attack: 0.9,       // 공격력 -10%
+      attackSpeed: 1.1,  // 공격속도 -10% (더 느림)
+      speed: 1.0,
+      range: 1.0,
+    },
+    specialEffects: {
+      damageReduction: 0.3,  // 받는 피해 30% 감소
+    },
+  },
+  // 궁수 계열
+  sniper: {
+    name: '저격수',
+    nameEn: 'Sniper',
+    emoji: '🎯',
+    description: '높은 단일 공격력과 사거리의 저격수',
+    baseClass: 'archer',
+    statMultipliers: {
+      hp: 0.9,           // HP -10%
+      attack: 1.5,       // 공격력 +50%
+      attackSpeed: 1.3,  // 공격속도 -30% (더 느림)
+      speed: 1.0,
+      range: 1.5,        // 사거리 +50%
+    },
+    specialEffects: {
+      critChance: 0.5,   // 크리티컬 50% 확률
+    },
+  },
+  ranger: {
+    name: '레인저',
+    nameEn: 'Ranger',
+    emoji: '🏹',
+    description: '빠른 공격속도와 다중 타겟 공격',
+    baseClass: 'archer',
+    statMultipliers: {
+      hp: 1.1,           // HP +10%
+      attack: 1.1,       // 공격력 +10%
+      attackSpeed: 0.7,  // 공격속도 +30% (더 빠름)
+      speed: 1.0,
+      range: 1.0,
+    },
+    specialEffects: {
+      multiTarget: 5,    // 다중 타겟 5명
+    },
+  },
+  // 기사 계열
+  paladin: {
+    name: '팔라딘',
+    nameEn: 'Paladin',
+    emoji: '⚜️',
+    description: '신성한 힘으로 아군을 치유하는 성기사',
+    baseClass: 'knight',
+    statMultipliers: {
+      hp: 1.2,           // HP +20%
+      attack: 1.0,
+      attackSpeed: 1.0,
+      speed: 1.0,
+      range: 1.0,
+    },
+    specialEffects: {
+      healAlly: true,    // 아군 힐 가능
+    },
+  },
+  darkKnight: {
+    name: '다크나이트',
+    nameEn: 'Dark Knight',
+    emoji: '⚔️',
+    description: '어둠의 힘으로 적을 베는 암흑기사',
+    baseClass: 'knight',
+    statMultipliers: {
+      hp: 1.1,           // HP +10%
+      attack: 1.3,       // 공격력 +30%
+      attackSpeed: 1.0,
+      speed: 1.0,
+      range: 1.0,
+    },
+    specialEffects: {
+      lifestealMultiplier: 1.0, // 기사는 기본 흡혈 없으므로 30% 흡혈 부여
+    },
+  },
+  // 마법사 계열
+  archmage: {
+    name: '대마법사',
+    nameEn: 'Archmage',
+    emoji: '🌟',
+    description: '강력한 범위 마법의 대마법사',
+    baseClass: 'mage',
+    statMultipliers: {
+      hp: 0.8,           // HP -20%
+      attack: 1.6,       // 공격력 +60%
+      attackSpeed: 1.0,
+      speed: 1.0,
+      range: 1.5,        // 범위 +50%
+    },
+    specialEffects: {
+      bossBonus: 0.5,    // 보스에게 50% 추가 데미지
+    },
+  },
+  healer: {
+    name: '힐러',
+    nameEn: 'Healer',
+    emoji: '💚',
+    description: '아군을 치유하는 힐러',
+    baseClass: 'mage',
+    statMultipliers: {
+      hp: 1.2,           // HP +20%
+      attack: 0.6,       // 공격력 -40%
+      attackSpeed: 1.0,
+      speed: 1.0,
+      range: 1.0,
+    },
+    specialEffects: {
+      healAlly: true,    // 아군 힐 가능
+    },
+  },
+};
+
+// 전직 E스킬 설정
+export interface AdvancedSkillConfig {
+  type: string;
+  name: string;
+  nameEn: string;
+  key: string;
+  cooldown: number;
+  description: string;
+  // 스킬별 고유 속성
+  duration?: number;         // 지속 시간 (버프류)
+  damageMultiplier?: number; // 데미지 배율
+  healPercent?: number;      // 힐량 (최대 HP 대비 %)
+  radius?: number;           // 범위
+  attackBonus?: number;      // 공격력 증가율
+  speedBonus?: number;       // 공격속도 증가율
+  damageTaken?: number;      // 받는 피해 변화 (양수면 증가)
+  damageReduction?: number;  // 피해 감소율
+  chargeTime?: number;       // 차징 시간
+  invincibleDuration?: number; // 무적 지속시간
+}
+
+export const ADVANCED_CLASS_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> = {
+  // 버서커: 광란 - 10초간 공격력/공속 100% 증가, 받는 피해 50% 증가
+  berserker: {
+    type: 'berserker_rage',
+    name: '광란',
+    nameEn: 'Rage',
+    key: 'E',
+    cooldown: 45,
+    description: '10초간 공격력/공속 100% 증가, 받는 피해 50% 증가',
+    duration: 10,
+    attackBonus: 1.0,
+    speedBonus: 1.0,
+    damageTaken: 0.5,
+  },
+  // 가디언: 보호막 - 아군 전체에게 5초간 피해 50% 감소 버프
+  guardian: {
+    type: 'guardian_shield',
+    name: '보호막',
+    nameEn: 'Shield',
+    key: 'E',
+    cooldown: 40,
+    description: '아군 전체에게 5초간 받는 피해 50% 감소',
+    duration: 5,
+    damageReduction: 0.5,
+    radius: 500,  // 전체 범위
+  },
+  // 저격수: 저격 - 3초 조준 후 1000% 데미지 단일 타격
+  sniper: {
+    type: 'sniper_shot',
+    name: '저격',
+    nameEn: 'Snipe',
+    key: 'E',
+    cooldown: 30,
+    description: '3초 조준 후 1000% 데미지 단일 타격',
+    chargeTime: 3,
+    damageMultiplier: 10.0,
+  },
+  // 레인저: 화살 폭풍 - 5초간 자동 공격 속도 3배
+  ranger: {
+    type: 'ranger_storm',
+    name: '화살 폭풍',
+    nameEn: 'Arrow Storm',
+    key: 'E',
+    cooldown: 35,
+    description: '5초간 공격 속도 3배',
+    duration: 5,
+    speedBonus: 2.0,  // 3배 = 기본 + 200%
+  },
+  // 팔라딘: 신성한 빛 - 아군 전체 HP 30% 회복 + 3초 무적
+  paladin: {
+    type: 'paladin_light',
+    name: '신성한 빛',
+    nameEn: 'Divine Light',
+    key: 'E',
+    cooldown: 60,
+    description: '아군 전체 HP 30% 회복 + 3초 무적',
+    healPercent: 0.3,
+    invincibleDuration: 3,
+    radius: 500,
+  },
+  // 다크나이트: 어둠의 칼날 - 주변 적에게 5초간 초당 50% 데미지
+  darkKnight: {
+    type: 'darkknight_blade',
+    name: '어둠의 칼날',
+    nameEn: 'Dark Blade',
+    key: 'E',
+    cooldown: 40,
+    description: '5초간 주변 적에게 초당 공격력 50% 데미지',
+    duration: 5,
+    damageMultiplier: 0.5,
+    radius: 150,
+  },
+  // 대마법사: 메테오 샤워 - 5초간 랜덤 위치에 운석 10개 낙하
+  archmage: {
+    type: 'archmage_meteor',
+    name: '메테오 샤워',
+    nameEn: 'Meteor Shower',
+    key: 'E',
+    cooldown: 50,
+    description: '5초간 랜덤 위치에 운석 10개 낙하 (각 300% 데미지)',
+    duration: 5,
+    damageMultiplier: 3.0,
+    radius: 100,  // 각 운석 범위
+  },
+  // 힐러: 생명의 샘 - 15초간 아군 전체 초당 5% 힐
+  healer: {
+    type: 'healer_spring',
+    name: '생명의 샘',
+    nameEn: 'Spring of Life',
+    key: 'E',
+    cooldown: 45,
+    description: '15초간 아군 전체 초당 최대 HP의 5% 회복',
+    duration: 15,
+    healPercent: 0.05,  // 초당 5%
+    radius: 500,
+  },
+};

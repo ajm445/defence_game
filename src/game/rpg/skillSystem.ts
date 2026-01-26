@@ -1,5 +1,5 @@
 import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget, EnemyBase, EnemyBaseId } from '../../types/rpg';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL } from '../../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, UPGRADE_CONFIG } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
 import { rollMultiTarget } from './passiveSystem';
 
@@ -61,203 +61,14 @@ export function updateSkillCooldowns(hero: HeroUnit, deltaTime: number): HeroUni
   return { ...hero, skills: updatedSkills };
 }
 
-/**
- * 돌진 스킬 실행
- */
-export interface DashResult {
-  hero: HeroUnit;
-  effect: SkillEffect;
-  enemyDamages: { enemyId: string; damage: number }[];
-}
-
-export function executeDash(
-  hero: HeroUnit,
-  enemies: RPGEnemy[],
-  targetX: number,
-  targetY: number,
-  gameTime: number
-): DashResult {
-  const skillConfig = RPG_CONFIG.SKILLS.dash;
-  const skill = hero.skills.find((s) => s.type === 'dash');
-  const skillLevel = skill?.level || 1;
-
-  // 레벨에 따른 데미지 보너스
-  const damageBonus = (skillLevel - 1) * (RPG_CONFIG.SKILL_UPGRADE.dash.damageBonus || 10);
-  const damage = (skillConfig.damage || 50) + damageBonus;
-  const dashDistance = skillConfig.distance || 200;
-
-  // 방향 계산
-  const dx = targetX - hero.x;
-  const dy = targetY - hero.y;
-  const dist = Math.sqrt(dx * dx + dy * dy);
-  const dirX = dist > 0 ? dx / dist : 1;
-  const dirY = dist > 0 ? dy / dist : 0;
-
-  // 새 위치 계산 (맵 경계 고려)
-  const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + dirX * dashDistance));
-  const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + dirY * dashDistance));
-
-  // 경로상 적에게 데미지
-  const enemyDamages: { enemyId: string; damage: number }[] = [];
-  for (const enemy of enemies) {
-    if (enemy.hp <= 0) continue;
-
-    // 돌진 경로와 적의 거리 계산 (선분-점 거리)
-    const enemyDist = pointToLineDistance(
-      enemy.x,
-      enemy.y,
-      hero.x,
-      hero.y,
-      newX,
-      newY
-    );
-
-    if (enemyDist <= 40) {
-      // 경로 근처의 적에게 데미지
-      enemyDamages.push({ enemyId: enemy.id, damage });
-    }
-  }
-
-  const effect: SkillEffect = {
-    type: 'dash',
-    position: { x: hero.x, y: hero.y },
-    direction: { x: dirX, y: dirY },
-    radius: dashDistance,
-    damage,
-    duration: 0.3,
-    startTime: gameTime,
-  };
-
-  const updatedHero = startSkillCooldown(
-    { ...hero, x: newX, y: newY, targetPosition: undefined },
-    'dash'
-  );
-
-  return { hero: updatedHero, effect, enemyDamages };
-}
-
-/**
- * 회전 베기 스킬 실행
- */
-export interface SpinResult {
-  hero: HeroUnit;
-  effect: SkillEffect;
-  enemyDamages: { enemyId: string; damage: number }[];
-}
-
-export function executeSpin(
-  hero: HeroUnit,
-  enemies: RPGEnemy[],
-  gameTime: number
-): SpinResult {
-  const skillConfig = RPG_CONFIG.SKILLS.spin;
-  const skill = hero.skills.find((s) => s.type === 'spin');
-  const skillLevel = skill?.level || 1;
-
-  // 레벨에 따른 데미지 배율 보너스
-  const multiplierBonus = (skillLevel - 1) * (RPG_CONFIG.SKILL_UPGRADE.spin.damageMultiplierBonus || 0.1);
-  const damageMultiplier = (skillConfig.damageMultiplier || 1.5) + multiplierBonus;
-  const damage = Math.floor((hero.config.attack || hero.baseAttack) * damageMultiplier);
-  const radius = skillConfig.radius || 100;
-
-  // 범위 내 적에게 데미지
-  const enemyDamages: { enemyId: string; damage: number }[] = [];
-  for (const enemy of enemies) {
-    if (enemy.hp <= 0) continue;
-
-    const dist = distance(hero.x, hero.y, enemy.x, enemy.y);
-    if (dist <= radius) {
-      enemyDamages.push({ enemyId: enemy.id, damage });
-    }
-  }
-
-  const effect: SkillEffect = {
-    type: 'spin',
-    position: { x: hero.x, y: hero.y },
-    radius,
-    damage,
-    duration: 0.5,
-    startTime: gameTime,
-  };
-
-  const updatedHero = startSkillCooldown(hero, 'spin');
-
-  return { hero: updatedHero, effect, enemyDamages };
-}
-
-/**
- * 회복 스킬 실행
- */
-export interface HealResult {
-  hero: HeroUnit;
-  effect: SkillEffect;
-  healAmount: number;
-}
-
-export function executeHeal(hero: HeroUnit, gameTime: number): HealResult {
-  const skillConfig = RPG_CONFIG.SKILLS.heal;
-  const skill = hero.skills.find((s) => s.type === 'heal');
-  const skillLevel = skill?.level || 1;
-
-  // 레벨에 따른 회복량 보너스
-  const healPercentBonus = (skillLevel - 1) * (RPG_CONFIG.SKILL_UPGRADE.heal.healPercentBonus || 0.05);
-  const healPercent = (skillConfig.healPercent || 0.3) + healPercentBonus;
-  const healAmount = Math.floor(hero.maxHp * healPercent);
-
-  const newHp = Math.min(hero.maxHp, hero.hp + healAmount);
-
-  const effect: SkillEffect = {
-    type: 'heal',
-    position: { x: hero.x, y: hero.y },
-    heal: healAmount,
-    duration: 0.8,
-    startTime: gameTime,
-  };
-
-  const updatedHero = startSkillCooldown({ ...hero, hp: newHp }, 'heal');
-
-  return { hero: updatedHero, effect, healAmount };
-}
-
-/**
- * @deprecated 스킬 포인트 시스템이 제거되었습니다.
- * 스킬 레벨은 캐릭터 레벨에 따라 자동으로 결정됩니다.
- */
-export function upgradeSkill(_hero: HeroUnit, _skillType: SkillType): HeroUnit | null {
-  // 스킬 포인트 시스템이 제거되어 더 이상 수동 업그레이드 불가
-  return null;
-}
 
 /**
  * 스킬 정보 텍스트 생성
  */
 export function getSkillDescription(skill: Skill): string {
-  // 구 스킬 시스템 호환성
-  if (skill.type === 'dash' || skill.type === 'spin' || skill.type === 'heal') {
-    const baseConfig = RPG_CONFIG.SKILLS[skill.type];
-    const upgrade = RPG_CONFIG.SKILL_UPGRADE[skill.type];
-    let description = '';
-
-    switch (skill.type) {
-      case 'dash':
-        const dashDamage = (baseConfig.damage || 50) + (skill.level - 1) * (upgrade.damageBonus || 10);
-        description = `전방으로 빠르게 돌진하며 경로상 적에게 ${dashDamage} 데미지`;
-        break;
-      case 'spin':
-        const spinMultiplier = ((baseConfig.damageMultiplier || 1.5) + (skill.level - 1) * (upgrade.damageMultiplierBonus || 0.1)) * 100;
-        description = `주변 적에게 공격력의 ${spinMultiplier.toFixed(0)}% 데미지`;
-        break;
-      case 'heal':
-        const healPercent = ((baseConfig.healPercent || 0.3) + (skill.level - 1) * (upgrade.healPercentBonus || 0.05)) * 100;
-        description = `HP ${healPercent.toFixed(0)}% 회복`;
-        break;
-    }
-    return description;
-  }
-
-  // 새로운 직업별 스킬
-  for (const [heroClass, skills] of Object.entries(CLASS_SKILLS)) {
-    for (const [slot, skillConfig] of Object.entries(skills)) {
+  // 직업별 스킬
+  for (const [, skills] of Object.entries(CLASS_SKILLS)) {
+    for (const [, skillConfig] of Object.entries(skills)) {
       if (skillConfig.type === skill.type) {
         return skillConfig.description;
       }
@@ -294,19 +105,23 @@ export function executeQSkill(
   targetX: number,
   targetY: number,
   gameTime: number,
-  enemyBases: EnemyBase[] = []  // 적 기지 (선택적)
+  enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
+  attackUpgradeLevel: number = 0  // 인게임 공격력 업그레이드 레벨
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].q;
   const classConfig = CLASS_CONFIGS[heroClass];
   const baseDamage = hero.config.attack || hero.baseAttack;
-  let damage = Math.floor(baseDamage * (skillConfig.damageMultiplier || 1.0));
+  // 인게임 골드 업그레이드 보너스 적용
+  const attackBonus = attackUpgradeLevel * UPGRADE_CONFIG.attack.perLevel;
+  let damage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 1.0));
 
-  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
+  // 마법사: 보스 데미지 보너스 배율 계산 (보스에게만 적용)
+  let bossDamageMultiplier = 1.0;
   if (heroClass === 'mage') {
-    const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
-    const growthDamageBonus = hero.passiveGrowth?.currentValue || 0;
-    damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
+    const baseBossDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.bossDamageBonus || 0) : 0;
+    const growthBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
+    bossDamageMultiplier = 1 + baseBossDamageBonus + growthBossDamageBonus;
   }
 
   // 버프 적용된 공격력 계산
@@ -367,8 +182,10 @@ export function executeQSkill(
 
     if (isAoE) {
       // 범위 공격 (전사, 기사, 마법사): 범위 내 모든 적에게 데미지
-      enemyDamages.push({ enemyId: enemy.id, damage: finalDamage });
-      hitTargets.push({ x: enemy.x, y: enemy.y, damage: finalDamage });
+      // 마법사: 보스에게만 데미지 보너스 적용
+      const actualDamage = enemy.type === 'boss' ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
+      enemyDamages.push({ enemyId: enemy.id, damage: actualDamage });
+      hitTargets.push({ x: enemy.x, y: enemy.y, damage: actualDamage });
     } else {
       // 다중 타겟 (궁수): 가까운 순서로 정렬 후 선택
       targetEnemies.push({ enemy, dist: distToHero });
@@ -380,8 +197,10 @@ export function executeQSkill(
     targetEnemies.sort((a, b) => a.dist - b.dist);
     const targets = targetEnemies.slice(0, multiTargetCount);
     for (const t of targets) {
-      enemyDamages.push({ enemyId: t.enemy.id, damage: finalDamage });
-      hitTargets.push({ x: t.enemy.x, y: t.enemy.y, damage: finalDamage });
+      // 마법사: 보스에게만 데미지 보너스 적용 (다중 타겟에는 마법사가 없지만 일관성 유지)
+      const actualDamage = t.enemy.type === 'boss' ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
+      enemyDamages.push({ enemyId: t.enemy.id, damage: actualDamage });
+      hitTargets.push({ x: t.enemy.x, y: t.enemy.y, damage: actualDamage });
     }
   }
 
@@ -486,19 +305,23 @@ export function executeWSkill(
   targetX: number,
   targetY: number,
   gameTime: number,
-  enemyBases: EnemyBase[] = []  // 적 기지 (선택적)
+  enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
+  attackUpgradeLevel: number = 0  // 인게임 공격력 업그레이드 레벨
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].w;
   const classConfig = CLASS_CONFIGS[heroClass];
   const baseDamage = hero.config.attack || hero.baseAttack;
-  let damage = Math.floor(baseDamage * ((skillConfig as any).damageMultiplier || 1.0));
+  // 인게임 골드 업그레이드 보너스 적용
+  const attackBonus = attackUpgradeLevel * UPGRADE_CONFIG.attack.perLevel;
+  let damage = Math.floor((baseDamage + attackBonus) * ((skillConfig as any).damageMultiplier || 1.0));
 
-  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
+  // 마법사: 보스 데미지 보너스 배율 계산 (보스에게만 적용)
+  let bossDamageMultiplier = 1.0;
   if (heroClass === 'mage') {
-    const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
-    const growthDamageBonus = hero.passiveGrowth?.currentValue || 0;
-    damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
+    const baseBossDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.bossDamageBonus || 0) : 0;
+    const growthBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
+    bossDamageMultiplier = 1 + baseBossDamageBonus + growthBossDamageBonus;
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
@@ -712,7 +535,9 @@ export function executeWSkill(
           if (enemy.hp <= 0) continue;
           const enemyDist = distance(targetX, targetY, enemy.x, enemy.y);
           if (enemyDist <= radius) {
-            enemyDamages.push({ enemyId: enemy.id, damage });
+            // 보스에게만 데미지 보너스 적용
+            const actualDamage = enemy.type === 'boss' ? Math.floor(damage * bossDamageMultiplier) : damage;
+            enemyDamages.push({ enemyId: enemy.id, damage: actualDamage });
           }
         }
 
@@ -753,19 +578,23 @@ export function executeESkill(
   targetY: number,
   gameTime: number,
   enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
-  casterId?: string  // 스킬 시전자 ID (보스 골드 분배용)
+  casterId?: string,  // 스킬 시전자 ID (보스 골드 분배용)
+  attackUpgradeLevel: number = 0  // 인게임 공격력 업그레이드 레벨
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].e;
   const classConfig = CLASS_CONFIGS[heroClass];
   const baseDamage = hero.config.attack || hero.baseAttack;
-  let damage = Math.floor(baseDamage * ((skillConfig as any).damageMultiplier || 1.0));
+  // 인게임 골드 업그레이드 보너스 적용
+  const attackBonus = attackUpgradeLevel * UPGRADE_CONFIG.attack.perLevel;
+  let damage = Math.floor((baseDamage + attackBonus) * ((skillConfig as any).damageMultiplier || 1.0));
 
-  // 마법사: 기본 패시브 + 패시브 성장 데미지 보너스 적용 (레벨 5 이상)
+  // 마법사: 보스 데미지 보너스 배율 계산 (보스에게만 적용)
+  let bossDamageMultiplier = 1.0;
   if (heroClass === 'mage') {
-    const baseDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.damageBonus || 0) : 0;
-    const growthDamageBonus = hero.passiveGrowth?.currentValue || 0;
-    damage = Math.floor(damage * (1 + baseDamageBonus + growthDamageBonus));
+    const baseBossDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.bossDamageBonus || 0) : 0;
+    const growthBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
+    bossDamageMultiplier = 1 + baseBossDamageBonus + growthBossDamageBonus;
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
@@ -876,6 +705,7 @@ export function executeESkill(
           damage,
           radius,
           casterId,
+          bossDamageMultiplier, // 보스 데미지 배율 저장
         };
 
         // 경고 이펙트

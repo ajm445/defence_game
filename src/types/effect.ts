@@ -12,7 +12,12 @@ export type EffectType =
   | 'stun'
   | 'meteor'
   | 'arrow_rain'
-  | 'fireball';
+  | 'fireball'
+  | 'nexus_laser'
+  // 보스 스킬 이펙트
+  | 'boss_smash'
+  | 'boss_shockwave'
+  | 'boss_summon';
 
 export type ParticleShape = 'circle' | 'square' | 'star' | 'emoji' | 'cross';
 

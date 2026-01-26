@@ -1,5 +1,5 @@
 import React from 'react';
-import { useHero, useRPGStats, useUpgradeLevels, useGold, useIsMultiplayer, useOtherHeroes } from '../../stores/useRPGStore';
+import { useHero, useRPGStats, useUpgradeLevels, useGold, useIsMultiplayer, useOtherHeroes, usePersonalKills } from '../../stores/useRPGStore';
 import { HeroClass, BuffType, HeroUnit } from '../../types/rpg';
 import { calculateAllUpgradeBonuses } from '../../game/rpg/goldSystem';
 
@@ -75,8 +75,13 @@ export const RPGHeroPanel: React.FC = () => {
   const stats = useRPGStats();
   const upgradeLevels = useUpgradeLevels();
   const gold = useGold();
+  const isMultiplayer = useIsMultiplayer();
+  const personalKills = usePersonalKills();
 
   if (!hero) return null;
+
+  // 멀티플레이어에서는 개인 처치 수, 싱글플레이어에서는 총 처치 수 표시
+  const displayKills = isMultiplayer ? personalKills : stats.totalKills;
 
   const hpPercent = (hero.hp / hero.maxHp) * 100;
 
@@ -104,7 +109,7 @@ export const RPGHeroPanel: React.FC = () => {
           <span className="text-lg font-bold text-yellow-400">{gold}</span>
         </div>
         <div className="text-xs text-gray-400">
-          처치: <span className="text-red-400 font-bold">{stats.totalKills}</span>
+          처치: <span className="text-red-400 font-bold">{displayKills}</span>
         </div>
       </div>
 

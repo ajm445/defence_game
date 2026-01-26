@@ -218,4 +218,67 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     shape: 'circle',
     spread: Math.PI * 2,
   },
+
+  // 넥서스 레이저 - 청록색 빔 파티클
+  nexus_laser: {
+    count: 12,
+    colors: ['#00ffff', '#00ccff', '#00aaff', '#66ffff', '#ffffff'],
+    sizeMin: 2,
+    sizeMax: 5,
+    speedMin: 300,
+    speedMax: 500,
+    lifeMin: 0.15,
+    lifeMax: 0.3,
+    gravity: 0,
+    shape: 'circle',
+    spread: Math.PI / 8, // 좁은 확산 (레이저처럼)
+  },
+
+  // ===== 보스 스킬 이펙트 =====
+
+  // 보스 강타 - 붉은색/주황색 충격 파티클
+  boss_smash: {
+    count: 20,
+    colors: ['#ff3300', '#ff6600', '#ff9900', '#ff0000', '#cc0000'],
+    sizeMin: 5,
+    sizeMax: 12,
+    speedMin: 100,
+    speedMax: 200,
+    lifeMin: 0.3,
+    lifeMax: 0.6,
+    gravity: 150,
+    shape: 'circle',
+    spread: Math.PI / 2,
+    direction: -Math.PI / 2,  // 위로 방사
+  },
+
+  // 보스 충격파 - 보라색/분홍색 원형 파동
+  boss_shockwave: {
+    count: 30,
+    colors: ['#9900ff', '#cc33ff', '#ff66ff', '#6600cc', '#ff00ff'],
+    sizeMin: 4,
+    sizeMax: 10,
+    speedMin: 150,
+    speedMax: 300,
+    lifeMin: 0.4,
+    lifeMax: 0.7,
+    gravity: 0,
+    shape: 'circle',
+    spread: Math.PI * 2,  // 전방위
+  },
+
+  // 보스 소환 - 어두운 보라색 연기
+  boss_summon: {
+    count: 15,
+    colors: ['#330066', '#660099', '#9900cc', '#440088', '#220044'],
+    sizeMin: 6,
+    sizeMax: 15,
+    speedMin: 20,
+    speedMax: 50,
+    lifeMin: 0.6,
+    lifeMax: 1.0,
+    gravity: -30,  // 위로 서서히 상승
+    shape: 'circle',
+    spread: Math.PI * 2,
+  },
 };

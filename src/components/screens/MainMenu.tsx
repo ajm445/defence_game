@@ -27,6 +27,7 @@ export const MainMenu: React.FC = () => {
   // 앱 시작 시 사운드 설정 동기화
   useEffect(() => {
     soundManager.setVolume(soundVolume);
+    soundManager.setBGMVolume(soundVolume); // BGM도 마스터 볼륨과 동기화
     soundManager.setMuted(soundMuted);
   }, [soundVolume, soundMuted]);
 
@@ -58,12 +59,17 @@ export const MainMenu: React.FC = () => {
     const newVolume = parseFloat(e.target.value);
     setSoundVolume(newVolume);
     soundManager.setVolume(newVolume);
+    soundManager.setBGMVolume(newVolume); // BGM도 동기화
+    // 설정 저장 (로그인 사용자: DB, 게스트: localStorage)
+    saveSoundSettings(newVolume, soundMuted);
   };
 
   const handleToggleMute = () => {
     const newMuted = !soundMuted;
     setSoundMuted(newMuted);
     soundManager.setMuted(newMuted);
+    // 설정 저장 (로그인 사용자: DB, 게스트: localStorage)
+    saveSoundSettings(soundVolume, newMuted);
     if (!newMuted) {
       soundManager.play('ui_click');
     }

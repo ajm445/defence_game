@@ -9,7 +9,7 @@ import { RPGGameTimer } from '../ui/RPGGameTimer';
 import { RPGUpgradePanel } from '../ui/RPGUpgradePanel';
 import { Notification } from '../ui/Notification';
 import { LevelUpNotification } from '../ui/LevelUpNotification';
-import { useRPGStore, useRPGGameOver, useRPGResult, useSelectedClass } from '../../stores/useRPGStore';
+import { useRPGStore, useRPGGameOver, useRPGResult, useSelectedClass, usePersonalKills, useSelectedDifficulty } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import { useProfileStore, useLastGameResult, useClassProgress } from '../../stores/useProfileStore';
@@ -38,6 +38,8 @@ export const RPGModeScreen: React.FC = () => {
   const multiplayer = useRPGStore((state) => state.multiplayer);
   const isMultiplayer = multiplayer.isMultiplayer;
   const isHost = multiplayer.isHost;
+  const personalKills = usePersonalKills();
+  const selectedDifficulty = useSelectedDifficulty();
 
   // 레벨업 알림 상태
   const [levelUpResult, setLevelUpResult] = useState<LevelUpResult | null>(null);
@@ -75,15 +77,20 @@ export const RPGModeScreen: React.FC = () => {
     if (gameOver && result && currentProfile && !currentProfile.isGuest && !expSavedRef.current) {
       expSavedRef.current = true;
 
-      // 경험치 저장
+      // 멀티플레이어에서는 개인 처치 수 사용
+      const rpgState = useRPGStore.getState();
+      const killsForExp = rpgState.multiplayer.isMultiplayer ? rpgState.personalKills : result.totalKills;
+
+      // 경험치 저장 (난이도 배율 적용)
       useProfileStore.getState().handleGameEnd({
-        mode: 'single',
+        mode: rpgState.multiplayer.isMultiplayer ? 'coop' : 'single',
         classUsed: result.heroClass,
         basesDestroyed: result.basesDestroyed,
         bossesKilled: result.bossesKilled,
-        kills: result.totalKills,
+        kills: killsForExp,
         playTime: result.timePlayed,
         victory: result.victory,
+        difficulty: rpgState.selectedDifficulty,
       }).then((levelResult) => {
         if (levelResult && (levelResult.playerLeveledUp || levelResult.classLeveledUp)) {
           setLevelUpResult(levelResult);
@@ -265,16 +272,22 @@ export const RPGModeScreen: React.FC = () => {
             <div className="space-y-3 mb-6">
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">기지 파괴</span>
-                <span className="text-red-400 font-bold">{result.basesDestroyed}/2</span>
+                <span className="text-red-400 font-bold">{result.basesDestroyed}/{result.totalBases}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">보스 처치</span>
-                <span className="text-purple-400 font-bold">{result.bossesKilled}/2</span>
+                <span className="text-purple-400 font-bold">{result.bossesKilled}/{result.totalBosses}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
-                <span className="text-gray-400">총 처치</span>
-                <span className="text-red-400 font-bold">{result.totalKills}</span>
+                <span className="text-gray-400">{isMultiplayer ? '개인 처치' : '총 처치'}</span>
+                <span className="text-red-400 font-bold">{isMultiplayer ? personalKills : result.totalKills}</span>
               </div>
+              {isMultiplayer && (
+                <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
+                  <span className="text-gray-400">팀 처치</span>
+                  <span className="text-orange-400 font-bold">{result.totalKills}</span>
+                </div>
+              )}
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">획득 골드</span>
                 <span className="text-yellow-400 font-bold">{result.totalGoldEarned}</span>
@@ -298,10 +311,11 @@ export const RPGModeScreen: React.FC = () => {
                       +{lastGameResult?.playerExpGained ?? calculatePlayerExp(
                         result.basesDestroyed,
                         result.bossesKilled,
-                        result.totalKills,
+                        isMultiplayer ? personalKills : result.totalKills,
                         result.timePlayed,
                         result.victory,
-                        'single'
+                        isMultiplayer ? 'coop' : 'single',
+                        selectedDifficulty
                       )}
                     </span>
                   </div>
@@ -311,7 +325,8 @@ export const RPGModeScreen: React.FC = () => {
                       +{lastGameResult?.classExpGained ?? calculateClassExp(
                         result.basesDestroyed,
                         result.bossesKilled,
-                        result.totalKills
+                        isMultiplayer ? personalKills : result.totalKills,
+                        selectedDifficulty
                       )}
                     </span>
                   </div>

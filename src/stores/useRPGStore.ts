@@ -1,14 +1,15 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning } from '../types/rpg';
 import { UnitType } from '../types/unit';
-import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
 import { createInitialUpgradeLevels, getUpgradeCost, canUpgrade, getGoldReward, calculateAllUpgradeBonuses, UpgradeType } from '../game/rpg/goldSystem';
 import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '../types/auth';
 import type { MultiplayerState, PlayerInput, SerializedGameState, SerializedHero, SerializedEnemy } from '../../shared/types/hostBasedNetwork';
 import type { CoopPlayerInfo } from '../../shared/types/rpgNetwork';
 import { wsClient } from '../services/WebSocketClient';
+import { soundManager } from '../services/SoundManager';
 import { distance } from '../utils/math';
 
 // 버프 공유 범위 상수 (useNetworkSync.ts와 동일)
@@ -16,11 +17,17 @@ const BERSERKER_SHARE_RANGE = 300;
 const IRONWALL_SHARE_RANGE = Infinity;
 
 interface RPGState extends RPGGameState {
+  // 선택된 난이도
+  selectedDifficulty: RPGDifficulty;
+
   // 활성 스킬 효과
   activeSkillEffects: SkillEffect[];
 
   // 기본 공격 이펙트 (네트워크 동기화용)
   basicAttackEffects: BasicAttackEffect[];
+
+  // 넥서스 레이저 효과 (네트워크 동기화용)
+  nexusLaserEffects: NexusLaserEffect[];
 
   // 결과
   result: RPGGameResult | null;
@@ -49,12 +56,22 @@ interface RPGState extends RPGGameState {
   otherPlayersGold: Map<string, number>;
   otherPlayersUpgrades: Map<string, UpgradeLevels>;
   otherPlayersGoldAccumulator: Map<string, number>; // 다른 플레이어 패시브 골드 누적기
+
+  // 개인 처치 수 (멀티플레이어 - 내 처치 수)
+  personalKills: number;
+  // 다른 플레이어별 처치 수 (멀티플레이어)
+  otherPlayersKills: Map<string, number>;
+  // 다른 플레이어 영웅 보간 데이터 (클라이언트용)
+  otherHeroesInterpolation: Map<string, { prevX: number; prevY: number; targetX: number; targetY: number; lastUpdateTime: number }>;
 }
 
 interface RPGActions {
   // 게임 초기화
-  initGame: (characterLevel?: number, statUpgrades?: CharacterStatUpgrades) => void;
+  initGame: (characterLevel?: number, statUpgrades?: CharacterStatUpgrades, difficulty?: RPGDifficulty) => void;
   resetGame: () => void;
+
+  // 난이도 선택
+  setDifficulty: (difficulty: RPGDifficulty) => void;
 
   // 직업 선택
   selectClass: (heroClass: HeroClass) => void;
@@ -99,6 +116,14 @@ interface RPGActions {
   addBasicAttackEffect: (effect: BasicAttackEffect) => void;
   cleanBasicAttackEffects: () => void;
 
+  // 넥서스 레이저 이펙트 (네트워크 동기화용)
+  addNexusLaserEffect: (effect: NexusLaserEffect) => void;
+  cleanNexusLaserEffects: () => void;
+
+  // 보스 스킬 경고 (시각화용)
+  addBossSkillWarning: (warning: BossSkillWarning) => void;
+  updateBossSkillWarnings: (gameTime: number) => void;
+
   // 적 관리
   addEnemy: (enemy: RPGEnemy) => void;
   removeEnemy: (enemyId: string) => void;
@@ -130,6 +155,8 @@ interface RPGActions {
 
   // 통계
   incrementKills: () => void;
+  incrementPersonalKills: () => void;
+  incrementOtherPlayerKills: (heroId: string) => void;
   addGoldEarned: (amount: number) => void;
   incrementBasesDestroyed: () => void;
   incrementBossesKilled: () => void;
@@ -149,7 +176,7 @@ interface RPGActions {
   resetMultiplayerState: () => void;
 
   // 멀티플레이 게임 초기화 (호스트용)
-  initMultiplayerGame: (players: CoopPlayerInfo[], _isHost: boolean) => void;
+  initMultiplayerGame: (players: CoopPlayerInfo[], _isHost: boolean, difficulty?: RPGDifficulty) => void;
 
   // 다른 플레이어 영웅 관리
   addOtherHero: (hero: HeroUnit) => void;
@@ -171,6 +198,9 @@ interface RPGActions {
   // 게임 상태 직렬화/역직렬화
   serializeGameState: () => SerializedGameState;
   applySerializedState: (state: SerializedGameState, myHeroId: string | null) => void;
+
+  // 다른 플레이어 영웅 보간 업데이트 (클라이언트용)
+  updateOtherHeroesInterpolation: () => void;
 }
 
 interface RPGStore extends RPGState, RPGActions {}
@@ -186,28 +216,32 @@ const createInitialNexus = (): Nexus => ({
   y: NEXUS_CONFIG.position.y,
   hp: NEXUS_CONFIG.hp,
   maxHp: NEXUS_CONFIG.hp,
+  laserCooldown: 0,
 });
 
 // 적 기지 초기 상태 생성 (플레이어 수에 따라 기지 수 결정)
 // - 싱글플레이 / 2인: 좌, 우 (2개)
 // - 3인: 좌, 우, 상 (3개)
 // - 4인: 좌, 우, 상, 하 (4개)
-const createInitialEnemyBases = (playerCount: number = 1): EnemyBase[] => {
+const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficulty = 'easy'): EnemyBase[] => {
+  const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
+  const hpMultiplier = difficultyConfig.enemyBaseHpMultiplier;
+
   const bases: EnemyBase[] = [
     {
       id: 'left',
       x: ENEMY_BASE_CONFIG.left.x,
       y: ENEMY_BASE_CONFIG.left.y,
-      hp: ENEMY_BASE_CONFIG.left.hp,
-      maxHp: ENEMY_BASE_CONFIG.left.hp,
+      hp: Math.floor(ENEMY_BASE_CONFIG.left.hp * hpMultiplier),
+      maxHp: Math.floor(ENEMY_BASE_CONFIG.left.hp * hpMultiplier),
       destroyed: false,
     },
     {
       id: 'right',
       x: ENEMY_BASE_CONFIG.right.x,
       y: ENEMY_BASE_CONFIG.right.y,
-      hp: ENEMY_BASE_CONFIG.right.hp,
-      maxHp: ENEMY_BASE_CONFIG.right.hp,
+      hp: Math.floor(ENEMY_BASE_CONFIG.right.hp * hpMultiplier),
+      maxHp: Math.floor(ENEMY_BASE_CONFIG.right.hp * hpMultiplier),
       destroyed: false,
     },
   ];
@@ -218,8 +252,8 @@ const createInitialEnemyBases = (playerCount: number = 1): EnemyBase[] => {
       id: 'top',
       x: ENEMY_BASE_CONFIG.top.x,
       y: ENEMY_BASE_CONFIG.top.y,
-      hp: ENEMY_BASE_CONFIG.top.hp,
-      maxHp: ENEMY_BASE_CONFIG.top.hp,
+      hp: Math.floor(ENEMY_BASE_CONFIG.top.hp * hpMultiplier),
+      maxHp: Math.floor(ENEMY_BASE_CONFIG.top.hp * hpMultiplier),
       destroyed: false,
     });
   }
@@ -230,8 +264,8 @@ const createInitialEnemyBases = (playerCount: number = 1): EnemyBase[] => {
       id: 'bottom',
       x: ENEMY_BASE_CONFIG.bottom.x,
       y: ENEMY_BASE_CONFIG.bottom.y,
-      hp: ENEMY_BASE_CONFIG.bottom.hp,
-      maxHp: ENEMY_BASE_CONFIG.bottom.hp,
+      hp: Math.floor(ENEMY_BASE_CONFIG.bottom.hp * hpMultiplier),
+      maxHp: Math.floor(ENEMY_BASE_CONFIG.bottom.hp * hpMultiplier),
       destroyed: false,
     });
   }
@@ -247,6 +281,7 @@ const initialState: RPGState = {
 
   hero: null,
   selectedClass: null,
+  selectedDifficulty: 'easy',
 
   // 골드 시스템
   gold: GOLD_CONFIG.STARTING_GOLD,
@@ -287,7 +322,9 @@ const initialState: RPGState = {
 
   activeSkillEffects: [],
   basicAttackEffects: [],
+  nexusLaserEffects: [],
   pendingSkills: [],
+  bossSkillWarnings: [],
   result: null,
   mousePosition: { x: NEXUS_CONFIG.position.x, y: NEXUS_CONFIG.position.y },
   showAttackRange: false,
@@ -311,6 +348,9 @@ const initialState: RPGState = {
   otherPlayersGold: new Map(),
   otherPlayersUpgrades: new Map(),
   otherPlayersGoldAccumulator: new Map(),
+  personalKills: 0,
+  otherPlayersKills: new Map(),
+  otherHeroesInterpolation: new Map(),
 };
 
 // 직업별 스킬 생성
@@ -412,19 +452,22 @@ export const useRPGStore = create<RPGStore>()(
   subscribeWithSelector((set, get) => ({
     ...initialState,
 
-    initGame: (characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades) => {
+    initGame: (characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades, difficulty?: RPGDifficulty) => {
       const state = get();
       // 선택된 직업이 없으면 기본값 warrior 사용
       const heroClass = state.selectedClass || 'warrior';
+      // 난이도가 전달되지 않으면 스토어의 선택된 난이도 사용
+      const gameDifficulty = difficulty || state.selectedDifficulty;
       const hero = createHeroUnit(heroClass, characterLevel, statUpgrades);
       set({
         ...initialState,
         running: true,
         selectedClass: heroClass,
+        selectedDifficulty: gameDifficulty,
         hero,
         // 넥서스 디펜스 초기화
         nexus: createInitialNexus(),
-        enemyBases: createInitialEnemyBases(),
+        enemyBases: createInitialEnemyBases(1, gameDifficulty),
         gamePhase: 'playing',
         gold: GOLD_CONFIG.STARTING_GOLD,
         upgradeLevels: createInitialUpgradeLevels(),
@@ -433,6 +476,7 @@ export const useRPGStore = create<RPGStore>()(
         enemies: [],
         activeSkillEffects: [],
         basicAttackEffects: [],
+        nexusLaserEffects: [],
         pendingSkills: [],
         gameOver: false,
         victory: false,
@@ -459,6 +503,9 @@ export const useRPGStore = create<RPGStore>()(
         otherPlayersGold: new Map(),
         otherPlayersUpgrades: new Map(),
         otherPlayersGoldAccumulator: new Map(),
+        personalKills: 0,
+        otherPlayersKills: new Map(),
+        otherHeroesInterpolation: new Map(),
         visibility: {
           exploredCells: new Set<string>(),
           visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
@@ -470,23 +517,35 @@ export const useRPGStore = create<RPGStore>()(
           followHero: true,
         },
       });
+      // BGM 재생
+      soundManager.playBGM('rpg_battle');
     },
 
-    resetGame: () => set((state) => ({
-      ...initialState,
-      // 선택된 직업은 유지 (다시 시작할 때 사용)
-      selectedClass: state.selectedClass,
-      nexus: null,
-      enemyBases: [],
-      gamePhase: 'playing',
-      gold: GOLD_CONFIG.STARTING_GOLD,
-      upgradeLevels: createInitialUpgradeLevels(),
-      fiveMinuteRewardClaimed: false,
-      visibility: {
-        exploredCells: new Set<string>(),
-        visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
-      },
-    })),
+    resetGame: () => {
+      // BGM 중지
+      soundManager.stopBGM();
+      const state = get();
+      set({
+        ...initialState,
+        // 선택된 직업과 난이도는 유지 (다시 시작할 때 사용)
+        selectedClass: state.selectedClass,
+        selectedDifficulty: state.selectedDifficulty,
+        nexus: null,
+        enemyBases: [],
+        gamePhase: 'playing',
+        gold: GOLD_CONFIG.STARTING_GOLD,
+        upgradeLevels: createInitialUpgradeLevels(),
+        fiveMinuteRewardClaimed: false,
+        visibility: {
+          exploredCells: new Set<string>(),
+          visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
+        },
+      });
+    },
+
+    setDifficulty: (difficulty: RPGDifficulty) => {
+      set({ selectedDifficulty: difficulty });
+    },
 
     selectClass: (heroClass: HeroClass) => {
       set({ selectedClass: heroClass });
@@ -843,6 +902,35 @@ export const useRPGStore = create<RPGStore>()(
       }));
     },
 
+    // 넥서스 레이저 이펙트 추가
+    addNexusLaserEffect: (effect: NexusLaserEffect) => {
+      set((state) => ({
+        nexusLaserEffects: [...state.nexusLaserEffects, effect],
+      }));
+    },
+
+    // 오래된 넥서스 레이저 이펙트 정리 (500ms 이후)
+    cleanNexusLaserEffects: () => {
+      const now = Date.now();
+      set((state) => ({
+        nexusLaserEffects: state.nexusLaserEffects.filter(e => now - e.timestamp < 500),
+      }));
+    },
+
+    // 보스 스킬 경고 추가
+    addBossSkillWarning: (warning: BossSkillWarning) => {
+      set((state) => ({
+        bossSkillWarnings: [...state.bossSkillWarnings, warning],
+      }));
+    },
+
+    // 보스 스킬 경고 업데이트 (만료된 경고 제거)
+    updateBossSkillWarnings: (gameTime: number) => {
+      set((state) => ({
+        bossSkillWarnings: state.bossSkillWarnings.filter(w => gameTime < w.startTime + w.duration),
+      }));
+    },
+
     // 스폰 타이머 설정
     setSpawnTimer: (time: number) => {
       set({ spawnTimer: time });
@@ -864,7 +952,7 @@ export const useRPGStore = create<RPGStore>()(
       let killed = false;
       let goldReward = 0;
       let isBoss = false;
-      let bossDamagedBy: string[] = [];
+      let enemyDamagedBy: string[] = [];
       const gameTime = get().gameTime;
       const AGGRO_DURATION = 5; // 어그로 지속 시간 (초)
 
@@ -873,9 +961,9 @@ export const useRPGStore = create<RPGStore>()(
           if (enemy.id === enemyId) {
             const newHp = enemy.hp - amount;
 
-            // 보스인 경우 데미지 관여자 추적
+            // 모든 적에 대해 데미지 관여자 추적 (공동 처치용)
             let updatedDamagedBy = enemy.damagedBy || [];
-            if (enemy.type === 'boss' && killerHeroId && !updatedDamagedBy.includes(killerHeroId)) {
+            if (killerHeroId && !updatedDamagedBy.includes(killerHeroId)) {
               updatedDamagedBy = [...updatedDamagedBy, killerHeroId];
             }
 
@@ -883,7 +971,7 @@ export const useRPGStore = create<RPGStore>()(
               killed = true;
               goldReward = enemy.goldReward || 0;
               isBoss = enemy.type === 'boss';
-              bossDamagedBy = updatedDamagedBy;
+              enemyDamagedBy = updatedDamagedBy;
               return { ...enemy, hp: 0, damagedBy: updatedDamagedBy };
             }
             // 피해를 입으면 어그로 설정 (킬러 영웅 ID도 저장)
@@ -906,31 +994,67 @@ export const useRPGStore = create<RPGStore>()(
         const state = get();
         const myHeroId = state.multiplayer.myHeroId;
         const isMultiplayer = state.multiplayer.isMultiplayer;
+        const isHost = state.multiplayer.isHost;
 
-        // 멀티플레이어 보스 처치: 골드를 관여한 플레이어에게만 균등 분배
-        if (isBoss && isMultiplayer && bossDamagedBy.length > 0) {
-          const contributorCount = bossDamagedBy.length;
+        // 골드 분배 로직
+        if (isBoss && isMultiplayer && enemyDamagedBy.length > 0) {
+          // 보스 처치: 골드를 관여한 플레이어에게만 균등 분배
+          const contributorCount = enemyDamagedBy.length;
           const goldPerContributor = Math.floor(goldReward / contributorCount);
 
-          // 관여한 플레이어에게만 분배
-          for (const heroId of bossDamagedBy) {
+          for (const heroId of enemyDamagedBy) {
             if (heroId === myHeroId) {
-              // 호스트(자신)에게 분배
               get().addGold(goldPerContributor);
             } else {
-              // 다른 플레이어에게 분배
               state.addGoldToOtherPlayer(heroId, goldPerContributor);
             }
           }
         } else if (killerHeroId && isMultiplayer && killerHeroId !== myHeroId) {
-          // 멀티플레이어에서 다른 플레이어가 일반 적 처치한 경우
+          // 다른 플레이어가 일반 적 처치
           state.addGoldToOtherPlayer(killerHeroId, goldReward);
         } else {
           // 호스트가 처치하거나 싱글플레이어
           get().addGold(goldReward);
         }
 
-        get().incrementKills();
+        // 처치 수 분배 (호스트에서만 처리 - 멀티플레이어 시)
+        if (isMultiplayer && isHost) {
+          // 공동 처치: 모든 관여자에게 처치 수 증가
+          if (enemyDamagedBy.length > 1) {
+            // 여러 명이 공동 처치한 경우: 관여한 모든 플레이어에게 +1
+            for (const heroId of enemyDamagedBy) {
+              if (heroId === myHeroId) {
+                get().incrementPersonalKills();
+              } else {
+                get().incrementOtherPlayerKills(heroId);
+              }
+            }
+          } else if (enemyDamagedBy.length === 1) {
+            // 단독 처치: 해당 플레이어에게만 +1
+            const soloKiller = enemyDamagedBy[0];
+            if (soloKiller === myHeroId) {
+              get().incrementPersonalKills();
+            } else {
+              get().incrementOtherPlayerKills(soloKiller);
+            }
+          } else if (killerHeroId) {
+            // damagedBy가 비어있지만 killerHeroId가 있는 경우
+            if (killerHeroId === myHeroId) {
+              get().incrementPersonalKills();
+            } else {
+              get().incrementOtherPlayerKills(killerHeroId);
+            }
+          }
+        } else if (!isMultiplayer) {
+          // 싱글플레이어: 기존처럼 totalKills 증가
+          get().incrementKills();
+        }
+
+        // 전체 통계용 incrementKills는 멀티플레이어에서도 호출 (총 킬 수 추적)
+        if (isMultiplayer) {
+          get().incrementKills();
+        }
+
         if (isBoss) {
           get().incrementBossesKilled();
         }
@@ -1018,6 +1142,10 @@ export const useRPGStore = create<RPGStore>()(
     // 게임 단계 설정
     setGamePhase: (phase: RPGGamePhase) => {
       set({ gamePhase: phase });
+      // 보스 페이즈에서 BGM 변경
+      if (phase === 'boss_phase') {
+        soundManager.playBGM('rpg_boss');
+      }
     },
 
     setCamera: (x, y) => {
@@ -1056,7 +1184,10 @@ export const useRPGStore = create<RPGStore>()(
     setPaused: (paused) => set({ paused }),
 
     setGameOver: (victory) => {
+      // BGM 중지
+      soundManager.stopBGM();
       const state = get();
+      const totalBases = state.enemyBases.length;
       set({
         gameOver: true,
         victory,
@@ -1068,6 +1199,8 @@ export const useRPGStore = create<RPGStore>()(
           totalGoldEarned: state.stats.totalGoldEarned,
           basesDestroyed: state.stats.basesDestroyed,
           bossesKilled: state.stats.bossesKilled,
+          totalBases,
+          totalBosses: totalBases, // 보스 수 = 기지 수
           timePlayed: state.stats.timePlayed,
           heroClass: state.hero?.heroClass || 'warrior',
           finalUpgradeLevels: state.upgradeLevels,
@@ -1133,6 +1266,20 @@ export const useRPGStore = create<RPGStore>()(
       set((state) => ({
         stats: { ...state.stats, totalKills: state.stats.totalKills + 1 },
       }));
+    },
+
+    incrementPersonalKills: () => {
+      set((state) => ({
+        personalKills: state.personalKills + 1,
+      }));
+    },
+
+    incrementOtherPlayerKills: (heroId: string) => {
+      set((state) => {
+        const newKills = new Map(state.otherPlayersKills);
+        newKills.set(heroId, (newKills.get(heroId) || 0) + 1);
+        return { otherPlayersKills: newKills };
+      });
     },
 
     addGoldEarned: (amount) => {
@@ -1417,14 +1564,17 @@ export const useRPGStore = create<RPGStore>()(
       });
     },
 
-    initMultiplayerGame: (players: CoopPlayerInfo[], _isHost: boolean) => {
+    initMultiplayerGame: (players: CoopPlayerInfo[], _isHost: boolean, difficulty?: RPGDifficulty) => {
       const state = get();
+      // 난이도가 전달되지 않으면 스토어의 선택된 난이도 사용
+      const gameDifficulty = difficulty || state.selectedDifficulty;
 
       // 각 플레이어에 대한 영웅 생성
       const otherHeroes = new Map<string, HeroUnit>();
       const otherPlayersGold = new Map<string, number>();
       const otherPlayersUpgrades = new Map<string, UpgradeLevels>();
       const otherPlayersGoldAccumulator = new Map<string, number>();
+      const otherPlayersKills = new Map<string, number>();
       const spawnPositions = getMultiplayerSpawnPositions(players.length);
 
       players.forEach((player, index) => {
@@ -1460,10 +1610,11 @@ export const useRPGStore = create<RPGStore>()(
           hero.id = heroId;
           otherHeroes.set(hero.id, hero);
 
-          // 각 플레이어별 골드와 업그레이드 초기화
+          // 각 플레이어별 골드, 업그레이드, 처치 수 초기화
           otherPlayersGold.set(heroId, GOLD_CONFIG.STARTING_GOLD);
           otherPlayersUpgrades.set(heroId, createInitialUpgradeLevels());
           otherPlayersGoldAccumulator.set(heroId, 0);
+          otherPlayersKills.set(heroId, 0);
         }
       });
 
@@ -1472,14 +1623,20 @@ export const useRPGStore = create<RPGStore>()(
         otherPlayersGold,
         otherPlayersUpgrades,
         otherPlayersGoldAccumulator,
+        otherPlayersKills,
+        otherHeroesInterpolation: new Map(),
+        personalKills: 0,
         running: true,
         nexus: createInitialNexus(),
-        enemyBases: createInitialEnemyBases(players.length), // 플레이어 수에 따른 기지 생성
+        enemyBases: createInitialEnemyBases(players.length, gameDifficulty), // 플레이어 수와 난이도에 따른 기지 생성
         gamePhase: 'playing',
         gold: GOLD_CONFIG.STARTING_GOLD,
         goldAccumulator: 0,
         upgradeLevels: createInitialUpgradeLevels(),
+        selectedDifficulty: gameDifficulty,
       });
+      // BGM 재생
+      soundManager.playBGM('rpg_battle');
     },
 
     addOtherHero: (hero: HeroUnit) => {
@@ -1652,15 +1809,16 @@ export const useRPGStore = create<RPGStore>()(
       const heroes: SerializedHero[] = [];
 
       if (state.hero) {
-        // 호스트 영웅: 호스트의 골드와 업그레이드 사용
-        heroes.push(serializeHeroToNetwork(state.hero, state.gold, state.upgradeLevels));
+        // 호스트 영웅: 호스트의 골드, 업그레이드, 처치 수 사용
+        heroes.push(serializeHeroToNetwork(state.hero, state.gold, state.upgradeLevels, state.personalKills));
       }
 
       state.otherHeroes.forEach((hero) => {
-        // 다른 플레이어: 해당 플레이어의 골드와 업그레이드 사용
+        // 다른 플레이어: 해당 플레이어의 골드, 업그레이드, 처치 수 사용
         const playerGold = state.otherPlayersGold.get(hero.id) || 0;
         const playerUpgrades = state.otherPlayersUpgrades.get(hero.id) || createInitialUpgradeLevels();
-        heroes.push(serializeHeroToNetwork(hero, playerGold, playerUpgrades));
+        const playerKills = state.otherPlayersKills.get(hero.id) || 0;
+        heroes.push(serializeHeroToNetwork(hero, playerGold, playerUpgrades, playerKills));
       });
 
       // 적 직렬화
@@ -1692,6 +1850,7 @@ export const useRPGStore = create<RPGStore>()(
         upgradeLevels: state.upgradeLevels,
         activeSkillEffects: state.activeSkillEffects,
         basicAttackEffects: state.basicAttackEffects,
+        nexusLaserEffects: state.nexusLaserEffects,
         pendingSkills: state.pendingSkills,
         running: state.running,
         paused: state.paused,
@@ -1707,9 +1866,13 @@ export const useRPGStore = create<RPGStore>()(
       const newOtherHeroes = new Map<string, HeroUnit>();
       const newOtherPlayersGold = new Map<string, number>();
       const newOtherPlayersUpgrades = new Map<string, UpgradeLevels>();
+      const newOtherPlayersKills = new Map<string, number>();
+      const newOtherHeroesInterpolation = new Map<string, { prevX: number; prevY: number; targetX: number; targetY: number; lastUpdateTime: number }>();
       let myHero: HeroUnit | null = null;
       let myGold = 0;
       let myUpgrades = createInitialUpgradeLevels();
+      let myKills = 0;
+      const now = performance.now();
 
       // 영웅 상태 적용
       serializedState.heroes.forEach((serializedHero) => {
@@ -1776,14 +1939,56 @@ export const useRPGStore = create<RPGStore>()(
             // 첫 생성 시에만 서버 위치 사용
             myHero = hero;
           }
-          // 내 골드와 업그레이드 추출
+          // 내 골드, 업그레이드, 처치 수 추출
           myGold = serializedHero.gold;
           myUpgrades = serializedHero.upgradeLevels;
+          myKills = serializedHero.kills || 0;
         } else {
-          newOtherHeroes.set(hero.id, hero);
-          // 다른 플레이어의 골드와 업그레이드 저장
+          // 다른 플레이어 영웅: 보간 처리
+          const existingInterpolation = currentState.otherHeroesInterpolation.get(hero.id);
+          const existingHero = currentState.otherHeroes.get(hero.id);
+
+          // 보간 데이터 업데이트
+          if (existingHero && existingInterpolation) {
+            // 기존 보간 데이터가 있으면, 현재 보간된 위치를 prevX/Y로 설정
+            const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
+            const interpolationDuration = 50; // 50ms (상태 동기화 간격과 동일)
+            const t = Math.min(1, timeSinceUpdate / interpolationDuration);
+
+            // 현재 보간 위치 계산
+            const currentX = existingInterpolation.prevX + (existingInterpolation.targetX - existingInterpolation.prevX) * t;
+            const currentY = existingInterpolation.prevY + (existingInterpolation.targetY - existingInterpolation.prevY) * t;
+
+            newOtherHeroesInterpolation.set(hero.id, {
+              prevX: currentX,
+              prevY: currentY,
+              targetX: hero.x,
+              targetY: hero.y,
+              lastUpdateTime: now,
+            });
+
+            // 보간된 위치로 영웅 업데이트 (현재 위치 사용)
+            newOtherHeroes.set(hero.id, {
+              ...hero,
+              x: currentX,
+              y: currentY,
+            });
+          } else {
+            // 첫 수신 시 즉시 위치 설정
+            newOtherHeroesInterpolation.set(hero.id, {
+              prevX: hero.x,
+              prevY: hero.y,
+              targetX: hero.x,
+              targetY: hero.y,
+              lastUpdateTime: now,
+            });
+            newOtherHeroes.set(hero.id, hero);
+          }
+
+          // 다른 플레이어의 골드, 업그레이드, 처치 수 저장
           newOtherPlayersGold.set(hero.id, serializedHero.gold);
           newOtherPlayersUpgrades.set(hero.id, serializedHero.upgradeLevels);
+          newOtherPlayersKills.set(hero.id, serializedHero.kills || 0);
         }
       });
 
@@ -1834,6 +2039,9 @@ export const useRPGStore = create<RPGStore>()(
         otherHeroes: newOtherHeroes,
         otherPlayersGold: newOtherPlayersGold,
         otherPlayersUpgrades: newOtherPlayersUpgrades,
+        otherPlayersKills: newOtherPlayersKills,
+        otherHeroesInterpolation: newOtherHeroesInterpolation,
+        personalKills: myKills,
         enemies,
         nexus: serializedState.nexus,
         enemyBases: serializedState.enemyBases,
@@ -1841,6 +2049,7 @@ export const useRPGStore = create<RPGStore>()(
         upgradeLevels: myUpgrades,  // 내 업그레이드 적용
         activeSkillEffects: serializedState.activeSkillEffects,
         basicAttackEffects: serializedState.basicAttackEffects || [],
+        nexusLaserEffects: serializedState.nexusLaserEffects || [],
         pendingSkills: serializedState.pendingSkills,
         running: serializedState.running,
         paused: serializedState.paused,
@@ -1849,6 +2058,37 @@ export const useRPGStore = create<RPGStore>()(
         lastSpawnTime: serializedState.lastSpawnTime,
         stats: serializedState.stats,
       });
+    },
+
+    updateOtherHeroesInterpolation: () => {
+      const state = get();
+      if (state.otherHeroesInterpolation.size === 0 || state.otherHeroes.size === 0) return;
+
+      const now = performance.now();
+      const updatedHeroes = new Map<string, HeroUnit>();
+      const interpolationDuration = 50; // 50ms
+
+      state.otherHeroes.forEach((hero, heroId) => {
+        const interp = state.otherHeroesInterpolation.get(heroId);
+        if (interp) {
+          const timeSinceUpdate = now - interp.lastUpdateTime;
+          const t = Math.min(1, timeSinceUpdate / interpolationDuration);
+
+          // 선형 보간 (lerp)
+          const x = interp.prevX + (interp.targetX - interp.prevX) * t;
+          const y = interp.prevY + (interp.targetY - interp.prevY) * t;
+
+          updatedHeroes.set(heroId, {
+            ...hero,
+            x,
+            y,
+          });
+        } else {
+          updatedHeroes.set(heroId, hero);
+        }
+      });
+
+      set({ otherHeroes: updatedHeroes });
     },
   }))
 );
@@ -1886,7 +2126,7 @@ function getMultiplayerSpawnPositions(count: number): { x: number; y: number }[]
 }
 
 // 영웅 직렬화 헬퍼
-function serializeHeroToNetwork(hero: HeroUnit, gold: number, upgradeLevels: UpgradeLevels): SerializedHero {
+function serializeHeroToNetwork(hero: HeroUnit, gold: number, upgradeLevels: UpgradeLevels, kills: number): SerializedHero {
   return {
     id: hero.id,
     playerId: (hero as any).playerId || hero.id,
@@ -1917,6 +2157,7 @@ function serializeHeroToNetwork(hero: HeroUnit, gold: number, upgradeLevels: Upg
     characterLevel: hero.characterLevel,
     dashState: hero.dashState,
     statUpgrades: hero.statUpgrades,
+    kills,
   };
 }
 
@@ -1975,6 +2216,7 @@ export const useRPGResult = () => useRPGStore((state) => state.result);
 export const useRPGStats = () => useRPGStore((state) => state.stats);
 export const useActiveSkillEffects = () => useRPGStore((state) => state.activeSkillEffects);
 export const useSelectedClass = () => useRPGStore((state) => state.selectedClass);
+export const useSelectedDifficulty = () => useRPGStore((state) => state.selectedDifficulty);
 export const useVisibility = () => useRPGStore((state) => state.visibility);
 export const usePendingSkills = () => useRPGStore((state) => state.pendingSkills);
 export const useShowAttackRange = () => useRPGStore((state) => state.showAttackRange);
@@ -1994,6 +2236,8 @@ export const useMultiplayer = () => useRPGStore((state) => state.multiplayer);
 export const useIsMultiplayer = () => useRPGStore((state) => state.multiplayer.isMultiplayer);
 export const useIsHost = () => useRPGStore((state) => state.multiplayer.isHost);
 export const useOtherHeroes = () => useRPGStore((state) => state.otherHeroes);
+export const usePersonalKills = () => useRPGStore((state) => state.personalKills);
+export const useOtherPlayersKills = () => useRPGStore((state) => state.otherPlayersKills);
 export const useAllHeroes = () => useRPGStore((state) => {
   const heroes: HeroUnit[] = [];
   if (state.hero) heroes.push(state.hero);

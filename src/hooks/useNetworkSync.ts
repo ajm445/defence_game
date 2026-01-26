@@ -221,9 +221,9 @@ export function useNetworkSync() {
 // ============================================
 
 function handleGameStartHostBased(message: any) {
-  const { isHost, playerIndex, players, hostPlayerId } = message;
+  const { isHost, playerIndex, players, hostPlayerId, difficulty } = message;
 
-  console.log(`[NetworkSync] 호스트 기반 게임 시작: 호스트=${isHost}, 인덱스=${playerIndex}`);
+  console.log(`[NetworkSync] 호스트 기반 게임 시작: 호스트=${isHost}, 인덱스=${playerIndex}, 난이도=${difficulty}`);
 
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
@@ -235,9 +235,15 @@ function handleGameStartHostBased(message: any) {
     countdown: null,
   });
 
+  // 난이도 설정 (서버에서 전달된 값 사용)
+  if (difficulty) {
+    useRPGStore.getState().setDifficulty(difficulty);
+  }
+
   // 호스트는 게임 초기화 및 상태 관리
   // 클라이언트는 호스트로부터 상태를 받아서 적용
-  useRPGStore.getState().initMultiplayerGame(players, isHost);
+  soundManager.init(); // AudioContext 초기화 (fallback)
+  useRPGStore.getState().initMultiplayerGame(players, isHost, difficulty);
 }
 
 function handleGameStateFromHost(serializedState: SerializedGameState) {
@@ -315,7 +321,14 @@ function handleReturnToLobby(message?: any) {
       players: message.players,
       hostPlayerId: message.hostPlayerId,
       isHost,  // 호스트 여부 설정
+      roomIsPrivate: message.isPrivate ?? false,
+      roomDifficulty: message.difficulty ?? 'easy',
     });
+
+    // 난이도도 복원
+    if (message.difficulty) {
+      useRPGStore.getState().setDifficulty(message.difficulty);
+    }
   } else {
     useRPGStore.getState().setMultiplayerState({ connectionState: 'in_lobby' });
   }
@@ -357,6 +370,7 @@ function handleGameRestart() {
 
   // 게임 초기화 (모든 플레이어가 동일한 players 정보로 초기화)
   // 호스트의 상태 동기화가 이후 일관성을 유지
+  soundManager.init(); // AudioContext 초기화 (fallback)
   useRPGStore.getState().initMultiplayerGame(players, isHost);
 
   // 게임 화면으로
@@ -772,13 +786,13 @@ export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'gol
 /**
  * 멀티플레이 방 생성
  */
-export function createMultiplayerRoom(playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean) {
+export function createMultiplayerRoom(playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean, difficulty?: string) {
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
     connectionState: 'connecting',
   });
 
-  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false);
+  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false, difficulty ?? 'easy');
 }
 
 /**

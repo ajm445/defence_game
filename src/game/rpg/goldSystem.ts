@@ -3,12 +3,11 @@ import { UpgradeLevels } from '../../types/rpg';
 import { GOLD_CONFIG, UPGRADE_CONFIG } from '../../constants/rpgConfig';
 
 /**
- * 적 처치 시 골드 보상 계산 (goldRate 보너스 적용)
+ * 적 처치 시 골드 보상 계산
+ * 참고: goldRate 업그레이드는 초당 골드 획득량에만 적용됩니다.
  */
-export function getGoldReward(enemyType: UnitType, goldRateBonus: number = 0): number {
-  const baseReward = GOLD_CONFIG.REWARDS[enemyType] || 5;
-  const multiplier = 1 + goldRateBonus;
-  return Math.floor(baseReward * multiplier);
+export function getGoldReward(enemyType: UnitType): number {
+  return GOLD_CONFIG.REWARDS[enemyType] || 5;
 }
 
 /**
