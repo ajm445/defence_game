@@ -28,16 +28,22 @@ export class RPGCoopGameRoom {
   // 각 플레이어의 heroId 매핑 (호스트가 할당)
   private playerHeroMap: Map<string, string> = new Map();
 
-  constructor(id: string, roomCode: string, playerIds: string[], playerInfos: CoopPlayerInfo[]) {
+  // 방 설정 (로비 복귀 시 유지)
+  public isPrivate: boolean = false;
+  public difficulty: string = 'easy';
+
+  constructor(id: string, roomCode: string, playerIds: string[], playerInfos: CoopPlayerInfo[], isPrivate: boolean = false, difficulty: string = 'easy') {
     this.id = id;
     this.roomCode = roomCode;
     this.playerIds = playerIds;
     this.playerInfos = playerInfos;
+    this.isPrivate = isPrivate;
+    this.difficulty = difficulty;
 
     // 호스트 식별 (첫 번째 플레이어가 방장)
     this.hostPlayerId = playerInfos.find(p => p.isHost)?.id || playerIds[0];
 
-    console.log(`[Relay] 게임 방 생성: ${id} (${roomCode}), 호스트: ${this.hostPlayerId}, 플레이어: ${playerIds.length}명`);
+    console.log(`[Relay] 게임 방 생성: ${id} (${roomCode}), 호스트: ${this.hostPlayerId}, 플레이어: ${playerIds.length}명, 난이도: ${difficulty}`);
   }
 
   public startCountdown(): void {
@@ -190,16 +196,18 @@ export class RPGCoopGameRoom {
     // 플레이어 준비 상태 초기화
     this.playerInfos = this.playerInfos.map(p => ({
       ...p,
-      isReady: p.isHost, // 호스트는 항상 준비 상태
+      isReady: false, // 호스트 포함 모두 준비 상태 해제
     }));
 
-    // 모든 플레이어에게 로비 복귀 알림 (플레이어 정보 포함)
+    // 모든 플레이어에게 로비 복귀 알림 (플레이어 정보 및 방 설정 포함)
     this.broadcast({
       type: 'COOP_RETURN_TO_LOBBY',
       roomCode: this.roomCode,
       roomId: this.id,
       players: this.playerInfos,
       hostPlayerId: this.hostPlayerId,
+      isPrivate: this.isPrivate,
+      difficulty: this.difficulty,
     });
 
     // 대기 방 상태를 'waiting'으로 변경하여 로비에 표시

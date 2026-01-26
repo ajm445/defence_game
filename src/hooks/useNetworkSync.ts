@@ -315,7 +315,14 @@ function handleReturnToLobby(message?: any) {
       players: message.players,
       hostPlayerId: message.hostPlayerId,
       isHost,  // 호스트 여부 설정
+      roomIsPrivate: message.isPrivate ?? false,
+      roomDifficulty: message.difficulty ?? 'easy',
     });
+
+    // 난이도도 복원
+    if (message.difficulty) {
+      useRPGStore.getState().setDifficulty(message.difficulty);
+    }
   } else {
     useRPGStore.getState().setMultiplayerState({ connectionState: 'in_lobby' });
   }

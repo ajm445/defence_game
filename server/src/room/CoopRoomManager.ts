@@ -447,7 +447,7 @@ export function startCoopGame(hostPlayerId: string): void {
   const playerIds = Array.from(room.players.keys());
   const playerInfos = Array.from(room.players.values());
 
-  const gameRoom = new RPGCoopGameRoom(room.id, room.code, playerIds, playerInfos);
+  const gameRoom = new RPGCoopGameRoom(room.id, room.code, playerIds, playerInfos, room.isPrivate, room.difficulty);
 
   // MessageHandler에 게임 방 등록
   addCoopRoom(gameRoom);

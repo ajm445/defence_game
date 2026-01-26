@@ -217,6 +217,9 @@ export interface MultiplayerState {
   connectionState: 'disconnected' | 'connecting' | 'connected' | 'in_lobby' | 'countdown' | 'in_game' | 'post_game';
   // 카운트다운
   countdown: number | null;
+  // 방 설정 (로비 복귀 시 유지)
+  roomIsPrivate?: boolean;
+  roomDifficulty?: string;
 }
 
 // 초기 멀티플레이 상태
@@ -232,6 +235,8 @@ export const initialMultiplayerState: MultiplayerState = {
   remoteInputQueue: [],
   connectionState: 'disconnected',
   countdown: null,
+  roomIsPrivate: false,
+  roomDifficulty: 'easy',
 };
 
 // ============================================

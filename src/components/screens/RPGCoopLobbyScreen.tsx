@@ -66,6 +66,19 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     }
   }, [multiplayer.connectionState, setScreen, resetGameUI, setGameMode]);
 
+  // 로비 복귀 시 스토어에서 방 설정 동기화
+  useEffect(() => {
+    if (multiplayer.connectionState === 'in_lobby') {
+      // 스토어에 저장된 방 설정이 있으면 로컬 상태에 반영
+      if (multiplayer.roomIsPrivate !== undefined) {
+        setRoomIsPrivate(multiplayer.roomIsPrivate);
+      }
+      if (multiplayer.roomDifficulty) {
+        setRoomDifficulty(multiplayer.roomDifficulty as RPGDifficulty);
+      }
+    }
+  }, [multiplayer.connectionState, multiplayer.roomIsPrivate, multiplayer.roomDifficulty]);
+
   // 에러 자동 클리어
   useEffect(() => {
     if (error) {

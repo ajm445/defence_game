@@ -1,6 +1,6 @@
 {
   "name": "defence-game-server",
-  "version": "1.16.3",
+  "version": "1.16.4",
   "type": "module",
   "scripts": {
     "dev": "tsx watch src/index.ts",
