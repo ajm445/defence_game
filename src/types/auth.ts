@@ -62,6 +62,14 @@ export const CHARACTER_UNLOCK_LEVELS: Record<HeroClass, number> = {
   mage: 50,
 } as const;
 
+// 난이도별 승리 보너스
+const VICTORY_BONUS_BY_DIFFICULTY: Record<RPGDifficulty, number> = {
+  easy: 50,
+  normal: 200,
+  hard: 350,
+  extreme: 500,
+};
+
 // 플레이어 경험치 계산 (넥서스 디펜스)
 export const calculatePlayerExp = (
   basesDestroyed: number,
@@ -72,26 +80,38 @@ export const calculatePlayerExp = (
   mode: 'single' | 'coop',
   difficulty: RPGDifficulty = 'easy'
 ): number => {
-  // 기지 파괴: 각 30점
-  const baseExp = basesDestroyed * 30;
-  // 보스 처치: 각 50점
-  const bossExp = bossesKilled * 50;
-  // 킬당: 1점
-  const killExp = kills;
-  // 5분 생존 보너스: 30점
-  const survivalBonus = playTimeSeconds >= 300 ? 30 : 0;
-  // 승리 보너스: 50점
-  const victoryBonus = victory ? 50 : 0;
-
-  const totalExp = baseExp + bossExp + killExp + survivalBonus + victoryBonus;
-
-  // 난이도 경험치 배율 적용
+  // 난이도 경험치 배율
   const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
   const difficultyMultiplier = difficultyConfig?.expRewardMultiplier ?? 1.0;
 
-  // 협동 모드: 1.2배 + 난이도 배율
+  // 기지 파괴: 각 30점 × 난이도 배율
+  const baseExp = Math.floor(basesDestroyed * 30 * difficultyMultiplier);
+  // 보스 처치: 각 50점 × 난이도 배율
+  const bossExp = Math.floor(bossesKilled * 50 * difficultyMultiplier);
+  // 킬당: 1점 × 난이도 배율
+  const killExp = Math.floor(kills * difficultyMultiplier);
+  // 5분 생존 보너스: 30점
+  const survivalBonus = playTimeSeconds >= 300 ? 30 : 0;
+  // 승리 보너스: 난이도별 차등
+  const victoryBonus = victory ? VICTORY_BONUS_BY_DIFFICULTY[difficulty] : 0;
+
+  const totalExp = baseExp + bossExp + killExp + survivalBonus + victoryBonus;
+
+  // 협동 모드: 1.2배
   const modeMultiplier = mode === 'coop' ? 1.2 : 1.0;
-  return Math.floor(totalExp * modeMultiplier * difficultyMultiplier);
+
+  // 패배 시 50% 감소
+  const defeatPenalty = victory ? 1.0 : 0.5;
+
+  return Math.floor(totalExp * modeMultiplier * defeatPenalty);
+};
+
+// 난이도별 직업 승리 보너스
+const CLASS_VICTORY_BONUS_BY_DIFFICULTY: Record<RPGDifficulty, number> = {
+  easy: 40,
+  normal: 160,
+  hard: 280,
+  extreme: 400,
 };
 
 // 직업 경험치 계산 (넥서스 디펜스)
@@ -99,20 +119,28 @@ export const calculateClassExp = (
   basesDestroyed: number,
   bossesKilled: number,
   kills: number,
-  difficulty: RPGDifficulty = 'easy'
+  difficulty: RPGDifficulty = 'easy',
+  victory: boolean = true
 ): number => {
-  // 기지 파괴: 각 15점
-  const baseExp = basesDestroyed * 15;
-  // 보스 처치: 각 25점
-  const bossExp = bossesKilled * 25;
-  // 킬당: 1점
-  const killExp = kills;
-
-  // 난이도 경험치 배율 적용
+  // 난이도 경험치 배율
   const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
   const difficultyMultiplier = difficultyConfig?.expRewardMultiplier ?? 1.0;
 
-  return Math.floor((baseExp + bossExp + killExp) * difficultyMultiplier);
+  // 기지 파괴: 각 25점 × 난이도 배율
+  const baseExp = Math.floor(basesDestroyed * 25 * difficultyMultiplier);
+  // 보스 처치: 각 40점 × 난이도 배율
+  const bossExp = Math.floor(bossesKilled * 40 * difficultyMultiplier);
+  // 킬당: 1.5점 × 난이도 배율
+  const killExp = Math.floor(kills * 1.5 * difficultyMultiplier);
+  // 승리 보너스: 난이도별 차등
+  const victoryBonus = victory ? CLASS_VICTORY_BONUS_BY_DIFFICULTY[difficulty] : 0;
+
+  const totalExp = baseExp + bossExp + killExp + victoryBonus;
+
+  // 패배 시 50% 감소
+  const defeatPenalty = victory ? 1.0 : 0.5;
+
+  return Math.floor(totalExp * defeatPenalty);
 };
 
 // ============================================

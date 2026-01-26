@@ -745,11 +745,6 @@ export const COOP_CONFIG = {
     CURRENT_TARGET_BONUS: 1.2,  // 현재 타겟 유지 보너스
   },
 
-  // 경험치 분배
-  EXP_SHARE: {
-    DEAD_PLAYER_RATIO: 0.5,  // 죽은 플레이어 경험치 50%
-  },
-
   // 웨이브 대기 시간
   WAVE_DELAY: 5,
 } as const;
