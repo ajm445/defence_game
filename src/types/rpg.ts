@@ -2,6 +2,24 @@ import { Position } from './game';
 import { Unit, UnitType } from './unit';
 import { CharacterStatUpgrades } from './auth';
 
+// 난이도 타입
+export type RPGDifficulty = 'easy' | 'normal' | 'hard' | 'extreme';
+
+// 난이도 설정 인터페이스
+export interface DifficultyConfig {
+  id: RPGDifficulty;
+  name: string;
+  nameEn: string;
+  description: string;
+  enemyHpMultiplier: number;      // 적 HP 배율
+  enemyAttackMultiplier: number;  // 적 공격력 배율
+  spawnIntervalMultiplier: number; // 스폰 간격 배율 (낮을수록 빠름)
+  goldRewardMultiplier: number;   // 골드 보상 배율
+  bossHpMultiplier: number;       // 보스 HP 배율
+  bossAttackMultiplier: number;   // 보스 공격력 배율
+  enemyBaseHpMultiplier: number;  // 적 기지 HP 배율
+}
+
 // 영웅 직업 타입
 export type HeroClass = 'warrior' | 'archer' | 'knight' | 'mage';
 
@@ -49,7 +67,7 @@ export interface PassiveAbility {
   lifesteal?: number;       // 피해흡혈 비율 (0.1 = 10%)
   multiTarget?: number;     // 기본 공격 대상 수
   hpRegen?: number;         // 초당 HP 재생
-  damageBonus?: number;     // 데미지 증가 비율 (0.2 = 20%)
+  bossDamageBonus?: number; // 보스에게 주는 데미지 증가 비율 (0.2 = 20%)
 }
 
 // 패시브 성장 상태
@@ -257,6 +275,7 @@ export interface PendingSkill {
   damage: number;
   radius: number;
   casterId?: string;     // 스킬 시전자 ID (보스 골드 분배용)
+  bossDamageMultiplier?: number; // 보스 데미지 배율 (마법사 패시브)
 }
 
 // 레벨업 보너스 (계정 레벨 보너스)
@@ -310,6 +329,8 @@ export interface RPGGameResult {
   totalGoldEarned: number;
   basesDestroyed: number;
   bossesKilled: number;
+  totalBases: number;      // 총 기지 수 (플레이어 수에 따라 2~4)
+  totalBosses: number;     // 총 보스 수 (기지 수와 동일)
   timePlayed: number;
   heroClass: HeroClass;
   finalUpgradeLevels: UpgradeLevels;

@@ -1,5 +1,64 @@
 import { UnitType } from '../types/unit';
-import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig, GoldTable } from '../types/rpg';
+import { SkillType, ExpTable, LevelUpBonus, WaveConfig, HeroClass, ClassConfig, EnemyAIConfig, GoldTable, RPGDifficulty, DifficultyConfig } from '../types/rpg';
+
+// ============================================
+// 난이도 설정
+// ============================================
+
+export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
+  easy: {
+    id: 'easy',
+    name: '쉬움',
+    nameEn: 'Easy',
+    description: '기본 난이도',
+    enemyHpMultiplier: 1.0,
+    enemyAttackMultiplier: 1.0,
+    spawnIntervalMultiplier: 1.0,
+    goldRewardMultiplier: 1.0,
+    bossHpMultiplier: 1.0,
+    bossAttackMultiplier: 1.0,
+    enemyBaseHpMultiplier: 1.0,
+  },
+  normal: {
+    id: 'normal',
+    name: '중간',
+    nameEn: 'Normal',
+    description: '적 강화, 보상 증가',
+    enemyHpMultiplier: 1.3,
+    enemyAttackMultiplier: 1.2,
+    spawnIntervalMultiplier: 0.9,
+    goldRewardMultiplier: 1.1,
+    bossHpMultiplier: 1.3,
+    bossAttackMultiplier: 1.2,
+    enemyBaseHpMultiplier: 1.3,
+  },
+  hard: {
+    id: 'hard',
+    name: '어려움',
+    nameEn: 'Hard',
+    description: '도전적인 난이도',
+    enemyHpMultiplier: 1.6,
+    enemyAttackMultiplier: 1.4,
+    spawnIntervalMultiplier: 0.8,
+    goldRewardMultiplier: 1.2,
+    bossHpMultiplier: 1.6,
+    bossAttackMultiplier: 1.4,
+    enemyBaseHpMultiplier: 1.6,
+  },
+  extreme: {
+    id: 'extreme',
+    name: '극한',
+    nameEn: 'Extreme',
+    description: '최고의 도전',
+    enemyHpMultiplier: 2.0,
+    enemyAttackMultiplier: 1.8,
+    spawnIntervalMultiplier: 0.7,
+    goldRewardMultiplier: 1.3,
+    bossHpMultiplier: 2.0,
+    bossAttackMultiplier: 1.8,
+    enemyBaseHpMultiplier: 2.0,
+  },
+};
 
 // 패시브 시스템 상수
 export const PASSIVE_UNLOCK_LEVEL = 5;      // 기본 패시브 활성화 레벨
@@ -8,7 +67,7 @@ export const PASSIVE_GROWTH_INTERVAL = 10;  // 성장 간격 (10웨이브마다)
 
 // 패시브 성장 설정 (직업별)
 export interface PassiveGrowthConfig {
-  type: 'lifesteal' | 'multiTarget' | 'hpRegen' | 'damageBonus';
+  type: 'lifesteal' | 'multiTarget' | 'hpRegen' | 'bossDamageBonus';
   startValue: number;      // 시작 값
   growthPerLevel: number;  // 레벨당 성장량
   maxValue: number;        // 최대 값
@@ -45,7 +104,7 @@ export const PASSIVE_GROWTH_CONFIGS: Record<HeroClass, PassiveGrowthConfig> = {
     overflowPerLevel: 0.005, // 초과 시 체력 +0.5%
   },
   mage: {
-    type: 'damageBonus',
+    type: 'bossDamageBonus',
     startValue: 0,
     growthPerLevel: 0.01,    // +1%/레벨
     maxValue: 1.0,           // 100% 최대
@@ -81,7 +140,7 @@ export const GOLD_CONFIG = {
 // 업그레이드 설정 (레벨당 보너스)
 export const UPGRADE_CONFIG = {
   attack: {
-    perLevel: 3,           // 레벨당 +3 공격력
+    perLevel: 5,           // 레벨당 +5 공격력
     description: '공격력',
   },
   speed: {
@@ -147,17 +206,6 @@ export const ENEMY_BASE_CONFIG = {
   },
 } as const;
 
-// 레인 설정 (적이 이동하는 경로)
-export const LANE_CONFIG = {
-  // 레인 폭 (시각적 표시용)
-  width: 200,
-  // 레인 중심 Y 좌표
-  centerY: 1000,
-  // 레인 색상
-  color: 'rgba(50, 40, 30, 0.4)',  // 어두운 길 색상
-  borderColor: 'rgba(100, 80, 60, 0.3)',
-} as const;
-
 // 스폰 설정
 export const SPAWN_CONFIG = {
   // 기본 스폰 간격 (초)
@@ -211,24 +259,24 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     nameEn: 'Warrior',
     emoji: '⚔️',
     description: '균형잡힌 스탯의 근접 전사',
-    hp: 350,
-    attack: 35,
+    hp: 400,
+    attack: 45,
     attackSpeed: 1.0,
-    speed: 2.7,
+    speed: 2.8,
     range: 80,
     passive: {
-      lifesteal: 0.15, // 15% 피해흡혈
+      lifesteal: 0.20, // 20% 피해흡혈
     },
   },
   archer: {
     name: '궁수',
     nameEn: 'Archer',
     emoji: '🏹',
-    description: '높은 공격력과 빠른 공속의 원거리 딜러',
-    hp: 250,
-    attack: 45,
+    description: '기본 공격 중심의 원거리 딜러',
+    hp: 280,
+    attack: 38,
     attackSpeed: 0.7,
-    speed: 3.3,
+    speed: 3.0,
     range: 180,
     passive: {
       multiTarget: 3, // 기본 공격 3명 동시 공격
@@ -239,13 +287,13 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     nameEn: 'Knight',
     emoji: '🛡️',
     description: '높은 체력과 방어력의 탱커',
-    hp: 450,
-    attack: 30,
-    attackSpeed: 1.3,
-    speed: 2.1,
+    hp: 550,
+    attack: 40,
+    attackSpeed: 1.1,
+    speed: 2.4,
     range: 80,
     passive: {
-      hpRegen: 5, // 초당 5 HP 재생
+      hpRegen: 10, // 초당 10 HP 재생
     },
   },
   mage: {
@@ -253,13 +301,13 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
     nameEn: 'Mage',
     emoji: '🔮',
     description: '높은 공격력과 범위 공격의 마법사',
-    hp: 220,
-    attack: 55,
-    attackSpeed: 1.8,
-    speed: 2.85,
-    range: 190,
+    hp: 230,
+    attack: 60,
+    attackSpeed: 1.4,
+    speed: 2.8,
+    range: 210,
     passive: {
-      damageBonus: 0.25, // 25% 데미지 증가
+      bossDamageBonus: 0.25, // 보스에게 25% 데미지 증가
     },
   },
 };
@@ -274,28 +322,28 @@ export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
     attackSpeed: 1.0,
   },
   ranged: {
-    detectionRange: 500,
+    detectionRange: 550,
     attackRange: 150,
     moveSpeed: 2.4,
     attackDamage: 20,
     attackSpeed: 0.8,
   },
   knight: {
-    detectionRange: 350,
+    detectionRange: 400,
     attackRange: 70,
     moveSpeed: 1.95,
     attackDamage: 12,
     attackSpeed: 1.2,
   },
   mage: {
-    detectionRange: 450,
+    detectionRange: 550,
     attackRange: 180,
     moveSpeed: 2.1,
     attackDamage: 35,
     attackSpeed: 1.5,
   },
   boss: {
-    detectionRange: 600,
+    detectionRange: 700,
     attackRange: 100,
     moveSpeed: 1.5,
     attackDamage: 50,
@@ -324,7 +372,7 @@ export const CLASS_SKILLS = {
       type: 'warrior_w' as SkillType,
       name: '돌진',
       key: 'W',
-      cooldown: 6,
+      cooldown: 5,
       description: '전방으로 돌진하며 경로상 적에게 공격력 150% 데미지 (돌진 후 2초 무적)',
       distance: 200,
       damageMultiplier: 1.5,
@@ -355,7 +403,7 @@ export const CLASS_SKILLS = {
       type: 'archer_w' as SkillType,
       name: '관통 화살',
       key: 'W',
-      cooldown: 5,
+      cooldown: 8,
       description: '일직선 관통 공격 (공격력 150%)',
       damageMultiplier: 1.5,
       pierceDistance: 300,
@@ -364,7 +412,7 @@ export const CLASS_SKILLS = {
       type: 'archer_e' as SkillType,
       name: '화살 비',
       key: 'E',
-      cooldown: 25,
+      cooldown: 30,
       description: '범위 내 모든 적에게 공격력 200% 데미지',
       damageMultiplier: 2.0,
       radius: 150,
@@ -375,7 +423,7 @@ export const CLASS_SKILLS = {
       type: 'knight_q' as SkillType,
       name: '방패 타격',
       key: 'Q',
-      cooldown: 1.3,
+      cooldown: 1.1,
       description: '근접 공격 (공격력 100%)',
       damageMultiplier: 1.0,
     },
@@ -383,7 +431,7 @@ export const CLASS_SKILLS = {
       type: 'knight_w' as SkillType,
       name: '방패 돌진',
       key: 'W',
-      cooldown: 8,
+      cooldown: 6,
       description: '전방 돌진하며 경로상 적에게 최대 HP 10% 데미지 + 2초 기절',
       distance: 150,
       hpDamagePercent: 0.1, // 최대 HP의 10% 데미지
@@ -405,7 +453,7 @@ export const CLASS_SKILLS = {
       type: 'mage_q' as SkillType,
       name: '마법 화살',
       key: 'Q',
-      cooldown: 1.8,
+      cooldown: 1.4,
       description: '원거리 마법 공격 (공격력 100%)',
       damageMultiplier: 1.0,
     },
@@ -482,60 +530,6 @@ export const RPG_CONFIG = {
     mage: 30,     // 마법사
     boss: 200,    // 보스
   } as ExpTable,
-
-  // 스킬 설정
-  SKILLS: {
-    dash: {
-      name: '돌진',
-      key: 'Q',
-      cooldown: 5,
-      damage: 50,         // 경로상 적에게 주는 데미지
-      distance: 200,      // 돌진 거리
-    },
-    spin: {
-      name: '회전 베기',
-      key: 'W',
-      cooldown: 8,
-      damageMultiplier: 1.5, // 공격력의 150%
-      radius: 100,        // 범위
-    },
-    heal: {
-      name: '회복',
-      key: 'E',
-      cooldown: 15,
-      healPercent: 0.3,   // HP 30% 회복
-    },
-  } as Record<SkillType, {
-    name: string;
-    key: string;
-    cooldown: number;
-    damage?: number;
-    damageMultiplier?: number;
-    distance?: number;
-    radius?: number;
-    healPercent?: number;
-  }>,
-
-  // 스킬 레벨업 보너스 (레벨당)
-  SKILL_UPGRADE: {
-    dash: {
-      cooldownReduction: 0.5, // 초
-      damageBonus: 10,
-    },
-    spin: {
-      cooldownReduction: 0.5,
-      damageMultiplierBonus: 0.1,
-    },
-    heal: {
-      cooldownReduction: 1,
-      healPercentBonus: 0.05, // 5%
-    },
-  } as Record<SkillType, {
-    cooldownReduction: number;
-    damageBonus?: number;
-    damageMultiplierBonus?: number;
-    healPercentBonus?: number;
-  }>,
 
   // 카메라 설정
   CAMERA: {
