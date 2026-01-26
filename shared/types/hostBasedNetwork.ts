@@ -12,6 +12,8 @@ import type { CoopPlayerInfo } from './rpgNetwork';
 export interface PlayerInput {
   playerId: string;
   moveDirection: { x: number; y: number } | null;
+  // 클라이언트 실제 위치 (보스 스킬 데미지 계산 시 사용)
+  position?: { x: number; y: number };
   skillUsed?: {
     skillSlot: 'Q' | 'W' | 'E';
     targetX: number;
