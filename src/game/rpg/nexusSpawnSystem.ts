@@ -1,7 +1,6 @@
 import { RPGEnemy, EnemyAIConfig, EnemyBase, EnemyBaseId, RPGDifficulty, DifficultyConfig } from '../../types/rpg';
 import { UnitType } from '../../types/unit';
-import { CONFIG } from '../../constants/config';
-import { SPAWN_CONFIG, GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS } from '../../constants/rpgConfig';
+import { SPAWN_CONFIG, GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS, RPG_ENEMY_CONFIGS } from '../../constants/rpgConfig';
 import { generateId } from '../../utils/math';
 
 /**
@@ -102,7 +101,14 @@ export function createNexusEnemy(
   attackMultiplier: number = 1.0,
   goldMultiplier: number = 1.0
 ): RPGEnemy {
-  const unitConfig = CONFIG.UNITS[type];
+  // RPG 전용 적 설정 사용 (없으면 기본값)
+  const rpgEnemyConfig = RPG_ENEMY_CONFIGS[type] || {
+    name: type,
+    hp: 100,
+    attack: 10,
+    attackSpeed: 1.0,
+    speed: 2.0,
+  };
 
   // 골드 보상 (난이도 보상 배율 적용)
   const baseGoldReward = GOLD_CONFIG.REWARDS[type] || 5;
@@ -113,23 +119,35 @@ export function createNexusEnemy(
   const aiConfig: EnemyAIConfig = {
     detectionRange: baseAIConfig.detectionRange,
     attackRange: baseAIConfig.attackRange,
-    moveSpeed: baseAIConfig.moveSpeed,
-    attackDamage: Math.floor(baseAIConfig.attackDamage * attackMultiplier),
-    attackSpeed: baseAIConfig.attackSpeed,
+    moveSpeed: rpgEnemyConfig.speed,
+    attackDamage: Math.floor(rpgEnemyConfig.attack * attackMultiplier),
+    attackSpeed: rpgEnemyConfig.attackSpeed,
   };
 
   // 스폰 위치에 약간의 랜덤 오프셋 추가
   const offsetX = (Math.random() - 0.5) * 60;
   const offsetY = (Math.random() - 0.5) * 60;
 
+  // RPG용 유닛 config 생성
+  const unitConfig = {
+    name: rpgEnemyConfig.name,
+    cost: {},
+    hp: rpgEnemyConfig.hp,
+    attack: rpgEnemyConfig.attack,
+    attackSpeed: rpgEnemyConfig.attackSpeed,
+    speed: rpgEnemyConfig.speed,
+    range: baseAIConfig.attackRange,
+    type: 'combat' as const,
+  };
+
   return {
     id: generateId(),
     type,
-    config: { ...unitConfig },
+    config: unitConfig,
     x: spawnX + offsetX,
     y: spawnY + offsetY,
-    hp: Math.floor(unitConfig.hp * statMultiplier),
-    maxHp: Math.floor(unitConfig.hp * statMultiplier),
+    hp: Math.floor(rpgEnemyConfig.hp * statMultiplier),
+    maxHp: Math.floor(rpgEnemyConfig.hp * statMultiplier),
     state: 'moving',
     attackCooldown: 0,
     team: 'enemy',

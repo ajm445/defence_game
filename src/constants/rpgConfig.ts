@@ -357,6 +357,53 @@ export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
   healer: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
 };
 
+// RPG 모드 전용 적 기본 스탯 설정
+export interface RPGEnemyConfig {
+  name: string;
+  hp: number;
+  attack: number;
+  attackSpeed: number;
+  speed: number;
+}
+
+export const RPG_ENEMY_CONFIGS: Record<string, RPGEnemyConfig> = {
+  melee: {
+    name: '검병',
+    hp: 100,
+    attack: 15,
+    attackSpeed: 1.0,
+    speed: 2.25,
+  },
+  ranged: {
+    name: '궁수',
+    hp: 50,
+    attack: 20,
+    attackSpeed: 0.8,
+    speed: 2.4,
+  },
+  knight: {
+    name: '기사',
+    hp: 300,
+    attack: 12,
+    attackSpeed: 1.2,
+    speed: 1.95,
+  },
+  mage: {
+    name: '마법사',
+    hp: 40,
+    attack: 35,
+    attackSpeed: 1.5,
+    speed: 2.1,
+  },
+  boss: {
+    name: '보스',
+    hp: 2000,
+    attack: 50,
+    attackSpeed: 2.0,
+    speed: 1.5,
+  },
+};
+
 // 직업별 스킬 설정
 export const CLASS_SKILLS = {
   warrior: {

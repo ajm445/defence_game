@@ -1,6 +1,5 @@
 import { RPGEnemy, EnemyBase, EnemyBaseId, EnemyAIConfig, RPGDifficulty } from '../../types/rpg';
-import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS } from '../../constants/rpgConfig';
-import { CONFIG } from '../../constants/config';
+import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS, RPG_ENEMY_CONFIGS } from '../../constants/rpgConfig';
 import { generateId } from '../../utils/math';
 
 // 보스 설정
@@ -57,7 +56,7 @@ export function createBoss(
   playerCount: number,
   difficulty: RPGDifficulty = 'easy'
 ): RPGEnemy {
-  const unitConfig = CONFIG.UNITS.boss;
+  const rpgBossConfig = RPG_ENEMY_CONFIGS.boss;
   const baseAIConfig = ENEMY_AI_CONFIGS.boss;
   const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
 
@@ -82,13 +81,22 @@ export function createBoss(
     attackSpeed: baseAIConfig.attackSpeed * 1.2, // 공격 속도 약간 느림
   };
 
+  // RPG용 보스 config 생성
+  const bossConfig = {
+    name: baseId === 'left' ? '왼쪽 보스' : '오른쪽 보스',
+    cost: {},
+    hp: rpgBossConfig.hp,
+    attack: rpgBossConfig.attack,
+    attackSpeed: rpgBossConfig.attackSpeed,
+    speed: rpgBossConfig.speed,
+    range: baseAIConfig.attackRange,
+    type: 'combat' as const,
+  };
+
   return {
     id: `boss_${baseId}_${generateId()}`,
     type: 'boss',
-    config: {
-      ...unitConfig,
-      name: baseId === 'left' ? '왼쪽 보스' : '오른쪽 보스',
-    },
+    config: bossConfig,
     x: spawnX,
     y: spawnY,
     hp: bossHp,
