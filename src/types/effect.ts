@@ -13,7 +13,14 @@ export type EffectType =
   | 'meteor'
   | 'arrow_rain'
   | 'fireball'
-  | 'nexus_laser';
+  | 'nexus_laser'
+  // 보스 스킬 이펙트
+  | 'boss_smash'
+  | 'boss_shockwave'
+  | 'boss_summon'
+  | 'boss_knockback'
+  | 'boss_charge'
+  | 'boss_heal';
 
 export type ParticleShape = 'circle' | 'square' | 'star' | 'emoji' | 'cross';
 

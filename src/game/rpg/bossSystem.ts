@@ -1,6 +1,6 @@
-import { RPGEnemy, EnemyBase, EnemyBaseId, EnemyAIConfig, RPGDifficulty } from '../../types/rpg';
-import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS, RPG_ENEMY_CONFIGS } from '../../constants/rpgConfig';
-import { generateId } from '../../utils/math';
+import { RPGEnemy, EnemyBase, EnemyBaseId, EnemyAIConfig, RPGDifficulty, BossSkill, BossSkillType, BossSkillCast, BossSkillWarning, HeroUnit, Buff } from '../../types/rpg';
+import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS, RPG_ENEMY_CONFIGS, BOSS_SKILL_CONFIGS, DIFFICULTY_BOSS_SKILLS } from '../../constants/rpgConfig';
+import { generateId, distance } from '../../utils/math';
 
 // 보스 설정
 const BOSS_CONFIG = {
@@ -93,6 +93,9 @@ export function createBoss(
     type: 'combat' as const,
   };
 
+  // 난이도별 보스 스킬 생성
+  const bossSkills = createBossSkills(difficulty);
+
   return {
     id: `boss_${baseId}_${generateId()}`,
     type: 'boss',
@@ -111,7 +114,35 @@ export function createBoss(
     fromBase: baseId,
     aggroOnHero: false, // 초기에는 넥서스를 향해 이동, 공격받으면 어그로
     damagedBy: [], // 데미지 관여자 추적 (멀티플레이 골드 분배용)
+    bossSkills,    // 난이도별 보스 스킬
   };
+}
+
+/**
+ * 난이도에 따른 보스 스킬 목록 생성
+ */
+function createBossSkills(difficulty: RPGDifficulty): BossSkill[] {
+  const skillTypes = DIFFICULTY_BOSS_SKILLS[difficulty];
+  return skillTypes.map(type => {
+    const config = BOSS_SKILL_CONFIGS[type];
+    return {
+      type,
+      cooldown: config.cooldown,
+      currentCooldown: config.cooldown * 0.5, // 초기 쿨다운 (50%로 시작)
+      damage: config.damage,
+      radius: config.radius,
+      angle: config.angle,
+      castTime: config.castTime,
+      stunDuration: config.stunDuration,
+      summonCount: config.summonCount,
+      hpThreshold: config.hpThreshold,
+      knockbackDistance: config.knockbackDistance,
+      oneTimeUse: config.oneTimeUse,
+      used: false,
+      chargeDistance: config.chargeDistance,
+      healPercent: config.healPercent,
+    };
+  });
 }
 
 /**
@@ -151,4 +182,507 @@ export function isBossPhaseComplete(
 ): boolean {
   if (!bossesSpawned) return false;
   return areAllBossesDead(enemies);
+}
+
+// ============================================
+// 보스 스킬 시스템
+// ============================================
+
+export interface BossSkillResult {
+  updatedBoss: RPGEnemy;
+  newWarnings: BossSkillWarning[];
+  heroDamages: Map<string, number>;  // heroId -> damage
+  stunnedHeroes: Map<string, number>; // heroId -> stun duration
+  summonedEnemies: RPGEnemy[];
+  skillExecuted: BossSkillType | null;
+  knockbackHeroes: Map<string, { x: number; y: number }>; // heroId -> new position
+  bossNewPosition?: { x: number; y: number }; // 보스 새 위치 (돌진용)
+  bossHeal?: number; // 보스 회복량
+}
+
+/**
+ * 보스 스킬 쿨다운 업데이트 및 스킬 선택
+ */
+export function updateBossSkills(
+  boss: RPGEnemy,
+  heroes: HeroUnit[],
+  gameTime: number,
+  deltaTime: number
+): BossSkillResult {
+  const result: BossSkillResult = {
+    updatedBoss: { ...boss },
+    newWarnings: [],
+    heroDamages: new Map(),
+    stunnedHeroes: new Map(),
+    summonedEnemies: [],
+    skillExecuted: null,
+    knockbackHeroes: new Map(),
+  };
+
+  if (!boss.bossSkills || boss.bossSkills.length === 0) {
+    return result;
+  }
+
+  // 보스가 기절 상태면 스킬 사용 불가
+  const isStunned = boss.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+  if (isStunned) {
+    return result;
+  }
+
+  // 살아있는 영웅만 대상
+  const aliveHeroes = heroes.filter(h => h.hp > 0);
+  if (aliveHeroes.length === 0) {
+    return result;
+  }
+
+  // 현재 시전 중인 스킬 처리
+  if (boss.currentCast) {
+    const castProgress = gameTime - boss.currentCast.startTime;
+    if (castProgress >= boss.currentCast.castTime) {
+      // 시전 완료 - 스킬 실행
+      const executeResult = executeBossSkill(boss, boss.currentCast, aliveHeroes, gameTime);
+      result.updatedBoss = executeResult.updatedBoss;
+      result.heroDamages = executeResult.heroDamages;
+      result.stunnedHeroes = executeResult.stunnedHeroes;
+      result.summonedEnemies = executeResult.summonedEnemies;
+      result.knockbackHeroes = executeResult.knockbackHeroes;
+      result.bossNewPosition = executeResult.bossNewPosition;
+      result.bossHeal = executeResult.bossHeal;
+      result.skillExecuted = boss.currentCast.skillType;
+      result.updatedBoss.currentCast = undefined;
+
+      // 강타 시전 완료 시 무적 버프 제거
+      if (boss.currentCast.skillType === 'smash') {
+        result.updatedBoss.buffs = (result.updatedBoss.buffs || []).filter(b => b.type !== 'invincible');
+      }
+    }
+    return result;
+  }
+
+  // HP 비율 계산
+  const hpRatio = boss.hp / boss.maxHp;
+
+  // 스킬 쿨다운 감소 + HP 조건 첫 충족 시 쿨다운 리셋
+  const updatedSkills = boss.bossSkills.map(skill => {
+    let newCooldown = Math.max(0, skill.currentCooldown - deltaTime);
+    let activated = skill.hpThresholdActivated || false;
+
+    // HP 조건이 있고, 처음 충족되면 쿨다운 즉시 리셋
+    if (skill.hpThreshold !== undefined && !activated && hpRatio <= skill.hpThreshold) {
+      newCooldown = 0;
+      activated = true;
+    }
+
+    return {
+      ...skill,
+      currentCooldown: newCooldown,
+      hpThresholdActivated: activated,
+    };
+  });
+  result.updatedBoss.bossSkills = updatedSkills;
+
+  // 사용 가능한 스킬 선택
+  const availableSkill = selectBossSkill(updatedSkills, hpRatio, aliveHeroes, boss);
+  if (availableSkill) {
+    // 스킬 시전 시작
+    const nearestHero = findNearestHero(boss, aliveHeroes);
+    const targetAngle = nearestHero
+      ? Math.atan2(nearestHero.y - boss.y, nearestHero.x - boss.x)
+      : 0;
+
+    const cast: BossSkillCast = {
+      skillType: availableSkill.type,
+      startTime: gameTime,
+      castTime: availableSkill.castTime || 1,
+      targetX: nearestHero?.x ?? boss.x,
+      targetY: nearestHero?.y ?? boss.y,
+      targetAngle,
+    };
+
+    result.updatedBoss.currentCast = cast;
+    result.updatedBoss.state = 'casting';
+
+    // 강타 시전 중 무적 부여
+    if (availableSkill.type === 'smash') {
+      const invincibleBuff: Buff = {
+        type: 'invincible',
+        duration: availableSkill.castTime || 1,
+        startTime: gameTime,
+      };
+      result.updatedBoss.buffs = [...(result.updatedBoss.buffs || []), invincibleBuff];
+    }
+
+    // 스킬 쿨다운 리셋 (1회용 스킬은 used 표시)
+    result.updatedBoss.bossSkills = updatedSkills.map(skill =>
+      skill.type === availableSkill.type
+        ? { ...skill, currentCooldown: skill.cooldown, used: skill.oneTimeUse ? true : skill.used }
+        : skill
+    );
+
+    // 경고 표시 생성
+    const warning = createSkillWarning(boss, availableSkill, cast, gameTime);
+    if (warning) {
+      result.newWarnings.push(warning);
+    }
+  }
+
+  return result;
+}
+
+/**
+ * 가장 가까운 영웅 찾기
+ */
+function findNearestHero(boss: RPGEnemy, heroes: HeroUnit[]): HeroUnit | null {
+  let nearest: HeroUnit | null = null;
+  let minDist = Infinity;
+
+  for (const hero of heroes) {
+    const dist = distance(boss.x, boss.y, hero.x, hero.y);
+    if (dist < minDist) {
+      minDist = dist;
+      nearest = hero;
+    }
+  }
+
+  return nearest;
+}
+
+/**
+ * 사용 가능한 스킬 선택 (쿨다운, HP 조건 확인)
+ */
+function selectBossSkill(
+  skills: BossSkill[],
+  hpRatio: number,
+  _heroes: HeroUnit[],
+  _boss: RPGEnemy
+): BossSkill | null {
+  // HP 조건을 만족하고 쿨다운이 끝난 스킬 중 선택
+  const availableSkills = skills.filter(skill => {
+    if (skill.currentCooldown > 0) return false;
+    if (skill.hpThreshold !== undefined && hpRatio > skill.hpThreshold) return false;
+    if (skill.oneTimeUse && skill.used) return false; // 1회용 스킬은 사용 후 제외
+
+    return true;
+  });
+
+  if (availableSkills.length === 0) return null;
+
+  // 우선순위: 회복 > 충격파 > 밀어내기 > 돌진 > 소환 > 강타
+  const priorityOrder: BossSkillType[] = ['heal', 'shockwave', 'knockback', 'charge', 'summon', 'smash'];
+  for (const type of priorityOrder) {
+    const skill = availableSkills.find(s => s.type === type);
+    if (skill) return skill;
+  }
+
+  return availableSkills[0];
+}
+
+/**
+ * 스킬 경고 표시 생성
+ */
+function createSkillWarning(
+  boss: RPGEnemy,
+  skill: BossSkill,
+  cast: BossSkillCast,
+  gameTime: number
+): BossSkillWarning | null {
+  const config = BOSS_SKILL_CONFIGS[skill.type];
+
+  const warning: BossSkillWarning = {
+    id: `warning_${boss.id}_${skill.type}_${gameTime}`,
+    skillType: skill.type,
+    x: boss.x,
+    y: boss.y,
+    radius: config.radius,
+    angle: cast.targetAngle,
+    startTime: gameTime,
+    duration: config.castTime,
+  };
+
+  // 돌진 스킬의 경우 경로 끝점 계산
+  if (skill.type === 'charge' && config.chargeDistance) {
+    const chargeAngle = cast.targetAngle ?? 0;
+    const targetX = boss.x + Math.cos(chargeAngle) * config.chargeDistance;
+    const targetY = boss.y + Math.sin(chargeAngle) * config.chargeDistance;
+    // 맵 경계 내로 제한
+    warning.targetX = Math.max(50, Math.min(2950, targetX));
+    warning.targetY = Math.max(50, Math.min(1950, targetY));
+  }
+
+  return warning;
+}
+
+/**
+ * 보스 스킬 실행
+ */
+function executeBossSkill(
+  boss: RPGEnemy,
+  cast: BossSkillCast,
+  heroes: HeroUnit[],
+  gameTime: number
+): {
+  updatedBoss: RPGEnemy;
+  heroDamages: Map<string, number>;
+  stunnedHeroes: Map<string, number>;
+  summonedEnemies: RPGEnemy[];
+  knockbackHeroes: Map<string, { x: number; y: number }>;
+  bossNewPosition?: { x: number; y: number };
+  bossHeal?: number;
+} {
+  const heroDamages = new Map<string, number>();
+  const stunnedHeroes = new Map<string, number>();
+  const knockbackHeroes = new Map<string, { x: number; y: number }>();
+  let summonedEnemies: RPGEnemy[] = [];
+  let bossNewPosition: { x: number; y: number } | undefined;
+  let bossHeal: number | undefined;
+  const updatedBoss = { ...boss };
+
+  const config = BOSS_SKILL_CONFIGS[cast.skillType];
+  const baseDamage = boss.aiConfig.attackDamage;
+
+  switch (cast.skillType) {
+    case 'smash': {
+      // 강타: 전방 부채꼴 범위 공격
+      const damage = Math.floor(baseDamage * config.damage);
+      const targetAngle = cast.targetAngle ?? 0;
+
+      for (const hero of heroes) {
+        if (isInConeRange(boss.x, boss.y, hero.x, hero.y, config.radius, config.angle!, targetAngle)) {
+          heroDamages.set(hero.id, damage);
+          if (config.stunDuration) {
+            stunnedHeroes.set(hero.id, config.stunDuration);
+          }
+        }
+      }
+      break;
+    }
+
+    case 'shockwave': {
+      // 충격파: 전방위 원형 범위 공격
+      const damage = Math.floor(baseDamage * config.damage);
+
+      for (const hero of heroes) {
+        const dist = distance(boss.x, boss.y, hero.x, hero.y);
+        if (dist <= config.radius) {
+          heroDamages.set(hero.id, damage);
+        }
+      }
+      break;
+    }
+
+    case 'summon': {
+      // 소환: 졸개 생성
+      summonedEnemies = createSummonedEnemies(boss, config.summonCount || 2, gameTime);
+      break;
+    }
+
+    case 'knockback': {
+      // 밀어내기: 전방위 넉백
+      const damage = Math.floor(baseDamage * config.damage);
+      const knockbackDist = config.knockbackDistance || 700;
+
+      for (const hero of heroes) {
+        const dist = distance(boss.x, boss.y, hero.x, hero.y);
+        if (dist <= config.radius) {
+          // 데미지 적용
+          heroDamages.set(hero.id, damage);
+
+          // 밀어내기 위치 계산 (보스로부터 반대 방향으로)
+          const angle = Math.atan2(hero.y - boss.y, hero.x - boss.x);
+          const newX = hero.x + Math.cos(angle) * knockbackDist;
+          const newY = hero.y + Math.sin(angle) * knockbackDist;
+
+          // 맵 경계 내로 제한 (MAP: 3000x2000)
+          const clampedX = Math.max(50, Math.min(2950, newX));
+          const clampedY = Math.max(50, Math.min(1950, newY));
+
+          knockbackHeroes.set(hero.id, { x: clampedX, y: clampedY });
+        }
+      }
+      break;
+    }
+
+    case 'charge': {
+      // 돌진: 타겟 방향으로 돌진하며 경로상 영웅에게 데미지
+      const damage = Math.floor(baseDamage * config.damage);
+      const chargeDist = config.chargeDistance || 300;
+      const chargeAngle = cast.targetAngle ?? 0;
+      const pathWidth = config.radius; // 경로 폭
+
+      // 보스 새 위치 계산
+      const newBossX = boss.x + Math.cos(chargeAngle) * chargeDist;
+      const newBossY = boss.y + Math.sin(chargeAngle) * chargeDist;
+
+      // 맵 경계 내로 제한
+      const clampedBossX = Math.max(50, Math.min(2950, newBossX));
+      const clampedBossY = Math.max(50, Math.min(1950, newBossY));
+
+      bossNewPosition = { x: clampedBossX, y: clampedBossY };
+
+      // 경로상 영웅에게 데미지 (선분과 점 사이 거리 계산)
+      for (const hero of heroes) {
+        const distToPath = distanceToLineSegment(
+          boss.x, boss.y,
+          clampedBossX, clampedBossY,
+          hero.x, hero.y
+        );
+        if (distToPath <= pathWidth) {
+          heroDamages.set(hero.id, damage);
+        }
+      }
+      break;
+    }
+
+    case 'heal': {
+      // 회복: 보스 자가 회복
+      const healAmount = Math.floor(boss.maxHp * (config.healPercent || 0.1));
+      bossHeal = healAmount;
+      break;
+    }
+  }
+
+  updatedBoss.state = 'idle';
+  return { updatedBoss, heroDamages, stunnedHeroes, summonedEnemies, knockbackHeroes, bossNewPosition, bossHeal };
+}
+
+/**
+ * 부채꼴 범위 내에 있는지 확인
+ */
+function isInConeRange(
+  sourceX: number,
+  sourceY: number,
+  targetX: number,
+  targetY: number,
+  radius: number,
+  coneAngle: number,
+  facingAngle: number
+): boolean {
+  const dist = distance(sourceX, sourceY, targetX, targetY);
+  if (dist > radius) return false;
+
+  const angleToTarget = Math.atan2(targetY - sourceY, targetX - sourceX);
+  let angleDiff = angleToTarget - facingAngle;
+
+  // 각도 정규화 (-PI ~ PI)
+  while (angleDiff > Math.PI) angleDiff -= Math.PI * 2;
+  while (angleDiff < -Math.PI) angleDiff += Math.PI * 2;
+
+  return Math.abs(angleDiff) <= coneAngle / 2;
+}
+
+/**
+ * 점과 선분 사이의 최단 거리 계산 (돌진 경로 판정용)
+ */
+function distanceToLineSegment(
+  x1: number, y1: number,  // 선분 시작점
+  x2: number, y2: number,  // 선분 끝점
+  px: number, py: number   // 점
+): number {
+  const dx = x2 - x1;
+  const dy = y2 - y1;
+  const lengthSquared = dx * dx + dy * dy;
+
+  if (lengthSquared === 0) {
+    // 선분이 점인 경우
+    return distance(x1, y1, px, py);
+  }
+
+  // 선분 위 가장 가까운 점의 파라미터 t (0~1 범위로 클램프)
+  let t = ((px - x1) * dx + (py - y1) * dy) / lengthSquared;
+  t = Math.max(0, Math.min(1, t));
+
+  // 선분 위 가장 가까운 점
+  const closestX = x1 + t * dx;
+  const closestY = y1 + t * dy;
+
+  return distance(px, py, closestX, closestY);
+}
+
+/**
+ * 소환된 졸개 생성
+ */
+function createSummonedEnemies(
+  boss: RPGEnemy,
+  count: number,
+  _gameTime: number
+): RPGEnemy[] {
+  const enemies: RPGEnemy[] = [];
+  const spawnRadius = 100;
+
+  for (let i = 0; i < count; i++) {
+    const angle = (Math.PI * 2 / count) * i + Math.random() * 0.5;
+    const spawnX = boss.x + Math.cos(angle) * spawnRadius;
+    const spawnY = boss.y + Math.sin(angle) * spawnRadius;
+
+    const knightConfig = RPG_ENEMY_CONFIGS.knight;
+    const aiConfig = ENEMY_AI_CONFIGS.knight;
+
+    const enemy: RPGEnemy = {
+      id: `summoned_${boss.id}_${i}_${generateId()}`,
+      type: 'knight',
+      config: {
+        name: '소환된 기사',
+        cost: {},
+        hp: knightConfig.hp,
+        attack: knightConfig.attack,
+        attackSpeed: knightConfig.attackSpeed,
+        speed: knightConfig.speed,
+        range: aiConfig.attackRange,
+        type: 'combat' as const,
+      },
+      x: spawnX,
+      y: spawnY,
+      hp: Math.floor(knightConfig.hp * 0.7), // 소환 유닛은 HP 70%
+      maxHp: Math.floor(knightConfig.hp * 0.7),
+      state: 'idle',
+      attackCooldown: 0,
+      team: 'enemy',
+      goldReward: 15, // 소환 유닛 골드 낮음
+      targetHero: false,
+      aiConfig: {
+        ...aiConfig,
+        attackDamage: Math.floor(knightConfig.attack * 0.8), // 공격력 80%
+      },
+      buffs: [],
+      fromBase: boss.fromBase,
+      aggroOnHero: true, // 소환되자마자 어그로
+    };
+
+    enemies.push(enemy);
+  }
+
+  return enemies;
+}
+
+/**
+ * 영웅에게 스턴 적용
+ */
+export function applyStunToHero(
+  hero: HeroUnit,
+  stunDuration: number,
+  gameTime: number
+): HeroUnit {
+  const stunBuff: Buff = {
+    type: 'stun',
+    duration: stunDuration,
+    startTime: gameTime,
+  };
+
+  const existingBuffs = hero.buffs?.filter(b => b.type !== 'stun') || [];
+
+  return {
+    ...hero,
+    buffs: [...existingBuffs, stunBuff],
+    moveDirection: undefined, // 이동 중단
+  };
+}
+
+/**
+ * 보스 스킬 경고 업데이트 (만료된 경고 제거)
+ */
+export function updateBossSkillWarnings(
+  warnings: BossSkillWarning[],
+  gameTime: number
+): BossSkillWarning[] {
+  return warnings.filter(w => gameTime < w.startTime + w.duration);
 }

@@ -22,7 +22,7 @@ import { soundManager } from '../services/SoundManager';
 import { SkillType, PendingSkill, SkillEffect, HeroUnit, Buff } from '../types/rpg';
 import { distance } from '../utils/math';
 import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy } from '../game/rpg/nexusSpawnSystem';
-import { createBosses, areAllBossesDead, hasBosses } from '../game/rpg/bossSystem';
+import { createBosses, areAllBossesDead, hasBosses, updateBossSkills, applyStunToHero } from '../game/rpg/bossSystem';
 import { processNexusLaser, isNexusAlive } from '../game/rpg/nexusLaserSystem';
 import { rollMultiTarget } from '../game/rpg/passiveSystem';
 import { useNetworkSync, shareHostBuffToAllies } from './useNetworkSync';
@@ -84,6 +84,49 @@ export function useRPGGameLoop() {
           if (clientNexus) {
             effectManager.createEffect('nexus_laser', clientNexus.x, clientNexus.y, effect.targetX, effect.targetY);
             soundManager.play('laser_attack');
+          }
+        }
+      }
+
+      // 동기화된 보스 스킬 경고 이펙트 처리 (클라이언트)
+      // 보스 스킬 경고가 끝나갈 때(95% 이상) 이펙트와 사운드 재생
+      const clientBossSkillWarnings = useRPGStore.getState().bossSkillWarnings;
+      const clientGameTime = useRPGStore.getState().gameTime;
+      for (const warning of clientBossSkillWarnings) {
+        const elapsed = clientGameTime - warning.startTime;
+        const progress = elapsed / warning.duration;
+
+        // 경고가 거의 끝날 때 (95% 이상) 이펙트 재생 (한 번만)
+        const effectId = `boss_skill_${warning.skillType}_${warning.startTime}`;
+        if (progress >= 0.95 && !processedEffectIdsRef.current.has(effectId)) {
+          processedEffectIdsRef.current.add(effectId);
+
+          // 스킬 타입별 이펙트 및 사운드
+          switch (warning.skillType) {
+            case 'smash':
+              effectManager.createEffect('boss_smash', warning.x, warning.y);
+              soundManager.play('attack_melee');
+              break;
+            case 'shockwave':
+              effectManager.createEffect('boss_shockwave', warning.x, warning.y);
+              soundManager.play('warning');
+              break;
+            case 'summon':
+              effectManager.createEffect('boss_summon', warning.x, warning.y);
+              soundManager.play('boss_spawn');
+              break;
+            case 'knockback':
+              effectManager.createEffect('boss_knockback', warning.x, warning.y);
+              soundManager.play('warning');
+              break;
+            case 'charge':
+              effectManager.createEffect('boss_charge', warning.x, warning.y);
+              soundManager.play('warning');
+              break;
+            case 'heal':
+              effectManager.createEffect('boss_heal', warning.x, warning.y);
+              soundManager.play('hero_revive');
+              break;
           }
         }
       }
@@ -627,6 +670,147 @@ export function useRPGGameLoop() {
 
       // 적 상태 업데이트
       useRPGStore.getState().updateEnemies(updatedEnemies.filter((e) => e.hp > 0));
+
+      // ============================================
+      // 보스 스킬 처리 (난이도별)
+      // ============================================
+      const latestEnemies = useRPGStore.getState().enemies;
+      const bossEnemies = latestEnemies.filter(e => e.type === 'boss' && e.hp > 0);
+
+      for (const boss of bossEnemies) {
+        // 모든 살아있는 영웅 수집
+        const allLivingHeroes: HeroUnit[] = [];
+        const latestHero = useRPGStore.getState().hero;
+        if (latestHero && latestHero.hp > 0) {
+          allLivingHeroes.push(latestHero);
+        }
+        const latestOtherHeroes = useRPGStore.getState().otherHeroes;
+        latestOtherHeroes.forEach(h => {
+          if (h.hp > 0) allLivingHeroes.push(h);
+        });
+
+        // 보스 스킬 업데이트
+        const bossSkillResult = updateBossSkills(boss, allLivingHeroes, state.gameTime, deltaTime);
+
+        // 보스 상태 업데이트
+        const updatedEnemyList = useRPGStore.getState().enemies.map(e =>
+          e.id === boss.id ? bossSkillResult.updatedBoss : e
+        );
+        useRPGStore.getState().updateEnemies(updatedEnemyList);
+
+        // 스킬 경고 추가
+        for (const warning of bossSkillResult.newWarnings) {
+          useRPGStore.getState().addBossSkillWarning(warning);
+        }
+
+        // 스킬 데미지 적용
+        bossSkillResult.heroDamages.forEach((damage, heroId) => {
+          const targetHero = heroId === latestHero?.id
+            ? latestHero
+            : latestOtherHeroes.get(heroId);
+
+          if (!targetHero) return;
+
+          const finalDamage = calculateDamageAfterReduction(damage, targetHero);
+
+          if (heroId === latestHero?.id) {
+            useRPGStore.getState().damageHero(finalDamage);
+            effectManager.createEffect('boss_smash', targetHero.x, targetHero.y);
+          } else {
+            const otherHero = latestOtherHeroes.get(heroId);
+            if (otherHero) {
+              const newHp = Math.max(0, otherHero.hp - finalDamage);
+              useRPGStore.getState().updateOtherHero(heroId, { hp: newHp });
+              effectManager.createEffect('boss_smash', otherHero.x, otherHero.y);
+            }
+          }
+          soundManager.play('attack_melee');
+        });
+
+        // 스턴 적용
+        bossSkillResult.stunnedHeroes.forEach((stunDuration, heroId) => {
+          const targetHero = heroId === latestHero?.id
+            ? latestHero
+            : latestOtherHeroes.get(heroId);
+
+          if (!targetHero) return;
+
+          if (heroId === latestHero?.id) {
+            const stunnedHero = applyStunToHero(targetHero, stunDuration, state.gameTime);
+            useRPGStore.getState().updateHeroState(stunnedHero);
+          } else {
+            const stunnedHero = applyStunToHero(targetHero, stunDuration, state.gameTime);
+            useRPGStore.getState().updateOtherHero(heroId, stunnedHero);
+          }
+          effectManager.createEffect('stun', targetHero.x, targetHero.y);
+        });
+
+        // 소환된 적 추가
+        for (const summonedEnemy of bossSkillResult.summonedEnemies) {
+          useRPGStore.getState().addEnemy(summonedEnemy);
+          effectManager.createEffect('boss_summon', summonedEnemy.x, summonedEnemy.y);
+        }
+
+        // 밀어내기(knockback) 처리 - 영웅 위치 변경
+        bossSkillResult.knockbackHeroes.forEach((newPos, heroId) => {
+          if (heroId === latestHero?.id) {
+            useRPGStore.getState().updateHeroState({ x: newPos.x, y: newPos.y });
+            effectManager.createEffect('boss_knockback', newPos.x, newPos.y);
+          } else {
+            useRPGStore.getState().updateOtherHero(heroId, { x: newPos.x, y: newPos.y });
+            const otherHero = latestOtherHeroes.get(heroId);
+            if (otherHero) {
+              effectManager.createEffect('boss_knockback', newPos.x, newPos.y);
+            }
+          }
+        });
+
+        // 돌진(charge) 처리 - 보스 위치 변경
+        if (bossSkillResult.bossNewPosition) {
+          const bossEnemyList = useRPGStore.getState().enemies.map(e =>
+            e.id === boss.id
+              ? { ...e, x: bossSkillResult.bossNewPosition!.x, y: bossSkillResult.bossNewPosition!.y }
+              : e
+          );
+          useRPGStore.getState().updateEnemies(bossEnemyList);
+        }
+
+        // 회복(heal) 처리 - 보스 HP 회복
+        if (bossSkillResult.bossHeal && bossSkillResult.bossHeal > 0) {
+          const healAmount = bossSkillResult.bossHeal;
+          const bossHealList = useRPGStore.getState().enemies.map(e =>
+            e.id === boss.id
+              ? { ...e, hp: Math.min(e.maxHp, e.hp + healAmount) }
+              : e
+          );
+          useRPGStore.getState().updateEnemies(bossHealList);
+          effectManager.createEffect('boss_heal', boss.x, boss.y);
+        }
+
+        // 스킬 실행 시 이펙트 및 사운드
+        if (bossSkillResult.skillExecuted === 'smash') {
+          effectManager.createEffect('boss_smash', boss.x, boss.y);
+          soundManager.play('attack_melee');
+        } else if (bossSkillResult.skillExecuted === 'shockwave') {
+          effectManager.createEffect('boss_shockwave', boss.x, boss.y);
+          soundManager.play('warning');
+        } else if (bossSkillResult.skillExecuted === 'summon') {
+          effectManager.createEffect('boss_summon', boss.x, boss.y);
+          soundManager.play('boss_spawn');
+        } else if (bossSkillResult.skillExecuted === 'knockback') {
+          effectManager.createEffect('boss_knockback', boss.x, boss.y);
+          soundManager.play('warning');
+        } else if (bossSkillResult.skillExecuted === 'charge') {
+          effectManager.createEffect('boss_charge', boss.x, boss.y);
+          soundManager.play('warning');
+        } else if (bossSkillResult.skillExecuted === 'heal') {
+          effectManager.createEffect('boss_heal', boss.x, boss.y);
+          soundManager.play('hero_revive');
+        }
+      }
+
+      // 보스 스킬 경고 업데이트 (만료된 것 제거)
+      useRPGStore.getState().updateBossSkillWarnings(state.gameTime);
     }
 
     // 보류 스킬 처리 (운석 낙하 등)
@@ -889,16 +1073,19 @@ export function useRPGGameLoop() {
       const classSkills = CLASS_SKILLS[heroClass];
       const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
 
+      // 인게임 공격력 업그레이드 레벨
+      const attackUpgradeLevel = state.upgradeLevels.attack;
+
       // Q 스킬
       if (skillType === classSkills.q.type) {
-        const result = executeQSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
+        const result = executeQSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, attackUpgradeLevel);
         processSkillResult(result, state, myHeroId);
         return;
       }
 
       // W 스킬
       if (skillType === classSkills.w.type) {
-        const result = executeWSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases);
+        const result = executeWSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, attackUpgradeLevel);
         processSkillResult(result, state, myHeroId);
 
         // 기사 방패 돌진 알림
@@ -911,7 +1098,7 @@ export function useRPGGameLoop() {
 
       // E 스킬
       if (skillType === classSkills.e.type) {
-        const result = executeESkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, myHeroId);
+        const result = executeESkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, myHeroId, attackUpgradeLevel);
         processSkillResult(result, state, myHeroId);
 
         // 특수 알림

@@ -1,5 +1,5 @@
-import { RPGGameState } from '../types/rpg';
-import { RPG_CONFIG, NEXUS_CONFIG, ENEMY_BASE_CONFIG } from '../constants/rpgConfig';
+import { RPGGameState, BossSkillWarning, BossSkillType } from '../types/rpg';
+import { RPG_CONFIG, NEXUS_CONFIG, ENEMY_BASE_CONFIG, BOSS_SKILL_CONFIGS } from '../constants/rpgConfig';
 import { drawGrid } from './drawGrid';
 import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange, drawSkillRange } from './drawHero';
 import { effectManager } from '../effects';
@@ -60,6 +60,13 @@ export function renderRPG(
 
   if (state.enemyBases && state.enemyBases.length > 0) {
     drawAllEnemyBases(ctx, state.enemyBases, camera, scaledWidth, scaledHeight);
+  }
+
+  // 보스 스킬 경고 표시 렌더링
+  if (state.bossSkillWarnings && state.bossSkillWarnings.length > 0) {
+    for (const warning of state.bossSkillWarnings) {
+      drawBossSkillWarning(ctx, warning, camera, state.gameTime);
+    }
   }
 
   // 스킬 이펙트 렌더링
@@ -257,6 +264,275 @@ function drawPausedOverlay(
   ctx.font = '24px Arial';
   ctx.textAlign = 'center';
   ctx.fillText('일시정지', centerX, centerY + 60);
+
+  ctx.restore();
+}
+
+/**
+ * 보스 스킬 경고 표시 렌더링
+ */
+function drawBossSkillWarning(
+  ctx: CanvasRenderingContext2D,
+  warning: BossSkillWarning,
+  camera: { x: number; y: number },
+  gameTime: number
+) {
+  const screenX = warning.x - camera.x;
+  const screenY = warning.y - camera.y;
+
+  // 진행도 계산 (0 ~ 1)
+  const elapsed = gameTime - warning.startTime;
+  const progress = Math.min(1, elapsed / warning.duration);
+
+  // 깜빡임 효과
+  const blink = Math.sin(elapsed * 10) * 0.2 + 0.8;
+  const baseAlpha = 0.3 + progress * 0.3;
+  const alpha = baseAlpha * blink;
+
+  ctx.save();
+
+  switch (warning.skillType) {
+    case 'smash': {
+      // 강타: 부채꼴 범위
+      const config = BOSS_SKILL_CONFIGS.smash;
+      const angle = warning.angle ?? 0;
+      const halfAngle = (config.angle ?? Math.PI / 3) / 2;
+
+      ctx.beginPath();
+      ctx.moveTo(screenX, screenY);
+      ctx.arc(screenX, screenY, warning.radius * (0.5 + progress * 0.5), angle - halfAngle, angle + halfAngle);
+      ctx.closePath();
+
+      // 그라데이션 채우기
+      const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, warning.radius);
+      gradient.addColorStop(0, `rgba(255, 100, 0, ${alpha * 0.8})`);
+      gradient.addColorStop(1, `rgba(255, 50, 0, ${alpha * 0.4})`);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // 테두리
+      ctx.strokeStyle = `rgba(255, 200, 0, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      break;
+    }
+
+    case 'shockwave': {
+      // 충격파: 원형 범위 (퍼져나가는 애니메이션)
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * progress, 0, Math.PI * 2);
+
+      // 그라데이션 채우기
+      const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, warning.radius);
+      gradient.addColorStop(0, `rgba(150, 0, 255, ${alpha * 0.3})`);
+      gradient.addColorStop(0.7, `rgba(200, 50, 255, ${alpha * 0.5})`);
+      gradient.addColorStop(1, `rgba(255, 100, 255, ${alpha * 0.2})`);
+      ctx.fillStyle = gradient;
+      ctx.fill();
+
+      // 바깥쪽 링
+      ctx.strokeStyle = `rgba(255, 150, 255, ${alpha})`;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // 안쪽 링 (진행 표시)
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * 0.3, 0, Math.PI * 2 * progress);
+      ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+      break;
+    }
+
+    case 'summon': {
+      // 소환: 원형 마법진
+      const innerRadius = warning.radius * 0.5;
+      const outerRadius = warning.radius;
+
+      // 외부 원
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, outerRadius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(100, 0, 150, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // 내부 원 (회전 애니메이션)
+      ctx.beginPath();
+      const rotation = elapsed * 2;
+      ctx.arc(screenX, screenY, innerRadius, rotation, rotation + Math.PI * 1.5);
+      ctx.strokeStyle = `rgba(150, 50, 200, ${alpha})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      // 마법진 십자 패턴
+      ctx.strokeStyle = `rgba(180, 100, 255, ${alpha * 0.6})`;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 4; i++) {
+        const lineAngle = rotation + (Math.PI / 2) * i;
+        ctx.beginPath();
+        ctx.moveTo(screenX + Math.cos(lineAngle) * innerRadius, screenY + Math.sin(lineAngle) * innerRadius);
+        ctx.lineTo(screenX + Math.cos(lineAngle) * outerRadius, screenY + Math.sin(lineAngle) * outerRadius);
+        ctx.stroke();
+      }
+
+      // 중앙 채우기
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, innerRadius * 0.3, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(100, 0, 150, ${alpha * 0.5})`;
+      ctx.fill();
+      break;
+    }
+
+    case 'knockback': {
+      // 밀어내기: 노란색 원형 충격파
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * (0.5 + progress * 0.5), 0, Math.PI * 2);
+
+      // 그라데이션 채우기
+      const kbGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, warning.radius);
+      kbGradient.addColorStop(0, `rgba(255, 255, 0, ${alpha * 0.3})`);
+      kbGradient.addColorStop(0.7, `rgba(255, 200, 0, ${alpha * 0.5})`);
+      kbGradient.addColorStop(1, `rgba(255, 150, 0, ${alpha * 0.2})`);
+      ctx.fillStyle = kbGradient;
+      ctx.fill();
+
+      // 바깥쪽 링
+      ctx.strokeStyle = `rgba(255, 255, 100, ${alpha})`;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // 방사형 화살표 (밀려나는 방향 표시)
+      ctx.strokeStyle = `rgba(255, 255, 200, ${alpha * 0.8})`;
+      ctx.lineWidth = 2;
+      for (let i = 0; i < 8; i++) {
+        const arrowAngle = (Math.PI / 4) * i;
+        const innerDist = warning.radius * 0.3;
+        const outerDist = warning.radius * (0.5 + progress * 0.5);
+        ctx.beginPath();
+        ctx.moveTo(screenX + Math.cos(arrowAngle) * innerDist, screenY + Math.sin(arrowAngle) * innerDist);
+        ctx.lineTo(screenX + Math.cos(arrowAngle) * outerDist, screenY + Math.sin(arrowAngle) * outerDist);
+        ctx.stroke();
+      }
+      break;
+    }
+
+    case 'charge': {
+      // 돌진: 파란색 직선 경로
+      if (warning.targetX !== undefined && warning.targetY !== undefined) {
+        const targetScreenX = warning.targetX - camera.x;
+        const targetScreenY = warning.targetY - camera.y;
+
+        // 경로 계산
+        const dx = targetScreenX - screenX;
+        const dy = targetScreenY - screenY;
+        const pathLength = Math.sqrt(dx * dx + dy * dy);
+        const dirX = dx / pathLength;
+        const dirY = dy / pathLength;
+
+        // 경로 폭 (양쪽으로 25px씩)
+        const halfWidth = warning.radius;
+
+        // 직선 경로 (사각형)
+        ctx.beginPath();
+        const perpX = -dirY * halfWidth;
+        const perpY = dirX * halfWidth;
+
+        ctx.moveTo(screenX + perpX, screenY + perpY);
+        ctx.lineTo(targetScreenX + perpX, targetScreenY + perpY);
+        ctx.lineTo(targetScreenX - perpX, targetScreenY - perpY);
+        ctx.lineTo(screenX - perpX, screenY - perpY);
+        ctx.closePath();
+
+        // 그라데이션 채우기
+        const chargeGradient = ctx.createLinearGradient(screenX, screenY, targetScreenX, targetScreenY);
+        chargeGradient.addColorStop(0, `rgba(0, 100, 255, ${alpha * 0.6})`);
+        chargeGradient.addColorStop(0.5, `rgba(0, 150, 255, ${alpha * 0.4})`);
+        chargeGradient.addColorStop(1, `rgba(0, 200, 255, ${alpha * 0.2})`);
+        ctx.fillStyle = chargeGradient;
+        ctx.fill();
+
+        // 테두리
+        ctx.strokeStyle = `rgba(100, 200, 255, ${alpha})`;
+        ctx.lineWidth = 3;
+        ctx.stroke();
+
+        // 진행 표시 (현재 위치에서 목표까지의 화살표)
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(targetScreenX, targetScreenY);
+        ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+        ctx.lineWidth = 2;
+        ctx.setLineDash([10, 5]);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 목표 지점 표시
+        ctx.beginPath();
+        ctx.arc(targetScreenX, targetScreenY, 10, 0, Math.PI * 2);
+        ctx.fillStyle = `rgba(0, 150, 255, ${alpha})`;
+        ctx.fill();
+      }
+      break;
+    }
+
+    case 'heal': {
+      // 회복: 녹색 원형 힐링 이펙트
+      // heal 스킬은 radius가 0이므로 기본값 80 사용
+      const healRadius = warning.radius > 0 ? warning.radius : 80;
+
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, healRadius * (0.7 + progress * 0.3), 0, Math.PI * 2);
+
+      // 그라데이션 채우기
+      const healGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, healRadius);
+      healGradient.addColorStop(0, `rgba(0, 255, 100, ${alpha * 0.5})`);
+      healGradient.addColorStop(0.5, `rgba(50, 255, 50, ${alpha * 0.3})`);
+      healGradient.addColorStop(1, `rgba(100, 255, 100, ${alpha * 0.1})`);
+      ctx.fillStyle = healGradient;
+      ctx.fill();
+
+      // 바깥쪽 링
+      ctx.strokeStyle = `rgba(100, 255, 100, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // 십자가 패턴 (힐 표시)
+      ctx.strokeStyle = `rgba(200, 255, 200, ${alpha})`;
+      ctx.lineWidth = 4;
+      const crossSize = healRadius * 0.4;
+
+      // 가로 선
+      ctx.beginPath();
+      ctx.moveTo(screenX - crossSize, screenY);
+      ctx.lineTo(screenX + crossSize, screenY);
+      ctx.stroke();
+
+      // 세로 선
+      ctx.beginPath();
+      ctx.moveTo(screenX, screenY - crossSize);
+      ctx.lineTo(screenX, screenY + crossSize);
+      ctx.stroke();
+
+      // 상승하는 + 파티클 효과 (진행도에 따라)
+      ctx.fillStyle = `rgba(200, 255, 200, ${alpha * 0.7})`;
+      for (let i = 0; i < 4; i++) {
+        const particleY = screenY - (progress * 50) - (i * 20);
+        const particleX = screenX + Math.sin(elapsed * 3 + i) * 15;
+        ctx.font = '14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('+', particleX, particleY);
+      }
+      break;
+    }
+  }
+
+  // 스킬 이름 표시
+  const config = BOSS_SKILL_CONFIGS[warning.skillType];
+  ctx.font = 'bold 14px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'middle';
+  ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
+  ctx.fillText(config.name, screenX, screenY - warning.radius - 15);
 
   ctx.restore();
 }

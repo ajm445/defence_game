@@ -25,6 +25,50 @@ export interface DifficultyConfig {
 // 영웅 직업 타입
 export type HeroClass = 'warrior' | 'archer' | 'knight' | 'mage';
 
+// 전직 직업 타입
+export type AdvancedHeroClass =
+  // 전사 계열
+  | 'berserker' | 'guardian'
+  // 궁수 계열
+  | 'sniper' | 'ranger'
+  // 기사 계열
+  | 'paladin' | 'darkKnight'
+  // 마법사 계열
+  | 'archmage' | 'healer';
+
+// 보스 스킬 타입
+export type BossSkillType = 'smash' | 'summon' | 'shockwave' | 'knockback' | 'charge' | 'heal';
+
+// 보스 스킬 인터페이스
+export interface BossSkill {
+  type: BossSkillType;
+  cooldown: number;          // 기본 쿨다운 (초)
+  currentCooldown: number;   // 현재 남은 쿨다운
+  damage?: number;           // 데미지 (배율)
+  radius?: number;           // 범위
+  angle?: number;            // 각도 (강타용)
+  castTime?: number;         // 시전 시간
+  stunDuration?: number;     // 기절 지속시간
+  summonCount?: number;      // 소환 수
+  hpThreshold?: number;      // HP 조건 (0~1, 이하일 때 사용)
+  hpThresholdActivated?: boolean; // HP 조건 첫 충족 여부 (쿨다운 리셋용)
+  knockbackDistance?: number; // 밀어내기 거리 (px)
+  oneTimeUse?: boolean;       // 한 번만 사용 가능 여부
+  used?: boolean;             // 사용 완료 여부 (oneTimeUse용)
+  chargeDistance?: number;    // 돌진 거리 (px)
+  healPercent?: number;       // 회복량 (최대 HP 대비 %)
+}
+
+// 보스 스킬 시전 상태
+export interface BossSkillCast {
+  skillType: BossSkillType;
+  startTime: number;         // 시전 시작 시간
+  castTime: number;          // 총 시전 시간
+  targetX?: number;          // 목표 위치 X
+  targetY?: number;          // 목표 위치 Y
+  targetAngle?: number;      // 목표 방향 (강타용)
+}
+
 // 직업별 스킬 타입
 export type SkillType =
   // 기존 호환성
@@ -161,6 +205,7 @@ export interface DashState {
 export interface HeroUnit extends Omit<Unit, 'type'> {
   type: 'hero';
   heroClass: HeroClass;      // 영웅 직업
+  advancedClass?: AdvancedHeroClass; // 전직 직업 (전직 후에만 존재)
   characterLevel: number;    // 계정 캐릭터 레벨 (프로필에서 가져옴)
   statUpgrades?: CharacterStatUpgrades; // SP로 업그레이드한 스탯
   skills: Skill[];           // 보유 스킬
@@ -210,6 +255,9 @@ export interface RPGEnemy extends Unit {
   stunEndTime?: number;    // 스턴 종료 시간
   // 보스 골드 분배용 - 데미지를 준 플레이어 ID 목록
   damagedBy?: string[];
+  // 보스 스킬 시스템
+  bossSkills?: BossSkill[];       // 보스가 사용 가능한 스킬 목록
+  currentCast?: BossSkillCast;    // 현재 시전 중인 스킬
 }
 
 // 시야 시스템 설정
@@ -276,6 +324,24 @@ export interface RPGGameState {
 
   // 보류 중인 스킬 (운석 낙하 등)
   pendingSkills: PendingSkill[];
+
+  // 보스 스킬 시각적 경고 (클라이언트 렌더링용)
+  bossSkillWarnings: BossSkillWarning[];
+}
+
+// 보스 스킬 경고 (바닥 표시용)
+export interface BossSkillWarning {
+  id: string;
+  skillType: BossSkillType;
+  x: number;
+  y: number;
+  radius: number;
+  angle?: number;          // 강타용 (부채꼴 방향)
+  startTime: number;
+  duration: number;        // 경고 표시 시간 (시전 시간과 동일)
+  // 돌진용 (직선 경로 표시)
+  targetX?: number;        // 돌진 끝점 X
+  targetY?: number;        // 돌진 끝점 Y
 }
 
 // 보류 중인 스킬 (지연 발동)

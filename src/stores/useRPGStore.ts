@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning } from '../types/rpg';
 import { UnitType } from '../types/unit';
 import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
@@ -119,6 +119,10 @@ interface RPGActions {
   // 넥서스 레이저 이펙트 (네트워크 동기화용)
   addNexusLaserEffect: (effect: NexusLaserEffect) => void;
   cleanNexusLaserEffects: () => void;
+
+  // 보스 스킬 경고 (시각화용)
+  addBossSkillWarning: (warning: BossSkillWarning) => void;
+  updateBossSkillWarnings: (gameTime: number) => void;
 
   // 적 관리
   addEnemy: (enemy: RPGEnemy) => void;
@@ -320,6 +324,7 @@ const initialState: RPGState = {
   basicAttackEffects: [],
   nexusLaserEffects: [],
   pendingSkills: [],
+  bossSkillWarnings: [],
   result: null,
   mousePosition: { x: NEXUS_CONFIG.position.x, y: NEXUS_CONFIG.position.y },
   showAttackRange: false,
@@ -909,6 +914,20 @@ export const useRPGStore = create<RPGStore>()(
       const now = Date.now();
       set((state) => ({
         nexusLaserEffects: state.nexusLaserEffects.filter(e => now - e.timestamp < 500),
+      }));
+    },
+
+    // 보스 스킬 경고 추가
+    addBossSkillWarning: (warning: BossSkillWarning) => {
+      set((state) => ({
+        bossSkillWarnings: [...state.bossSkillWarnings, warning],
+      }));
+    },
+
+    // 보스 스킬 경고 업데이트 (만료된 경고 제거)
+    updateBossSkillWarnings: (gameTime: number) => {
+      set((state) => ({
+        bossSkillWarnings: state.bossSkillWarnings.filter(w => gameTime < w.startTime + w.duration),
       }));
     },
 
@@ -1833,6 +1852,7 @@ export const useRPGStore = create<RPGStore>()(
         basicAttackEffects: state.basicAttackEffects,
         nexusLaserEffects: state.nexusLaserEffects,
         pendingSkills: state.pendingSkills,
+        bossSkillWarnings: state.bossSkillWarnings,
         running: state.running,
         paused: state.paused,
         gameOver: state.gameOver,
@@ -2032,6 +2052,7 @@ export const useRPGStore = create<RPGStore>()(
         basicAttackEffects: serializedState.basicAttackEffects || [],
         nexusLaserEffects: serializedState.nexusLaserEffects || [],
         pendingSkills: serializedState.pendingSkills,
+        bossSkillWarnings: serializedState.bossSkillWarnings || [],
         running: serializedState.running,
         paused: serializedState.paused,
         gameOver: serializedState.gameOver,

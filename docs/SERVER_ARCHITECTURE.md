@@ -349,16 +349,54 @@ RPG 협동 모드는 두 개의 방 저장소를 사용합니다:
 #### 플레이어 퇴장 처리
 
 ```typescript
-// 게임 중 플레이어 퇴장 시
+// 플레이어 퇴장 시 (로비 vs 게임 중 분기)
 function handleLeaveCoopRoom(playerId: string): void {
-  // 1. 게임 방에서 플레이어 제거
   const gameRoom = coopGameRooms.get(roomId);
+
   if (gameRoom) {
+    // 로비 상태에서 호스트가 나갈 경우: 호스트 위임
+    if (gameRoom.isInLobby() && gameRoom.isHost(playerId)) {
+      gameRoom.transferHostAndLeave(playerId);
+      return;
+    }
+
+    // 게임 중 호스트가 나갈 경우: 방 파기
+    if (gameRoom.isHost(playerId)) {
+      gameRoom.destroyRoom(playerId);
+      return;
+    }
+
+    // 일반 플레이어 퇴장
     gameRoom.handlePlayerDisconnect(playerId);
   }
 
-  // 2. 대기 방 플레이어 목록 동기화
+  // 대기 방 플레이어 목록 동기화
   syncWaitingRoomPlayers(roomId, playerIds, playerInfos);
+}
+```
+
+#### 호스트 위임 시스템 (로비)
+
+호스트가 대기방에서 나갈 경우 방을 파기하지 않고 다음 플레이어에게 호스트 권한을 위임합니다.
+
+```typescript
+// RPGCoopGameRoom.ts
+public transferHostAndLeave(playerId: string): void {
+  // 1. 나가는 플레이어 제거
+  this.playerIds = this.playerIds.filter(id => id !== playerId);
+  this.playerInfos.delete(playerId);
+
+  // 2. 남은 플레이어가 있으면 첫 번째 플레이어를 새 호스트로 지정
+  if (this.playerIds.length > 0) {
+    const newHostId = this.playerIds[0];
+    this.hostPlayerId = newHostId;
+
+    // 3. 모든 플레이어에게 업데이트된 방 정보 전송
+    this.broadcastRoomUpdate();
+
+    // 4. 대기방 목록에도 새 호스트 정보 반영
+    this.syncWaitingRoomData();
+  }
 }
 ```
 
@@ -464,7 +502,7 @@ interface SerializedGameState {
   heroes: SerializedHero[];        // 모든 플레이어의 영웅 (각자 gold, upgradeLevels 포함)
   enemies: SerializedEnemy[];      // 모든 적
   nexus: Nexus;                    // 넥서스 (방어 대상)
-  enemyBases: EnemyBase[];         // 적 기지들
+  enemyBases: EnemyBase[];         // 적 기지들 (플레이어 수에 따라 2~4개)
   activeSkillEffects: SkillEffect[];
   basicAttackEffects: BasicAttackEffect[];
   pendingSkills: PendingSkill[];
@@ -474,6 +512,23 @@ interface SerializedGameState {
   victory: boolean;
   stats: GameStats;
 }
+
+// 적 기지 (플레이어 수에 따라 활성화)
+type EnemyBaseId = 'left' | 'right' | 'top' | 'bottom';
+
+interface EnemyBase {
+  id: EnemyBaseId;
+  x: number;
+  y: number;
+  hp: number;
+  maxHp: number;
+  destroyed: boolean;
+}
+
+// 플레이어 수별 기지 구성:
+// - 1~2명: left, right (2개)
+// - 3명: left, right, top (3개)
+// - 4명: left, right, top, bottom (4개)
 ```
 
 ### 호스트 변경 처리

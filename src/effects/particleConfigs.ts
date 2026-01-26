@@ -233,4 +233,97 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     shape: 'circle',
     spread: Math.PI / 8, // 좁은 확산 (레이저처럼)
   },
+
+  // ===== 보스 스킬 이펙트 =====
+
+  // 보스 강타 - 붉은색/주황색 충격 파티클
+  boss_smash: {
+    count: 20,
+    colors: ['#ff3300', '#ff6600', '#ff9900', '#ff0000', '#cc0000'],
+    sizeMin: 5,
+    sizeMax: 12,
+    speedMin: 100,
+    speedMax: 200,
+    lifeMin: 0.3,
+    lifeMax: 0.6,
+    gravity: 150,
+    shape: 'circle',
+    spread: Math.PI / 2,
+    direction: -Math.PI / 2,  // 위로 방사
+  },
+
+  // 보스 충격파 - 보라색/분홍색 원형 파동
+  boss_shockwave: {
+    count: 30,
+    colors: ['#9900ff', '#cc33ff', '#ff66ff', '#6600cc', '#ff00ff'],
+    sizeMin: 4,
+    sizeMax: 10,
+    speedMin: 150,
+    speedMax: 300,
+    lifeMin: 0.4,
+    lifeMax: 0.7,
+    gravity: 0,
+    shape: 'circle',
+    spread: Math.PI * 2,  // 전방위
+  },
+
+  // 보스 소환 - 어두운 보라색 연기
+  boss_summon: {
+    count: 15,
+    colors: ['#330066', '#660099', '#9900cc', '#440088', '#220044'],
+    sizeMin: 6,
+    sizeMax: 15,
+    speedMin: 20,
+    speedMax: 50,
+    lifeMin: 0.6,
+    lifeMax: 1.0,
+    gravity: -30,  // 위로 서서히 상승
+    shape: 'circle',
+    spread: Math.PI * 2,
+  },
+
+  // 보스 밀어내기 - 노란색/주황색 충격파
+  boss_knockback: {
+    count: 25,
+    colors: ['#ffff00', '#ffcc00', '#ff9900', '#ffaa00', '#ffffff'],
+    sizeMin: 5,
+    sizeMax: 12,
+    speedMin: 200,
+    speedMax: 400,
+    lifeMin: 0.3,
+    lifeMax: 0.5,
+    gravity: 0,
+    shape: 'circle',
+    spread: Math.PI * 2,  // 전방위
+  },
+
+  // 보스 돌진 - 파란색/청록색 돌진 궤적
+  boss_charge: {
+    count: 20,
+    colors: ['#0066ff', '#0099ff', '#00ccff', '#0044cc', '#ffffff'],
+    sizeMin: 4,
+    sizeMax: 10,
+    speedMin: 150,
+    speedMax: 300,
+    lifeMin: 0.2,
+    lifeMax: 0.4,
+    gravity: 0,
+    shape: 'circle',
+    spread: Math.PI / 4,
+  },
+
+  // 보스 회복 - 녹색 힐링 파티클
+  boss_heal: {
+    count: 20,
+    colors: ['#00ff00', '#33ff33', '#66ff66', '#00cc00', '#99ff99'],
+    sizeMin: 5,
+    sizeMax: 10,
+    speedMin: 30,
+    speedMax: 60,
+    lifeMin: 0.8,
+    lifeMax: 1.2,
+    gravity: -40,  // 위로 상승
+    shape: 'cross',
+    spread: Math.PI * 2,
+  },
 };

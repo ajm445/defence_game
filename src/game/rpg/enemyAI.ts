@@ -43,6 +43,19 @@ export function updateEnemyAINexus(
     };
   }
 
+  // 보스가 스킬 시전 중이면 이동하지 않음
+  if (enemy.type === 'boss' && enemy.currentCast) {
+    return {
+      enemy: {
+        ...enemy,
+        state: 'casting',
+        buffs: updateBuffs(enemy.buffs, deltaTime),
+      },
+      isAttacking: false,
+      isAttackingNexus: false,
+    };
+  }
+
   const aiConfig = enemy.aiConfig;
   const heroX = hero.x;
   const heroY = hero.y;
@@ -496,6 +509,17 @@ function updateEnemyAIMultiplayer(
       enemy: {
         ...enemy,
         state: 'idle',
+        buffs: updateBuffs(enemy.buffs, deltaTime),
+      },
+    };
+  }
+
+  // 보스가 스킬 시전 중이면 이동하지 않음
+  if (enemy.type === 'boss' && enemy.currentCast) {
+    return {
+      enemy: {
+        ...enemy,
+        state: 'casting',
         buffs: updateBuffs(enemy.buffs, deltaTime),
       },
     };
