@@ -34,6 +34,7 @@ export interface ClassProgress {
   classExp: number;
   sp: number;                         // 사용 가능한 스킬 포인트
   statUpgrades: CharacterStatUpgrades; // 스탯 업그레이드
+  advancedClass?: string;              // 전직 직업 (클래스 레벨 10 이상 시)
   createdAt?: string;
   updatedAt?: string;
 }

@@ -1,5 +1,5 @@
 import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget, EnemyBase, EnemyBaseId } from '../../types/rpg';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL } from '../../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, UPGRADE_CONFIG } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
 import { rollMultiTarget } from './passiveSystem';
 
@@ -105,13 +105,16 @@ export function executeQSkill(
   targetX: number,
   targetY: number,
   gameTime: number,
-  enemyBases: EnemyBase[] = []  // 적 기지 (선택적)
+  enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
+  attackUpgradeLevel: number = 0  // 인게임 공격력 업그레이드 레벨
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].q;
   const classConfig = CLASS_CONFIGS[heroClass];
   const baseDamage = hero.config.attack || hero.baseAttack;
-  let damage = Math.floor(baseDamage * (skillConfig.damageMultiplier || 1.0));
+  // 인게임 골드 업그레이드 보너스 적용
+  const attackBonus = attackUpgradeLevel * UPGRADE_CONFIG.attack.perLevel;
+  let damage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 1.0));
 
   // 마법사: 보스 데미지 보너스 배율 계산 (보스에게만 적용)
   let bossDamageMultiplier = 1.0;
@@ -302,13 +305,16 @@ export function executeWSkill(
   targetX: number,
   targetY: number,
   gameTime: number,
-  enemyBases: EnemyBase[] = []  // 적 기지 (선택적)
+  enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
+  attackUpgradeLevel: number = 0  // 인게임 공격력 업그레이드 레벨
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].w;
   const classConfig = CLASS_CONFIGS[heroClass];
   const baseDamage = hero.config.attack || hero.baseAttack;
-  let damage = Math.floor(baseDamage * ((skillConfig as any).damageMultiplier || 1.0));
+  // 인게임 골드 업그레이드 보너스 적용
+  const attackBonus = attackUpgradeLevel * UPGRADE_CONFIG.attack.perLevel;
+  let damage = Math.floor((baseDamage + attackBonus) * ((skillConfig as any).damageMultiplier || 1.0));
 
   // 마법사: 보스 데미지 보너스 배율 계산 (보스에게만 적용)
   let bossDamageMultiplier = 1.0;
@@ -572,13 +578,16 @@ export function executeESkill(
   targetY: number,
   gameTime: number,
   enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
-  casterId?: string  // 스킬 시전자 ID (보스 골드 분배용)
+  casterId?: string,  // 스킬 시전자 ID (보스 골드 분배용)
+  attackUpgradeLevel: number = 0  // 인게임 공격력 업그레이드 레벨
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].e;
   const classConfig = CLASS_CONFIGS[heroClass];
   const baseDamage = hero.config.attack || hero.baseAttack;
-  let damage = Math.floor(baseDamage * ((skillConfig as any).damageMultiplier || 1.0));
+  // 인게임 골드 업그레이드 보너스 적용
+  const attackBonus = attackUpgradeLevel * UPGRADE_CONFIG.attack.perLevel;
+  let damage = Math.floor((baseDamage + attackBonus) * ((skillConfig as any).damageMultiplier || 1.0));
 
   // 마법사: 보스 데미지 보너스 배율 계산 (보스에게만 적용)
   let bossDamageMultiplier = 1.0;
