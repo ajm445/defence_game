@@ -12,7 +12,8 @@ export type EffectType =
   | 'stun'
   | 'meteor'
   | 'arrow_rain'
-  | 'fireball';
+  | 'fireball'
+  | 'nexus_laser';
 
 export type ParticleShape = 'circle' | 'square' | 'star' | 'emoji' | 'cross';
 

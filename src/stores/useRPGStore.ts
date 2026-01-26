@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect } from '../types/rpg';
 import { UnitType } from '../types/unit';
 import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
@@ -9,6 +9,7 @@ import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '
 import type { MultiplayerState, PlayerInput, SerializedGameState, SerializedHero, SerializedEnemy } from '../../shared/types/hostBasedNetwork';
 import type { CoopPlayerInfo } from '../../shared/types/rpgNetwork';
 import { wsClient } from '../services/WebSocketClient';
+import { soundManager } from '../services/SoundManager';
 import { distance } from '../utils/math';
 
 // 버프 공유 범위 상수 (useNetworkSync.ts와 동일)
@@ -24,6 +25,9 @@ interface RPGState extends RPGGameState {
 
   // 기본 공격 이펙트 (네트워크 동기화용)
   basicAttackEffects: BasicAttackEffect[];
+
+  // 넥서스 레이저 효과 (네트워크 동기화용)
+  nexusLaserEffects: NexusLaserEffect[];
 
   // 결과
   result: RPGGameResult | null;
@@ -111,6 +115,10 @@ interface RPGActions {
   // 기본 공격 이펙트 (네트워크 동기화용)
   addBasicAttackEffect: (effect: BasicAttackEffect) => void;
   cleanBasicAttackEffects: () => void;
+
+  // 넥서스 레이저 이펙트 (네트워크 동기화용)
+  addNexusLaserEffect: (effect: NexusLaserEffect) => void;
+  cleanNexusLaserEffects: () => void;
 
   // 적 관리
   addEnemy: (enemy: RPGEnemy) => void;
@@ -204,6 +212,7 @@ const createInitialNexus = (): Nexus => ({
   y: NEXUS_CONFIG.position.y,
   hp: NEXUS_CONFIG.hp,
   maxHp: NEXUS_CONFIG.hp,
+  laserCooldown: 0,
 });
 
 // 적 기지 초기 상태 생성 (플레이어 수에 따라 기지 수 결정)
@@ -309,6 +318,7 @@ const initialState: RPGState = {
 
   activeSkillEffects: [],
   basicAttackEffects: [],
+  nexusLaserEffects: [],
   pendingSkills: [],
   result: null,
   mousePosition: { x: NEXUS_CONFIG.position.x, y: NEXUS_CONFIG.position.y },
@@ -461,6 +471,7 @@ export const useRPGStore = create<RPGStore>()(
         enemies: [],
         activeSkillEffects: [],
         basicAttackEffects: [],
+        nexusLaserEffects: [],
         pendingSkills: [],
         gameOver: false,
         victory: false,
@@ -501,24 +512,31 @@ export const useRPGStore = create<RPGStore>()(
           followHero: true,
         },
       });
+      // BGM 재생
+      soundManager.playBGM('rpg_battle');
     },
 
-    resetGame: () => set((state) => ({
-      ...initialState,
-      // 선택된 직업과 난이도는 유지 (다시 시작할 때 사용)
-      selectedClass: state.selectedClass,
-      selectedDifficulty: state.selectedDifficulty,
-      nexus: null,
-      enemyBases: [],
-      gamePhase: 'playing',
-      gold: GOLD_CONFIG.STARTING_GOLD,
-      upgradeLevels: createInitialUpgradeLevels(),
-      fiveMinuteRewardClaimed: false,
-      visibility: {
-        exploredCells: new Set<string>(),
-        visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
-      },
-    })),
+    resetGame: () => {
+      // BGM 중지
+      soundManager.stopBGM();
+      const state = get();
+      set({
+        ...initialState,
+        // 선택된 직업과 난이도는 유지 (다시 시작할 때 사용)
+        selectedClass: state.selectedClass,
+        selectedDifficulty: state.selectedDifficulty,
+        nexus: null,
+        enemyBases: [],
+        gamePhase: 'playing',
+        gold: GOLD_CONFIG.STARTING_GOLD,
+        upgradeLevels: createInitialUpgradeLevels(),
+        fiveMinuteRewardClaimed: false,
+        visibility: {
+          exploredCells: new Set<string>(),
+          visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
+        },
+      });
+    },
 
     setDifficulty: (difficulty: RPGDifficulty) => {
       set({ selectedDifficulty: difficulty });
@@ -879,6 +897,21 @@ export const useRPGStore = create<RPGStore>()(
       }));
     },
 
+    // 넥서스 레이저 이펙트 추가
+    addNexusLaserEffect: (effect: NexusLaserEffect) => {
+      set((state) => ({
+        nexusLaserEffects: [...state.nexusLaserEffects, effect],
+      }));
+    },
+
+    // 오래된 넥서스 레이저 이펙트 정리 (500ms 이후)
+    cleanNexusLaserEffects: () => {
+      const now = Date.now();
+      set((state) => ({
+        nexusLaserEffects: state.nexusLaserEffects.filter(e => now - e.timestamp < 500),
+      }));
+    },
+
     // 스폰 타이머 설정
     setSpawnTimer: (time: number) => {
       set({ spawnTimer: time });
@@ -1090,6 +1123,10 @@ export const useRPGStore = create<RPGStore>()(
     // 게임 단계 설정
     setGamePhase: (phase: RPGGamePhase) => {
       set({ gamePhase: phase });
+      // 보스 페이즈에서 BGM 변경
+      if (phase === 'boss_phase') {
+        soundManager.playBGM('rpg_boss');
+      }
     },
 
     setCamera: (x, y) => {
@@ -1128,6 +1165,8 @@ export const useRPGStore = create<RPGStore>()(
     setPaused: (paused) => set({ paused }),
 
     setGameOver: (victory) => {
+      // BGM 중지
+      soundManager.stopBGM();
       const state = get();
       const totalBases = state.enemyBases.length;
       set({
@@ -1577,6 +1616,8 @@ export const useRPGStore = create<RPGStore>()(
         upgradeLevels: createInitialUpgradeLevels(),
         selectedDifficulty: gameDifficulty,
       });
+      // BGM 재생
+      soundManager.playBGM('rpg_battle');
     },
 
     addOtherHero: (hero: HeroUnit) => {
@@ -1790,6 +1831,7 @@ export const useRPGStore = create<RPGStore>()(
         upgradeLevels: state.upgradeLevels,
         activeSkillEffects: state.activeSkillEffects,
         basicAttackEffects: state.basicAttackEffects,
+        nexusLaserEffects: state.nexusLaserEffects,
         pendingSkills: state.pendingSkills,
         running: state.running,
         paused: state.paused,
@@ -1988,6 +2030,7 @@ export const useRPGStore = create<RPGStore>()(
         upgradeLevels: myUpgrades,  // 내 업그레이드 적용
         activeSkillEffects: serializedState.activeSkillEffects,
         basicAttackEffects: serializedState.basicAttackEffects || [],
+        nexusLaserEffects: serializedState.nexusLaserEffects || [],
         pendingSkills: serializedState.pendingSkills,
         running: serializedState.running,
         paused: serializedState.paused,

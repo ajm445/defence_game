@@ -242,6 +242,7 @@ function handleGameStartHostBased(message: any) {
 
   // 호스트는 게임 초기화 및 상태 관리
   // 클라이언트는 호스트로부터 상태를 받아서 적용
+  soundManager.init(); // AudioContext 초기화 (fallback)
   useRPGStore.getState().initMultiplayerGame(players, isHost, difficulty);
 }
 
@@ -369,6 +370,7 @@ function handleGameRestart() {
 
   // 게임 초기화 (모든 플레이어가 동일한 players 정보로 초기화)
   // 호스트의 상태 동기화가 이후 일관성을 유지
+  soundManager.init(); // AudioContext 초기화 (fallback)
   useRPGStore.getState().initMultiplayerGame(players, isHost);
 
   // 게임 화면으로

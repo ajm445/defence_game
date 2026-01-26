@@ -85,6 +85,15 @@ export interface Nexus {
   y: number;
   hp: number;
   maxHp: number;
+  laserCooldown: number;  // 레이저 공격 쿨다운 (초)
+}
+
+// 넥서스 레이저 효과 (시각화용)
+export interface NexusLaserEffect {
+  id: string;
+  targetX: number;
+  targetY: number;
+  timestamp: number;
 }
 
 // Enemy Base (적 기지)

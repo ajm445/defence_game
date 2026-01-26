@@ -23,6 +23,7 @@ import { SkillType, PendingSkill, SkillEffect, HeroUnit, Buff } from '../types/r
 import { distance } from '../utils/math';
 import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy } from '../game/rpg/nexusSpawnSystem';
 import { createBosses, areAllBossesDead, hasBosses } from '../game/rpg/bossSystem';
+import { processNexusLaser, isNexusAlive } from '../game/rpg/nexusLaserSystem';
 import { rollMultiTarget } from '../game/rpg/passiveSystem';
 import { useNetworkSync, shareHostBuffToAllies } from './useNetworkSync';
 import { wsClient } from '../services/WebSocketClient';
@@ -73,6 +74,20 @@ export function useRPGGameLoop() {
           effectManager.createEffect(effectType, effect.x, effect.y);
         }
       }
+
+      // 동기화된 넥서스 레이저 이펙트 처리 (클라이언트)
+      const clientNexus = useRPGStore.getState().nexus;
+      const clientLaserEffects = useRPGStore.getState().nexusLaserEffects;
+      for (const effect of clientLaserEffects) {
+        if (!processedEffectIdsRef.current.has(effect.id)) {
+          processedEffectIdsRef.current.add(effect.id);
+          if (clientNexus) {
+            effectManager.createEffect('nexus_laser', clientNexus.x, clientNexus.y, effect.targetX, effect.targetY);
+            soundManager.play('laser_attack');
+          }
+        }
+      }
+
       // 오래된 이펙트 ID 정리 (300ms 이후)
       const now = Date.now();
       for (const effectId of processedEffectIdsRef.current) {
@@ -572,6 +587,43 @@ export function useRPGGameLoop() {
           return;
         }
       }
+
+      // ============================================
+      // 넥서스 레이저 공격 처리
+      // ============================================
+      const latestNexus = useRPGStore.getState().nexus;
+      if (isNexusAlive(latestNexus)) {
+        const laserResult = processNexusLaser(latestNexus!, updatedEnemies, deltaTime);
+
+        // 넥서스 쿨다운 업데이트
+        if (laserResult.updatedNexus.laserCooldown !== latestNexus!.laserCooldown) {
+          useRPGStore.setState({ nexus: laserResult.updatedNexus });
+        }
+
+        // 레이저 이펙트 추가 (시각 효과 + 네트워크 동기화)
+        for (const effect of laserResult.laserEffects) {
+          useRPGStore.getState().addNexusLaserEffect(effect);
+          // 시각 이펙트 생성 (넥서스에서 타겟으로)
+          effectManager.createEffect('nexus_laser', latestNexus!.x, latestNexus!.y, effect.targetX, effect.targetY);
+          soundManager.play('laser_attack');
+        }
+
+        // 레이저 데미지 적용
+        for (const { enemyId, damage } of laserResult.damagedEnemies) {
+          const targetEnemy = updatedEnemies.find(e => e.id === enemyId);
+          if (targetEnemy) {
+            targetEnemy.hp -= damage;
+            if (targetEnemy.hp <= 0) {
+              // 넥서스가 처치한 경우 - 호스트에게 골드 (또는 아무도 안 받음)
+              // 여기서는 간단히 아무도 골드를 받지 않도록 처리
+              useRPGStore.getState().incrementKills();
+            }
+          }
+        }
+      }
+
+      // 오래된 넥서스 레이저 이펙트 정리
+      useRPGStore.getState().cleanNexusLaserEffects();
 
       // 적 상태 업데이트
       useRPGStore.getState().updateEnemies(updatedEnemies.filter((e) => e.hp > 0));

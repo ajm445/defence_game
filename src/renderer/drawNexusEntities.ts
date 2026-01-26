@@ -1,4 +1,4 @@
-import { Nexus, EnemyBase } from '../types/rpg';
+import { Nexus, EnemyBase, NexusLaserEffect } from '../types/rpg';
 import { NEXUS_CONFIG, ENEMY_BASE_CONFIG } from '../constants/rpgConfig';
 
 /**
@@ -243,5 +243,75 @@ export function drawAllEnemyBases(
 ): void {
   for (const base of bases) {
     drawEnemyBase(ctx, base, camera, canvasWidth, canvasHeight);
+  }
+}
+
+/**
+ * 넥서스 레이저 빔 그리기
+ * 참고: ctx.scale(zoom, zoom)이 이미 적용된 상태에서 호출됨
+ */
+export function drawNexusLaserBeams(
+  ctx: CanvasRenderingContext2D,
+  nexus: Nexus,
+  laserEffects: NexusLaserEffect[],
+  camera: { x: number; y: number; zoom: number }
+): void {
+  const now = Date.now();
+  const nexusScreenX = nexus.x - camera.x;
+  const nexusScreenY = nexus.y - camera.y;
+
+  for (const effect of laserEffects) {
+    const age = now - effect.timestamp;
+    if (age > 500) continue; // 500ms 이후에는 렌더링 안 함
+
+    const targetScreenX = effect.targetX - camera.x;
+    const targetScreenY = effect.targetY - camera.y;
+
+    // 알파값 계산 (페이드 아웃)
+    const alpha = Math.max(0, 1 - age / 500);
+
+    // 레이저 빔 메인 라인
+    ctx.save();
+    ctx.globalAlpha = alpha;
+
+    // 글로우 효과 (넓은 라인)
+    ctx.strokeStyle = 'rgba(0, 255, 255, 0.3)';
+    ctx.lineWidth = 8;
+    ctx.lineCap = 'round';
+    ctx.beginPath();
+    ctx.moveTo(nexusScreenX, nexusScreenY);
+    ctx.lineTo(targetScreenX, targetScreenY);
+    ctx.stroke();
+
+    // 메인 빔 (중간 라인)
+    ctx.strokeStyle = 'rgba(0, 200, 255, 0.6)';
+    ctx.lineWidth = 4;
+    ctx.beginPath();
+    ctx.moveTo(nexusScreenX, nexusScreenY);
+    ctx.lineTo(targetScreenX, targetScreenY);
+    ctx.stroke();
+
+    // 코어 빔 (얇은 라인)
+    ctx.strokeStyle = 'rgba(255, 255, 255, 0.9)';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.moveTo(nexusScreenX, nexusScreenY);
+    ctx.lineTo(targetScreenX, targetScreenY);
+    ctx.stroke();
+
+    // 타격 지점 스파크 효과
+    const sparkSize = 10 + Math.random() * 5;
+    ctx.beginPath();
+    ctx.arc(targetScreenX, targetScreenY, sparkSize * alpha, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
+    ctx.fill();
+
+    // 타격 지점 외곽 글로우
+    ctx.beginPath();
+    ctx.arc(targetScreenX, targetScreenY, sparkSize * 1.5 * alpha, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(0, 255, 255, ${alpha * 0.4})`;
+    ctx.fill();
+
+    ctx.restore();
   }
 }

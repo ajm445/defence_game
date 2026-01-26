@@ -185,6 +185,12 @@ export const NEXUS_CONFIG = {
   },
   hp: 5000,
   radius: 80,  // 넥서스 크기
+  // 넥서스 레이저 방어 시스템
+  laser: {
+    range: 200,         // 공격 범위 (넥서스 중심 기준)
+    damage: 15,         // 기본 데미지 (약한 데미지)
+    attackSpeed: 1.2,   // 공격 간격 (초)
+  },
 } as const;
 
 export const ENEMY_BASE_CONFIG = {
@@ -323,35 +329,35 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
 // 적 유형별 AI 설정
 export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
   melee: {
-    detectionRange: 400,
+    detectionRange: 300,
     attackRange: 60,
     moveSpeed: 2.25,
     attackDamage: 15,
     attackSpeed: 1.0,
   },
   ranged: {
-    detectionRange: 550,
+    detectionRange: 450,
     attackRange: 150,
     moveSpeed: 2.4,
     attackDamage: 20,
     attackSpeed: 0.8,
   },
   knight: {
-    detectionRange: 400,
+    detectionRange: 300,
     attackRange: 70,
     moveSpeed: 1.95,
     attackDamage: 12,
     attackSpeed: 1.2,
   },
   mage: {
-    detectionRange: 550,
+    detectionRange: 450,
     attackRange: 180,
     moveSpeed: 2.1,
     attackDamage: 35,
     attackSpeed: 1.5,
   },
   boss: {
-    detectionRange: 700,
+    detectionRange: 650,
     attackRange: 100,
     moveSpeed: 1.5,
     attackDamage: 50,

@@ -26,7 +26,11 @@ export type SoundType =
   | 'hero_death'
   | 'hero_revive'
   | 'level_up'
-  | 'enemy_death';
+  | 'enemy_death'
+  | 'laser_attack';
+
+// BGM 타입
+export type BGMType = 'rpg_battle' | 'rpg_boss' | 'victory' | 'defeat';
 
 class SoundManager {
   private static instance: SoundManager;
@@ -39,6 +43,14 @@ class SoundManager {
   // 사운드 쿨다운 (동시 재생 방지)
   private lastPlayTime: Map<SoundType, number> = new Map();
   private readonly COOLDOWN_MS = 50; // 50ms 쿨다운
+
+  // BGM 관련
+  private bgmGain: GainNode | null = null;
+  private bgmVolume: number = 1; // 기본 BGM 볼륨 (100%)
+  private currentBGM: BGMType | null = null;
+  private bgmOscillators: OscillatorNode[] = [];
+  private bgmGains: GainNode[] = [];
+  private bgmIntervalId: number | null = null;
 
   private constructor() {}
 
@@ -57,9 +69,16 @@ class SoundManager {
 
     try {
       this.audioContext = new (window.AudioContext || (window as unknown as { webkitAudioContext: typeof AudioContext }).webkitAudioContext)();
+
       this.masterGain = this.audioContext.createGain();
       this.masterGain.connect(this.audioContext.destination);
       this.masterGain.gain.value = this.muted ? 0 : this.volume;
+
+      // BGM 게인 노드 생성
+      this.bgmGain = this.audioContext.createGain();
+      this.bgmGain.connect(this.audioContext.destination);
+      this.bgmGain.gain.value = this.muted ? 0 : this.bgmVolume;
+
       this.initialized = true;
     } catch (e) {
       console.warn('Web Audio API not supported:', e);
@@ -86,6 +105,9 @@ class SoundManager {
     if (this.masterGain) {
       this.masterGain.gain.value = muted ? 0 : this.volume;
     }
+    if (this.bgmGain) {
+      this.bgmGain.gain.value = muted ? 0 : this.bgmVolume;
+    }
   }
 
   public isMuted(): boolean {
@@ -94,6 +116,219 @@ class SoundManager {
 
   public toggleMuted(): void {
     this.setMuted(!this.muted);
+  }
+
+  // ===== BGM 제어 =====
+
+  /**
+   * BGM 볼륨 설정
+   */
+  public setBGMVolume(value: number): void {
+    this.bgmVolume = Math.max(0, Math.min(1, value));
+    if (this.bgmGain && !this.muted) {
+      this.bgmGain.gain.value = this.bgmVolume;
+    }
+  }
+
+  /**
+   * BGM 볼륨 가져오기
+   */
+  public getBGMVolume(): number {
+    return this.bgmVolume;
+  }
+
+  /**
+   * BGM 재생
+   */
+  public playBGM(bgmType: BGMType): void {
+    // 초기화되지 않았으면 초기화 시도
+    if (!this.initialized) {
+      this.init();
+    }
+
+    if (!this.audioContext || !this.bgmGain) {
+      return;
+    }
+
+    if (this.currentBGM === bgmType) {
+      return; // 이미 같은 BGM 재생 중
+    }
+
+    // 기존 BGM 중지
+    this.stopBGM();
+
+    this.currentBGM = bgmType;
+
+    // Resume if suspended (브라우저 정책)
+    if (this.audioContext.state === 'suspended') {
+      this.audioContext.resume().catch(() => {
+        // Failed to resume AudioContext
+      });
+    }
+
+    // 뮤트 상태면 BGM 시작은 하되 볼륨은 0
+    if (this.bgmGain) {
+      this.bgmGain.gain.value = this.muted ? 0 : this.bgmVolume;
+    }
+
+    switch (bgmType) {
+      case 'rpg_battle':
+        this.playRPGBattleBGM();
+        break;
+      case 'rpg_boss':
+        this.playRPGBossBGM();
+        break;
+    }
+  }
+
+  /**
+   * BGM 중지
+   */
+  public stopBGM(): void {
+    // 오실레이터 중지
+    for (const osc of this.bgmOscillators) {
+      try {
+        osc.stop();
+        osc.disconnect();
+      } catch {
+        // 이미 중지됨
+      }
+    }
+    this.bgmOscillators = [];
+
+    // 게인 노드 정리
+    for (const gain of this.bgmGains) {
+      gain.disconnect();
+    }
+    this.bgmGains = [];
+
+    // 인터벌 정리
+    if (this.bgmIntervalId !== null) {
+      clearInterval(this.bgmIntervalId);
+      this.bgmIntervalId = null;
+    }
+
+    this.currentBGM = null;
+  }
+
+  /**
+   * 현재 재생 중인 BGM 타입
+   */
+  public getCurrentBGM(): BGMType | null {
+    return this.currentBGM;
+  }
+
+  /**
+   * RPG 전투 BGM - 긴장감 있는 앰비언트 루프
+   */
+  private playRPGBattleBGM(): void {
+    const ctx = this.audioContext!;
+
+    // 베이스 드론 (저음 지속음)
+    const bassDrone = ctx.createOscillator();
+    bassDrone.type = 'sine';
+    bassDrone.frequency.value = 55; // A1
+    const bassGain = ctx.createGain();
+    bassGain.gain.value = 0.15;
+    bassDrone.connect(bassGain);
+    bassGain.connect(this.bgmGain!);
+    bassDrone.start();
+    this.bgmOscillators.push(bassDrone);
+    this.bgmGains.push(bassGain);
+
+    // 서브 드론 (옥타브 위)
+    const subDrone = ctx.createOscillator();
+    subDrone.type = 'sine';
+    subDrone.frequency.value = 110; // A2
+    const subGain = ctx.createGain();
+    subGain.gain.value = 0.08;
+    subDrone.connect(subGain);
+    subGain.connect(this.bgmGain!);
+    subDrone.start();
+    this.bgmOscillators.push(subDrone);
+    this.bgmGains.push(subGain);
+
+    // 멜로디 패턴 (아르페지오)
+    const notes = [220, 261.63, 329.63, 392]; // A3, C4, E4, G4 (Am 코드)
+    let noteIndex = 0;
+
+    const playNote = () => {
+      if (!this.audioContext || this.currentBGM !== 'rpg_battle') return;
+
+      const osc = ctx.createOscillator();
+      osc.type = 'triangle';
+      osc.frequency.value = notes[noteIndex];
+
+      const noteGain = ctx.createGain();
+      noteGain.gain.setValueAtTime(0.06, ctx.currentTime);
+      noteGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.8);
+
+      osc.connect(noteGain);
+      noteGain.connect(this.bgmGain!);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.8);
+
+      noteIndex = (noteIndex + 1) % notes.length;
+    };
+
+    // 0.5초마다 노트 재생
+    playNote();
+    this.bgmIntervalId = window.setInterval(playNote, 500);
+  }
+
+  /**
+   * RPG 보스 BGM - 더 긴장감 있는 음악
+   */
+  private playRPGBossBGM(): void {
+    const ctx = this.audioContext!;
+
+    // 저음 드론 (더 낮고 강렬)
+    const bassDrone = ctx.createOscillator();
+    bassDrone.type = 'sawtooth';
+    bassDrone.frequency.value = 41.2; // E1
+
+    const bassFilter = ctx.createBiquadFilter();
+    bassFilter.type = 'lowpass';
+    bassFilter.frequency.value = 200;
+
+    const bassGain = ctx.createGain();
+    bassGain.gain.value = 0.12;
+
+    bassDrone.connect(bassFilter);
+    bassFilter.connect(bassGain);
+    bassGain.connect(this.bgmGain!);
+    bassDrone.start();
+    this.bgmOscillators.push(bassDrone);
+    this.bgmGains.push(bassGain);
+
+    // 펄스 비트
+    const pulseNotes = [82.41, 98, 82.41, 110]; // E2, G2, E2, A2
+    let pulseIndex = 0;
+
+    const playPulse = () => {
+      if (!this.audioContext || this.currentBGM !== 'rpg_boss') return;
+
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = pulseNotes[pulseIndex];
+
+      const pulseGain = ctx.createGain();
+      pulseGain.gain.setValueAtTime(0.08, ctx.currentTime);
+      pulseGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.3);
+
+      osc.connect(pulseGain);
+      pulseGain.connect(this.bgmGain!);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.3);
+
+      pulseIndex = (pulseIndex + 1) % pulseNotes.length;
+    };
+
+    // 0.3초마다 펄스 재생 (더 빠름)
+    playPulse();
+    this.bgmIntervalId = window.setInterval(playPulse, 300);
   }
 
   /**
@@ -180,6 +415,9 @@ class SoundManager {
         break;
       case 'enemy_death':
         this.playEnemyDeath();
+        break;
+      case 'laser_attack':
+        this.playLaserAttack();
         break;
     }
   }
@@ -819,6 +1057,45 @@ class SoundManager {
     gain.connect(this.masterGain!);
 
     noise.start(now);
+  }
+
+  /**
+   * 레이저 공격 - 고주파 사인파 빔 사운드
+   */
+  private playLaserAttack(): void {
+    const ctx = this.audioContext!;
+    const now = ctx.currentTime;
+
+    // 메인 레이저 톤 (고주파 사인파)
+    const osc1 = ctx.createOscillator();
+    osc1.type = 'sine';
+    osc1.frequency.setValueAtTime(2000, now);
+    osc1.frequency.exponentialRampToValueAtTime(800, now + 0.1);
+
+    // 서브 톤 (약간 낮은 주파수)
+    const osc2 = ctx.createOscillator();
+    osc2.type = 'triangle';
+    osc2.frequency.setValueAtTime(1500, now);
+    osc2.frequency.exponentialRampToValueAtTime(600, now + 0.1);
+
+    // 게인 엔벨로프
+    const gain1 = ctx.createGain();
+    gain1.gain.setValueAtTime(0.15, now);
+    gain1.gain.exponentialRampToValueAtTime(0.01, now + 0.12);
+
+    const gain2 = ctx.createGain();
+    gain2.gain.setValueAtTime(0.08, now);
+    gain2.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+
+    osc1.connect(gain1);
+    osc2.connect(gain2);
+    gain1.connect(this.masterGain!);
+    gain2.connect(this.masterGain!);
+
+    osc1.start(now);
+    osc2.start(now);
+    osc1.stop(now + 0.12);
+    osc2.stop(now + 0.1);
   }
 }
 

@@ -13,6 +13,7 @@ export const SoundControl: React.FC = () => {
   // SoundManager와 상태 동기화
   useEffect(() => {
     soundManager.setVolume(soundVolume);
+    soundManager.setBGMVolume(soundVolume); // BGM도 마스터 볼륨과 동기화
   }, [soundVolume]);
 
   useEffect(() => {

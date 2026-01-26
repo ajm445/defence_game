@@ -298,7 +298,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             roomId,
           });
 
-          // 게임 초기화
+          // 게임 초기화 - AudioContext 초기화 (fallback)
+          soundManager.init();
           state.initMultiplayerGame(players, isHost);
           break;
         }
@@ -319,6 +320,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             useRPGStore.getState().setDifficulty(message.difficulty as RPGDifficulty);
           }
           // 게임 초기화 (영웅, 넥서스, 적 기지 등 생성) - 난이도 명시적 전달
+          soundManager.init(); // AudioContext 초기화 (fallback)
           useRPGStore.getState().initMultiplayerGame(message.players, message.isHost, message.difficulty as RPGDifficulty);
           break;
       }
@@ -425,11 +427,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   }, [playerLevel, isGuest, selectClass, multiplayer.players]);
 
   const handleStartGame = useCallback(() => {
+    soundManager.init();
     soundManager.play('ui_click');
     startMultiplayerGame();
   }, []);
 
   const handleToggleReady = useCallback(() => {
+    soundManager.init(); // 클라이언트용 AudioContext 초기화
     soundManager.play('ui_click');
     // 현재 내 준비 상태 토글
     const myPlayer = multiplayer.players.find(p => p.id === wsClient.playerId);
