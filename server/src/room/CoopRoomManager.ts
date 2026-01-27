@@ -48,7 +48,9 @@ export function createCoopRoom(
   characterLevel: number = 1,
   statUpgrades?: CharacterStatUpgrades,
   isPrivate: boolean = false,
-  difficulty: string = 'easy'
+  difficulty: string = 'easy',
+  advancedClass?: string,
+  tier?: 1 | 2
 ): WaitingCoopRoom | null {
   const player = players.get(hostPlayerId);
   if (!player) {
@@ -74,6 +76,8 @@ export function createCoopRoom(
     connected: true,
     characterLevel,
     statUpgrades,
+    advancedClass,
+    tier,
   };
 
   const room: WaitingCoopRoom = {
@@ -112,7 +116,9 @@ export function joinCoopRoom(
   playerName: string,
   heroClass: HeroClass,
   characterLevel: number = 1,
-  statUpgrades?: CharacterStatUpgrades
+  statUpgrades?: CharacterStatUpgrades,
+  advancedClass?: string,
+  tier?: 1 | 2
 ): boolean {
   const player = players.get(playerId);
   if (!player) {
@@ -161,6 +167,8 @@ export function joinCoopRoom(
     connected: true,
     characterLevel,
     statUpgrades,
+    advancedClass,
+    tier,
   };
 
   room.players.set(playerId, playerInfo);
@@ -282,7 +290,7 @@ export function setCoopReady(playerId: string, isReady: boolean): void {
 }
 
 // 직업 변경
-export function changeCoopClass(playerId: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades): void {
+export function changeCoopClass(playerId: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades, advancedClass?: string, tier?: 1 | 2): void {
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
 
@@ -295,6 +303,8 @@ export function changeCoopClass(playerId: string, heroClass: HeroClass, characte
   playerInfo.heroClass = heroClass;
   playerInfo.characterLevel = characterLevel;  // 캐릭터 레벨도 업데이트
   playerInfo.statUpgrades = statUpgrades;  // SP 스탯 업그레이드도 업데이트
+  playerInfo.advancedClass = advancedClass;  // 전직 클래스 업데이트
+  playerInfo.tier = tier;  // 강화 단계 업데이트
   // 직업 변경 시 준비 상태 해제
   playerInfo.isReady = false;
 
@@ -305,6 +315,8 @@ export function changeCoopClass(playerId: string, heroClass: HeroClass, characte
       playerId,
       heroClass,
       characterLevel,
+      advancedClass,
+      tier,
     });
     // 준비 상태도 함께 알림
     sendToPlayer(id, {
@@ -549,7 +561,9 @@ export function joinCoopRoomById(
   playerName: string,
   heroClass: HeroClass,
   characterLevel: number = 1,
-  statUpgrades?: CharacterStatUpgrades
+  statUpgrades?: CharacterStatUpgrades,
+  advancedClass?: string,
+  tier?: 1 | 2
 ): boolean {
   const player = players.get(playerId);
   if (!player) {
@@ -597,6 +611,8 @@ export function joinCoopRoomById(
     connected: true,
     characterLevel,
     statUpgrades,
+    advancedClass,
+    tier,
   };
 
   room.players.set(playerId, playerInfo);

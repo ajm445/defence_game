@@ -1,5 +1,5 @@
-import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget, EnemyBase, EnemyBaseId } from '../../types/rpg';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, UPGRADE_CONFIG } from '../../constants/rpgConfig';
+import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget, EnemyBase, EnemyBaseId, AdvancedHeroClass } from '../../types/rpg';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, UPGRADE_CONFIG, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
 import { rollMultiTarget } from './passiveSystem';
 
@@ -91,6 +91,8 @@ export interface ClassSkillResult {
   pendingSkill?: PendingSkill;
   stunTargets?: string[];
   stunDuration?: number; // 기절 지속시간 (초)
+  allyHeals?: { heroId: string; heal: number }[];  // 아군 힐 (전직 스킬용)
+  allyBuffs?: { heroId: string; buff: Buff }[];    // 아군 버프 (전직 스킬용)
 }
 
 /**
@@ -306,8 +308,14 @@ export function executeWSkill(
   targetY: number,
   gameTime: number,
   enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
-  attackUpgradeLevel: number = 0  // 인게임 공격력 업그레이드 레벨
+  attackUpgradeLevel: number = 0,  // 인게임 공격력 업그레이드 레벨
+  allies: HeroUnit[] = []  // 아군 히어로들 (힐/버프용)
 ): ClassSkillResult {
+  // 전직 캐릭터인 경우 전직 스킬 실행
+  if (hero.advancedClass) {
+    return executeAdvancedWSkill(hero, enemies, targetX, targetY, gameTime, enemyBases, attackUpgradeLevel, allies);
+  }
+
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].w;
   const classConfig = CLASS_CONFIGS[heroClass];
@@ -579,8 +587,14 @@ export function executeESkill(
   gameTime: number,
   enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
   casterId?: string,  // 스킬 시전자 ID (보스 골드 분배용)
-  attackUpgradeLevel: number = 0  // 인게임 공격력 업그레이드 레벨
+  attackUpgradeLevel: number = 0,  // 인게임 공격력 업그레이드 레벨
+  allies: HeroUnit[] = []  // 아군 히어로들 (힐/버프용)
 ): ClassSkillResult {
+  // 전직 캐릭터인 경우 전직 스킬 실행
+  if (hero.advancedClass) {
+    return executeAdvancedESkill(hero, enemies, targetX, targetY, gameTime, enemyBases, casterId, attackUpgradeLevel, allies);
+  }
+
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].e;
   const classConfig = CLASS_CONFIGS[heroClass];
@@ -767,4 +781,894 @@ function pointToLineDistance(
   const dy = py - yy;
 
   return Math.sqrt(dx * dx + dy * dy);
+}
+
+// ============================================
+// 전직 스킬 실행 함수들
+// ============================================
+
+/**
+ * 전직 W 스킬 실행
+ */
+function executeAdvancedWSkill(
+  hero: HeroUnit,
+  enemies: RPGEnemy[],
+  targetX: number,
+  targetY: number,
+  gameTime: number,
+  enemyBases: EnemyBase[],
+  attackUpgradeLevel: number,
+  allies: HeroUnit[]
+): ClassSkillResult {
+  const advancedClass = hero.advancedClass as AdvancedHeroClass;
+  const skillConfig = ADVANCED_W_SKILLS[advancedClass];
+  const baseDamage = hero.config.attack || hero.baseAttack;
+  const attackBonus = attackUpgradeLevel * UPGRADE_CONFIG.attack.perLevel;
+  const damage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 1.0));
+
+  const enemyDamages: { enemyId: string; damage: number }[] = [];
+  const baseDamages: { baseId: EnemyBaseId; damage: number }[] = [];
+  const stunTargets: string[] = [];
+  const allyHeals: { heroId: string; heal: number }[] = [];
+  let effect: SkillEffect | undefined;
+  let buff: Buff | undefined;
+  let updatedHero = hero;
+  let returnStunDuration: number | undefined;
+
+  // 방향 계산
+  const dx = targetX - hero.x;
+  const dy = targetY - hero.y;
+  const dist = Math.sqrt(dx * dx + dy * dy);
+  const dirX = dist > 0 ? dx / dist : (hero.facingRight ? 1 : -1);
+  const dirY = dist > 0 ? dy / dist : 0;
+
+  switch (advancedClass) {
+    case 'berserker':
+      // 피의 돌진 - 전방 돌진 + 피해량의 50% 체력 회복
+      {
+        const dashDistance = skillConfig.distance || 200;
+        const dashDuration = 0.25;
+        const lifestealPercent = skillConfig.lifestealPercent || 0.5;
+
+        const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + dirX * dashDistance));
+        const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + dirY * dashDistance));
+
+        // 돌진 경로상 적에게 데미지
+        let totalDamageDealt = 0;
+        for (const enemy of enemies) {
+          if (enemy.hp <= 0) continue;
+          const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, newX, newY);
+          if (enemyDist <= 50) {
+            enemyDamages.push({ enemyId: enemy.id, damage });
+            totalDamageDealt += damage;
+          }
+        }
+
+        // 돌진 경로상 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+          if (baseDist <= 80) {
+            baseDamages.push({ baseId: base.id, damage });
+          }
+        }
+
+        // 피해흡혈 적용
+        const healAmount = Math.floor(totalDamageDealt * lifestealPercent);
+        if (healAmount > 0) {
+          updatedHero = {
+            ...hero,
+            hp: Math.min(hero.maxHp, hero.hp + healAmount),
+          };
+        }
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          direction: { x: dirX, y: dirY },
+          radius: dashDistance,
+          damage,
+          duration: dashDuration + 0.1,
+          startTime: gameTime,
+          heal: healAmount,
+        };
+
+        // 돌진 상태 설정
+        updatedHero = {
+          ...updatedHero,
+          targetPosition: undefined,
+          state: 'moving',
+          facingRight: dirX >= 0,
+          facingAngle: Math.atan2(dirY, dirX),
+          dashState: {
+            startX: hero.x,
+            startY: hero.y,
+            targetX: newX,
+            targetY: newY,
+            progress: 0,
+            duration: dashDuration,
+            dirX,
+            dirY,
+          },
+        };
+      }
+      break;
+
+    case 'guardian':
+      // 수호의 돌진 - 전방 돌진 + 기절 + 보호막
+      {
+        const dashDistance = skillConfig.distance || 150;
+        const dashDuration = 0.25;
+        const stunDuration = skillConfig.stunDuration || 2.0;
+        const shieldPercent = skillConfig.shieldPercent || 0.2;
+        const shieldDuration = skillConfig.duration || 3;
+        const hpBasedDamage = Math.floor(hero.maxHp * (skillConfig.damageMultiplier || 0.1));
+
+        const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + dirX * dashDistance));
+        const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + dirY * dashDistance));
+
+        // 돌진 경로상 적에게 HP 기반 데미지 + 기절
+        for (const enemy of enemies) {
+          if (enemy.hp <= 0) continue;
+          const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, newX, newY);
+          if (enemyDist <= 50) {
+            enemyDamages.push({ enemyId: enemy.id, damage: hpBasedDamage });
+            stunTargets.push(enemy.id);
+          }
+        }
+
+        // 돌진 경로상 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+          if (baseDist <= 80) {
+            baseDamages.push({ baseId: base.id, damage: hpBasedDamage });
+          }
+        }
+
+        returnStunDuration = stunDuration;
+
+        // 보호막 버프 (최대 HP 20% 데미지 흡수)
+        buff = {
+          type: 'ironwall',
+          duration: shieldDuration,
+          startTime: gameTime,
+          damageReduction: shieldPercent,  // 실제로는 shield amount로 처리 필요
+        };
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          targetPosition: { x: newX, y: newY },
+          direction: { x: dirX, y: dirY },
+          radius: dashDistance,
+          duration: dashDuration + 0.5,
+          startTime: gameTime,
+        };
+
+        // 돌진 상태 설정
+        updatedHero = {
+          ...hero,
+          targetPosition: undefined,
+          state: 'moving',
+          facingRight: dirX >= 0,
+          facingAngle: Math.atan2(dirY, dirX),
+          dashState: {
+            startX: hero.x,
+            startY: hero.y,
+            targetX: newX,
+            targetY: newY,
+            progress: 0,
+            duration: dashDuration,
+            dirX,
+            dirY,
+          },
+        };
+      }
+      break;
+
+    case 'sniper':
+      // 후방 도약 - 뒤로 점프하며 전방에 200% 데미지 화살 발사
+      {
+        const jumpDistance = skillConfig.distance || 150;
+        const speedBonus = skillConfig.speedBonus || 0.3;
+        const speedDuration = skillConfig.duration || 3;
+        const jumpDuration = 0.2;
+
+        // 뒤로 점프 (타겟 반대 방향)
+        const backX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x - dirX * jumpDistance));
+        const backY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y - dirY * jumpDistance));
+
+        // 점프하면서 전방 적에게 200% 데미지 화살
+        const arrowRange = hero.config.range || 200;
+        for (const enemy of enemies) {
+          if (enemy.hp <= 0) continue;
+          const enemyDist = distance(hero.x, hero.y, enemy.x, enemy.y);
+          if (enemyDist > arrowRange) continue;
+
+          // 바라보는 방향 체크
+          const enemyDx = enemy.x - hero.x;
+          const enemyDy = enemy.y - hero.y;
+          const enemyDirDist = Math.sqrt(enemyDx * enemyDx + enemyDy * enemyDy);
+          if (enemyDirDist === 0) continue;
+          const dot = (dirX * enemyDx + dirY * enemyDy) / enemyDirDist;
+          if (dot > 0.3) {  // 전방 60도 내
+            enemyDamages.push({ enemyId: enemy.id, damage });
+          }
+        }
+
+        // 이동속도 버프
+        buff = {
+          type: 'berserker',  // speedBonus 지원하는 타입 사용
+          duration: speedDuration,
+          startTime: gameTime,
+          speedBonus,
+          attackBonus: 0,
+        };
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          direction: { x: dirX, y: dirY },
+          radius: arrowRange,
+          damage,
+          duration: 0.5,
+          startTime: gameTime,
+        };
+
+        // 후방 점프 상태 설정
+        updatedHero = {
+          ...hero,
+          targetPosition: undefined,
+          state: 'moving',
+          facingRight: dirX >= 0,
+          facingAngle: Math.atan2(dirY, dirX),
+          dashState: {
+            startX: hero.x,
+            startY: hero.y,
+            targetX: backX,
+            targetY: backY,
+            progress: 0,
+            duration: jumpDuration,
+            dirX: -dirX,
+            dirY: -dirY,
+          },
+        };
+      }
+      break;
+
+    case 'ranger':
+      // 다중 화살 - 부채꼴 방향으로 5발의 관통 화살 발사
+      {
+        const arrowCount = skillConfig.arrowCount || 5;
+        const pierceDistance = 300;
+        const spreadAngle = Math.PI / 4;  // 45도 부채꼴
+
+        for (let i = 0; i < arrowCount; i++) {
+          // 부채꼴 각도 계산
+          const angleOffset = spreadAngle * ((i / (arrowCount - 1)) - 0.5);
+          const baseAngle = Math.atan2(dirY, dirX);
+          const arrowAngle = baseAngle + angleOffset;
+          const arrowDirX = Math.cos(arrowAngle);
+          const arrowDirY = Math.sin(arrowAngle);
+
+          const endX = hero.x + arrowDirX * pierceDistance;
+          const endY = hero.y + arrowDirY * pierceDistance;
+
+          // 각 화살 경로의 적에게 데미지
+          for (const enemy of enemies) {
+            if (enemy.hp <= 0) continue;
+            const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, endX, endY);
+            if (enemyDist <= 30) {
+              // 이미 맞은 적은 제외 (관통이지만 같은 스킬에서 중복 제외)
+              if (!enemyDamages.find(ed => ed.enemyId === enemy.id)) {
+                enemyDamages.push({ enemyId: enemy.id, damage });
+              }
+            }
+          }
+
+          // 기지에 데미지
+          for (const base of enemyBases) {
+            if (base.destroyed) continue;
+            const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, endX, endY);
+            if (baseDist <= 60) {
+              if (!baseDamages.find(bd => bd.baseId === base.id)) {
+                baseDamages.push({ baseId: base.id, damage });
+              }
+            }
+          }
+        }
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          direction: { x: dirX, y: dirY },
+          radius: pierceDistance,
+          damage,
+          duration: 0.5,
+          startTime: gameTime,
+        };
+      }
+      break;
+
+    case 'paladin':
+      // 신성한 돌진 - 전방 돌진 + 기절 + 아군 힐
+      {
+        const dashDistance = skillConfig.distance || 150;
+        const dashDuration = 0.25;
+        const stunDuration = skillConfig.stunDuration || 1.5;
+        const healPercent = skillConfig.healPercent || 0.1;
+        const healRadius = skillConfig.radius || 200;
+        const hpBasedDamage = Math.floor(hero.maxHp * (skillConfig.damageMultiplier || 0.1));
+
+        const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + dirX * dashDistance));
+        const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + dirY * dashDistance));
+
+        // 돌진 경로상 적에게 데미지 + 기절
+        for (const enemy of enemies) {
+          if (enemy.hp <= 0) continue;
+          const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, newX, newY);
+          if (enemyDist <= 50) {
+            enemyDamages.push({ enemyId: enemy.id, damage: hpBasedDamage });
+            stunTargets.push(enemy.id);
+          }
+        }
+
+        // 돌진 경로상 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+          if (baseDist <= 80) {
+            baseDamages.push({ baseId: base.id, damage: hpBasedDamage });
+          }
+        }
+
+        returnStunDuration = stunDuration;
+
+        // 아군 힐 (도착지점 주변)
+        for (const ally of allies) {
+          if (ally.id === hero.id) continue;  // 자기 자신 제외
+          const allyDist = distance(newX, newY, ally.x, ally.y);
+          if (allyDist <= healRadius) {
+            const healAmount = Math.floor(ally.maxHp * healPercent);
+            allyHeals.push({ heroId: ally.id, heal: healAmount });
+          }
+        }
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          targetPosition: { x: newX, y: newY },
+          direction: { x: dirX, y: dirY },
+          radius: dashDistance,
+          duration: dashDuration + 0.5,
+          startTime: gameTime,
+        };
+
+        // 돌진 상태 설정
+        updatedHero = {
+          ...hero,
+          targetPosition: undefined,
+          state: 'moving',
+          facingRight: dirX >= 0,
+          facingAngle: Math.atan2(dirY, dirX),
+          dashState: {
+            startX: hero.x,
+            startY: hero.y,
+            targetX: newX,
+            targetY: newY,
+            progress: 0,
+            duration: dashDuration,
+            dirX,
+            dirY,
+          },
+        };
+      }
+      break;
+
+    case 'darkKnight':
+      // 암흑 베기 - 전방 돌진 + 150% 데미지 + 피해흡혈 30%
+      {
+        const dashDistance = skillConfig.distance || 200;
+        const dashDuration = 0.25;
+        const lifestealPercent = skillConfig.lifestealPercent || 0.3;
+
+        const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + dirX * dashDistance));
+        const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + dirY * dashDistance));
+
+        // 돌진 경로상 적에게 데미지
+        let totalDamageDealt = 0;
+        for (const enemy of enemies) {
+          if (enemy.hp <= 0) continue;
+          const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, newX, newY);
+          if (enemyDist <= 50) {
+            enemyDamages.push({ enemyId: enemy.id, damage });
+            totalDamageDealt += damage;
+          }
+        }
+
+        // 돌진 경로상 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+          if (baseDist <= 80) {
+            baseDamages.push({ baseId: base.id, damage });
+          }
+        }
+
+        // 피해흡혈 적용
+        const healAmount = Math.floor(totalDamageDealt * lifestealPercent);
+        if (healAmount > 0) {
+          updatedHero = {
+            ...hero,
+            hp: Math.min(hero.maxHp, hero.hp + healAmount),
+          };
+        }
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          direction: { x: dirX, y: dirY },
+          radius: dashDistance,
+          damage,
+          duration: dashDuration + 0.1,
+          startTime: gameTime,
+          heal: healAmount,
+        };
+
+        // 돌진 상태 설정
+        updatedHero = {
+          ...updatedHero,
+          targetPosition: undefined,
+          state: 'moving',
+          facingRight: dirX >= 0,
+          facingAngle: Math.atan2(dirY, dirX),
+          dashState: {
+            startX: hero.x,
+            startY: hero.y,
+            targetX: newX,
+            targetY: newY,
+            progress: 0,
+            duration: dashDuration,
+            dirX,
+            dirY,
+          },
+        };
+      }
+      break;
+
+    case 'archmage':
+      // 폭발 화염구 - 250% 데미지 + 범위 증가 + 화상
+      {
+        const radius = skillConfig.radius || 120;
+        const burnDamage = skillConfig.burnDamage || 0.2;
+        const burnDuration = skillConfig.burnDuration || 3;
+
+        for (const enemy of enemies) {
+          if (enemy.hp <= 0) continue;
+          const enemyDist = distance(targetX, targetY, enemy.x, enemy.y);
+          if (enemyDist <= radius) {
+            enemyDamages.push({ enemyId: enemy.id, damage });
+            // TODO: 화상 디버프 적용 (별도 시스템 필요)
+          }
+        }
+
+        // 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = distance(targetX, targetY, base.x, base.y);
+          if (baseDist <= radius + 50) {
+            baseDamages.push({ baseId: base.id, damage });
+          }
+        }
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: targetX, y: targetY },
+          direction: { x: dirX, y: dirY },
+          radius,
+          damage,
+          duration: 0.7,
+          startTime: gameTime,
+        };
+      }
+      break;
+
+    case 'healer':
+      // 치유의 빛 - 적에게 데미지 + 아군 힐
+      {
+        const radius = skillConfig.radius || 150;
+        const healPercent = skillConfig.healPercent || 0.15;
+
+        // 전방 범위 내 적에게 데미지
+        for (const enemy of enemies) {
+          if (enemy.hp <= 0) continue;
+          const enemyDist = distance(targetX, targetY, enemy.x, enemy.y);
+          if (enemyDist <= radius) {
+            enemyDamages.push({ enemyId: enemy.id, damage });
+          }
+        }
+
+        // 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = distance(targetX, targetY, base.x, base.y);
+          if (baseDist <= radius + 50) {
+            baseDamages.push({ baseId: base.id, damage });
+          }
+        }
+
+        // 자신 포함 범위 내 아군 힐
+        const selfHeal = Math.floor(hero.maxHp * healPercent);
+        updatedHero = {
+          ...hero,
+          hp: Math.min(hero.maxHp, hero.hp + selfHeal),
+        };
+
+        for (const ally of allies) {
+          if (ally.id === hero.id) continue;
+          const allyDist = distance(targetX, targetY, ally.x, ally.y);
+          if (allyDist <= radius) {
+            const healAmount = Math.floor(ally.maxHp * healPercent);
+            allyHeals.push({ heroId: ally.id, heal: healAmount });
+          }
+        }
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: targetX, y: targetY },
+          direction: { x: dirX, y: dirY },
+          radius,
+          damage,
+          heal: selfHeal,
+          duration: 0.7,
+          startTime: gameTime,
+        };
+      }
+      break;
+  }
+
+  updatedHero = startSkillCooldown(updatedHero, skillConfig.type);
+
+  return {
+    hero: updatedHero,
+    effect,
+    enemyDamages,
+    baseDamages,
+    stunTargets: stunTargets.length > 0 ? stunTargets : undefined,
+    stunDuration: returnStunDuration,
+    buff,
+    allyHeals: allyHeals.length > 0 ? allyHeals : undefined,
+  };
+}
+
+/**
+ * 전직 E 스킬 실행 (궁극기)
+ */
+function executeAdvancedESkill(
+  hero: HeroUnit,
+  enemies: RPGEnemy[],
+  targetX: number,
+  targetY: number,
+  gameTime: number,
+  _enemyBases: EnemyBase[],
+  casterId: string | undefined,
+  attackUpgradeLevel: number,
+  allies: HeroUnit[]
+): ClassSkillResult {
+  const advancedClass = hero.advancedClass as AdvancedHeroClass;
+  const skillConfig = ADVANCED_E_SKILLS[advancedClass];
+  const baseDamage = hero.config.attack || hero.baseAttack;
+  const attackBonus = attackUpgradeLevel * UPGRADE_CONFIG.attack.perLevel;
+  const damage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 1.0));
+
+  const enemyDamages: { enemyId: string; damage: number }[] = [];
+  const baseDamages: { baseId: EnemyBaseId; damage: number }[] = [];
+  const allyHeals: { heroId: string; heal: number }[] = [];
+  const allyBuffs: { heroId: string; buff: Buff }[] = [];
+  let effect: SkillEffect | undefined;
+  let buff: Buff | undefined;
+  let pendingSkill: PendingSkill | undefined;
+  let updatedHero = hero;
+
+  switch (advancedClass) {
+    case 'berserker':
+      // 광란 - 10초간 공격력/공속 100% 증가, 받는 피해 50% 증가
+      {
+        const duration = skillConfig.duration || 10;
+        const attackBonusVal = skillConfig.attackBonus || 1.0;
+        const speedBonusVal = skillConfig.speedBonus || 1.0;
+        // damageTaken 증가는 별도 로직 필요 (디버프 시스템)
+
+        buff = {
+          type: 'berserker',
+          duration,
+          startTime: gameTime,
+          attackBonus: attackBonusVal,
+          speedBonus: speedBonusVal,
+        };
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          duration: 1.0,
+          startTime: gameTime,
+        };
+      }
+      break;
+
+    case 'guardian':
+      // 보호막 - 아군 전체에게 5초간 피해 50% 감소
+      {
+        const duration = skillConfig.duration || 5;
+        const damageReduction = skillConfig.damageReduction || 0.5;
+        const radius = skillConfig.radius || 500;
+
+        // 자신에게 버프
+        buff = {
+          type: 'ironwall',
+          duration,
+          startTime: gameTime,
+          damageReduction,
+        };
+
+        // 아군 전체에게 버프
+        for (const ally of allies) {
+          if (ally.id === hero.id) continue;
+          const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
+          if (allyDist <= radius) {
+            allyBuffs.push({
+              heroId: ally.id,
+              buff: {
+                type: 'ironwall',
+                duration,
+                startTime: gameTime,
+                damageReduction,
+              },
+            });
+          }
+        }
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          radius,
+          duration: 1.0,
+          startTime: gameTime,
+        };
+      }
+      break;
+
+    case 'sniper':
+      // 저격 - 3초 조준 후 1000% 데미지 단일 타격
+      {
+        const chargeTime = skillConfig.chargeTime || 3;
+        const snipeDamage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 10.0));
+
+        // 가장 가까운 적 또는 마우스 방향의 적 타겟팅
+        let targetEnemy: RPGEnemy | null = null;
+        let closestDist = Infinity;
+        const targetAngle = Math.atan2(targetY - hero.y, targetX - hero.x);
+
+        for (const enemy of enemies) {
+          if (enemy.hp <= 0) continue;
+          const enemyAngle = Math.atan2(enemy.y - hero.y, enemy.x - hero.x);
+          const angleDiff = Math.abs(enemyAngle - targetAngle);
+          const normalizedDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff);
+
+          if (normalizedDiff < Math.PI / 6) {  // 30도 이내
+            const enemyDist = distance(hero.x, hero.y, enemy.x, enemy.y);
+            if (enemyDist < closestDist) {
+              closestDist = enemyDist;
+              targetEnemy = enemy;
+            }
+          }
+        }
+
+        if (targetEnemy) {
+          // 지연 스킬로 처리
+          pendingSkill = {
+            type: skillConfig.type,
+            position: { x: targetEnemy.x, y: targetEnemy.y },
+            triggerTime: gameTime + chargeTime,
+            damage: snipeDamage,
+            radius: 0,  // 단일 타겟
+            casterId,
+            targetId: targetEnemy.id,
+          };
+
+          effect = {
+            type: 'snipe' as SkillType,
+            position: { x: hero.x, y: hero.y },
+            targetPosition: { x: targetEnemy.x, y: targetEnemy.y },
+            duration: chargeTime,
+            startTime: gameTime,
+          };
+        }
+      }
+      break;
+
+    case 'ranger':
+      // 화살 폭풍 - 5초간 공격 속도 3배
+      {
+        const duration = skillConfig.duration || 5;
+        const speedBonusVal = skillConfig.speedBonus || 2.0;
+
+        buff = {
+          type: 'berserker',
+          duration,
+          startTime: gameTime,
+          speedBonus: speedBonusVal,
+          attackBonus: 0,
+        };
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          duration: 1.0,
+          startTime: gameTime,
+        };
+      }
+      break;
+
+    case 'paladin':
+      // 신성한 빛 - 아군 전체 HP 30% 회복 + 3초 무적
+      {
+        const healPercent = skillConfig.healPercent || 0.3;
+        const invincibleDuration = skillConfig.invincibleDuration || 3;
+        const radius = skillConfig.radius || 500;
+
+        // 자신 힐 + 무적
+        const selfHeal = Math.floor(hero.maxHp * healPercent);
+        updatedHero = {
+          ...hero,
+          hp: Math.min(hero.maxHp, hero.hp + selfHeal),
+        };
+
+        buff = {
+          type: 'invincible',
+          duration: invincibleDuration,
+          startTime: gameTime,
+        };
+
+        // 아군 전체 힐 + 무적
+        for (const ally of allies) {
+          if (ally.id === hero.id) continue;
+          const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
+          if (allyDist <= radius) {
+            const healAmount = Math.floor(ally.maxHp * healPercent);
+            allyHeals.push({ heroId: ally.id, heal: healAmount });
+            allyBuffs.push({
+              heroId: ally.id,
+              buff: {
+                type: 'invincible',
+                duration: invincibleDuration,
+                startTime: gameTime,
+              },
+            });
+          }
+        }
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          radius,
+          heal: selfHeal,
+          duration: 1.0,
+          startTime: gameTime,
+        };
+      }
+      break;
+
+    case 'darkKnight':
+      // 어둠의 칼날 - 5초간 주변 적에게 초당 50% 데미지
+      {
+        const duration = skillConfig.duration || 5;
+        const tickDamage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 0.5));
+        const radius = skillConfig.radius || 150;
+
+        // 지속 데미지는 pendingSkill로 처리 (틱 데미지)
+        pendingSkill = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          triggerTime: gameTime + 1,  // 1초마다 틱
+          damage: tickDamage,
+          radius,
+          casterId,
+          duration,  // 총 지속시간 저장
+          tickCount: duration,  // 남은 틱 수
+        };
+
+        // 자신에게 표시용 버프
+        buff = {
+          type: 'berserker',
+          duration,
+          startTime: gameTime,
+          attackBonus: 0,
+          speedBonus: 0,
+        };
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          radius,
+          duration: 1.0,
+          startTime: gameTime,
+        };
+      }
+      break;
+
+    case 'archmage':
+      // 메테오 샤워 - 5초간 랜덤 위치에 운석 10개 낙하
+      {
+        const duration = skillConfig.duration || 5;
+        const meteorCount = skillConfig.meteorCount || 10;
+        const meteorDamage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 3.0));
+        const meteorRadius = skillConfig.radius || 100;
+
+        // 첫 번째 운석을 pendingSkill로 등록 (나머지는 게임 루프에서 처리)
+        pendingSkill = {
+          type: skillConfig.type,
+          position: { x: targetX, y: targetY },
+          triggerTime: gameTime + duration / meteorCount,  // 균등 간격
+          damage: meteorDamage,
+          radius: meteorRadius,
+          casterId,
+          meteorCount: meteorCount - 1,  // 남은 운석 수
+          duration,
+        };
+
+        effect = {
+          type: 'meteor_shower' as SkillType,
+          position: { x: targetX, y: targetY },
+          radius: 300,  // 전체 범위 표시
+          duration: duration,
+          startTime: gameTime,
+        };
+      }
+      break;
+
+    case 'healer':
+      // 생명의 샘 - 15초간 아군 전체 초당 5% 힐
+      {
+        const duration = skillConfig.duration || 15;
+        const healPerTick = skillConfig.healPercent || 0.05;
+        const radius = skillConfig.radius || 500;
+
+        // 지속 힐은 pendingSkill로 처리
+        pendingSkill = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          triggerTime: gameTime + 1,  // 1초마다 틱
+          damage: 0,  // 데미지 없음
+          radius,
+          casterId,
+          healPercent: healPerTick,
+          duration,
+          tickCount: duration,
+        };
+
+        effect = {
+          type: skillConfig.type,
+          position: { x: hero.x, y: hero.y },
+          radius,
+          duration: 1.0,
+          startTime: gameTime,
+        };
+      }
+      break;
+  }
+
+  updatedHero = startSkillCooldown(updatedHero, skillConfig.type);
+
+  return {
+    hero: updatedHero,
+    effect,
+    enemyDamages,
+    baseDamages,
+    buff,
+    pendingSkill,
+    allyHeals: allyHeals.length > 0 ? allyHeals : undefined,
+    allyBuffs: allyBuffs.length > 0 ? allyBuffs : undefined,
+  };
 }

@@ -349,7 +349,7 @@ export class RPGCoopGameRoom {
   /**
    * 플레이어 직업 변경 (로비에서)
    */
-  public changePlayerClass(playerId: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: any): void {
+  public changePlayerClass(playerId: string, heroClass: HeroClass, characterLevel: number = 1, statUpgrades?: any, advancedClass?: string, tier?: 1 | 2): void {
     // 로비 상태에서만 직업 변경 가능
     if (this.gameState !== 'waiting') {
       return;
@@ -363,6 +363,8 @@ export class RPGCoopGameRoom {
     playerInfo.heroClass = heroClass;
     playerInfo.characterLevel = characterLevel;
     playerInfo.statUpgrades = statUpgrades;
+    playerInfo.advancedClass = advancedClass;
+    playerInfo.tier = tier;
     // 직업 변경 시 준비 상태 해제 (호스트 제외)
     if (!playerInfo.isHost) {
       playerInfo.isReady = false;
@@ -374,6 +376,8 @@ export class RPGCoopGameRoom {
       playerId,
       heroClass,
       characterLevel,
+      advancedClass,
+      tier,
     });
 
     // 준비 상태도 함께 알림 (호스트 제외)

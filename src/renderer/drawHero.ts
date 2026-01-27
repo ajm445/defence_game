@@ -1,8 +1,9 @@
-import { HeroUnit, RPGEnemy, SkillEffect, HeroClass } from '../types/rpg';
+import { HeroUnit, RPGEnemy, SkillEffect, HeroClass, AdvancedHeroClass } from '../types/rpg';
 import { Camera, UnitType } from '../types';
 import { drawEmoji } from '../utils/canvasEmoji';
 import { drawUnitImage } from '../utils/unitImages';
-import { RPG_CONFIG } from '../constants/rpgConfig';
+import { drawHeroImage } from '../utils/heroImages';
+import { RPG_CONFIG, ADVANCED_CLASS_CONFIGS } from '../constants/rpgConfig';
 
 // 직업별 이미지 매핑 및 색상 설정
 const CLASS_VISUALS: Record<HeroClass, { unitType: UnitType; emoji: string; color: string; glowColor: string }> = {
@@ -318,12 +319,40 @@ export function drawHero(
 
   ctx.restore();
 
-  // 영웅 아이콘 (직업별 이미지, 없으면 이모지 폴백)
+  // 영웅 아이콘 (전직 시 전직 이미지, 아니면 기본 직업 이미지)
   // 원본 이미지가 왼쪽을 바라보므로, 오른쪽을 바라볼 때 flip
   const flipHero = hero.facingRight;
-  const imageDrawn = drawUnitImage(ctx, classVisual.unitType, screenX, screenY, 30, flipHero, 40);
+  let imageDrawn = false;
+
+  // 전직한 경우 전직 이미지 사용
+  if (hero.advancedClass) {
+    imageDrawn = drawHeroImage(
+      ctx,
+      hero.heroClass,
+      hero.advancedClass as AdvancedHeroClass,
+      hero.tier,
+      screenX,
+      screenY,
+      40,  // 전직 이미지는 조금 더 크게
+      50,
+      flipHero
+    );
+
+    // 전직 이미지 실패 시 기본 이미지로 폴백
+    if (!imageDrawn) {
+      imageDrawn = drawUnitImage(ctx, classVisual.unitType, screenX, screenY, 30, flipHero, 40);
+    }
+  } else {
+    // 기본 직업 이미지
+    imageDrawn = drawUnitImage(ctx, classVisual.unitType, screenX, screenY, 30, flipHero, 40);
+  }
+
   if (!imageDrawn) {
-    drawEmoji(ctx, classVisual.emoji, screenX, screenY, 28);
+    // 전직한 경우 전직 이모지 사용
+    const emoji = hero.advancedClass
+      ? ADVANCED_CLASS_CONFIGS[hero.advancedClass as AdvancedHeroClass]?.emoji || classVisual.emoji
+      : classVisual.emoji;
+    drawEmoji(ctx, emoji, screenX, screenY, 28);
   }
 
   // 캐릭터 레벨 배지 (계정 레벨)

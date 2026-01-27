@@ -84,7 +84,25 @@ export type SkillType =
   | 'knight_bash' | 'knight_charge' | 'knight_ironwall'
   // 마법사
   | 'mage_q' | 'mage_w' | 'mage_e'
-  | 'mage_bolt' | 'mage_fireball' | 'mage_meteor';
+  | 'mage_bolt' | 'mage_fireball' | 'mage_meteor'
+  // 전직 W 스킬
+  | 'blood_rush'      // 버서커 - 피의 돌진
+  | 'guardian_rush'   // 가디언 - 수호의 돌진
+  | 'backflip_shot'   // 저격수 - 후방 도약
+  | 'multi_arrow'     // 레인저 - 다중 화살
+  | 'holy_charge'     // 팔라딘 - 신성한 돌진
+  | 'shadow_slash'    // 다크나이트 - 암흑 베기
+  | 'inferno'         // 대마법사 - 폭발 화염구
+  | 'healing_light'   // 힐러 - 치유의 빛
+  // 전직 E 스킬
+  | 'rage'            // 버서커 - 광란
+  | 'shield'          // 가디언 - 보호막
+  | 'snipe'           // 저격수 - 저격
+  | 'arrow_storm'     // 레인저 - 화살 폭풍
+  | 'divine_light'    // 팔라딘 - 신성한 빛
+  | 'dark_blade'      // 다크나이트 - 어둠의 칼날
+  | 'meteor_shower'   // 대마법사 - 메테오 샤워
+  | 'spring_of_life'; // 힐러 - 생명의 샘
 
 // 스킬 슬롯 타입
 export type SkillSlot = 'Q' | 'W' | 'E';
@@ -207,6 +225,7 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   type: 'hero';
   heroClass: HeroClass;      // 영웅 직업
   advancedClass?: AdvancedHeroClass; // 전직 직업 (전직 후에만 존재)
+  tier?: 1 | 2;              // 전직 단계 (1: 1차 전직, 2: 2차 강화)
   characterLevel: number;    // 계정 캐릭터 레벨 (프로필에서 가져옴)
   statUpgrades?: CharacterStatUpgrades; // SP로 업그레이드한 스탯
   skills: Skill[];           // 보유 스킬
@@ -354,6 +373,12 @@ export interface PendingSkill {
   radius: number;
   casterId?: string;     // 스킬 시전자 ID (보스 골드 분배용)
   bossDamageMultiplier?: number; // 보스 데미지 배율 (마법사 패시브)
+  // 전직 스킬용 추가 필드
+  targetId?: string;     // 저격 타겟 ID
+  duration?: number;     // 지속시간 (틱 스킬용)
+  tickCount?: number;    // 남은 틱 수
+  healPercent?: number;  // 힐 비율 (힐러 E 스킬용)
+  meteorCount?: number;  // 남은 운석 수 (대마법사 E 스킬용)
 }
 
 // 레벨업 보너스 (계정 레벨 보너스)

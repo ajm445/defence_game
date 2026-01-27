@@ -462,24 +462,28 @@ function executeOtherHeroSkill(
   targetY: number
 ) {
   const state = useRPGStore.getState();
-  const heroClass = hero.heroClass;
-  const classSkills = CLASS_SKILLS[heroClass];
 
-  // 스킬 타입 결정
-  let skillType: SkillType;
+  // 스킬 슬롯에 해당하는 스킬 인덱스
+  const skillIndex = skillSlot === 'Q' ? 0 : skillSlot === 'W' ? 1 : 2;
+
+  // 영웅의 실제 스킬에서 타입 가져오기 (전직 스킬 포함)
+  const skill = hero.skills[skillIndex];
+  if (!skill) {
+    console.log(`[NetworkSync] 스킬을 찾을 수 없음: ${heroId}, ${skillSlot}`);
+    return;
+  }
+
+  const skillType = skill.type;
   let executeSkill: typeof executeQSkill | typeof executeWSkill | typeof executeESkill;
 
   switch (skillSlot) {
     case 'Q':
-      skillType = classSkills.q.type;
       executeSkill = executeQSkill;
       break;
     case 'W':
-      skillType = classSkills.w.type;
       executeSkill = executeWSkill;
       break;
     case 'E':
-      skillType = classSkills.e.type;
       executeSkill = executeESkill;
       break;
     default:
@@ -487,16 +491,23 @@ function executeOtherHeroSkill(
   }
 
   // 스킬 쿨다운 확인
-  const skill = hero.skills.find(s => s.type === skillType);
-  if (!skill || skill.currentCooldown > 0) {
+  if (skill.currentCooldown > 0) {
     console.log(`[NetworkSync] 스킬 쿨다운 중: ${heroId}, ${skillSlot}`);
     return;
   }
 
-  // 스킬 실행 (enemyBases 전달, E 스킬은 casterId도 전달)
+  // 스킬 실행 (enemyBases 전달, E 스킬은 casterId도 전달, W 스킬은 allies 전달)
   let result;
+
+  // 모든 아군 영웅 목록 (내 영웅 + 다른 영웅들)
+  const allAllies: HeroUnit[] = [];
+  if (state.hero) allAllies.push(state.hero);
+  state.otherHeroes.forEach((h) => allAllies.push(h));
+
   if (skillSlot === 'E') {
     result = (executeSkill as typeof executeESkill)(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases, heroId);
+  } else if (skillSlot === 'W') {
+    result = (executeSkill as typeof executeWSkill)(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases, 0, allAllies);
   } else {
     result = executeSkill(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases);
   }
@@ -569,6 +580,44 @@ function executeOtherHeroSkill(
     shareBuffToAllies(result.buff, result.hero, heroId);
   }
 
+  // 아군 힐 적용 (전직 스킬: 성기사, 힐러)
+  if (result.allyHeals && result.allyHeals.length > 0) {
+    for (const heal of result.allyHeals) {
+      // 내 영웅인 경우
+      if (state.hero && state.hero.id === heal.heroId) {
+        const newHp = Math.min(state.hero.maxHp, state.hero.hp + heal.heal);
+        useRPGStore.setState({ hero: { ...state.hero, hp: newHp } });
+        effectManager.createEffect('heal', state.hero.x, state.hero.y);
+      } else {
+        // 다른 영웅인 경우
+        const targetHero = state.otherHeroes.get(heal.heroId);
+        if (targetHero) {
+          const newHp = Math.min(targetHero.maxHp, targetHero.hp + heal.heal);
+          state.updateOtherHero(heal.heroId, { hp: newHp });
+          effectManager.createEffect('heal', targetHero.x, targetHero.y);
+        }
+      }
+    }
+  }
+
+  // 아군 버프 적용 (전직 스킬: 성기사, 힐러)
+  if (result.allyBuffs && result.allyBuffs.length > 0) {
+    for (const allyBuff of result.allyBuffs) {
+      // 내 영웅인 경우
+      if (state.hero && state.hero.id === allyBuff.heroId) {
+        const existingBuffs = state.hero.buffs.filter(b => b.type !== allyBuff.buff.type);
+        useRPGStore.setState({ hero: { ...state.hero, buffs: [...existingBuffs, allyBuff.buff] } });
+      } else {
+        // 다른 영웅인 경우
+        const targetHero = state.otherHeroes.get(allyBuff.heroId);
+        if (targetHero) {
+          const existingBuffs = targetHero.buffs.filter(b => b.type !== allyBuff.buff.type);
+          state.updateOtherHero(allyBuff.heroId, { buffs: [...existingBuffs, allyBuff.buff] });
+        }
+      }
+    }
+  }
+
   // 보류 스킬 (운석 낙하 등)
   if (result.pendingSkill) {
     state.addPendingSkill(result.pendingSkill);
@@ -591,7 +640,7 @@ function executeOtherHeroSkill(
   }
 
   // 사운드 재생
-  if (heroClass === 'archer' || heroClass === 'mage') {
+  if (hero.heroClass === 'archer' || hero.heroClass === 'mage') {
     soundManager.play('attack_ranged');
   } else {
     soundManager.play('attack_melee');
@@ -812,25 +861,42 @@ export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'gol
 /**
  * 멀티플레이 방 생성
  */
-export function createMultiplayerRoom(playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean, difficulty?: string) {
+export function createMultiplayerRoom(
+  playerName: string,
+  heroClass: any,
+  characterLevel?: number,
+  statUpgrades?: any,
+  isPrivate?: boolean,
+  difficulty?: string,
+  advancedClass?: string,
+  tier?: 1 | 2
+) {
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
     connectionState: 'connecting',
   });
 
-  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false, difficulty ?? 'easy');
+  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false, difficulty ?? 'easy', advancedClass as any, tier);
 }
 
 /**
  * 멀티플레이 방 참가
  */
-export function joinMultiplayerRoom(roomCode: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any) {
+export function joinMultiplayerRoom(
+  roomCode: string,
+  playerName: string,
+  heroClass: any,
+  characterLevel?: number,
+  statUpgrades?: any,
+  advancedClass?: string,
+  tier?: 1 | 2
+) {
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
     connectionState: 'connecting',
   });
 
-  wsClient.joinCoopRoom(roomCode, playerName, heroClass, characterLevel, statUpgrades);
+  wsClient.joinCoopRoom(roomCode, playerName, heroClass, characterLevel, statUpgrades, advancedClass as any, tier);
 }
 
 /**

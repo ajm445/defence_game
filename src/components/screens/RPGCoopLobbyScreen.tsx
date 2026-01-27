@@ -99,6 +99,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     const progress = classProgress.find(p => p.className === selectedClass);
     const characterLevel = progress?.classLevel || 1;
     const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+    const advancedClass = progress?.advancedClass;
+    const tier = progress?.tier;
 
     // 변경 여부 확인 (직업 또는 statUpgrades가 변경된 경우에만 전송)
     const statUpgradesStr = JSON.stringify(statUpgrades);
@@ -117,13 +119,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     const currentPlayers = useRPGStore.getState().multiplayer.players;
     const updatedPlayers = currentPlayers.map(p =>
       p.id === wsClient.playerId
-        ? { ...p, heroClass: selectedClass, characterLevel, statUpgrades }
+        ? { ...p, heroClass: selectedClass, characterLevel, statUpgrades, advancedClass, tier }
         : p
     );
     useRPGStore.getState().setMultiplayerState({ players: updatedPlayers });
 
-    // 서버에 최신 정보 전송
-    wsClient.send({ type: 'CHANGE_COOP_CLASS', heroClass: selectedClass, characterLevel, statUpgrades });
+    // 서버에 최신 정보 전송 (전직 정보 포함)
+    wsClient.changeCoopClass(selectedClass, characterLevel, statUpgrades, advancedClass as any, tier);
   }, [classProgress, multiplayer.connectionState, selectedClass]);
 
   // 방 목록 자동 갱신 (로비에 있지 않을 때만)
@@ -232,7 +234,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         case 'COOP_PLAYER_CLASS_CHANGED':
           const playersWithClassChange = useRPGStore.getState().multiplayer.players.map(p =>
             p.id === message.playerId
-              ? { ...p, heroClass: message.heroClass, characterLevel: message.characterLevel || p.characterLevel || 1 }
+              ? {
+                  ...p,
+                  heroClass: message.heroClass,
+                  characterLevel: message.characterLevel || p.characterLevel || 1,
+                  advancedClass: message.advancedClass,  // 전직 직업 동기화
+                  tier: message.tier,                     // 전직 단계 동기화
+                }
               : p
           );
           useRPGStore.getState().setMultiplayerState({ players: playersWithClassChange });
@@ -377,9 +385,11 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       const progress = classProgress.find(p => p.className === defaultClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+      const advancedClass = progress?.advancedClass;
+      const tier = progress?.tier;
 
       selectClass(defaultClass);
-      wsClient.joinCoopRoomById(roomId, playerName, defaultClass, characterLevel, statUpgrades);
+      wsClient.joinCoopRoomById(roomId, playerName, defaultClass, characterLevel, statUpgrades, advancedClass as any, tier);
     } catch (e) {
       setError('서버 연결 실패');
     }
@@ -484,9 +494,11 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       const progress = classProgress.find(p => p.className === defaultClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+      const advancedClass = progress?.advancedClass;
+      const tier = progress?.tier;
 
       selectClass(defaultClass);
-      createMultiplayerRoom(playerName, defaultClass, characterLevel, statUpgrades, roomType === 'private', difficulty);
+      createMultiplayerRoom(playerName, defaultClass, characterLevel, statUpgrades, roomType === 'private', difficulty, advancedClass, tier);
     } catch (e) {
       setError('서버 연결 실패');
     }
@@ -513,10 +525,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       const progress = classProgress.find(p => p.className === defaultClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+      const advancedClass = progress?.advancedClass;
+      const tier = progress?.tier;
 
       selectClass(defaultClass);
       // 비밀방은 코드로 참가 (서버에서 코드 검증)
-      wsClient.joinCoopRoom(roomCode, playerName, defaultClass, characterLevel, statUpgrades);
+      wsClient.joinCoopRoom(roomCode, playerName, defaultClass, characterLevel, statUpgrades, advancedClass as any, tier);
     } catch (e) {
       setError('서버 연결 실패');
     }

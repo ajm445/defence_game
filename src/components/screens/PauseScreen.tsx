@@ -96,9 +96,11 @@ export const PauseScreen: React.FC = () => {
       const classProgress = classProgressList.find(p => p.className === heroClass);
       const characterLevel = classProgress?.classLevel ?? 1;
       const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
+      const advancedClass = classProgress?.advancedClass;
+      const tier = classProgress?.tier;
 
       useRPGStore.getState().resetGame();
-      useRPGStore.getState().initGame(characterLevel, statUpgrades);
+      useRPGStore.getState().initGame(characterLevel, statUpgrades, undefined, advancedClass, tier);
       setScreen('game');
     } else if (isTutorial) {
       // 튜토리얼 재시작

@@ -71,6 +71,9 @@ export interface SerializedHero {
   statUpgrades?: CharacterStatUpgrades;
   // 개인 처치 수 (멀티플레이어용)
   kills: number;
+  // 전직 정보
+  advancedClass?: string;
+  tier?: 1 | 2;
 }
 
 // ============================================
