@@ -135,6 +135,14 @@ export const GOLD_CONFIG = {
     boss: 500,
   } as GoldTable,
 
+  // 적 기지 파괴 시 골드 보상 (난이도별)
+  BASE_DESTROY_REWARDS: {
+    easy: 50,
+    normal: 100,
+    hard: 200,
+    extreme: 300,
+  } as Record<RPGDifficulty, number>,
+
   // 업그레이드 기본 비용 (1레벨 고정, 이후 레벨 비례 증가)
   UPGRADE_BASE_COST: 50,
 

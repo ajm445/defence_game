@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
 import { wsClient } from '../services/WebSocketClient';
-import { CLASS_SKILLS } from '../constants/rpgConfig';
+import { CLASS_SKILLS, GOLD_CONFIG } from '../constants/rpgConfig';
 import {
   executeQSkill,
   executeWSkill,
@@ -546,13 +546,17 @@ function executeOtherHeroSkill(
     }
   }
 
-  // 기지 데미지 적용
+  // 기지 데미지 적용 - heroId를 전달하여 골드 배분용 공격자 추적
   if (result.baseDamages && result.baseDamages.length > 0) {
     for (const baseDamage of result.baseDamages) {
-      const destroyed = state.damageBase(baseDamage.baseId, baseDamage.damage);
+      const { destroyed, goldReceived } = state.damageBase(baseDamage.baseId, baseDamage.damage, heroId);
       if (destroyed) {
         const showNotification = useUIStore.getState().showNotification;
-        showNotification(`적 기지 파괴!`);
+        if (goldReceived > 0) {
+          showNotification(`적 기지 파괴! (+${goldReceived} 골드)`);
+        } else {
+          showNotification(`적 기지 파괴!`);
+        }
         soundManager.play('victory');
       }
     }

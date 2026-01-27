@@ -150,6 +150,7 @@ export interface EnemyBase {
   hp: number;
   maxHp: number;
   destroyed: boolean;
+  attackers: Set<string>;  // 기지를 공격한 영웅 ID 목록 (멀티플레이 골드 배분용)
 }
 
 // Upgrade Levels (업그레이드 레벨)

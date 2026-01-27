@@ -132,7 +132,7 @@ interface RPGActions {
 
   // 넥서스/기지
   damageNexus: (amount: number) => void;
-  damageBase: (baseId: EnemyBaseId, amount: number) => boolean; // returns true if destroyed
+  damageBase: (baseId: EnemyBaseId, amount: number, attackerId?: string) => { destroyed: boolean; goldReceived: number }; // returns destroyed status and gold received by caller
   spawnBosses: () => void;
   setGamePhase: (phase: RPGGamePhase) => void;
 
@@ -235,6 +235,7 @@ const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficu
       hp: Math.floor(ENEMY_BASE_CONFIG.left.hp * hpMultiplier),
       maxHp: Math.floor(ENEMY_BASE_CONFIG.left.hp * hpMultiplier),
       destroyed: false,
+      attackers: new Set<string>(),
     },
     {
       id: 'right',
@@ -243,6 +244,7 @@ const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficu
       hp: Math.floor(ENEMY_BASE_CONFIG.right.hp * hpMultiplier),
       maxHp: Math.floor(ENEMY_BASE_CONFIG.right.hp * hpMultiplier),
       destroyed: false,
+      attackers: new Set<string>(),
     },
   ];
 
@@ -255,6 +257,7 @@ const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficu
       hp: Math.floor(ENEMY_BASE_CONFIG.top.hp * hpMultiplier),
       maxHp: Math.floor(ENEMY_BASE_CONFIG.top.hp * hpMultiplier),
       destroyed: false,
+      attackers: new Set<string>(),
     });
   }
 
@@ -267,6 +270,7 @@ const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficu
       hp: Math.floor(ENEMY_BASE_CONFIG.bottom.hp * hpMultiplier),
       maxHp: Math.floor(ENEMY_BASE_CONFIG.bottom.hp * hpMultiplier),
       destroyed: false,
+      attackers: new Set<string>(),
     });
   }
 
@@ -1094,23 +1098,32 @@ export const useRPGStore = create<RPGStore>()(
     },
 
     // 적 기지 피해
-    damageBase: (baseId: EnemyBaseId, amount: number) => {
+    damageBase: (baseId: EnemyBaseId, amount: number, attackerId?: string) => {
       let destroyed = false;
+      let baseAttackers: string[] = [];
+      let goldReceived = 0;
 
       set((state) => {
         const updatedBases = state.enemyBases.map((base) => {
           if (base.id === baseId && !base.destroyed) {
+            // 공격자 추적 (멀티플레이 골드 배분용)
+            const newAttackers = new Set(base.attackers);
+            if (attackerId) {
+              newAttackers.add(attackerId);
+            }
+
             const newHp = Math.max(0, base.hp - amount);
             if (newHp <= 0) {
               destroyed = true;
-              return { ...base, hp: 0, destroyed: true };
+              baseAttackers = Array.from(newAttackers);
+              return { ...base, hp: 0, destroyed: true, attackers: newAttackers };
             }
-            return { ...base, hp: newHp };
+            return { ...base, hp: newHp, attackers: newAttackers };
           }
           return base;
         });
 
-        // 기지 파괴 시 통계 업데이트
+        // 기지 파괴 시 통계 업데이트 (골드는 아래에서 별도 처리)
         const statsUpdate = destroyed ? {
           stats: {
             ...state.stats,
@@ -1129,7 +1142,38 @@ export const useRPGStore = create<RPGStore>()(
         };
       });
 
-      return destroyed;
+      // 기지 파괴 시 골드 분배 (damageEnemy와 동일한 패턴)
+      if (destroyed) {
+        const state = get();
+        const myHeroId = state.multiplayer.myHeroId;
+        const isMultiplayer = state.multiplayer.isMultiplayer;
+        const baseReward = GOLD_CONFIG.BASE_DESTROY_REWARDS[state.selectedDifficulty];
+
+        if (isMultiplayer && baseAttackers.length > 0) {
+          // 멀티플레이: 공격에 참여한 모든 플레이어에게 균등 분배
+          const goldPerAttacker = Math.floor(baseReward / baseAttackers.length);
+
+          for (const heroId of baseAttackers) {
+            if (heroId === myHeroId) {
+              get().addGold(goldPerAttacker);
+              goldReceived = goldPerAttacker; // 호출자가 받은 골드
+            } else {
+              state.addGoldToOtherPlayer(heroId, goldPerAttacker);
+            }
+          }
+
+          // 호출자가 공격자 목록에 없었던 경우 (다른 플레이어가 마무리한 경우)
+          if (attackerId && !baseAttackers.includes(attackerId)) {
+            goldReceived = 0;
+          }
+        } else {
+          // 싱글플레이 또는 공격자가 없는 경우: 호스트에게 전체 골드 지급
+          get().addGold(baseReward);
+          goldReceived = baseReward;
+        }
+      }
+
+      return { destroyed, goldReceived };
     },
 
     // 보스 스폰
@@ -1839,13 +1883,19 @@ export const useRPGStore = create<RPGStore>()(
         stunEndTime: enemy.stunEndTime,
       }));
 
+      // enemyBases 직렬화: Set을 Array로 변환
+      const serializedEnemyBases = state.enemyBases.map(base => ({
+        ...base,
+        attackers: Array.from(base.attackers),
+      }));
+
       return {
         gameTime: state.gameTime,
         gamePhase: state.gamePhase,
         heroes,
         enemies,
         nexus: state.nexus || createInitialNexus(),
-        enemyBases: state.enemyBases,
+        enemyBases: serializedEnemyBases as unknown as EnemyBase[],
         gold: state.gold,
         upgradeLevels: state.upgradeLevels,
         activeSkillEffects: state.activeSkillEffects,
@@ -2045,7 +2095,11 @@ export const useRPGStore = create<RPGStore>()(
         personalKills: myKills,
         enemies,
         nexus: serializedState.nexus,
-        enemyBases: serializedState.enemyBases,
+        // enemyBases 역직렬화: Array를 Set으로 변환
+        enemyBases: serializedState.enemyBases.map(base => ({
+          ...base,
+          attackers: new Set(Array.isArray((base as unknown as { attackers: string[] }).attackers) ? (base as unknown as { attackers: string[] }).attackers : []),
+        })),
         gold: myGold,  // 내 골드 적용
         upgradeLevels: myUpgrades,  // 내 업그레이드 적용
         activeSkillEffects: serializedState.activeSkillEffects,

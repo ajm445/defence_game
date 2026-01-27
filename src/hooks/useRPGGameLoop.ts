@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG, UPGRADE_CONFIG } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG, UPGRADE_CONFIG, GOLD_CONFIG } from '../constants/rpgConfig';
 import { getStatBonus } from '../types/auth';
 import { updateHeroUnit, findNearestEnemy, findNearestEnemyBase } from '../game/rpg/heroUnit';
 import {
@@ -361,8 +361,9 @@ export function useRPGGameLoop() {
                 totalAttack = Math.floor(totalAttack * (1 + hostBerserkerBuff.attackBonus));
               }
 
-              // 기지에 데미지 적용
-              const destroyed = useRPGStore.getState().damageBase(nearestBase.id, totalAttack);
+              // 기지에 데미지 적용 (attackerId 전달로 골드 배분용 공격자 추적)
+              const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
+              const { destroyed, goldReceived } = useRPGStore.getState().damageBase(nearestBase.id, totalAttack, myHeroId);
 
               // 이펙트 및 사운드
               effectManager.createEffect('attack_melee', nearestBase.x, nearestBase.y);
@@ -375,7 +376,11 @@ export function useRPGGameLoop() {
               // 기지 파괴 시 알림
               if (destroyed) {
                 const showNotification = useUIStore.getState().showNotification;
-                showNotification(`적 기지 파괴!`);
+                if (goldReceived > 0) {
+                  showNotification(`적 기지 파괴! (+${goldReceived} 골드)`);
+                } else {
+                  showNotification(`적 기지 파괴!`);
+                }
                 soundManager.play('victory');
               }
             }
@@ -1041,10 +1046,14 @@ export function useRPGGameLoop() {
       // 기지 데미지 적용
       if (result.baseDamages && result.baseDamages.length > 0) {
         for (const baseDamage of result.baseDamages) {
-          const destroyed = useRPGStore.getState().damageBase(baseDamage.baseId, baseDamage.damage);
+          const { destroyed, goldReceived } = useRPGStore.getState().damageBase(baseDamage.baseId, baseDamage.damage, killerHeroId);
           if (destroyed) {
             const showNotification = useUIStore.getState().showNotification;
-            showNotification(`적 기지 파괴!`);
+            if (goldReceived > 0) {
+              showNotification(`적 기지 파괴! (+${goldReceived} 골드)`);
+            } else {
+              showNotification(`적 기지 파괴!`);
+            }
             soundManager.play('victory');
           }
         }
@@ -1526,13 +1535,17 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대: -0.5)
             if (dot < -0.5) continue;
 
-            // 기지 데미지 적용
-            const destroyed = state.damageBase(base.id, totalDamage);
+            // 기지 데미지 적용 (heroId 전달로 골드 배분용 공격자 추적)
+            const { destroyed, goldReceived } = state.damageBase(base.id, totalDamage, heroId);
             hitTargets.push({ x: base.x, y: base.y, damage: totalDamage });
 
             if (destroyed) {
               const showNotification = useUIStore.getState().showNotification;
-              showNotification(`적 기지 파괴!`);
+              if (goldReceived > 0) {
+                showNotification(`적 기지 파괴! (+${goldReceived} 골드)`);
+              } else {
+                showNotification(`적 기지 파괴!`);
+              }
               soundManager.play('victory');
             }
           }
@@ -1655,7 +1668,8 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             baseTotalDamage = Math.floor(baseTotalDamage * (1 + berserkerBuff.attackBonus));
           }
 
-          const destroyed = state.damageBase(nearestBase.id, baseTotalDamage);
+          // 기지 데미지 적용 (heroId 전달로 골드 배분용 공격자 추적)
+          const { destroyed, goldReceived } = state.damageBase(nearestBase.id, baseTotalDamage, heroId);
 
           // 공격 방향 계산
           const baseDirX = nearestBase.x - hero.x;
@@ -1695,7 +1709,11 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
 
           if (destroyed) {
             const showNotification = useUIStore.getState().showNotification;
-            showNotification(`적 기지 파괴!`);
+            if (goldReceived > 0) {
+              showNotification(`적 기지 파괴! (+${goldReceived} 골드)`);
+            } else {
+              showNotification(`적 기지 파괴!`);
+            }
             soundManager.play('victory');
           }
         }
