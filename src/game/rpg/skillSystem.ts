@@ -75,6 +75,20 @@ export function getSkillDescription(skill: Skill): string {
     }
   }
 
+  // 전직 W 스킬
+  for (const [, skillConfig] of Object.entries(ADVANCED_W_SKILLS)) {
+    if (skillConfig.type === skill.type) {
+      return skillConfig.description;
+    }
+  }
+
+  // 전직 E 스킬
+  for (const [, skillConfig] of Object.entries(ADVANCED_E_SKILLS)) {
+    if (skillConfig.type === skill.type) {
+      return skillConfig.description;
+    }
+  }
+
   return '';
 }
 
@@ -1128,6 +1142,7 @@ function executeAdvancedWSkill(
         // 아군 힐 (도착지점 주변)
         for (const ally of allies) {
           if (ally.id === hero.id) continue;  // 자기 자신 제외
+          if (ally.hp <= 0) continue;  // 사망한 아군 제외
           const allyDist = distance(newX, newY, ally.x, ally.y);
           if (allyDist <= healRadius) {
             const healAmount = Math.floor(ally.maxHp * healPercent);
@@ -1307,6 +1322,7 @@ function executeAdvancedWSkill(
 
         for (const ally of allies) {
           if (ally.id === hero.id) continue;
+          if (ally.hp <= 0) continue;  // 사망한 아군 제외
           const allyDist = distance(targetX, targetY, ally.x, ally.y);
           if (allyDist <= radius) {
             const healAmount = Math.floor(ally.maxHp * healPercent);
@@ -1351,7 +1367,7 @@ function executeAdvancedESkill(
   targetX: number,
   targetY: number,
   gameTime: number,
-  _enemyBases: EnemyBase[],
+  _enemyBases: EnemyBase[],  // 기지 데미지는 pendingSkill 처리 시 useRPGGameLoop에서 적용
   casterId: string | undefined,
   attackUpgradeLevel: number,
   allies: HeroUnit[]
@@ -1415,6 +1431,7 @@ function executeAdvancedESkill(
         // 아군 전체에게 버프
         for (const ally of allies) {
           if (ally.id === hero.id) continue;
+          if (ally.hp <= 0) continue;  // 사망한 아군 제외
           const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
           if (allyDist <= radius) {
             allyBuffs.push({
@@ -1445,9 +1462,12 @@ function executeAdvancedESkill(
         const chargeTime = skillConfig.chargeTime || 3;
         const snipeDamage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 10.0));
 
-        // 가장 가까운 적 또는 마우스 방향의 적 타겟팅
+        // 타겟팅 (보스 우선, 그 다음 가장 가까운 적)
         let targetEnemy: RPGEnemy | null = null;
-        let closestDist = Infinity;
+        let closestBoss: RPGEnemy | null = null;
+        let closestNormal: RPGEnemy | null = null;
+        let closestBossDist = Infinity;
+        let closestNormalDist = Infinity;
         const targetAngle = Math.atan2(targetY - hero.y, targetX - hero.x);
 
         for (const enemy of enemies) {
@@ -1458,33 +1478,58 @@ function executeAdvancedESkill(
 
           if (normalizedDiff < Math.PI / 6) {  // 30도 이내
             const enemyDist = distance(hero.x, hero.y, enemy.x, enemy.y);
-            if (enemyDist < closestDist) {
-              closestDist = enemyDist;
-              targetEnemy = enemy;
+
+            // 보스와 일반 적 분리
+            if (enemy.type === 'boss') {
+              if (enemyDist < closestBossDist) {
+                closestBossDist = enemyDist;
+                closestBoss = enemy;
+              }
+            } else {
+              if (enemyDist < closestNormalDist) {
+                closestNormalDist = enemyDist;
+                closestNormal = enemy;
+              }
             }
           }
         }
 
-        if (targetEnemy) {
-          // 지연 스킬로 처리
-          pendingSkill = {
-            type: skillConfig.type,
-            position: { x: targetEnemy.x, y: targetEnemy.y },
-            triggerTime: gameTime + chargeTime,
-            damage: snipeDamage,
-            radius: 0,  // 단일 타겟
-            casterId,
-            targetId: targetEnemy.id,
-          };
+        // 보스 우선, 없으면 일반 적
+        targetEnemy = closestBoss || closestNormal;
 
-          effect = {
-            type: 'snipe' as SkillType,
-            position: { x: hero.x, y: hero.y },
-            targetPosition: { x: targetEnemy.x, y: targetEnemy.y },
-            duration: chargeTime,
-            startTime: gameTime,
+        // 타겟이 없으면 스킬 사용 취소 (쿨다운 시작 안 함)
+        if (!targetEnemy) {
+          return {
+            hero,
+            enemyDamages: [],
+            baseDamages: [],
           };
         }
+
+        // 지연 스킬로 처리
+        pendingSkill = {
+          type: skillConfig.type,
+          position: { x: targetEnemy.x, y: targetEnemy.y },
+          triggerTime: gameTime + chargeTime,
+          damage: snipeDamage,
+          radius: 0,  // 단일 타겟
+          casterId,
+          targetId: targetEnemy.id,
+        };
+
+        effect = {
+          type: 'snipe' as SkillType,
+          position: { x: hero.x, y: hero.y },
+          targetPosition: { x: targetEnemy.x, y: targetEnemy.y },
+          duration: chargeTime,
+          startTime: gameTime,
+        };
+
+        // 시전 상태 설정 (3초간 이동/공격 불가)
+        updatedHero = {
+          ...hero,
+          castingUntil: gameTime + chargeTime,
+        };
       }
       break;
 
@@ -1534,6 +1579,7 @@ function executeAdvancedESkill(
         // 아군 전체 힐 + 무적
         for (const ally of allies) {
           if (ally.id === hero.id) continue;
+          if (ally.hp <= 0) continue;  // 사망한 아군 제외
           const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
           if (allyDist <= radius) {
             const healAmount = Math.floor(ally.maxHp * healPercent);

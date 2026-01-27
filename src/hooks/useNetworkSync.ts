@@ -72,8 +72,8 @@ export function useNetworkSync() {
       return;
     }
 
-    // 이동 방향 및 위치 업데이트
-    if (input.moveDirection !== undefined) {
+    // 이동 방향 및 위치 업데이트 (사망한 영웅은 이동 불가)
+    if (input.moveDirection !== undefined && hero.hp > 0) {
       const updateData: Record<string, any> = {
         moveDirection: input.moveDirection || undefined,
         state: input.moveDirection ? 'moving' : 'idle',
@@ -107,8 +107,8 @@ export function useNetworkSync() {
       );
     }
 
-    // 업그레이드 요청 (각 플레이어별 골드/업그레이드 사용)
-    if (input.upgradeRequested) {
+    // 업그레이드 요청 (각 플레이어별 골드/업그레이드 사용, 사망한 영웅은 업그레이드 불가)
+    if (input.upgradeRequested && hero.hp > 0) {
       const upgradeType = input.upgradeRequested as 'attack' | 'speed' | 'hp' | 'attackSpeed' | 'goldRate' | 'range';
       const success = state.upgradeOtherHeroStat(heroId, upgradeType);
       if (success) {
@@ -463,6 +463,12 @@ function executeOtherHeroSkill(
 ) {
   const state = useRPGStore.getState();
 
+  // 사망한 영웅은 스킬 사용 불가
+  if (hero.hp <= 0) {
+    console.log(`[NetworkSync] 사망한 영웅은 스킬 사용 불가: ${heroId}`);
+    return;
+  }
+
   // 스킬 슬롯에 해당하는 스킬 인덱스
   const skillIndex = skillSlot === 'Q' ? 0 : skillSlot === 'W' ? 1 : 2;
 
@@ -535,6 +541,7 @@ function executeOtherHeroSkill(
     skills: updatedSkills,  // 쿨다운 리셋된 스킬
     buffs: updatedBuffs,    // 새 버프 포함
     dashState: updatedHero.dashState,
+    castingUntil: updatedHero.castingUntil,  // 시전 상태 (스나이퍼 E 스킬 등)
     facingAngle: Math.atan2(targetY - hero.y, targetX - hero.x),
   });
 
