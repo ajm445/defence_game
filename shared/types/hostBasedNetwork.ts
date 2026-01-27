@@ -74,6 +74,8 @@ export interface SerializedHero {
   // 전직 정보
   advancedClass?: string;
   tier?: 1 | 2;
+  // 시전 상태 (스나이퍼 E 스킬 등)
+  castingUntil?: number;
 }
 
 // ============================================

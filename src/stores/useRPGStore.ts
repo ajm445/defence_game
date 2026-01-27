@@ -713,7 +713,13 @@ export const useRPGStore = create<RPGStore>()(
         // 사망 시 deathTime 설정 (부활 시스템용) - gameOver는 설정하지 않음
         if (isDead && !state.hero.deathTime) {
           return {
-            hero: { ...state.hero, hp: newHp, deathTime: state.gameTime },
+            hero: {
+              ...state.hero,
+              hp: newHp,
+              deathTime: state.gameTime,
+              castingUntil: undefined,  // 시전 상태 초기화
+              dashState: undefined,     // 돌진 상태 초기화
+            },
           };
         }
 
@@ -760,6 +766,8 @@ export const useRPGStore = create<RPGStore>()(
             moveDirection: undefined,
             state: 'idle',
             buffs: [...(state.hero.buffs || []), invincibleBuff],
+            castingUntil: undefined,  // 시전 상태 초기화
+            dashState: undefined,     // 돌진 상태 초기화
           },
         };
       });
@@ -2441,6 +2449,7 @@ function serializeHeroToNetwork(hero: HeroUnit, gold: number, upgradeLevels: Upg
     kills,
     advancedClass: hero.advancedClass,
     tier: hero.tier,
+    castingUntil: hero.castingUntil,
   };
 }
 
@@ -2511,6 +2520,7 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
     dashState: serialized.dashState,
     statUpgrades: serialized.statUpgrades,
     deathTime: serialized.deathTime,  // 사망 시간 동기화
+    castingUntil: serialized.castingUntil,  // 시전 상태 동기화
   };
 }
 
