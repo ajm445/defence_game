@@ -334,6 +334,8 @@ export interface WaitingCoopRoomInfo {
   hostName: string;
   hostHeroClass: HeroClass;
   hostClassLevel: number;  // 호스트가 선택한 직업의 레벨
+  hostAdvancedClass?: string;  // 호스트의 전직 직업
+  hostTier?: 1 | 2;  // 호스트의 전직 단계
   playerCount: number;
   maxPlayers: number;
   createdAt: number;

@@ -7,7 +7,8 @@ import {
   useProfileStats,
   useProfileIsLoading,
 } from '../../stores/useProfileStore';
-import { CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { CLASS_CONFIGS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { AdvancedHeroClass } from '../../types/rpg';
 import {
   CHARACTER_UNLOCK_LEVELS,
   getRequiredClassExp,
@@ -25,9 +26,18 @@ const ClassProgressCard: React.FC<{
   sp: number;
   playerLevel: number;
   isGuest: boolean;
+  advancedClass?: string;
+  tier?: number;
   onClick: () => void;
-}> = ({ heroClass, level, exp, sp, playerLevel, isGuest, onClick }) => {
-  const config = CLASS_CONFIGS[heroClass];
+}> = ({ heroClass, level, exp, sp, playerLevel, isGuest, advancedClass, tier, onClick }) => {
+  const baseConfig = CLASS_CONFIGS[heroClass];
+  const advConfig = advancedClass ? ADVANCED_CLASS_CONFIGS[advancedClass as AdvancedHeroClass] : null;
+
+  // 표시할 설정 (전직 시 전직 캐릭터 정보 사용)
+  const displayName = advConfig ? advConfig.name : baseConfig.name;
+  const displayNameEn = advConfig ? advConfig.nameEn : baseConfig.nameEn;
+  const displayEmoji = advConfig ? advConfig.emoji : baseConfig.emoji;
+
   const unlockLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
   const isUnlocked = isGuest ? heroClass === 'archer' : playerLevel >= unlockLevel;
 
@@ -69,10 +79,13 @@ const ClassProgressCard: React.FC<{
       )}
 
       <div className="flex items-center gap-3 mb-3">
-        <span className="text-3xl">{config.emoji}</span>
+        <span className="text-3xl">{displayEmoji}</span>
         <div>
-          <h3 className="text-white font-bold">{config.name}</h3>
-          <p className="text-gray-400 text-xs">{config.nameEn}</p>
+          <h3 className="text-white font-bold">
+            {displayName}
+            {tier === 2 && <span className="ml-1 text-orange-400 text-sm">★★</span>}
+          </h3>
+          <p className="text-gray-400 text-xs">{displayNameEn}</p>
         </div>
         <div className="ml-auto text-right">
           <p className="text-yellow-400 font-bold">Lv.{level}</p>
@@ -157,6 +170,8 @@ export const ProfileScreen: React.FC = () => {
       classExp: progress?.classExp ?? 0,
       sp: progress?.sp ?? 0,
       statUpgrades: progress?.statUpgrades ?? createDefaultStatUpgrades(),
+      advancedClass: progress?.advancedClass,
+      tier: progress?.tier,
     };
   };
 
@@ -311,6 +326,8 @@ export const ProfileScreen: React.FC = () => {
                   sp={progressData.sp}
                   playerLevel={profile.playerLevel}
                   isGuest={isGuest}
+                  advancedClass={progressData.advancedClass}
+                  tier={progressData.tier}
                   onClick={() => handleOpenModal(heroClass)}
                 />
               );

@@ -4,7 +4,8 @@ import { useRPGStore, useMultiplayer } from '../../stores/useRPGStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useAuthProfile, useAuthIsGuest, useAuthStore } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
-import { CLASS_CONFIGS, DIFFICULTY_CONFIGS } from '../../constants/rpgConfig';
+import { CLASS_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { AdvancedHeroClass } from '../../types/rpg';
 import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked, createDefaultStatUpgrades } from '../../types/auth';
 import type { HeroClass, RPGDifficulty } from '../../types/rpg';
 import type { WaitingCoopRoomInfo } from '@shared/types/rpgNetwork';
@@ -90,8 +91,10 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   // 이전 값 저장용 ref (불필요한 서버 요청 방지)
   const prevClassRef = useRef<HeroClass | null>(null);
   const prevStatUpgradesRef = useRef<string>('');
+  const prevAdvancedClassRef = useRef<string | undefined>(undefined);
+  const prevTierRef = useRef<number | undefined>(undefined);
 
-  // 방에 있는 상태에서 classProgress(SP 업그레이드) 또는 직업 변경 시 서버에 업데이트 전송
+  // 방에 있는 상태에서 classProgress(SP 업그레이드) 또는 직업 변경 또는 전직 시 서버에 업데이트 전송
   useEffect(() => {
     if (multiplayer.connectionState !== 'in_lobby') return;
     if (!selectedClass) return;
@@ -102,18 +105,22 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     const advancedClass = progress?.advancedClass;
     const tier = progress?.tier;
 
-    // 변경 여부 확인 (직업 또는 statUpgrades가 변경된 경우에만 전송)
+    // 변경 여부 확인 (직업, statUpgrades, 전직 정보 변경 시 전송)
     const statUpgradesStr = JSON.stringify(statUpgrades);
     const isClassChanged = prevClassRef.current !== selectedClass;
     const isStatUpgradesChanged = prevStatUpgradesRef.current !== statUpgradesStr;
+    const isAdvancedClassChanged = prevAdvancedClassRef.current !== advancedClass;
+    const isTierChanged = prevTierRef.current !== tier;
 
-    if (!isClassChanged && !isStatUpgradesChanged) {
+    if (!isClassChanged && !isStatUpgradesChanged && !isAdvancedClassChanged && !isTierChanged) {
       return; // 변경 없으면 스킵
     }
 
     // 이전 값 업데이트
     prevClassRef.current = selectedClass;
     prevStatUpgradesRef.current = statUpgradesStr;
+    prevAdvancedClassRef.current = advancedClass;
+    prevTierRef.current = tier;
 
     // 로컬 플레이어 정보 업데이트
     const currentPlayers = useRPGStore.getState().multiplayer.players;
@@ -165,10 +172,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     const handleMessage = (message: any) => {
       switch (message.type) {
         case 'COOP_ROOM_CREATED':
-          // 현재 선택된 직업의 레벨 가져오기
+          // 현재 선택된 직업의 레벨과 전직 정보 가져오기
           const createdClassProgress = useAuthStore.getState().classProgress;
           const createdProgress = createdClassProgress.find(p => p.className === (selectedClass || 'archer'));
           const createdCharacterLevel = createdProgress?.classLevel || 1;
+          const createdAdvancedClass = createdProgress?.advancedClass;
+          const createdTier = createdProgress?.tier;
 
           useRPGStore.getState().setMultiplayerState({
             roomCode: message.roomCode,
@@ -179,6 +188,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               name: profile?.nickname || '플레이어',
               heroClass: selectedClass || 'archer',
               characterLevel: createdCharacterLevel,
+              advancedClass: createdAdvancedClass,  // 전직 직업
+              tier: createdTier,  // 전직 단계
               isHost: true,
               isReady: false,  // 호스트는 준비 상태가 필요 없음 (게임 시작 권한 보유)
               connected: true,
@@ -701,7 +712,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           <p className="text-gray-400 text-sm mb-3">플레이어 ({players.length}/4)</p>
           <div className="space-y-2">
             {players.map((player) => {
-              const config = CLASS_CONFIGS[player.heroClass];
+              const baseConfig = CLASS_CONFIGS[player.heroClass];
+              const advConfig = player.advancedClass
+                ? ADVANCED_CLASS_CONFIGS[player.advancedClass as AdvancedHeroClass]
+                : null;
+              const displayName = advConfig ? advConfig.name : baseConfig.name;
+              const displayEmoji = advConfig ? advConfig.emoji : baseConfig.emoji;
               const isMe = player.id === wsClient.playerId;
               return (
                 <div
@@ -713,14 +729,15 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                   }`}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-xl">{config.emoji}</span>
+                    <span className="text-xl">{displayEmoji}</span>
                     <div>
                       <p className={`font-bold ${isMe ? 'text-neon-cyan' : 'text-white'}`}>
                         {player.name}
                         {player.isHost && <span className="ml-2 text-yellow-500 text-xs">(호스트)</span>}
                       </p>
                       <p className="text-gray-500 text-xs">
-                        {config.name}
+                        {displayName}
+                        {player.tier === 2 && <span className="ml-1 text-orange-400">★★</span>}
                         <span className="ml-2 text-yellow-400"> Lv.{player.characterLevel || 1}</span>
                       </p>
                     </div>
@@ -751,6 +768,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         {/* 직업 변경 버튼 */}
         {(() => {
           const isMyReady = multiplayer.players.find(p => p.id === wsClient.playerId)?.isReady;
+          const myProgress = classProgress.find(p => p.className === (selectedClass || 'archer'));
+          const baseConfig = CLASS_CONFIGS[selectedClass || 'archer'];
+          const advConfig = myProgress?.advancedClass
+            ? ADVANCED_CLASS_CONFIGS[myProgress.advancedClass as AdvancedHeroClass]
+            : null;
+          const displayName = advConfig ? advConfig.name : baseConfig.name;
+          const displayEmoji = advConfig ? advConfig.emoji : baseConfig.emoji;
           return (
             <button
               onClick={() => !isMyReady && setShowClassModal(true)}
@@ -761,9 +785,10 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                   : 'border-neon-cyan/50 bg-neon-cyan/10 hover:bg-neon-cyan/20 cursor-pointer'
               }`}
             >
-              <span className="text-xl">{CLASS_CONFIGS[selectedClass || 'archer'].emoji}</span>
+              <span className="text-xl">{displayEmoji}</span>
               <span className={isMyReady ? 'text-gray-400' : 'text-neon-cyan'}>
-                {CLASS_CONFIGS[selectedClass || 'archer'].name}
+                {displayName}
+                {myProgress?.tier === 2 && <span className="ml-1 text-orange-400">★★</span>}
               </span>
               <span className="text-gray-400 text-sm ml-2">변경</span>
             </button>
@@ -812,12 +837,20 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
       <div className="flex flex-wrap justify-center gap-4">
         {multiplayer.players.map((player) => {
-          const config = CLASS_CONFIGS[player.heroClass];
+          const baseConfig = CLASS_CONFIGS[player.heroClass];
+          const advConfig = player.advancedClass
+            ? ADVANCED_CLASS_CONFIGS[player.advancedClass as AdvancedHeroClass]
+            : null;
+          const displayName = advConfig ? advConfig.name : baseConfig.name;
+          const displayEmoji = advConfig ? advConfig.emoji : baseConfig.emoji;
           return (
             <div key={player.id} className="text-center px-4">
-              <span className="text-2xl">{config.emoji}</span>
+              <span className="text-2xl">{displayEmoji}</span>
               <p className="text-white font-bold">{player.name}</p>
-              <p className="text-gray-500 text-xs">{config.name}</p>
+              <p className="text-gray-500 text-xs">
+                {displayName}
+                {player.tier === 2 && <span className="ml-1 text-orange-400">★★</span>}
+              </p>
             </div>
           );
         })}
@@ -878,7 +911,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
           {/* 대기 중인 방 카드들 */}
           {roomList.map((room) => {
-            const config = CLASS_CONFIGS[room.hostHeroClass];
+            const baseConfig = CLASS_CONFIGS[room.hostHeroClass];
+            const advConfig = room.hostAdvancedClass
+              ? ADVANCED_CLASS_CONFIGS[room.hostAdvancedClass as AdvancedHeroClass]
+              : null;
+            const displayName = advConfig ? advConfig.name : baseConfig.name;
+            const displayEmoji = advConfig ? advConfig.emoji : baseConfig.emoji;
             const isFull = room.playerCount >= room.maxPlayers;
             const isInGame = room.isInGame;
             const canJoin = !isFull && !isInGame;
@@ -915,13 +953,16 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
                 {/* 호스트 정보 */}
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-3xl">{config.emoji}</span>
+                  <span className="text-3xl">{displayEmoji}</span>
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-bold text-lg truncate">
                       {room.hostName}
                       <span className="ml-2 text-m text-yellow-400 font-normal"> Lv.{room.hostClassLevel}</span>
                     </p>
-                    <p className="text-gray-500 text-sm">{config.name}</p>
+                    <p className="text-gray-500 text-sm">
+                      {displayName}
+                      {room.hostTier === 2 && <span className="ml-1 text-orange-400">★★</span>}
+                    </p>
                   </div>
                 </div>
 

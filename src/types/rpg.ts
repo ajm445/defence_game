@@ -241,6 +241,7 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   dashState?: DashState;     // 돌진 중일 때의 상태 정보
   passiveGrowth: PassiveGrowthState; // 패시브 성장 상태
   deathTime?: number;        // 사망 시간 (부활 타이머용)
+  castingUntil?: number;     // 시전 종료 시간 (게임 시간 기준, 시전 중 이동/공격 불가)
 }
 
 // 웨이브 설정

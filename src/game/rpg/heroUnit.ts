@@ -14,11 +14,15 @@ export interface HeroUpdateResult {
 export function updateHeroUnit(
   hero: HeroUnit,
   deltaTime: number,
-  _enemies: RPGEnemy[]
+  _enemies: RPGEnemy[],
+  gameTime?: number
 ): HeroUpdateResult {
   let updatedHero = { ...hero };
   let enemyDamage: { targetId: string; damage: number } | undefined;
   let reachedTarget = false;
+
+  // 시전 상태 체크 (gameTime이 제공된 경우)
+  const isCasting = gameTime !== undefined && updatedHero.castingUntil && gameTime < updatedHero.castingUntil;
 
   // 사망 상태면 이동/공격 불가 - 위치 고정
   if (updatedHero.hp <= 0) {
@@ -43,6 +47,11 @@ export function updateHeroUnit(
   const config = updatedHero.config;
   const speed = config.speed || updatedHero.baseSpeed;
 
+  // 시전 상태 만료 체크
+  if (gameTime !== undefined && updatedHero.castingUntil && gameTime >= updatedHero.castingUntil) {
+    updatedHero.castingUntil = undefined;
+  }
+
   // 돌진 중인 경우 - 일반 이동보다 우선
   if (updatedHero.dashState) {
     const dash = updatedHero.dashState;
@@ -64,8 +73,8 @@ export function updateHeroUnit(
       updatedHero.state = 'moving';
     }
   }
-  // WASD 방향 이동 (새로운 방식)
-  else if (updatedHero.moveDirection && (updatedHero.moveDirection.x !== 0 || updatedHero.moveDirection.y !== 0)) {
+  // WASD 방향 이동 (새로운 방식) - 시전 중에는 이동 불가
+  else if (!isCasting && updatedHero.moveDirection && (updatedHero.moveDirection.x !== 0 || updatedHero.moveDirection.y !== 0)) {
     const dir = updatedHero.moveDirection;
     const moveDistance = speed * deltaTime * 60;
 

@@ -506,6 +506,8 @@ export function getAllWaitingCoopRooms(): WaitingCoopRoomInfo[] {
         hostName: host?.name || '알 수 없음',
         hostHeroClass: host?.heroClass || 'archer',
         hostClassLevel: host?.characterLevel || 1,
+        hostAdvancedClass: host?.advancedClass,  // 호스트 전직 직업
+        hostTier: host?.tier,  // 호스트 전직 단계
         playerCount: room.players.size,
         maxPlayers: MAX_PLAYERS,
         createdAt: room.createdAt,

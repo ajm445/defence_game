@@ -39,7 +39,36 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
   isUnlocked,
   onClose,
 }) => {
-  const config = CLASS_CONFIGS[heroClass];
+  const baseConfig = CLASS_CONFIGS[heroClass];
+  const advancedConfig = progress.advancedClass
+    ? ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass]
+    : null;
+
+  // 표시용 설정 (전직 시 전직 캐릭터 정보 사용)
+  const displayConfig = advancedConfig
+    ? {
+        name: advancedConfig.name,
+        nameEn: advancedConfig.nameEn,
+        emoji: advancedConfig.emoji,
+        // 2차 강화 시 스탯 1.2배 적용
+        hp: progress.tier === 2
+          ? Math.floor(advancedConfig.stats.hp * 1.2)
+          : advancedConfig.stats.hp,
+        attack: progress.tier === 2
+          ? Math.floor(advancedConfig.stats.attack * 1.2)
+          : advancedConfig.stats.attack,
+        attackSpeed: progress.tier === 2
+          ? Number((advancedConfig.stats.attackSpeed / 1.2).toFixed(2))
+          : advancedConfig.stats.attackSpeed,
+        speed: progress.tier === 2
+          ? Math.floor(advancedConfig.stats.speed * 1.2)
+          : advancedConfig.stats.speed,
+        range: progress.tier === 2
+          ? Math.floor(advancedConfig.stats.range * 1.2)
+          : advancedConfig.stats.range,
+      }
+    : baseConfig;
+
   const upgradeCharacterStatAction = useProfileStore((state) => state.upgradeCharacterStatAction);
   const canUpgradeStat = useProfileStore((state) => state.canUpgradeStat);
   const resetCharacterStatsAction = useProfileStore((state) => state.resetCharacterStatsAction);
@@ -160,11 +189,14 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
         {/* 헤더 */}
         <div className="flex items-center gap-4 mb-6" style={{ paddingLeft: '5px', paddingRight: '5px' }}>
           <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${classColors[heroClass]} flex items-center justify-center text-4xl`}>
-            {config.emoji}
+            {displayConfig.emoji}
           </div>
           <div className="flex-1">
-            <h2 className="text-2xl text-white font-bold">{config.name}</h2>
-            <p className="text-gray-400">{config.nameEn}</p>
+            <h2 className="text-2xl text-white font-bold">
+              {displayConfig.name}
+              {progress.tier === 2 && <span className="ml-2 text-orange-400 text-lg">★★</span>}
+            </h2>
+            <p className="text-gray-400">{displayConfig.nameEn}</p>
             <div className="flex items-center gap-2 mt-1">
               <span className="text-yellow-400 font-bold">Lv.{progress.classLevel}</span>
               {progress.sp > 0 && (
@@ -192,27 +224,30 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
 
         {/* 기본 스탯 */}
         <div className="bg-gray-800/50 rounded-lg p-4 mb-4" style={{ paddingLeft: '5px', paddingRight: '5px' }}>
-          <h3 className="text-white font-bold mb-3">기본 스탯</h3>
+          <h3 className="text-white font-bold mb-3">
+            기본 스탯
+            {progress.tier === 2 && <span className="ml-2 text-orange-400 text-sm">(2차 강화)</span>}
+          </h3>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-400">HP</span>
-              <span className="text-white">{config.hp}</span>
+              <span className="text-white">{displayConfig.hp}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">공격력</span>
-              <span className="text-white">{config.attack}</span>
+              <span className="text-white">{displayConfig.attack}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">공격속도</span>
-              <span className="text-white">{config.attackSpeed}초</span>
+              <span className="text-white">{displayConfig.attackSpeed}초</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">이동속도</span>
-              <span className="text-white">{config.speed}</span>
+              <span className="text-white">{displayConfig.speed}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">사거리</span>
-              <span className="text-white">{config.range}</span>
+              <span className="text-white">{displayConfig.range}</span>
             </div>
           </div>
         </div>
@@ -315,7 +350,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className="text-2xl text-yellow-400 font-bold text-center mb-6">
-                {config.name} 전직 선택
+                {baseConfig.name} 전직 선택
               </h2>
 
               <div className="grid grid-cols-2 gap-4">
