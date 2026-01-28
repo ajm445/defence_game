@@ -10,7 +10,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     id: 'easy',
     name: '쉬움',
     nameEn: 'Easy',
-    description: '기본 난이도',
+    description: '기본 난이도 (추천 레벨: 1+)',
     enemyHpMultiplier: 1.0,
     enemyAttackMultiplier: 1.0,
     spawnIntervalMultiplier: 1.0,
@@ -25,7 +25,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     id: 'normal',
     name: '중간',
     nameEn: 'Normal',
-    description: '적 강화, 보상 증가',
+    description: '적 강화, 보상 증가 (추천 레벨: 15+)',
     enemyHpMultiplier: 1.3,
     enemyAttackMultiplier: 1.2,
     spawnIntervalMultiplier: 0.9,
@@ -40,31 +40,31 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     id: 'hard',
     name: '어려움',
     nameEn: 'Hard',
-    description: '도전적인 난이도',
-    enemyHpMultiplier: 1.6,
-    enemyAttackMultiplier: 1.4,
-    spawnIntervalMultiplier: 0.85,
-    spawnCountMultiplier: 1.5,    // 스폰 수 50% 증가
-    goldRewardMultiplier: 1.3,
-    expRewardMultiplier: 1.5,     // 경험치 50% 증가
-    bossHpMultiplier: 1.6,
-    bossAttackMultiplier: 1.4,
-    enemyBaseHpMultiplier: 1.6,
+    description: '도전적인 난이도 (추천 레벨: 25+)',
+    enemyHpMultiplier: 2.5,
+    enemyAttackMultiplier: 2.0,
+    spawnIntervalMultiplier: 0.8,
+    spawnCountMultiplier: 1.8,    // 스폰 수 80% 증가
+    goldRewardMultiplier: 1.5,
+    expRewardMultiplier: 1.8,     // 경험치 80% 증가
+    bossHpMultiplier: 2.5,
+    bossAttackMultiplier: 2.0,
+    enemyBaseHpMultiplier: 2.5,
   },
   extreme: {
     id: 'extreme',
     name: '극한',
     nameEn: 'Extreme',
-    description: '최고의 도전',
-    enemyHpMultiplier: 2.0,
-    enemyAttackMultiplier: 1.8,
-    spawnIntervalMultiplier: 0.8,
-    spawnCountMultiplier: 2.0,    // 스폰 수 2배
-    goldRewardMultiplier: 1.5,
-    expRewardMultiplier: 2.0,     // 경험치 2배
-    bossHpMultiplier: 2.0,
-    bossAttackMultiplier: 1.8,
-    enemyBaseHpMultiplier: 2.0,
+    description: '최고의 도전 (추천 레벨: 40+)',
+    enemyHpMultiplier: 3.5,
+    enemyAttackMultiplier: 2.8,
+    spawnIntervalMultiplier: 0.7,
+    spawnCountMultiplier: 2.5,    // 스폰 수 2.5배
+    goldRewardMultiplier: 2.0,
+    expRewardMultiplier: 2.5,     // 경험치 2.5배
+    bossHpMultiplier: 3.5,
+    bossAttackMultiplier: 2.8,
+    enemyBaseHpMultiplier: 3.5,
   },
 };
 

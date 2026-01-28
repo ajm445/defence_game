@@ -1,4 +1,4 @@
-import { RPGEnemy, EnemyBase, EnemyBaseId, EnemyAIConfig, RPGDifficulty, BossSkill, BossSkillType, BossSkillCast, BossSkillWarning, HeroUnit, Buff } from '../../types/rpg';
+import { RPGEnemy, EnemyBase, EnemyBaseId, EnemyAIConfig, RPGDifficulty, BossSkill, BossSkillType, BossSkillCast, BossSkillWarning, HeroUnit, Buff, DashState } from '../../types/rpg';
 import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS, RPG_ENEMY_CONFIGS, BOSS_SKILL_CONFIGS, DIFFICULTY_BOSS_SKILLS } from '../../constants/rpgConfig';
 import { generateId, distance } from '../../utils/math';
 
@@ -196,7 +196,8 @@ export interface BossSkillResult {
   summonedEnemies: RPGEnemy[];
   skillExecuted: BossSkillType | null;
   knockbackHeroes: Map<string, { x: number; y: number }>; // heroId -> new position
-  bossNewPosition?: { x: number; y: number }; // 보스 새 위치 (돌진용)
+  bossNewPosition?: { x: number; y: number }; // 보스 새 위치 (돌진용 - 즉시 이동)
+  bossDashState?: DashState; // 보스 돌진 상태 (자연스러운 이동용)
   bossHeal?: number; // 보스 회복량
 }
 
@@ -247,6 +248,7 @@ export function updateBossSkills(
       result.summonedEnemies = executeResult.summonedEnemies;
       result.knockbackHeroes = executeResult.knockbackHeroes;
       result.bossNewPosition = executeResult.bossNewPosition;
+      result.bossDashState = executeResult.bossDashState;
       result.bossHeal = executeResult.bossHeal;
       result.skillExecuted = boss.currentCast.skillType;
       result.updatedBoss.currentCast = undefined;
@@ -427,6 +429,7 @@ function executeBossSkill(
   summonedEnemies: RPGEnemy[];
   knockbackHeroes: Map<string, { x: number; y: number }>;
   bossNewPosition?: { x: number; y: number };
+  bossDashState?: DashState;
   bossHeal?: number;
 } {
   const heroDamages = new Map<string, number>();
@@ -434,6 +437,7 @@ function executeBossSkill(
   const knockbackHeroes = new Map<string, { x: number; y: number }>();
   let summonedEnemies: RPGEnemy[] = [];
   let bossNewPosition: { x: number; y: number } | undefined;
+  let bossDashState: DashState | undefined;
   let bossHeal: number | undefined;
   const updatedBoss = { ...boss };
 
@@ -517,7 +521,22 @@ function executeBossSkill(
       const clampedBossX = Math.max(50, Math.min(2950, newBossX));
       const clampedBossY = Math.max(50, Math.min(1950, newBossY));
 
-      bossNewPosition = { x: clampedBossX, y: clampedBossY };
+      // 자연스러운 이동을 위해 dashState 설정 (0.3초 동안 이동)
+      const dashDuration = 0.3;
+      const dirX = clampedBossX - boss.x;
+      const dirY = clampedBossY - boss.y;
+      const dirLen = Math.sqrt(dirX * dirX + dirY * dirY);
+
+      bossDashState = {
+        startX: boss.x,
+        startY: boss.y,
+        targetX: clampedBossX,
+        targetY: clampedBossY,
+        progress: 0,
+        duration: dashDuration,
+        dirX: dirLen > 0 ? dirX / dirLen : 0,
+        dirY: dirLen > 0 ? dirY / dirLen : 0,
+      };
 
       // 경로상 영웅에게 데미지 (선분과 점 사이 거리 계산)
       for (const hero of heroes) {
@@ -542,7 +561,7 @@ function executeBossSkill(
   }
 
   updatedBoss.state = 'idle';
-  return { updatedBoss, heroDamages, stunnedHeroes, summonedEnemies, knockbackHeroes, bossNewPosition, bossHeal };
+  return { updatedBoss, heroDamages, stunnedHeroes, summonedEnemies, knockbackHeroes, bossNewPosition, bossDashState, bossHeal };
 }
 
 /**

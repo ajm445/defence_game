@@ -126,6 +126,8 @@ export function useRPGGameLoop() {
             case 'heal':
               effectManager.createEffect('boss_heal', warning.x, warning.y);
               soundManager.play('hero_revive');
+              // 클라이언트에서도 보스 회복 알림 표시
+              useUIStore.getState().showNotification(`⚠️ 보스가 회복합니다!`);
               break;
           }
         }
@@ -794,6 +796,40 @@ export function useRPGGameLoop() {
       useRPGStore.getState().updateEnemies(updatedEnemies.filter((e) => e.hp > 0));
 
       // ============================================
+      // 보스 돌진 이동 처리 (자연스러운 이동)
+      // ============================================
+      const dashingBosses = useRPGStore.getState().enemies.filter(e => e.type === 'boss' && e.dashState);
+      if (dashingBosses.length > 0) {
+        const dashUpdatedEnemies = useRPGStore.getState().enemies.map(enemy => {
+          if (enemy.type !== 'boss' || !enemy.dashState) return enemy;
+
+          const dash = enemy.dashState;
+          const newProgress = dash.progress + deltaTime / dash.duration;
+
+          if (newProgress >= 1) {
+            // 돌진 완료 - 목표 위치에 도착
+            return {
+              ...enemy,
+              x: dash.targetX,
+              y: dash.targetY,
+              dashState: undefined,
+            };
+          } else {
+            // 돌진 중 - 위치 보간
+            const newX = dash.startX + (dash.targetX - dash.startX) * newProgress;
+            const newY = dash.startY + (dash.targetY - dash.startY) * newProgress;
+            return {
+              ...enemy,
+              x: newX,
+              y: newY,
+              dashState: { ...dash, progress: newProgress },
+            };
+          }
+        });
+        useRPGStore.getState().updateEnemies(dashUpdatedEnemies);
+      }
+
+      // ============================================
       // 보스 스킬 처리 (난이도별)
       // ============================================
       const latestEnemies = useRPGStore.getState().enemies;
@@ -892,11 +928,11 @@ export function useRPGGameLoop() {
           }
         });
 
-        // 돌진(charge) 처리 - 보스 위치 변경
-        if (bossSkillResult.bossNewPosition) {
+        // 돌진(charge) 처리 - 보스 dashState 설정 (자연스러운 이동)
+        if (bossSkillResult.bossDashState) {
           const bossEnemyList = useRPGStore.getState().enemies.map(e =>
             e.id === boss.id
-              ? { ...e, x: bossSkillResult.bossNewPosition!.x, y: bossSkillResult.bossNewPosition!.y }
+              ? { ...e, dashState: bossSkillResult.bossDashState }
               : e
           );
           useRPGStore.getState().updateEnemies(bossEnemyList);
@@ -933,6 +969,9 @@ export function useRPGGameLoop() {
         } else if (bossSkillResult.skillExecuted === 'heal') {
           effectManager.createEffect('boss_heal', boss.x, boss.y);
           soundManager.play('hero_revive');
+          // 보스 회복 알림 표시
+          const healPercent = Math.round((bossSkillResult.bossHeal || 0) / boss.maxHp * 100);
+          useUIStore.getState().showNotification(`⚠️ 보스가 회복합니다! (+${healPercent}%)`);
         }
       }
 

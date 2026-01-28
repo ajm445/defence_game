@@ -97,6 +97,17 @@ export interface SerializedEnemy {
   buffs: Buff[];
   isStunned: boolean;
   stunEndTime?: number;
+  // 보스 돌진 상태 (자연스러운 이동용)
+  dashState?: {
+    startX: number;
+    startY: number;
+    targetX: number;
+    targetY: number;
+    progress: number;
+    duration: number;
+    dirX: number;
+    dirY: number;
+  };
 }
 
 // ============================================
