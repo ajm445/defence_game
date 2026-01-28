@@ -282,6 +282,8 @@ export interface RPGEnemy extends Unit {
   // 보스 스킬 시스템
   bossSkills?: BossSkill[];       // 보스가 사용 가능한 스킬 목록
   currentCast?: BossSkillCast;    // 현재 시전 중인 스킬
+  // 보스 돌진 이동용
+  dashState?: DashState;          // 돌진 상태 (자연스러운 이동용)
 }
 
 // 시야 시스템 설정

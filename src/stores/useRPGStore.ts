@@ -2114,6 +2114,7 @@ export const useRPGStore = create<RPGStore>()(
         buffs: enemy.buffs || [],
         isStunned: enemy.isStunned || false,
         stunEndTime: enemy.stunEndTime,
+        dashState: enemy.dashState,  // 보스 돌진 상태 동기화
       }));
 
       // enemyBases 직렬화: Set을 Array로 변환
@@ -2204,13 +2205,21 @@ export const useRPGStore = create<RPGStore>()(
               buffs: hero.buffs,
               deathTime: hero.deathTime,  // 사망 시간 동기화 (부활 타이머용)
               dashState: hero.dashState,  // 돌진 상태 동기화 (스킬 이동용)
+              // 전직 정보 동기화 (부활 시 전직 상태 유지)
+              advancedClass: hero.advancedClass,
+              tier: hero.tier,
               // 업그레이드로 변경될 수 있는 config 스탯 동기화 (공격속도, 사거리)
               config: {
                 ...localHero.config,
+                name: hero.config.name,  // 전직 후 이름 동기화
                 hp: hero.maxHp,
+                attack: hero.config.attack,
                 attackSpeed: hero.config.attackSpeed,
                 range: hero.config.range,
+                speed: hero.config.speed,
               },
+              baseAttack: hero.baseAttack,
+              baseSpeed: hero.baseSpeed,
               baseAttackSpeed: hero.baseAttackSpeed,
               // 위치 보정 적용 (돌진 중이면 서버 위치 우선)
               x: dashSyncX,
@@ -2294,6 +2303,7 @@ export const useRPGStore = create<RPGStore>()(
           buffs: se.buffs,
           isStunned: se.isStunned,
           stunEndTime: se.stunEndTime,
+          dashState: se.dashState,  // 보스 돌진 상태 동기화
           team: 'enemy' as const,
           // RPGEnemy 필수 속성 추가
           targetHero: se.aggroOnHero,
