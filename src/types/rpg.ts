@@ -93,6 +93,7 @@ export type SkillType =
   | 'holy_charge'     // 팔라딘 - 신성한 돌진
   | 'shadow_slash'    // 다크나이트 - 암흑 베기
   | 'inferno'         // 대마법사 - 폭발 화염구
+  | 'inferno_burn'    // 대마법사 - 폭발 화염구 화상 효과
   | 'healing_light'   // 힐러 - 치유의 빛
   // 전직 E 스킬
   | 'rage'            // 버서커 - 광란
