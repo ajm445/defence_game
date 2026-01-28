@@ -112,6 +112,7 @@ export type BuffType =
   | 'berserker'      // 광전사 (공격력, 공속 증가)
   | 'ironwall'       // 철벽 방어 (데미지 감소)
   | 'invincible'     // 무적 (돌진 중)
+  | 'swiftness'      // 신속 (이동속도 증가)
   | 'stun';          // 기절
 
 // 버프 상태
@@ -121,6 +122,7 @@ export interface Buff {
   startTime: number;     // 시작 시간
   attackBonus?: number;  // 공격력 증가율
   speedBonus?: number;   // 공속 증가율
+  moveSpeedBonus?: number; // 이동속도 증가율
   damageReduction?: number; // 데미지 감소율
   lifesteal?: number;    // 피해흡혈율 (0.5 = 50%)
   casterId?: string;     // 시전자 영웅 ID (공유 버프의 경우 범위 체크용)

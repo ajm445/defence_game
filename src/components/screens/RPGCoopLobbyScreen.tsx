@@ -178,11 +178,16 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           const createdCharacterLevel = createdProgress?.classLevel || 1;
           const createdAdvancedClass = createdProgress?.advancedClass;
           const createdTier = createdProgress?.tier;
+          // 서버에서 받은 방 설정 (또는 기본값)
+          const createdRoomIsPrivate = message.isPrivate ?? false;
+          const createdRoomDifficulty = message.difficulty || 'easy';
 
           useRPGStore.getState().setMultiplayerState({
             roomCode: message.roomCode,
             isHost: true,
             connectionState: 'in_lobby',
+            roomIsPrivate: createdRoomIsPrivate,
+            roomDifficulty: createdRoomDifficulty,
             players: [{
               id: wsClient.playerId || '',
               name: profile?.nickname || '플레이어',
@@ -195,27 +200,31 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               connected: true,
             }],
           });
+          // 로컬 상태도 동기화
+          setRoomIsPrivate(createdRoomIsPrivate);
+          setRoomDifficulty(createdRoomDifficulty as RPGDifficulty);
+          useRPGStore.getState().setDifficulty(createdRoomDifficulty as RPGDifficulty);
           break;
 
         case 'COOP_ROOM_JOINED':
           // 호스트 위임 시 자신이 새 호스트인지 확인
           const myPlayerId = wsClient.playerId;
           const amIHost = message.players?.some((p: any) => p.id === myPlayerId && p.isHost) || false;
+          const joinedRoomIsPrivate = message.isPrivate ?? false;
+          const joinedRoomDifficulty = message.difficulty || 'easy';
           useRPGStore.getState().setMultiplayerState({
             roomCode: message.roomCode,
             roomId: message.roomId,
             isHost: amIHost,
             connectionState: 'in_lobby',
+            roomIsPrivate: joinedRoomIsPrivate,
+            roomDifficulty: joinedRoomDifficulty,
             players: message.players || [],
           });
-          // 방 설정 동기화
-          if (message.isPrivate !== undefined) {
-            setRoomIsPrivate(message.isPrivate);
-          }
-          if (message.difficulty) {
-            setRoomDifficulty(message.difficulty as RPGDifficulty);
-            useRPGStore.getState().setDifficulty(message.difficulty as RPGDifficulty);
-          }
+          // 로컬 상태도 동기화
+          setRoomIsPrivate(joinedRoomIsPrivate);
+          setRoomDifficulty(joinedRoomDifficulty as RPGDifficulty);
+          useRPGStore.getState().setDifficulty(joinedRoomDifficulty as RPGDifficulty);
           break;
 
         case 'COOP_PLAYER_JOINED':
@@ -264,7 +273,11 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         case 'COOP_ROOM_SETTINGS_CHANGED':
           setRoomIsPrivate(message.isPrivate);
           setRoomDifficulty(message.difficulty as RPGDifficulty);
-          // 난이도 변경 시 스토어에도 저장
+          // 스토어에도 저장 (프로필 복귀 시 동기화용)
+          useRPGStore.getState().setMultiplayerState({
+            roomIsPrivate: message.isPrivate,
+            roomDifficulty: message.difficulty,
+          });
           useRPGStore.getState().setDifficulty(message.difficulty as RPGDifficulty);
           break;
 

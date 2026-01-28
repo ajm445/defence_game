@@ -1,7 +1,8 @@
 import React from 'react';
 import { useHero, useRPGStats, useUpgradeLevels, useGold, useIsMultiplayer, useOtherHeroes, usePersonalKills } from '../../stores/useRPGStore';
-import { HeroClass, BuffType, HeroUnit } from '../../types/rpg';
+import { HeroClass, BuffType, HeroUnit, AdvancedHeroClass } from '../../types/rpg';
 import { calculateAllUpgradeBonuses } from '../../game/rpg/goldSystem';
+import { ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
 
 // 직업별 표시 정보
 const CLASS_DISPLAY: Record<HeroClass, { emoji: string; name: string; color: string; bgColor: string }> = {
@@ -16,6 +17,7 @@ const BUFF_DISPLAY: Record<BuffType, { emoji: string; name: string; color: strin
   berserker: { emoji: '🔥', name: '광전사', color: '#ef4444', maxDuration: 10 },
   ironwall: { emoji: '🛡️', name: '철벽 방어', color: '#3b82f6', maxDuration: 5 },
   invincible: { emoji: '✨', name: '무적', color: '#fbbf24', maxDuration: 2.0 },
+  swiftness: { emoji: '💨', name: '신속', color: '#22d3ee', maxDuration: 3 },
   stun: { emoji: '💫', name: '기절', color: '#9ca3af', maxDuration: 1 },
 };
 
@@ -91,8 +93,12 @@ export const RPGHeroPanel: React.FC = () => {
     return 'bg-red-500';
   };
 
-  // 직업 정보 가져오기
-  const classInfo = CLASS_DISPLAY[hero.heroClass] || CLASS_DISPLAY.warrior;
+  // 직업 정보 가져오기 (전직 시 전직 정보 사용)
+  const baseClassInfo = CLASS_DISPLAY[hero.heroClass] || CLASS_DISPLAY.warrior;
+  const advancedConfig = hero.advancedClass ? ADVANCED_CLASS_CONFIGS[hero.advancedClass as AdvancedHeroClass] : null;
+  const classInfo = advancedConfig
+    ? { ...baseClassInfo, name: advancedConfig.name, emoji: advancedConfig.emoji }
+    : baseClassInfo;
 
   // 활성 버프 확인
   const activeBuffs = hero.buffs?.filter(b => b.duration > 0) || [];
@@ -210,7 +216,12 @@ export const RPGHeroPanel: React.FC = () => {
 // 아군 영웅 HP 바 컴포넌트 (멀티플레이용)
 const AllyHeroBar: React.FC<{ hero: HeroUnit }> = ({ hero }) => {
   const hpPercent = (hero.hp / hero.maxHp) * 100;
-  const classInfo = CLASS_DISPLAY[hero.heroClass] || CLASS_DISPLAY.warrior;
+  // 직업 정보 가져오기 (전직 시 전직 정보 사용)
+  const baseClassInfo = CLASS_DISPLAY[hero.heroClass] || CLASS_DISPLAY.warrior;
+  const advancedConfig = hero.advancedClass ? ADVANCED_CLASS_CONFIGS[hero.advancedClass as AdvancedHeroClass] : null;
+  const classInfo = advancedConfig
+    ? { ...baseClassInfo, name: advancedConfig.name, emoji: advancedConfig.emoji }
+    : baseClassInfo;
   const isDead = hero.hp <= 0;
 
   const getHpColor = () => {

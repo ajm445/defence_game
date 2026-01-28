@@ -438,7 +438,7 @@ export const useProfileStore = create<ProfileStore>()(
       return true;
     },
 
-    // 전직 액션
+    // 전직 액션 (전직 변경도 지원)
     advanceJobAction: async (className, advancedClass) => {
       const authState = useAuthStore.getState();
       const profile = authState.profile;
@@ -453,8 +453,11 @@ export const useProfileStore = create<ProfileStore>()(
       // 레벨 조건 확인 (Lv.15 이상)
       if (progress.classLevel < 15) return false;
 
-      // 이미 전직했는지 확인
-      if (progress.advancedClass) return false;
+      // 같은 전직으로 변경하는 경우 무시
+      if (progress.advancedClass === advancedClass) return false;
+
+      // 전직 변경 여부 로깅
+      const isJobChange = !!progress.advancedClass;
 
       // 서버에 전직 정보 저장
       const updatedProgress = await advanceJob(profile.id, className, advancedClass, progress);
@@ -473,7 +476,11 @@ export const useProfileStore = create<ProfileStore>()(
       // useAuthStore의 classProgress도 동기화
       authState.updateClassProgress(updatedProgress);
 
-      console.log(`[전직] ${className} → ${advancedClass} 전직 완료 (서버 저장)`);
+      if (isJobChange) {
+        console.log(`[전직 변경] ${progress.advancedClass} → ${advancedClass} 완료 (레벨 15, SP 14, 스탯 초기화)`);
+      } else {
+        console.log(`[전직] ${className} → ${advancedClass} 전직 완료 (서버 저장)`);
+      }
       return true;
     },
 

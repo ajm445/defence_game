@@ -95,6 +95,8 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
 
   // 전직 가능 여부 확인
   const canAdvanceJob = progress.classLevel >= JOB_ADVANCEMENT_REQUIREMENTS.minClassLevel && !progress.advancedClass;
+  // 전직 변경 가능 여부 (이미 전직했고 레벨 15 이상)
+  const canChangeJob = progress.classLevel >= JOB_ADVANCEMENT_REQUIREMENTS.minClassLevel && !!progress.advancedClass;
   const advancementOptions = ADVANCEMENT_OPTIONS[heroClass];
 
   const handleUpgrade = useCallback(async (statType: StatUpgradeType) => {
@@ -298,17 +300,30 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
 
           {progress.advancedClass ? (
             // 전직 완료 상태
-            <div className="flex items-center gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
-              <span className="text-3xl">{ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].emoji}</span>
-              <div>
-                <div className="text-yellow-400 font-bold">
-                  {ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].name}
-                  {progress.tier === 2 && <span className="ml-2 text-orange-400">★★</span>}
-                </div>
-                <div className="text-gray-400 text-sm">
-                  {ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].description}
+            <div className="space-y-3">
+              <div className="flex items-center gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
+                <span className="text-3xl">{ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].emoji}</span>
+                <div className="flex-1">
+                  <div className="text-yellow-400 font-bold">
+                    {ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].name}
+                    {progress.tier === 2 && <span className="ml-2 text-orange-400">★★</span>}
+                  </div>
+                  <div className="text-gray-400 text-sm">
+                    {ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].description}
+                  </div>
                 </div>
               </div>
+              {/* 전직 변경 버튼 */}
+              {canChangeJob && (
+                <button
+                  onClick={handleShowJobAdvancement}
+                  className="w-full py-2 bg-gradient-to-r from-purple-500/20 to-pink-500/20 hover:from-purple-500/40 hover:to-pink-500/40 rounded-lg text-purple-300 font-bold transition-all cursor-pointer border border-purple-500/50 flex items-center justify-center gap-2 text-sm"
+                >
+                  <span>🔄</span>
+                  전직 변경하기
+                  <span className="text-xs text-gray-400">(Lv.15, SP 14, 스탯 초기화)</span>
+                </button>
+              )}
             </div>
           ) : canAdvanceJob ? (
             // 전직 가능 상태
@@ -346,30 +361,50 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
         {showJobAdvancement && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-60" onClick={handleCloseJobAdvancement}>
             <div
-              className="bg-gray-900 rounded-xl border border-yellow-500/50 p-6 min-w-[600px] max-w-[700px]"
+              className={`bg-gray-900 rounded-xl border ${progress.advancedClass ? 'border-purple-500/50' : 'border-yellow-500/50'} p-6 min-w-[600px] max-w-[700px]`}
               onClick={(e) => e.stopPropagation()}
             >
-              <h2 className="text-2xl text-yellow-400 font-bold text-center mb-6">
-                {baseConfig.name} 전직 선택
+              <h2 className={`text-2xl ${progress.advancedClass ? 'text-purple-400' : 'text-yellow-400'} font-bold text-center mb-2`}>
+                {progress.advancedClass ? '전직 변경' : `${baseConfig.name} 전직 선택`}
               </h2>
+              {progress.advancedClass && (
+                <p className="text-center text-red-400 text-sm mb-4">
+                  전직 변경 시 레벨 15, SP 14로 초기화되며 스탯 업그레이드가 리셋됩니다!
+                </p>
+              )}
 
               <div className="grid grid-cols-2 gap-4">
                 {advancementOptions.map((advClass) => {
                   const advConfig = ADVANCED_CLASS_CONFIGS[advClass];
                   const wSkill = ADVANCED_W_SKILLS[advClass];
                   const eSkill = ADVANCED_E_SKILLS[advClass];
+                  const isCurrentClass = progress.advancedClass === advClass;
 
                   return (
                     <div
                       key={advClass}
-                      className="bg-gray-800/70 rounded-lg p-4 border border-gray-600 hover:border-yellow-500/50 transition-all cursor-pointer"
-                      onClick={() => handleSelectAdvancedClass(advClass)}
+                      className={`bg-gray-800/70 rounded-lg p-4 border transition-all ${
+                        isCurrentClass
+                          ? 'border-green-500/50 opacity-60 cursor-not-allowed'
+                          : 'border-gray-600 hover:border-yellow-500/50 cursor-pointer'
+                      }`}
+                      onClick={() => !isCurrentClass && handleSelectAdvancedClass(advClass)}
                     >
+                      {/* 현재 전직 표시 */}
+                      {isCurrentClass && (
+                        <div className="absolute top-2 right-2 px-2 py-1 bg-green-500/20 rounded text-green-400 text-xs font-bold">
+                          현재 전직
+                        </div>
+                      )}
+
                       {/* 직업 헤더 */}
                       <div className="flex items-center gap-3 mb-3">
                         <span className="text-4xl">{advConfig.emoji}</span>
                         <div>
-                          <div className="text-white font-bold text-lg">{advConfig.name}</div>
+                          <div className="text-white font-bold text-lg">
+                            {advConfig.name}
+                            {isCurrentClass && <span className="ml-2 text-green-400 text-sm">(현재)</span>}
+                          </div>
                           <div className="text-gray-400 text-sm">{advConfig.nameEn}</div>
                         </div>
                       </div>
@@ -413,8 +448,15 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
                       </div>
 
                       {/* 선택 버튼 */}
-                      <button className="w-full mt-3 py-2 bg-yellow-500/20 hover:bg-yellow-500/40 rounded text-yellow-300 font-bold transition-all">
-                        선택
+                      <button
+                        className={`w-full mt-3 py-2 rounded font-bold transition-all ${
+                          isCurrentClass
+                            ? 'bg-gray-600/50 text-gray-500 cursor-not-allowed'
+                            : 'bg-yellow-500/20 hover:bg-yellow-500/40 text-yellow-300'
+                        }`}
+                        disabled={isCurrentClass}
+                      >
+                        {isCurrentClass ? '현재 전직' : '선택'}
                       </button>
                     </div>
                   );
@@ -435,28 +477,42 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
         {showAdvancementConfirm && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-70" onClick={handleCancelAdvancement}>
             <div
-              className="bg-gray-900 rounded-xl border border-yellow-500/50 p-6 min-w-[400px]"
+              className={`bg-gray-900 rounded-xl border ${progress.advancedClass ? 'border-purple-500/50' : 'border-yellow-500/50'} p-6 min-w-[400px]`}
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className="text-xl text-white font-bold text-center mb-4">
-                <span className="text-yellow-400">{ADVANCED_CLASS_CONFIGS[showAdvancementConfirm].name}</span>으로 전직하시겠습니까?
+                <span className={progress.advancedClass ? 'text-purple-400' : 'text-yellow-400'}>
+                  {ADVANCED_CLASS_CONFIGS[showAdvancementConfirm].name}
+                </span>
+                {progress.advancedClass ? '으로 전직 변경하시겠습니까?' : '으로 전직하시겠습니까?'}
               </h2>
 
               <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
                 <ul className="text-sm text-gray-300 space-y-1">
                   <li>• 스탯이 전직 직업에 맞게 변경됩니다</li>
-                  <li>• SP 업그레이드는 유지됩니다</li>
                   <li>• W, E 스킬이 새로운 스킬로 변경됩니다</li>
-                  <li className="text-red-400">• 전직 후 되돌릴 수 없습니다</li>
+                  {progress.advancedClass ? (
+                    <>
+                      <li className="text-red-400 font-bold">• 캐릭터 레벨이 15로 초기화됩니다!</li>
+                      <li className="text-red-400 font-bold">• SP가 14로 초기화됩니다!</li>
+                      <li className="text-red-400 font-bold">• 스탯 업그레이드가 리셋됩니다!</li>
+                      <li className="text-red-400">• 2차 강화(Tier 2) 상태도 초기화됩니다</li>
+                    </>
+                  ) : (
+                    <>
+                      <li>• SP 업그레이드는 유지됩니다</li>
+                      <li className="text-gray-400">• 전직 후에도 다른 전직으로 변경 가능합니다</li>
+                    </>
+                  )}
                 </ul>
               </div>
 
               <div className="flex gap-3">
                 <button
                   onClick={handleConfirmAdvancement}
-                  className="flex-1 py-3 bg-yellow-500/30 hover:bg-yellow-500/50 rounded-lg text-yellow-300 font-bold transition-all cursor-pointer border border-yellow-500/50"
+                  className={`flex-1 py-3 ${progress.advancedClass ? 'bg-purple-500/30 hover:bg-purple-500/50 border-purple-500/50 text-purple-300' : 'bg-yellow-500/30 hover:bg-yellow-500/50 border-yellow-500/50 text-yellow-300'} rounded-lg font-bold transition-all cursor-pointer border`}
                 >
-                  전직하기
+                  {progress.advancedClass ? '전직 변경하기' : '전직하기'}
                 </button>
                 <button
                   onClick={handleCancelAdvancement}

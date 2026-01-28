@@ -75,7 +75,8 @@ export function renderRPG(
   }
 
   // 적 유닛 렌더링
-  const heroPos = state.hero ? { x: state.hero.x, y: state.hero.y } : undefined;
+  // 영웅이 살아있을 때만 영웅 위치를 전달 (죽었으면 넥서스 방향을 바라봄)
+  const heroPos = (state.hero && state.hero.hp > 0) ? { x: state.hero.x, y: state.hero.y } : undefined;
   for (const enemy of state.enemies) {
     if (enemy.hp > 0) {
       const isTarget = state.hero?.attackTarget === enemy.id;

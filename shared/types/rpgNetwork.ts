@@ -264,7 +264,7 @@ export type CoopClientMessage =
 
 export type CoopServerMessage =
   // 방 관련
-  | { type: 'COOP_ROOM_CREATED'; roomCode: string; roomId: string }
+  | { type: 'COOP_ROOM_CREATED'; roomCode: string; roomId: string; isPrivate?: boolean; difficulty?: string }
   | { type: 'COOP_ROOM_JOINED'; roomId: string; roomCode: string; players: CoopPlayerInfo[]; yourIndex: number; isPrivate?: boolean; difficulty?: string }
   | { type: 'COOP_ROOM_LIST'; rooms: WaitingCoopRoomInfo[] }
   | { type: 'COOP_PLAYER_JOINED'; player: CoopPlayerInfo }

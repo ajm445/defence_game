@@ -4,7 +4,7 @@
 
 **RTS 모드**와 **RPG 모드**를 모두 즐길 수 있는 종합 전략 게임입니다.
 
-**Version: 1.17.7**
+**Version: 1.17.8**
 
 ---
 
@@ -340,7 +340,25 @@ defence_game/
 
 ## 버전 히스토리
 
-### V1.17.7 (현재)
+### V1.17.8 (현재)
+- **저격수 W 스킬 이동속도 버프 수정**
+  - 공격속도가 아닌 이동속도 30% 증가로 변경
+  - 신규 `swiftness` 버프 타입 추가 (types/rpg.ts)
+  - `moveSpeedBonus` 필드 추가 (Buff 인터페이스)
+  - heroUnit.ts에서 이동속도 버프 적용 로직 추가
+  - RPGHeroPanel.tsx에 신속 버프 아이콘(💨) 표시 추가
+- **전직 변경 시 SP/스탯 초기화**
+  - 전직 변경 시 레벨 15, SP 14로 초기화
+  - 전직 변경 시 스탯 업그레이드 리셋 (모두 0)
+  - UI 경고 메시지 업데이트 (CharacterUpgradeModal.tsx)
+- **방 설정 UI 버그 수정**
+  - 프로필 화면에서 방으로 돌아올 때 설정(공개/비밀, 난이도)이 기본값으로 초기화되던 버그 수정
+  - 서버 COOP_ROOM_CREATED 응답에 `isPrivate`, `difficulty` 필드 추가
+  - 클라이언트에서 방 설정을 multiplayer 스토어에 저장하여 화면 전환 시에도 유지
+- **AdvancedSkillConfig 타입 개선**
+  - `range` 속성 추가 (저격수 E 스킬 사거리 설정용)
+
+### V1.17.7
 - **사망한 캐릭터 관련 버그 대폭 수정**
   - 사망한 영웅에게 힐/버프 적용되지 않도록 수정 (skillSystem.ts, useRPGGameLoop.ts)
   - 사망한 영웅이 스킬 사용/요청 불가하도록 수정 (handleSkillExecution, requestSkill)

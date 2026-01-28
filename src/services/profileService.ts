@@ -200,7 +200,7 @@ export const resetCharacterStats = async (
   }
 };
 
-// 전직 처리 (advancedClass 저장)
+// 전직 처리 (advancedClass 저장) - 전직 변경도 지원
 export const advanceJob = async (
   playerId: string,
   className: HeroClass,
@@ -213,28 +213,43 @@ export const advanceJob = async (
     return null;
   }
 
-  // 이미 전직했는지 확인
-  if (currentProgress.advancedClass) {
-    console.error('Already advanced to another class');
-    return null;
+  // 같은 전직으로 변경하는 경우 무시
+  if (currentProgress.advancedClass === advancedClass) {
+    console.log('Already in this advanced class');
+    return currentProgress;
   }
+
+  // 전직 변경 여부 확인
+  const isJobChange = !!currentProgress.advancedClass;
+
+  // 전직 변경 시: 레벨 15로 초기화, tier 1로 리셋, SP 14로 리셋, 스탯 업그레이드 초기화
+  // 최초 전직 시: 현재 레벨/SP/스탯 유지
+  const newClassLevel = isJobChange ? 15 : currentProgress.classLevel;
+  const newClassExp = isJobChange ? 0 : currentProgress.classExp;
+  const newSp = isJobChange ? 14 : currentProgress.sp;  // 레벨 15 = SP 14
+  const newStatUpgrades = isJobChange ? createDefaultStatUpgrades() : currentProgress.statUpgrades;
+  const newTier = 1;  // 전직 시 항상 tier 1로
 
   try {
     const success = await upsertClassProgress(playerId, className, {
-      classLevel: currentProgress.classLevel,
-      classExp: currentProgress.classExp,
-      sp: currentProgress.sp,
-      statUpgrades: currentProgress.statUpgrades,
+      classLevel: newClassLevel,
+      classExp: newClassExp,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
       advancedClass,
-      tier: 1,  // 1차 전직
+      tier: newTier,
     });
 
     if (!success) return null;
 
     return {
       ...currentProgress,
+      classLevel: newClassLevel,
+      classExp: newClassExp,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
       advancedClass,
-      tier: 1,
+      tier: newTier,
     };
   } catch (err) {
     console.error('Advance job error:', err);

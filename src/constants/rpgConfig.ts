@@ -1099,6 +1099,7 @@ export interface AdvancedSkillConfig {
   burnDamage?: number;       // 화상 데미지 (초당)
   burnDuration?: number;     // 화상 지속시간
   meteorCount?: number;      // 운석 개수
+  range?: number;            // 스킬 사거리
 }
 
 // ============================================
@@ -1154,6 +1155,7 @@ export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     description: '부채꼴 방향으로 5발의 관통 화살 발사, 각 화살 100% 데미지',
     damageMultiplier: 1.0,
     arrowCount: 5,
+    distance: 300,  // 화살 관통 거리 (범위 표시용)
   },
   // 팔라딘: 신성한 돌진 - 전방 돌진 + 기절 + 아군 힐
   paladin: {
@@ -1237,16 +1239,17 @@ export const ADVANCED_E_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     damageReduction: 0.5,
     radius: 500,  // 전체 범위
   },
-  // 저격수: 저격 - 3초 조준 후 1000% 데미지 단일 타격
+  // 저격수: 저격 - 3초 조준 후 1000% 데미지 단일 타격 (무제한 사거리)
   sniper: {
     type: 'snipe',
     name: '저격',
     nameEn: 'Snipe',
     key: 'E',
     cooldown: 30,
-    description: '3초 조준 후 1000% 데미지 단일 타격',
+    description: '3초 조준 후 1000% 데미지 단일 타격 (무제한 사거리)',
     chargeTime: 3,
     damageMultiplier: 10.0,
+    range: 2000,  // 무제한 사거리 (맵 전체)
   },
   // 레인저: 화살 폭풍 - 5초간 자동 공격 속도 3배
   ranger: {

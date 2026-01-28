@@ -45,7 +45,13 @@ export function updateHeroUnit(
   }
 
   const config = updatedHero.config;
-  const speed = config.speed || updatedHero.baseSpeed;
+  let speed = config.speed || updatedHero.baseSpeed;
+
+  // 이동속도 버프 적용 (swiftness)
+  const swiftnessBuff = updatedHero.buffs?.find(b => b.type === 'swiftness' && b.moveSpeedBonus);
+  if (swiftnessBuff?.moveSpeedBonus) {
+    speed *= (1 + swiftnessBuff.moveSpeedBonus);
+  }
 
   // 시전 상태 만료 체크
   if (gameTime !== undefined && updatedHero.castingUntil && gameTime >= updatedHero.castingUntil) {

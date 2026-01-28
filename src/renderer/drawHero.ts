@@ -1732,6 +1732,742 @@ export function drawSkillEffect(
         ctx.fill();
       }
       break;
+
+    // ============================================
+    // 전직 W 스킬 이펙트
+    // ============================================
+
+    case 'blood_rush':
+      // 버서커 - 피의 돌진 (빨간색 돌진 + 피흡수)
+      if (effect.direction) {
+        const distance = effect.radius || 200;
+        const trailLength = distance * Math.min(progress * 1.2, 1);
+        const endX = screenX + effect.direction.x * trailLength;
+        const endY = screenY + effect.direction.y * trailLength;
+
+        // 피의 트레일
+        ctx.globalAlpha = (1 - progress) * 0.8;
+        const bloodGradient = ctx.createLinearGradient(screenX, screenY, endX, endY);
+        bloodGradient.addColorStop(0, 'transparent');
+        bloodGradient.addColorStop(0.3, '#8b000080');
+        bloodGradient.addColorStop(1, '#ff0000');
+        ctx.strokeStyle = bloodGradient;
+        ctx.lineWidth = 25;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // 피 파티클
+        for (let i = 0; i < 8; i++) {
+          const t = (i / 8 + progress * 0.5) % 1;
+          const px = screenX + effect.direction.x * distance * t;
+          const py = screenY + effect.direction.y * distance * t;
+          const offset = Math.sin(i * 2 + progress * 10) * 15;
+          ctx.globalAlpha = (1 - progress) * 0.7;
+          ctx.fillStyle = '#ff0000';
+          ctx.beginPath();
+          ctx.arc(px + offset, py + offset * 0.5, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 흡혈 이펙트 (힐이 있을 때)
+        if (effect.heal && effect.heal > 0) {
+          ctx.globalAlpha = (1 - progress) * 0.6;
+          ctx.strokeStyle = '#00ff00';
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, 30 + progress * 20, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      break;
+
+    case 'guardian_rush':
+      // 가디언 - 수호의 돌진 (파란색 + 보호막)
+      if (effect.direction) {
+        const distance = effect.radius || 150;
+        const trailLength = distance * Math.min(progress * 1.2, 1);
+        const endX = screenX + effect.direction.x * trailLength;
+        const endY = screenY + effect.direction.y * trailLength;
+
+        // 방패 트레일
+        ctx.globalAlpha = (1 - progress) * 0.8;
+        const shieldGradient = ctx.createLinearGradient(screenX, screenY, endX, endY);
+        shieldGradient.addColorStop(0, 'transparent');
+        shieldGradient.addColorStop(0.3, '#3b82f680');
+        shieldGradient.addColorStop(1, '#60a5fa');
+        ctx.strokeStyle = shieldGradient;
+        ctx.lineWidth = 30;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // 보호막 파동
+        ctx.globalAlpha = (1 - progress) * 0.5;
+        ctx.strokeStyle = '#93c5fd';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(endX, endY, 40 * progress, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 스턴 스타 이펙트
+        ctx.globalAlpha = (1 - progress) * 0.8;
+        ctx.fillStyle = '#ffd700';
+        for (let i = 0; i < 5; i++) {
+          const angle = (i / 5) * Math.PI * 2 + progress * 3;
+          const dist = 25 + progress * 15;
+          ctx.beginPath();
+          ctx.arc(endX + Math.cos(angle) * dist, endY + Math.sin(angle) * dist, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      break;
+
+    case 'backflip_shot':
+      // 저격수 - 후방 도약 (뒤로 점프 + 전방 화살)
+      if (effect.direction) {
+        const range = effect.radius || 200;
+
+        // 전방 화살 이펙트
+        ctx.globalAlpha = (1 - progress) * 0.9;
+        const arrowGradient = ctx.createLinearGradient(
+          screenX, screenY,
+          screenX + effect.direction.x * range,
+          screenY + effect.direction.y * range
+        );
+        arrowGradient.addColorStop(0, '#00ff00');
+        arrowGradient.addColorStop(1, '#00ff0040');
+        ctx.strokeStyle = arrowGradient;
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(screenX + effect.direction.x * range * progress, screenY + effect.direction.y * range * progress);
+        ctx.stroke();
+
+        // 화살 머리
+        const arrowX = screenX + effect.direction.x * range * Math.min(progress * 1.5, 1);
+        const arrowY = screenY + effect.direction.y * range * Math.min(progress * 1.5, 1);
+        const angle = Math.atan2(effect.direction.y, effect.direction.x);
+        ctx.save();
+        ctx.translate(arrowX, arrowY);
+        ctx.rotate(angle);
+        ctx.fillStyle = '#00ff00';
+        ctx.beginPath();
+        ctx.moveTo(10, 0);
+        ctx.lineTo(-5, -5);
+        ctx.lineTo(-5, 5);
+        ctx.closePath();
+        ctx.fill();
+        ctx.restore();
+
+        // 속도 버프 이펙트
+        ctx.globalAlpha = (1 - progress) * 0.4;
+        ctx.strokeStyle = '#00ffff';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, 20 + i * 10 + progress * 30, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      break;
+
+    case 'multi_arrow':
+      // 레인저 - 다중 화살 (부채꼴 5발)
+      if (effect.direction) {
+        const arrowCount = 5;
+        const spreadAngle = Math.PI / 4; // 45도
+        const pierceDistance = effect.radius || 300;
+        const baseAngle = Math.atan2(effect.direction.y, effect.direction.x);
+
+        for (let i = 0; i < arrowCount; i++) {
+          const angleOffset = spreadAngle * ((i / (arrowCount - 1)) - 0.5);
+          const arrowAngle = baseAngle + angleOffset;
+          const arrowDirX = Math.cos(arrowAngle);
+          const arrowDirY = Math.sin(arrowAngle);
+
+          const arrowProgress = Math.min(progress * 2, 1);
+          const endX = screenX + arrowDirX * pierceDistance * arrowProgress;
+          const endY = screenY + arrowDirY * pierceDistance * arrowProgress;
+
+          // 화살 궤적
+          ctx.globalAlpha = (1 - progress) * 0.8;
+          const arrowGradient = ctx.createLinearGradient(screenX, screenY, endX, endY);
+          arrowGradient.addColorStop(0, '#22c55e');
+          arrowGradient.addColorStop(1, '#22c55e40');
+          ctx.strokeStyle = arrowGradient;
+          ctx.lineWidth = 3;
+          ctx.beginPath();
+          ctx.moveTo(screenX, screenY);
+          ctx.lineTo(endX, endY);
+          ctx.stroke();
+
+          // 화살 머리
+          ctx.save();
+          ctx.translate(endX, endY);
+          ctx.rotate(arrowAngle);
+          ctx.fillStyle = '#22c55e';
+          ctx.beginPath();
+          ctx.moveTo(8, 0);
+          ctx.lineTo(-4, -4);
+          ctx.lineTo(-4, 4);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 발사 이펙트 (중앙)
+        ctx.globalAlpha = (1 - progress) * 0.6;
+        ctx.strokeStyle = '#86efac';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 15 + progress * 10, baseAngle - spreadAngle / 2, baseAngle + spreadAngle / 2);
+        ctx.stroke();
+      }
+      break;
+
+    case 'holy_charge':
+      // 팔라딘 - 신성한 돌진 (황금색 + 힐)
+      if (effect.direction) {
+        const distance = effect.radius || 150;
+        const trailLength = distance * Math.min(progress * 1.2, 1);
+        const endX = screenX + effect.direction.x * trailLength;
+        const endY = screenY + effect.direction.y * trailLength;
+
+        // 신성한 트레일
+        ctx.globalAlpha = (1 - progress) * 0.8;
+        const holyGradient = ctx.createLinearGradient(screenX, screenY, endX, endY);
+        holyGradient.addColorStop(0, 'transparent');
+        holyGradient.addColorStop(0.3, '#ffd70080');
+        holyGradient.addColorStop(1, '#ffffff');
+        ctx.strokeStyle = holyGradient;
+        ctx.lineWidth = 25;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // 십자가 이펙트
+        ctx.globalAlpha = (1 - progress) * 0.7;
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 4;
+        const crossSize = 20;
+        ctx.beginPath();
+        ctx.moveTo(endX - crossSize, endY);
+        ctx.lineTo(endX + crossSize, endY);
+        ctx.moveTo(endX, endY - crossSize);
+        ctx.lineTo(endX, endY + crossSize);
+        ctx.stroke();
+
+        // 힐 파동
+        ctx.globalAlpha = (1 - progress) * 0.4;
+        ctx.strokeStyle = '#00ff00';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, 50 + progress * 100, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+      break;
+
+    case 'shadow_slash':
+      // 다크나이트 - 암흑 베기 (보라색/검은색)
+      if (effect.direction) {
+        const distance = effect.radius || 200;
+        const trailLength = distance * Math.min(progress * 1.2, 1);
+        const endX = screenX + effect.direction.x * trailLength;
+        const endY = screenY + effect.direction.y * trailLength;
+
+        // 암흑 트레일
+        ctx.globalAlpha = (1 - progress) * 0.9;
+        const darkGradient = ctx.createLinearGradient(screenX, screenY, endX, endY);
+        darkGradient.addColorStop(0, 'transparent');
+        darkGradient.addColorStop(0.3, '#4c1d9580');
+        darkGradient.addColorStop(1, '#7c3aed');
+        ctx.strokeStyle = darkGradient;
+        ctx.lineWidth = 25;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(endX, endY);
+        ctx.stroke();
+
+        // 어둠 파티클
+        for (let i = 0; i < 6; i++) {
+          const t = (i / 6 + progress * 0.5) % 1;
+          const px = screenX + effect.direction.x * distance * t;
+          const py = screenY + effect.direction.y * distance * t;
+          const offset = Math.sin(i * 3 + progress * 8) * 20;
+          ctx.globalAlpha = (1 - progress) * 0.6;
+          ctx.fillStyle = '#7c3aed';
+          ctx.beginPath();
+          ctx.arc(px + offset, py + offset * 0.5, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 흡혈 이펙트
+        if (effect.heal && effect.heal > 0) {
+          ctx.globalAlpha = (1 - progress) * 0.5;
+          ctx.strokeStyle = '#a855f7';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, 25 + progress * 15, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+      }
+      break;
+
+    case 'inferno':
+      // 대마법사 - 폭발 화염구 (화염 범위)
+      {
+        const radius = effect.radius || 120;
+        const explosionProgress = Math.min(progress * 1.5, 1);
+
+        // 화염 폭발 범위
+        const fireGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius * explosionProgress);
+        fireGradient.addColorStop(0, '#ffffff');
+        fireGradient.addColorStop(0.2, '#ffff00');
+        fireGradient.addColorStop(0.5, '#ff8800');
+        fireGradient.addColorStop(0.8, '#ff440060');
+        fireGradient.addColorStop(1, 'transparent');
+        ctx.globalAlpha = (1 - progress) * 0.9;
+        ctx.fillStyle = fireGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius * explosionProgress, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 화염 링
+        ctx.globalAlpha = (1 - progress) * 0.8;
+        ctx.strokeStyle = '#ff4400';
+        ctx.lineWidth = 6;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius * explosionProgress * 0.8, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 불꽃 파티클
+        for (let i = 0; i < 12; i++) {
+          const angle = (i / 12) * Math.PI * 2 + progress * 2;
+          const dist = radius * explosionProgress * 0.9;
+          ctx.globalAlpha = (1 - progress) * 0.7;
+          ctx.fillStyle = i % 2 === 0 ? '#ff8800' : '#ffff00';
+          ctx.beginPath();
+          ctx.arc(screenX + Math.cos(angle) * dist, screenY + Math.sin(angle) * dist, 6, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      break;
+
+    case 'healing_light':
+      // 힐러 - 치유의 빛 (녹색 힐 범위)
+      {
+        const radius = effect.radius || 150;
+
+        // 힐 범위
+        const healGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius);
+        healGradient.addColorStop(0, '#00ff0060');
+        healGradient.addColorStop(0.5, '#22c55e40');
+        healGradient.addColorStop(1, 'transparent');
+        ctx.globalAlpha = (1 - progress) * 0.7;
+        ctx.fillStyle = healGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 힐 링
+        ctx.globalAlpha = (1 - progress) * 0.8;
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius * (0.5 + progress * 0.5), 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 힐 파티클 (올라가는 효과)
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2;
+          const dist = radius * 0.6;
+          const yOffset = -progress * 30;
+          ctx.globalAlpha = (1 - progress) * 0.8;
+          ctx.fillStyle = '#86efac';
+          ctx.font = '16px Arial';
+          ctx.fillText('+', screenX + Math.cos(angle) * dist, screenY + Math.sin(angle) * dist + yOffset);
+        }
+      }
+      break;
+
+    // ============================================
+    // 전직 E 스킬 이펙트
+    // ============================================
+
+    case 'rage':
+      // 버서커 - 광란 (분노 버프)
+      {
+        const radius = 60;
+
+        // 분노 오라
+        ctx.globalAlpha = (1 - progress * 0.5) * 0.6;
+        const rageGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius);
+        rageGradient.addColorStop(0, '#ff000080');
+        rageGradient.addColorStop(0.5, '#ff440060');
+        rageGradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = rageGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius + progress * 20, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 분노 불꽃
+        for (let i = 0; i < 6; i++) {
+          const angle = (i / 6) * Math.PI * 2 + progress * 5;
+          const dist = 30 + Math.sin(progress * 10 + i) * 10;
+          ctx.globalAlpha = (1 - progress) * 0.8;
+          ctx.fillStyle = '#ff4400';
+          ctx.beginPath();
+          ctx.arc(screenX + Math.cos(angle) * dist, screenY + Math.sin(angle) * dist, 5, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 분노 텍스트
+        ctx.globalAlpha = (1 - progress) * 0.9;
+        ctx.fillStyle = '#ff0000';
+        ctx.font = 'bold 14px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('RAGE!', screenX, screenY - 50 - progress * 20);
+      }
+      break;
+
+    case 'shield':
+      // 가디언 - 보호막 (팀 보호막)
+      {
+        const radius = effect.radius || 500;
+
+        // 보호막 돔
+        ctx.globalAlpha = (1 - progress) * 0.4;
+        const shieldGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius);
+        shieldGradient.addColorStop(0, 'transparent');
+        shieldGradient.addColorStop(0.7, '#3b82f620');
+        shieldGradient.addColorStop(1, '#3b82f660');
+        ctx.fillStyle = shieldGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 보호막 링
+        ctx.globalAlpha = (1 - progress) * 0.7;
+        ctx.strokeStyle = '#60a5fa';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 방패 아이콘
+        ctx.globalAlpha = (1 - progress) * 0.9;
+        ctx.fillStyle = '#3b82f6';
+        ctx.font = 'bold 20px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('SHIELD', screenX, screenY - 60 - progress * 20);
+      }
+      break;
+
+    case 'snipe':
+      // 저격수 - 저격 (조준선 + 집중 모션)
+      {
+        // targetPosition 또는 direction으로 타겟 위치 계산
+        let targetX = screenX;
+        let targetY = screenY;
+
+        if (effect.targetPosition) {
+          targetX = effect.targetPosition.x - camera.x;
+          targetY = effect.targetPosition.y - camera.y;
+        } else if (effect.direction) {
+          const range = 1000;
+          targetX = screenX + effect.direction.x * range;
+          targetY = screenY + effect.direction.y * range;
+        }
+
+        // 조준 단계 (progress < 0.9: 집중 중)
+        if (progress < 0.9) {
+          // 집중 중 조준선 (점선, 깜빡임)
+          const blinkAlpha = 0.5 + Math.sin(gameTime * 10) * 0.3;
+          ctx.globalAlpha = blinkAlpha;
+          ctx.strokeStyle = '#ff0000';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([15, 8]);
+          ctx.beginPath();
+          ctx.moveTo(screenX, screenY);
+          ctx.lineTo(targetX, targetY);
+          ctx.stroke();
+          ctx.setLineDash([]);
+
+          // 집중 원 (영웅 주위)
+          ctx.globalAlpha = 0.6;
+          ctx.strokeStyle = '#ff6600';
+          ctx.lineWidth = 3;
+          const chargeRadius = 40 + progress * 20;
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, chargeRadius, 0, Math.PI * 2 * progress / 0.9);
+          ctx.stroke();
+
+          // 타겟 조준경
+          ctx.globalAlpha = 0.7 + Math.sin(gameTime * 8) * 0.2;
+          ctx.strokeStyle = '#ff0000';
+          ctx.lineWidth = 2;
+          const crosshairSize = 25 + Math.sin(gameTime * 5) * 5;
+          ctx.beginPath();
+          ctx.arc(targetX, targetY, crosshairSize, 0, Math.PI * 2);
+          ctx.moveTo(targetX - crosshairSize - 15, targetY);
+          ctx.lineTo(targetX + crosshairSize + 15, targetY);
+          ctx.moveTo(targetX, targetY - crosshairSize - 15);
+          ctx.lineTo(targetX, targetY + crosshairSize + 15);
+          ctx.stroke();
+
+          // 집중 텍스트
+          ctx.globalAlpha = 0.9;
+          ctx.fillStyle = '#ff4400';
+          ctx.font = 'bold 14px Arial';
+          ctx.textAlign = 'center';
+          const chargePercent = Math.floor((progress / 0.9) * 100);
+          ctx.fillText(`CHARGING... ${chargePercent}%`, screenX, screenY - 60);
+        } else {
+          // 발사 단계 (progress >= 0.9)
+          const fireProgress = (progress - 0.9) / 0.1;
+
+          // 강력한 저격 탄환
+          ctx.globalAlpha = (1 - fireProgress) * 0.9;
+          const bulletGradient = ctx.createLinearGradient(screenX, screenY, targetX, targetY);
+          bulletGradient.addColorStop(0, '#ffff00');
+          bulletGradient.addColorStop(0.5, '#ff8800');
+          bulletGradient.addColorStop(1, '#ff0000');
+          ctx.strokeStyle = bulletGradient;
+          ctx.lineWidth = 6;
+          ctx.beginPath();
+          ctx.moveTo(screenX, screenY);
+          ctx.lineTo(targetX, targetY);
+          ctx.stroke();
+
+          // 충격 이펙트
+          ctx.globalAlpha = (1 - fireProgress) * 0.8;
+          ctx.strokeStyle = '#ffff00';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.arc(targetX, targetY, 30 * fireProgress, 0, Math.PI * 2);
+          ctx.stroke();
+
+          // 폭발 파티클
+          for (let i = 0; i < 8; i++) {
+            const angle = (i / 8) * Math.PI * 2;
+            const dist = 40 * fireProgress;
+            ctx.fillStyle = i % 2 === 0 ? '#ffff00' : '#ff8800';
+            ctx.beginPath();
+            ctx.arc(targetX + Math.cos(angle) * dist, targetY + Math.sin(angle) * dist, 4, 0, Math.PI * 2);
+            ctx.fill();
+          }
+        }
+      }
+      break;
+
+    case 'arrow_storm':
+      // 레인저 - 화살 폭풍 (버프 이펙트)
+      {
+        const radius = 50;
+
+        // 바람 오라
+        ctx.globalAlpha = (1 - progress * 0.5) * 0.5;
+        ctx.strokeStyle = '#22c55e';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 3; i++) {
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, radius + i * 15 + progress * 20, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // 화살 파티클
+        for (let i = 0; i < 8; i++) {
+          const angle = (i / 8) * Math.PI * 2 + progress * 8;
+          const dist = 40;
+          ctx.save();
+          ctx.translate(screenX + Math.cos(angle) * dist, screenY + Math.sin(angle) * dist);
+          ctx.rotate(angle + Math.PI / 2);
+          ctx.globalAlpha = (1 - progress) * 0.8;
+          ctx.fillStyle = '#22c55e';
+          ctx.beginPath();
+          ctx.moveTo(0, -8);
+          ctx.lineTo(-3, 5);
+          ctx.lineTo(3, 5);
+          ctx.closePath();
+          ctx.fill();
+          ctx.restore();
+        }
+
+        // 속도 UP 텍스트
+        ctx.globalAlpha = (1 - progress) * 0.9;
+        ctx.fillStyle = '#22c55e';
+        ctx.font = 'bold 12px Arial';
+        ctx.textAlign = 'center';
+        ctx.fillText('SPEED UP!', screenX, screenY - 50 - progress * 20);
+      }
+      break;
+
+    case 'divine_light':
+      // 팔라딘 - 신성한 빛 (황금빛 힐 + 무적)
+      {
+        const radius = effect.radius || 500;
+
+        // 신성한 빛
+        ctx.globalAlpha = (1 - progress) * 0.5;
+        const divineGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius);
+        divineGradient.addColorStop(0, '#ffffff80');
+        divineGradient.addColorStop(0.3, '#ffd70060');
+        divineGradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = divineGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 황금 링
+        ctx.globalAlpha = (1 - progress) * 0.8;
+        ctx.strokeStyle = '#ffd700';
+        ctx.lineWidth = 4;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius * (0.5 + progress * 0.5), 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 십자가 광선
+        ctx.globalAlpha = (1 - progress) * 0.6;
+        ctx.strokeStyle = '#ffffff';
+        ctx.lineWidth = 8;
+        ctx.beginPath();
+        ctx.moveTo(screenX - radius, screenY);
+        ctx.lineTo(screenX + radius, screenY);
+        ctx.moveTo(screenX, screenY - radius);
+        ctx.lineTo(screenX, screenY + radius);
+        ctx.stroke();
+      }
+      break;
+
+    case 'dark_blade':
+      // 다크나이트 - 어둠의 칼날 (어둠 범위 데미지)
+      {
+        const radius = effect.radius || 150;
+
+        // 어둠 범위
+        ctx.globalAlpha = (1 - progress * 0.5) * 0.6;
+        const darkGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius);
+        darkGradient.addColorStop(0, '#1a1a2e80');
+        darkGradient.addColorStop(0.5, '#4c1d9560');
+        darkGradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = darkGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 어둠 링 (회전)
+        ctx.globalAlpha = (1 - progress) * 0.8;
+        ctx.strokeStyle = '#7c3aed';
+        ctx.lineWidth = 3;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius * 0.8, progress * Math.PI * 2, progress * Math.PI * 2 + Math.PI * 1.5);
+        ctx.stroke();
+
+        // 어둠 파티클
+        for (let i = 0; i < 10; i++) {
+          const angle = (i / 10) * Math.PI * 2 + progress * 3;
+          const dist = radius * (0.3 + Math.sin(progress * 5 + i) * 0.2);
+          ctx.globalAlpha = (1 - progress) * 0.7;
+          ctx.fillStyle = '#a855f7';
+          ctx.beginPath();
+          ctx.arc(screenX + Math.cos(angle) * dist, screenY + Math.sin(angle) * dist, 4, 0, Math.PI * 2);
+          ctx.fill();
+        }
+      }
+      break;
+
+    case 'meteor_shower':
+      // 대마법사 - 메테오 샤워 (운석 낙하)
+      {
+        const radius = effect.radius || 100;
+        const meteorCount = 10;
+
+        for (let i = 0; i < meteorCount; i++) {
+          const meteorProgress = (progress + i / meteorCount) % 1;
+          const angle = (i / meteorCount) * Math.PI * 2;
+          const dist = radius * 0.8;
+          const targetX = screenX + Math.cos(angle) * dist * (0.5 + Math.random() * 0.5);
+          const targetY = screenY + Math.sin(angle) * dist * (0.5 + Math.random() * 0.5);
+
+          // 운석 낙하
+          const meteorY = targetY - 200 * (1 - meteorProgress);
+          if (meteorProgress < 0.8) {
+            // 운석
+            ctx.globalAlpha = (1 - progress) * 0.9;
+            ctx.fillStyle = '#ff4400';
+            ctx.beginPath();
+            ctx.arc(targetX, meteorY, 8, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 운석 꼬리
+            ctx.strokeStyle = '#ff8800';
+            ctx.lineWidth = 4;
+            ctx.beginPath();
+            ctx.moveTo(targetX, meteorY);
+            ctx.lineTo(targetX, meteorY - 30);
+            ctx.stroke();
+          } else {
+            // 충격
+            const impactProgress = (meteorProgress - 0.8) * 5;
+            ctx.globalAlpha = (1 - impactProgress) * 0.8;
+            ctx.strokeStyle = '#ff4400';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(targetX, targetY, 20 * impactProgress, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+      }
+      break;
+
+    case 'spring_of_life':
+      // 힐러 - 생명의 샘 (지속 힐)
+      {
+        const radius = effect.radius || 500;
+
+        // 생명의 샘 범위
+        ctx.globalAlpha = (1 - progress * 0.3) * 0.4;
+        const lifeGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius);
+        lifeGradient.addColorStop(0, '#00ff0040');
+        lifeGradient.addColorStop(0.5, '#22c55e30');
+        lifeGradient.addColorStop(1, 'transparent');
+        ctx.fillStyle = lifeGradient;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 힐 파동
+        const waveCount = 3;
+        for (let i = 0; i < waveCount; i++) {
+          const waveProgress = (progress + i / waveCount) % 1;
+          ctx.globalAlpha = (1 - waveProgress) * 0.6;
+          ctx.strokeStyle = '#22c55e';
+          ctx.lineWidth = 2;
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, radius * waveProgress, 0, Math.PI * 2);
+          ctx.stroke();
+        }
+
+        // 힐 파티클
+        for (let i = 0; i < 6; i++) {
+          const angle = (i / 6) * Math.PI * 2 + progress * 2;
+          const dist = radius * 0.5;
+          const yOffset = -Math.sin(progress * 3 + i) * 20;
+          ctx.globalAlpha = (1 - progress * 0.5) * 0.8;
+          ctx.fillStyle = '#86efac';
+          ctx.font = '14px Arial';
+          ctx.fillText('+', screenX + Math.cos(angle) * dist, screenY + Math.sin(angle) * dist + yOffset);
+        }
+      }
+      break;
   }
 
   ctx.restore();

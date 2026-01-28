@@ -104,6 +104,8 @@ export function createCoopRoom(
     type: 'COOP_ROOM_CREATED',
     roomCode: code,
     roomId,
+    isPrivate: room.isPrivate,
+    difficulty: room.difficulty,
   });
 
   return room;

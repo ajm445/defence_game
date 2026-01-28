@@ -1011,13 +1011,29 @@ function executeAdvancedWSkill(
           }
         }
 
+        // 전방 기지에 데미지
+        for (const base of enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = distance(hero.x, hero.y, base.x, base.y);
+          if (baseDist > arrowRange) continue;
+
+          // 바라보는 방향 체크
+          const baseDx = base.x - hero.x;
+          const baseDy = base.y - hero.y;
+          const baseDirDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
+          if (baseDirDist === 0) continue;
+          const dot = (dirX * baseDx + dirY * baseDy) / baseDirDist;
+          if (dot > 0.3) {  // 전방 60도 내
+            baseDamages.push({ baseId: base.id, damage });
+          }
+        }
+
         // 이동속도 버프
         buff = {
-          type: 'berserker',  // speedBonus 지원하는 타입 사용
+          type: 'swiftness',
           duration: speedDuration,
           startTime: gameTime,
-          speedBonus,
-          attackBonus: 0,
+          moveSpeedBonus: speedBonus,
         };
 
         effect = {
