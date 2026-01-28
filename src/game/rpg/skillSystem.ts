@@ -732,7 +732,7 @@ export function executeESkill(
           triggerTime: gameTime + delay,
           damage,
           radius,
-          casterId,
+          casterId: casterId || hero.id,
           bossDamageMultiplier, // 보스 데미지 배율 저장
         };
 
@@ -826,6 +826,7 @@ function executeAdvancedWSkill(
   const allyHeals: { heroId: string; heal: number }[] = [];
   let effect: SkillEffect | undefined;
   let buff: Buff | undefined;
+  let pendingSkill: PendingSkill | undefined;
   let updatedHero = hero;
   let returnStunDuration: number | undefined;
 
@@ -1269,22 +1270,22 @@ function executeAdvancedWSkill(
       break;
 
     case 'archmage':
-      // 폭발 화염구 - 250% 데미지 + 범위 증가 + 화상
+      // 폭발 화염구 - 250% 데미지 + 범위 증가 + 2초간 화상 지속 데미지
       {
         const radius = skillConfig.radius || 120;
         const burnDamage = skillConfig.burnDamage || 0.2;
-        const burnDuration = skillConfig.burnDuration || 3;
+        const burnDuration = 2;  // 2초간 화상 지역
 
+        // 즉발 데미지
         for (const enemy of enemies) {
           if (enemy.hp <= 0) continue;
           const enemyDist = distance(targetX, targetY, enemy.x, enemy.y);
           if (enemyDist <= radius) {
             enemyDamages.push({ enemyId: enemy.id, damage });
-            // TODO: 화상 디버프 적용 (별도 시스템 필요)
           }
         }
 
-        // 기지에 데미지
+        // 기지에 즉발 데미지
         for (const base of enemyBases) {
           if (base.destroyed) continue;
           const baseDist = distance(targetX, targetY, base.x, base.y);
@@ -1293,13 +1294,25 @@ function executeAdvancedWSkill(
           }
         }
 
+        // 화상 지역 지속 데미지 (2초간 초당 20% 데미지)
+        const burnTickDamage = Math.floor((baseDamage + attackBonus) * burnDamage);
+        pendingSkill = {
+          type: 'inferno_burn' as SkillType,  // 화상 지역 틱 데미지용 타입
+          position: { x: targetX, y: targetY },
+          triggerTime: gameTime + 1,  // 1초 후 첫 틱
+          damage: burnTickDamage,
+          radius,
+          casterId: hero.id,
+          tickCount: burnDuration,  // 2회 틱
+        };
+
         effect = {
           type: skillConfig.type,
           position: { x: targetX, y: targetY },
           direction: { x: dirX, y: dirY },
           radius,
           damage,
-          duration: 0.7,
+          duration: 0.5 + burnDuration,  // 폭발 + 화상 지속
           startTime: gameTime,
         };
       }
@@ -1371,6 +1384,7 @@ function executeAdvancedWSkill(
     stunDuration: returnStunDuration,
     buff,
     allyHeals: allyHeals.length > 0 ? allyHeals : undefined,
+    pendingSkill,
   };
 }
 
@@ -1529,7 +1543,7 @@ function executeAdvancedESkill(
           triggerTime: gameTime + chargeTime,
           damage: snipeDamage,
           radius: 0,  // 단일 타겟
-          casterId,
+          casterId: casterId || hero.id,
           targetId: targetEnemy.id,
         };
 
@@ -1636,7 +1650,7 @@ function executeAdvancedESkill(
           triggerTime: gameTime + 1,  // 1초마다 틱
           damage: tickDamage,
           radius,
-          casterId,
+          casterId: casterId || hero.id,
           duration,  // 총 지속시간 저장
           tickCount: duration,  // 남은 틱 수
         };
@@ -1654,7 +1668,7 @@ function executeAdvancedESkill(
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
           radius,
-          duration: 1.0,
+          duration,  // 5초간 지속
           startTime: gameTime,
         };
       }
@@ -1675,7 +1689,7 @@ function executeAdvancedESkill(
           triggerTime: gameTime + duration / meteorCount,  // 균등 간격
           damage: meteorDamage,
           radius: meteorRadius,
-          casterId,
+          casterId: casterId || hero.id,
           meteorCount: meteorCount - 1,  // 남은 운석 수
           duration,
         };
@@ -1704,7 +1718,7 @@ function executeAdvancedESkill(
           triggerTime: gameTime + 1,  // 1초마다 틱
           damage: 0,  // 데미지 없음
           radius,
-          casterId,
+          casterId: casterId || hero.id,
           healPercent: healPerTick,
           duration,
           tickCount: duration,

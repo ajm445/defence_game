@@ -16,7 +16,7 @@ const CLASS_DISPLAY: Record<HeroClass, { emoji: string; name: string; color: str
 const BUFF_DISPLAY: Record<BuffType, { emoji: string; name: string; color: string; maxDuration: number }> = {
   berserker: { emoji: '🔥', name: '광전사', color: '#ef4444', maxDuration: 10 },
   ironwall: { emoji: '🛡️', name: '철벽 방어', color: '#3b82f6', maxDuration: 5 },
-  invincible: { emoji: '✨', name: '무적', color: '#fbbf24', maxDuration: 2.0 },
+  invincible: { emoji: '✨', name: '무적', color: '#fbbf24', maxDuration: 3 },
   swiftness: { emoji: '💨', name: '신속', color: '#22d3ee', maxDuration: 3 },
   stun: { emoji: '💫', name: '기절', color: '#9ca3af', maxDuration: 1 },
 };
@@ -142,7 +142,6 @@ export const RPGHeroPanel: React.FC = () => {
         {activeBuffs.length > 0 && (
           <div className="flex gap-1 items-center">
             {activeBuffs
-              .filter(buff => buff.type !== 'invincible') // 무적은 너무 짧아서 표시 제외
               .map((buff, index) => {
                 const buffInfo = BUFF_DISPLAY[buff.type];
                 const progress = buff.duration / buffInfo.maxDuration;

@@ -1009,13 +1009,13 @@ export function useRPGGameLoop() {
             useRPGStore.getState().addSkillEffect(explosionEffect);
             soundManager.play('attack_melee');
           } else if (skill.type === 'meteor_shower') {
-            // 대마법사 메테오 샤워 이펙트
+            // 대마법사 메테오 샤워 이펙트 (운석들이 순차적으로 낙하)
             const meteorEffect: SkillEffect = {
               type: 'meteor_shower' as SkillType,
               position: { x: skill.position.x, y: skill.position.y },
               radius: skill.radius,
               damage: skill.damage,
-              duration: 0.5,
+              duration: 2.0,  // 운석 낙하 이펙트 시간 늘림
               startTime: currentGameTime,
             };
             useRPGStore.getState().addSkillEffect(meteorEffect);
@@ -1026,6 +1026,18 @@ export function useRPGGameLoop() {
           } else if (skill.type === 'dark_blade') {
             // 다크나이트 어둠의 칼날 틱 이펙트
             effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
+            soundManager.play('attack_melee');
+          } else if (skill.type === 'inferno_burn') {
+            // 대마법사 인페르노 화상 틱 이펙트
+            const burnEffect: SkillEffect = {
+              type: 'inferno_burn' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              damage: skill.damage,
+              duration: 1.0,
+              startTime: currentGameTime,
+            };
+            useRPGStore.getState().addSkillEffect(burnEffect);
             soundManager.play('attack_melee');
           } else {
             // 기본 폭발 이펙트
@@ -1041,27 +1053,38 @@ export function useRPGGameLoop() {
     for (let i = triggeredSkills.length - 1; i >= 0; i--) {
       const skill = pendingSkills[triggeredSkills[i]];
 
-      // 틱 스킬 재등록 (다크나이트 어둠의 칼날, 힐러 생명의 샘)
+      // 틱 스킬 재등록 (다크나이트 어둠의 칼날, 힐러 생명의 샘, 대마법사 화상)
       // 데미지/힐은 위의 범위 스킬 처리에서 이미 적용됨
       if (skill.tickCount && skill.tickCount > 1) {
-        const state = useRPGStore.getState();
-
-        // 캐스터 영웅 찾기 (스킬이 영웅을 따라다니도록)
-        let casterHero: HeroUnit | null | undefined = null;
-        if (skill.casterId === state.hero?.id) {
-          casterHero = state.hero;
-        } else {
-          casterHero = state.otherHeroes.get(skill.casterId || '');
-        }
-
-        // 캐스터가 살아있으면 다음 틱 재등록
-        if (casterHero && casterHero.hp > 0) {
+        // 화상 지역은 고정 위치에서 틱 데미지
+        if (skill.type === 'inferno_burn') {
           skillsToAdd.push({
             ...skill,
-            position: { x: casterHero.x, y: casterHero.y },  // 영웅 현재 위치로 업데이트
+            // 위치 고정 (영웅을 따라가지 않음)
             triggerTime: currentGameTime + 1,  // 1초 후 다음 틱
             tickCount: skill.tickCount - 1,
           });
+        } else {
+          // 다른 틱 스킬은 영웅을 따라다님
+          const state = useRPGStore.getState();
+
+          // 캐스터 영웅 찾기 (스킬이 영웅을 따라다니도록)
+          let casterHero: HeroUnit | null | undefined = null;
+          if (skill.casterId === state.hero?.id) {
+            casterHero = state.hero;
+          } else {
+            casterHero = state.otherHeroes.get(skill.casterId || '');
+          }
+
+          // 캐스터가 살아있으면 다음 틱 재등록
+          if (casterHero && casterHero.hp > 0) {
+            skillsToAdd.push({
+              ...skill,
+              position: { x: casterHero.x, y: casterHero.y },  // 영웅 현재 위치로 업데이트
+              triggerTime: currentGameTime + 1,  // 1초 후 다음 틱
+              tickCount: skill.tickCount - 1,
+            });
+          }
         }
       }
       // 메테오 샤워: 랜덤 위치에 연속 운석
