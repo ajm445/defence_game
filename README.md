@@ -4,7 +4,7 @@
 
 **RTS 모드**와 **RPG 모드**를 모두 즐길 수 있는 종합 전략 게임입니다.
 
-**Version: 1.17.9**
+**Version: 1.17.10**
 
 ---
 
@@ -340,7 +340,17 @@ defence_game/
 
 ## 버전 히스토리
 
-### V1.17.9 (현재)
+### V1.17.10 (현재)
+- **멀티플레이어 틱 스킬 동기화 버그 수정**
+  - `dark_blade` (다크나이트 E): effectManager → addSkillEffect 변경
+  - `spring_of_life` (힐러 E): effectManager → addSkillEffect 변경
+  - 호스트에서만 보이던 틱 이펙트가 클라이언트에도 동기화됨
+- **클라이언트 pendingSkill 이펙트 처리 개선**
+  - `inferno_burn` 케이스 추가 (대마법사 W 화상 효과)
+  - `meteor_shower` duration 0.5초 → 2.0초로 수정
+  - `dark_blade`, `spring_of_life` addSkillEffect 사용으로 통일
+
+### V1.17.9
 - **대마법사 W 스킬 (인페르노) 화상 효과 추가**
   - 스킬 사용 시 2초간 지속되는 화상 지역 생성
   - 화상 지역 내 적과 기지에 초당 20% 추가 데미지

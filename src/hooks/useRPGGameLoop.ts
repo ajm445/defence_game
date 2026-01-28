@@ -259,22 +259,56 @@ export function useRPGGameLoop() {
                   position: { x: skill.position.x, y: skill.position.y },
                   radius: skill.radius,
                   damage: skill.damage,
-                  duration: 0.5,
+                  duration: 2.0,  // 운석 낙하 이펙트 시간
                   startTime: clientCurrentGameTime,
                 };
                 useRPGStore.getState().addSkillEffect(meteorEffect);
                 soundManager.play('attack_melee');
               }
               break;
+            case 'inferno_burn':
+              // 대마법사 인페르노 화상 틱 이펙트
+              {
+                const burnEffect: SkillEffect = {
+                  type: 'inferno_burn' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  damage: skill.damage,
+                  duration: 1.0,
+                  startTime: clientCurrentGameTime,
+                };
+                useRPGStore.getState().addSkillEffect(burnEffect);
+                soundManager.play('attack_melee');
+              }
+              break;
             case 'dark_blade':
               // 다크나이트 어둠의 칼날 틱 이펙트
-              effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
-              soundManager.play('attack_melee');
+              {
+                const darkBladeEffect: SkillEffect = {
+                  type: 'dark_blade' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  damage: skill.damage,
+                  duration: 1.0,
+                  startTime: clientCurrentGameTime,
+                };
+                useRPGStore.getState().addSkillEffect(darkBladeEffect);
+                soundManager.play('attack_melee');
+              }
               break;
             case 'spring_of_life':
               // 힐러 생명의 샘 틱 이펙트
-              effectManager.createEffect('heal', skill.position.x, skill.position.y);
-              soundManager.play('hero_revive');
+              {
+                const springEffect: SkillEffect = {
+                  type: 'spring_of_life' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  duration: 1.0,
+                  startTime: clientCurrentGameTime,
+                };
+                useRPGStore.getState().addSkillEffect(springEffect);
+                soundManager.play('hero_revive');
+              }
               break;
             case 'snipe':
               // 저격수 저격 이펙트
@@ -1021,11 +1055,27 @@ export function useRPGGameLoop() {
             useRPGStore.getState().addSkillEffect(meteorEffect);
             soundManager.play('attack_melee');
           } else if (skill.type === 'spring_of_life') {
-            // 힐러 생명의 샘 - 힐 이펙트는 위에서 이미 처리됨
+            // 힐러 생명의 샘 틱 이펙트 (동기화용)
+            const springEffect: SkillEffect = {
+              type: 'spring_of_life' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              duration: 1.0,
+              startTime: currentGameTime,
+            };
+            useRPGStore.getState().addSkillEffect(springEffect);
             soundManager.play('hero_revive');
           } else if (skill.type === 'dark_blade') {
-            // 다크나이트 어둠의 칼날 틱 이펙트
-            effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
+            // 다크나이트 어둠의 칼날 틱 이펙트 (동기화용)
+            const darkBladeEffect: SkillEffect = {
+              type: 'dark_blade' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              damage: skill.damage,
+              duration: 1.0,
+              startTime: currentGameTime,
+            };
+            useRPGStore.getState().addSkillEffect(darkBladeEffect);
             soundManager.play('attack_melee');
           } else if (skill.type === 'inferno_burn') {
             // 대마법사 인페르노 화상 틱 이펙트
