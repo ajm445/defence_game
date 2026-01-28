@@ -124,6 +124,10 @@ export const RPGUpgradePanel: React.FC = () => {
         return;
       }
 
+      // 사망한 영웅은 업그레이드 불가
+      const hero = useRPGStore.getState().hero;
+      if (!hero || hero.hp <= 0) return;
+
       switch (e.key) {
         case '1':
           handleUpgrade('attack');

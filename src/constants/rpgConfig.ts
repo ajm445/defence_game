@@ -135,6 +135,14 @@ export const GOLD_CONFIG = {
     boss: 500,
   } as GoldTable,
 
+  // 적 기지 파괴 시 골드 보상 (난이도별)
+  BASE_DESTROY_REWARDS: {
+    easy: 50,
+    normal: 100,
+    hard: 200,
+    extreme: 300,
+  } as Record<RPGDifficulty, number>,
+
   // 업그레이드 기본 비용 (1레벨 고정, 이후 레벨 비례 증가)
   UPGRADE_BASE_COST: 50,
 
@@ -863,7 +871,8 @@ export const DIFFICULTY_BOSS_SKILLS: Record<RPGDifficulty, BossSkillType[]> = {
 
 // 전직 조건
 export const JOB_ADVANCEMENT_REQUIREMENTS = {
-  minClassLevel: 10,  // 최소 클래스 레벨
+  minClassLevel: 15,  // 1차 전직 최소 레벨
+  secondEnhancementLevel: 50,  // 2차 강화 레벨
 } as const;
 
 // 기본 직업 → 전직 직업 매핑
@@ -874,18 +883,18 @@ export const ADVANCEMENT_OPTIONS: Record<HeroClass, AdvancedHeroClass[]> = {
   mage: ['archmage', 'healer'],
 };
 
-// 전직 직업 설정
+// 전직 직업 설정 (절대 스탯 값 사용)
 export interface AdvancedClassConfig {
   name: string;
   nameEn: string;
   emoji: string;
   description: string;
   baseClass: HeroClass;
-  // 스탯 배율 (기본 직업 대비)
-  statMultipliers: {
+  // 절대 스탯 값 (1차 전직)
+  stats: {
     hp: number;
     attack: number;
-    attackSpeed: number;
+    attackSpeed: number;  // 공격 쿨다운 (초) - 낮을수록 빠름
     speed: number;
     range: number;
   };
@@ -893,6 +902,7 @@ export interface AdvancedClassConfig {
   specialEffects: {
     damageReduction?: number;      // 받는 피해 감소 (0.3 = 30%)
     lifestealMultiplier?: number;  // 피해흡혈 배율 (2.0 = 2배)
+    lifesteal?: number;            // 고정 피해흡혈 (0.3 = 30%)
     critChance?: number;           // 크리티컬 확률 (0.5 = 50%)
     multiTarget?: number;          // 다중 타겟 수
     healAlly?: boolean;            // 아군 힐 가능
@@ -900,20 +910,26 @@ export interface AdvancedClassConfig {
   };
 }
 
+// 2차 강화 스탯 배율 (1차 전직 스탯 × 1.2)
+export const SECOND_ENHANCEMENT_MULTIPLIER = 1.2;
+
 export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConfig> = {
-  // 전사 계열
+  // ============================================
+  // 전사 계열 (기본: hp=400, attack=45, attackSpeed=1.0, speed=2.8, range=80)
+  // ============================================
   berserker: {
     name: '버서커',
     nameEn: 'Berserker',
     emoji: '🔥',
     description: '공격력과 공격속도에 특화된 광전사',
     baseClass: 'warrior',
-    statMultipliers: {
-      hp: 0.8,           // HP -20%
-      attack: 1.4,       // 공격력 +40%
-      attackSpeed: 0.8,  // 공격속도 +20% (더 빠름)
-      speed: 1.0,
-      range: 1.0,
+    // HP +10%, 공격력 +50%, 공격속도 +30%, 속도 +10%
+    stats: {
+      hp: 440,           // 400 * 1.10
+      attack: 68,        // 45 * 1.50
+      attackSpeed: 0.77, // 1.0 / 1.30 (30% 빠름)
+      speed: 3.08,       // 2.8 * 1.10
+      range: 80,         // 변동 없음
     },
     specialEffects: {
       lifestealMultiplier: 2.0,  // 피해흡혈 2배
@@ -925,30 +941,34 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
     emoji: '🛡️',
     description: '높은 방어력과 체력의 수호자',
     baseClass: 'warrior',
-    statMultipliers: {
-      hp: 1.3,           // HP +30%
-      attack: 0.9,       // 공격력 -10%
-      attackSpeed: 1.1,  // 공격속도 -10% (더 느림)
-      speed: 1.0,
-      range: 1.0,
+    // HP +60%, 공격력 +10%, 공격속도 +5%, 속도 +5%
+    stats: {
+      hp: 640,           // 400 * 1.60
+      attack: 50,        // 45 * 1.10
+      attackSpeed: 0.95, // 1.0 / 1.05 (5% 빠름)
+      speed: 2.94,       // 2.8 * 1.05
+      range: 80,         // 변동 없음
     },
     specialEffects: {
       damageReduction: 0.3,  // 받는 피해 30% 감소
     },
   },
-  // 궁수 계열
+  // ============================================
+  // 궁수 계열 (기본: hp=280, attack=40, attackSpeed=0.75, speed=3.0, range=180)
+  // ============================================
   sniper: {
     name: '저격수',
     nameEn: 'Sniper',
     emoji: '🎯',
     description: '높은 단일 공격력과 사거리의 저격수',
     baseClass: 'archer',
-    statMultipliers: {
-      hp: 0.9,           // HP -10%
-      attack: 1.5,       // 공격력 +50%
-      attackSpeed: 1.3,  // 공격속도 -30% (더 느림)
-      speed: 1.0,
-      range: 1.5,        // 사거리 +50%
+    // HP +10%, 공격력 +60%, 공격속도 +5%, 속도 +10%, 사거리 +50%
+    stats: {
+      hp: 308,           // 280 * 1.10
+      attack: 64,        // 40 * 1.60
+      attackSpeed: 0.71, // 0.75 / 1.05 (5% 빠름)
+      speed: 3.3,        // 3.0 * 1.10
+      range: 270,        // 180 * 1.50
     },
     specialEffects: {
       critChance: 0.5,   // 크리티컬 50% 확률
@@ -960,30 +980,34 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
     emoji: '🏹',
     description: '빠른 공격속도와 다중 타겟 공격',
     baseClass: 'archer',
-    statMultipliers: {
-      hp: 1.1,           // HP +10%
-      attack: 1.1,       // 공격력 +10%
-      attackSpeed: 0.7,  // 공격속도 +30% (더 빠름)
-      speed: 1.0,
-      range: 1.0,
+    // HP +20%, 공격력 +20%, 공격속도 +40%, 속도 +15%, 사거리 +10%
+    stats: {
+      hp: 336,           // 280 * 1.20
+      attack: 48,        // 40 * 1.20
+      attackSpeed: 0.54, // 0.75 / 1.40 (40% 빠름)
+      speed: 3.45,       // 3.0 * 1.15
+      range: 198,        // 180 * 1.10
     },
     specialEffects: {
       multiTarget: 5,    // 다중 타겟 5명
     },
   },
-  // 기사 계열
+  // ============================================
+  // 기사 계열 (기본: hp=550, attack=40, attackSpeed=1.1, speed=2.4, range=80)
+  // ============================================
   paladin: {
     name: '팔라딘',
     nameEn: 'Paladin',
     emoji: '⚜️',
     description: '신성한 힘으로 아군을 치유하는 성기사',
     baseClass: 'knight',
-    statMultipliers: {
-      hp: 1.2,           // HP +20%
-      attack: 1.0,
-      attackSpeed: 1.0,
-      speed: 1.0,
-      range: 1.0,
+    // HP +40%, 공격력 +15%, 공격속도 +10%, 속도 +10%, 사거리 +5%
+    stats: {
+      hp: 770,           // 550 * 1.40
+      attack: 46,        // 40 * 1.15
+      attackSpeed: 1.0,  // 1.1 / 1.10 (10% 빠름)
+      speed: 2.64,       // 2.4 * 1.10
+      range: 84,         // 80 * 1.05
     },
     specialEffects: {
       healAlly: true,    // 아군 힐 가능
@@ -995,30 +1019,34 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
     emoji: '⚔️',
     description: '어둠의 힘으로 적을 베는 암흑기사',
     baseClass: 'knight',
-    statMultipliers: {
-      hp: 1.1,           // HP +10%
-      attack: 1.3,       // 공격력 +30%
-      attackSpeed: 1.0,
-      speed: 1.0,
-      range: 1.0,
+    // HP +25%, 공격력 +40%, 공격속도 +15%, 속도 +10%, 사거리 +5%
+    stats: {
+      hp: 688,           // 550 * 1.25
+      attack: 56,        // 40 * 1.40
+      attackSpeed: 0.96, // 1.1 / 1.15 (15% 빠름)
+      speed: 2.64,       // 2.4 * 1.10
+      range: 84,         // 80 * 1.05
     },
     specialEffects: {
-      lifestealMultiplier: 1.0, // 기사는 기본 흡혈 없으므로 30% 흡혈 부여
+      lifesteal: 0.3,    // 30% 피해흡혈 부여
     },
   },
-  // 마법사 계열
+  // ============================================
+  // 마법사 계열 (기본: hp=230, attack=60, attackSpeed=1.4, speed=2.8, range=210)
+  // ============================================
   archmage: {
     name: '대마법사',
     nameEn: 'Archmage',
     emoji: '🌟',
     description: '강력한 범위 마법의 대마법사',
     baseClass: 'mage',
-    statMultipliers: {
-      hp: 0.8,           // HP -20%
-      attack: 1.6,       // 공격력 +60%
-      attackSpeed: 1.0,
-      speed: 1.0,
-      range: 1.5,        // 범위 +50%
+    // HP +10%, 공격력 +70%, 공격속도 +10%, 속도 +5%, 사거리 +50%
+    stats: {
+      hp: 253,           // 230 * 1.10
+      attack: 102,       // 60 * 1.70
+      attackSpeed: 1.27, // 1.4 / 1.10 (10% 빠름)
+      speed: 2.94,       // 2.8 * 1.05
+      range: 315,        // 210 * 1.50
     },
     specialEffects: {
       bossBonus: 0.5,    // 보스에게 50% 추가 데미지
@@ -1030,12 +1058,13 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
     emoji: '💚',
     description: '아군을 치유하는 힐러',
     baseClass: 'mage',
-    statMultipliers: {
-      hp: 1.2,           // HP +20%
-      attack: 0.6,       // 공격력 -40%
-      attackSpeed: 1.0,
-      speed: 1.0,
-      range: 1.0,
+    // HP +40%, 공격력 +5%, 공격속도 +15%, 속도 +10%, 사거리 +20%
+    stats: {
+      hp: 322,           // 230 * 1.40
+      attack: 63,        // 60 * 1.05
+      attackSpeed: 1.22, // 1.4 / 1.15 (15% 빠름)
+      speed: 3.08,       // 2.8 * 1.10
+      range: 252,        // 210 * 1.20
     },
     specialEffects: {
       healAlly: true,    // 아군 힐 가능
@@ -1043,9 +1072,9 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
   },
 };
 
-// 전직 E스킬 설정
+// 전직 스킬 설정 인터페이스
 export interface AdvancedSkillConfig {
-  type: string;
+  type: SkillType;
   name: string;
   nameEn: string;
   key: string;
@@ -1062,12 +1091,132 @@ export interface AdvancedSkillConfig {
   damageReduction?: number;  // 피해 감소율
   chargeTime?: number;       // 차징 시간
   invincibleDuration?: number; // 무적 지속시간
+  distance?: number;         // 돌진 거리
+  lifestealPercent?: number; // 피해흡혈 비율
+  shieldPercent?: number;    // 보호막 비율 (최대 HP 대비)
+  stunDuration?: number;     // 기절 지속시간
+  arrowCount?: number;       // 화살 발사 수
+  burnDamage?: number;       // 화상 데미지 (초당)
+  burnDuration?: number;     // 화상 지속시간
+  meteorCount?: number;      // 운석 개수
+  range?: number;            // 스킬 사거리
 }
 
-export const ADVANCED_CLASS_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> = {
+// ============================================
+// 전직 W 스킬 설정 (Shift 키)
+// ============================================
+export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> = {
+  // 버서커: 피의 돌진 - 전방 돌진 + 피해량의 50% 체력 회복
+  berserker: {
+    type: 'blood_rush',
+    name: '피의 돌진',
+    nameEn: 'Blood Rush',
+    key: 'W',
+    cooldown: 6,
+    description: '전방 돌진 + 경로상 적에게 데미지 + 피해량의 50% 체력 회복',
+    damageMultiplier: 1.5,
+    distance: 200,
+    lifestealPercent: 0.5,
+  },
+  // 가디언: 수호의 돌진 - 전방 돌진 + 기절 + 보호막
+  guardian: {
+    type: 'guardian_rush',
+    name: '수호의 돌진',
+    nameEn: 'Guardian Rush',
+    key: 'W',
+    cooldown: 8,
+    description: '전방 돌진 + 경로상 적에게 최대 HP 10% 데미지 + 2초 기절 + 3초간 보호막 (최대 HP 20%)',
+    damageMultiplier: 0.1,  // 최대 HP 10% (특수 계산 필요)
+    distance: 150,
+    stunDuration: 2.0,
+    shieldPercent: 0.2,
+    duration: 3,  // 보호막 지속시간
+  },
+  // 저격수: 후방 도약 - 뒤로 점프하며 전방에 200% 데미지 화살 발사
+  sniper: {
+    type: 'backflip_shot',
+    name: '후방 도약',
+    nameEn: 'Backflip Shot',
+    key: 'W',
+    cooldown: 5,
+    description: '뒤로 점프하며 전방에 200% 데미지 화살 발사 + 3초간 이동속도 30% 증가',
+    damageMultiplier: 2.0,
+    distance: 150,  // 뒤로 점프 거리
+    speedBonus: 0.3,
+    duration: 3,  // 이동속도 버프 지속시간
+  },
+  // 레인저: 다중 화살 - 부채꼴 방향으로 5발의 관통 화살 발사
+  ranger: {
+    type: 'multi_arrow',
+    name: '다중 화살',
+    nameEn: 'Multi Arrow',
+    key: 'W',
+    cooldown: 5,
+    description: '부채꼴 방향으로 5발의 관통 화살 발사, 각 화살 100% 데미지',
+    damageMultiplier: 1.0,
+    arrowCount: 5,
+    distance: 300,  // 화살 관통 거리 (범위 표시용)
+  },
+  // 팔라딘: 신성한 돌진 - 전방 돌진 + 기절 + 아군 힐
+  paladin: {
+    type: 'holy_charge',
+    name: '신성한 돌진',
+    nameEn: 'Holy Charge',
+    key: 'W',
+    cooldown: 8,
+    description: '전방 돌진 + 경로상 적에게 최대 HP 10% 데미지 + 기절 + 주변 아군 HP 10% 회복',
+    damageMultiplier: 0.1,  // 최대 HP 10% (특수 계산 필요)
+    distance: 150,
+    stunDuration: 1.5,
+    healPercent: 0.1,
+    radius: 200,  // 힐 범위
+  },
+  // 다크나이트: 암흑 베기 - 전방 돌진 + 150% 데미지 + 피해흡혈
+  darkKnight: {
+    type: 'shadow_slash',
+    name: '암흑 베기',
+    nameEn: 'Shadow Slash',
+    key: 'W',
+    cooldown: 8,
+    description: '전방 돌진 + 경로상 적에게 150% 데미지 + 피해량의 30% 체력 회복',
+    damageMultiplier: 1.5,
+    distance: 200,
+    lifestealPercent: 0.3,
+  },
+  // 대마법사: 폭발 화염구 - 대형 화염구 + 화상
+  archmage: {
+    type: 'inferno',
+    name: '폭발 화염구',
+    nameEn: 'Inferno',
+    key: 'W',
+    cooldown: 7,
+    description: '대형 화염구 발사, 250% 데미지 + 범위 50% 증가 + 3초간 화상 (초당 20% 데미지)',
+    damageMultiplier: 2.5,
+    radius: 120,  // 기본 화염구 80 * 1.5 = 120
+    burnDamage: 0.2,  // 초당 공격력의 20%
+    burnDuration: 3,
+  },
+  // 힐러: 치유의 빛 - 적에게 데미지 + 아군 힐
+  healer: {
+    type: 'healing_light',
+    name: '치유의 빛',
+    nameEn: 'Healing Light',
+    key: 'W',
+    cooldown: 7,
+    description: '전방 범위에 치유의 빛 발사, 적에게 100% 데미지 + 범위 내 아군 HP 15% 회복',
+    damageMultiplier: 1.0,
+    healPercent: 0.15,
+    radius: 150,
+  },
+};
+
+// ============================================
+// 전직 E 스킬 설정 (R 키)
+// ============================================
+export const ADVANCED_E_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> = {
   // 버서커: 광란 - 10초간 공격력/공속 100% 증가, 받는 피해 50% 증가
   berserker: {
-    type: 'berserker_rage',
+    type: 'rage',
     name: '광란',
     nameEn: 'Rage',
     key: 'E',
@@ -1080,7 +1229,7 @@ export const ADVANCED_CLASS_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfi
   },
   // 가디언: 보호막 - 아군 전체에게 5초간 피해 50% 감소 버프
   guardian: {
-    type: 'guardian_shield',
+    type: 'shield',
     name: '보호막',
     nameEn: 'Shield',
     key: 'E',
@@ -1090,20 +1239,21 @@ export const ADVANCED_CLASS_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfi
     damageReduction: 0.5,
     radius: 500,  // 전체 범위
   },
-  // 저격수: 저격 - 3초 조준 후 1000% 데미지 단일 타격
+  // 저격수: 저격 - 3초 조준 후 1000% 데미지 단일 타격 (무제한 사거리)
   sniper: {
-    type: 'sniper_shot',
+    type: 'snipe',
     name: '저격',
     nameEn: 'Snipe',
     key: 'E',
     cooldown: 30,
-    description: '3초 조준 후 1000% 데미지 단일 타격',
+    description: '3초 조준 후 1000% 데미지 단일 타격 (무제한 사거리)',
     chargeTime: 3,
     damageMultiplier: 10.0,
+    range: 2000,  // 무제한 사거리 (맵 전체)
   },
   // 레인저: 화살 폭풍 - 5초간 자동 공격 속도 3배
   ranger: {
-    type: 'ranger_storm',
+    type: 'arrow_storm',
     name: '화살 폭풍',
     nameEn: 'Arrow Storm',
     key: 'E',
@@ -1114,7 +1264,7 @@ export const ADVANCED_CLASS_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfi
   },
   // 팔라딘: 신성한 빛 - 아군 전체 HP 30% 회복 + 3초 무적
   paladin: {
-    type: 'paladin_light',
+    type: 'divine_light',
     name: '신성한 빛',
     nameEn: 'Divine Light',
     key: 'E',
@@ -1126,7 +1276,7 @@ export const ADVANCED_CLASS_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfi
   },
   // 다크나이트: 어둠의 칼날 - 주변 적에게 5초간 초당 50% 데미지
   darkKnight: {
-    type: 'darkknight_blade',
+    type: 'dark_blade',
     name: '어둠의 칼날',
     nameEn: 'Dark Blade',
     key: 'E',
@@ -1138,7 +1288,7 @@ export const ADVANCED_CLASS_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfi
   },
   // 대마법사: 메테오 샤워 - 5초간 랜덤 위치에 운석 10개 낙하
   archmage: {
-    type: 'archmage_meteor',
+    type: 'meteor_shower',
     name: '메테오 샤워',
     nameEn: 'Meteor Shower',
     key: 'E',
@@ -1147,10 +1297,11 @@ export const ADVANCED_CLASS_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfi
     duration: 5,
     damageMultiplier: 3.0,
     radius: 100,  // 각 운석 범위
+    meteorCount: 10,
   },
   // 힐러: 생명의 샘 - 15초간 아군 전체 초당 5% 힐
   healer: {
-    type: 'healer_spring',
+    type: 'spring_of_life',
     name: '생명의 샘',
     nameEn: 'Spring of Life',
     key: 'E',
@@ -1161,3 +1312,6 @@ export const ADVANCED_CLASS_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfi
     radius: 500,
   },
 };
+
+// 하위 호환성을 위해 기존 이름 유지
+export const ADVANCED_CLASS_SKILLS = ADVANCED_E_SKILLS;

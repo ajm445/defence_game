@@ -12,7 +12,7 @@ import {
   SP_PER_CLASS_LEVEL,
   StatUpgradeType,
 } from '../types/auth';
-import { HeroClass, RPGDifficulty } from '../types/rpg';
+import { HeroClass, RPGDifficulty, AdvancedHeroClass } from '../types/rpg';
 
 // API 기본 URL
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -93,6 +93,8 @@ export const upsertClassProgress = async (
     classExp: number;
     sp?: number;
     statUpgrades?: CharacterStatUpgrades;
+    advancedClass?: AdvancedHeroClass;
+    tier?: 1 | 2;
   }
 ): Promise<boolean> => {
   try {
@@ -105,6 +107,8 @@ export const upsertClassProgress = async (
         classExp: updates.classExp,
         sp: updates.sp ?? 0,
         statUpgrades: updates.statUpgrades ?? createDefaultStatUpgrades(),
+        advancedClass: updates.advancedClass,
+        tier: updates.tier,
       }),
     });
 
@@ -192,6 +196,109 @@ export const resetCharacterStats = async (
     };
   } catch (err) {
     console.error('Reset character stats error:', err);
+    return null;
+  }
+};
+
+// 전직 처리 (advancedClass 저장) - 전직 변경도 지원
+export const advanceJob = async (
+  playerId: string,
+  className: HeroClass,
+  advancedClass: AdvancedHeroClass,
+  currentProgress: ClassProgress
+): Promise<ClassProgress | null> => {
+  // 레벨 조건 확인 (Lv.15 이상)
+  if (currentProgress.classLevel < 15) {
+    console.error('Level requirement not met for job advancement');
+    return null;
+  }
+
+  // 같은 전직으로 변경하는 경우 무시
+  if (currentProgress.advancedClass === advancedClass) {
+    console.log('Already in this advanced class');
+    return currentProgress;
+  }
+
+  // 전직 변경 여부 확인
+  const isJobChange = !!currentProgress.advancedClass;
+
+  // 전직 변경 시: 레벨 15로 초기화, tier 1로 리셋, SP 14로 리셋, 스탯 업그레이드 초기화
+  // 최초 전직 시: 현재 레벨/SP/스탯 유지
+  const newClassLevel = isJobChange ? 15 : currentProgress.classLevel;
+  const newClassExp = isJobChange ? 0 : currentProgress.classExp;
+  const newSp = isJobChange ? 14 : currentProgress.sp;  // 레벨 15 = SP 14
+  const newStatUpgrades = isJobChange ? createDefaultStatUpgrades() : currentProgress.statUpgrades;
+  const newTier = 1;  // 전직 시 항상 tier 1로
+
+  try {
+    const success = await upsertClassProgress(playerId, className, {
+      classLevel: newClassLevel,
+      classExp: newClassExp,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
+      advancedClass,
+      tier: newTier,
+    });
+
+    if (!success) return null;
+
+    return {
+      ...currentProgress,
+      classLevel: newClassLevel,
+      classExp: newClassExp,
+      sp: newSp,
+      statUpgrades: newStatUpgrades,
+      advancedClass,
+      tier: newTier,
+    };
+  } catch (err) {
+    console.error('Advance job error:', err);
+    return null;
+  }
+};
+
+// 2차 강화 처리 (tier 업그레이드)
+export const applySecondEnhancement = async (
+  playerId: string,
+  className: HeroClass,
+  currentProgress: ClassProgress
+): Promise<ClassProgress | null> => {
+  // 레벨 조건 확인 (Lv.50 이상)
+  if (currentProgress.classLevel < 50) {
+    console.error('Level requirement not met for second enhancement');
+    return null;
+  }
+
+  // 전직했는지 확인
+  if (!currentProgress.advancedClass) {
+    console.error('Must advance job first');
+    return null;
+  }
+
+  // 이미 2차 강화했는지 확인
+  if (currentProgress.tier === 2) {
+    console.error('Already at tier 2');
+    return null;
+  }
+
+  try {
+    const success = await upsertClassProgress(playerId, className, {
+      classLevel: currentProgress.classLevel,
+      classExp: currentProgress.classExp,
+      sp: currentProgress.sp,
+      statUpgrades: currentProgress.statUpgrades,
+      advancedClass: currentProgress.advancedClass as AdvancedHeroClass,
+      tier: 2,  // 2차 강화
+    });
+
+    if (!success) return null;
+
+    return {
+      ...currentProgress,
+      tier: 2,
+    };
+  } catch (err) {
+    console.error('Apply second enhancement error:', err);
     return null;
   }
 };
@@ -318,7 +425,7 @@ export const processGameResult = async (
     playerExp: newPlayerExp,
   };
 
-  // 새 클래스 진행 상황
+  // 새 클래스 진행 상황 (전직 정보 보존)
   const newClassProgress: ClassProgress = {
     playerId,
     className: gameData.classUsed,
@@ -326,6 +433,8 @@ export const processGameResult = async (
     classExp: newClassExp,
     sp: newSp,
     statUpgrades: existingStatUpgrades,
+    advancedClass: existingProgress?.advancedClass,
+    tier: existingProgress?.tier,
   };
 
   // 레벨업 결과
@@ -346,12 +455,14 @@ export const processGameResult = async (
       playerExp: newPlayerExp,
     });
 
-    // 클래스 진행 상황 업데이트
+    // 클래스 진행 상황 업데이트 (전직 정보 포함)
     await upsertClassProgress(playerId, gameData.classUsed, {
       classLevel: newClassLevel,
       classExp: newClassExp,
       sp: newSp,
       statUpgrades: existingStatUpgrades,
+      advancedClass: existingProgress?.advancedClass as AdvancedHeroClass | undefined,
+      tier: existingProgress?.tier,
     });
 
     // 게임 기록 저장

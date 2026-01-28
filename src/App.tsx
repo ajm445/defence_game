@@ -18,6 +18,7 @@ import { GameOverScreen } from './components/screens/GameOverScreen';
 import { PauseScreen } from './components/screens/PauseScreen';
 import { preloadGameEmojis } from './utils/canvasEmoji';
 import { preloadAllUnitImages } from './utils/unitImages';
+import { preloadAllAdvancedHeroImages } from './utils/heroImages';
 
 function App() {
   const currentScreen = useUIStore((state) => state.currentScreen);
@@ -28,6 +29,7 @@ function App() {
   useEffect(() => {
     preloadGameEmojis();
     preloadAllUnitImages();
+    preloadAllAdvancedHeroImages();
   }, []);
 
   // 앱 시작 시 인증 상태 초기화

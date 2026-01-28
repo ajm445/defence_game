@@ -69,6 +69,8 @@ export interface CoopPlayerInfo {
   connected: boolean;
   characterLevel?: number;  // 캐릭터(클래스) 레벨 - 업그레이드 최대 레벨 결정
   statUpgrades?: CharacterStatUpgrades;  // SP 스탯 업그레이드 - 초기 스탯 보너스 적용
+  advancedClass?: string;   // 전직 직업 (버서커, 가디언 등)
+  tier?: 1 | 2;             // 전직 단계 (1: 1차 전직, 2: 2차 강화)
 }
 
 // ============================================
@@ -105,6 +107,9 @@ export interface NetworkCoopHero {
   level: number;
   exp: number;
   expToNextLevel: number;
+  // 전직 정보
+  advancedClass?: string;  // 전직 직업
+  tier?: 1 | 2;            // 전직 단계
 }
 
 // ============================================
@@ -222,14 +227,14 @@ export type CoopClientMessage =
   | { type: 'USER_LOGIN'; userId: string; nickname: string; isGuest: boolean; level?: number }
   | { type: 'USER_LOGOUT'; userId: string; nickname: string }
   // 방 관련
-  | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; isPrivate?: boolean }
-  | { type: 'JOIN_COOP_ROOM'; roomCode: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
-  | { type: 'JOIN_COOP_ROOM_BY_ID'; roomId: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
+  | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; isPrivate?: boolean; advancedClass?: string; tier?: 1 | 2 }
+  | { type: 'JOIN_COOP_ROOM'; roomCode: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; advancedClass?: string; tier?: 1 | 2 }
+  | { type: 'JOIN_COOP_ROOM_BY_ID'; roomId: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; advancedClass?: string; tier?: 1 | 2 }
   | { type: 'GET_COOP_ROOM_LIST' }
   | { type: 'LEAVE_COOP_ROOM' }
   | { type: 'COOP_READY' }
   | { type: 'COOP_UNREADY' }
-  | { type: 'CHANGE_COOP_CLASS'; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades }
+  | { type: 'CHANGE_COOP_CLASS'; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; advancedClass?: string; tier?: 1 | 2 }
   | { type: 'UPDATE_COOP_ROOM_SETTINGS'; isPrivate?: boolean; difficulty?: string }  // 호스트 전용 - 방 설정 변경
   | { type: 'START_COOP_GAME' }  // 호스트 전용
   | { type: 'KICK_COOP_PLAYER'; playerId: string }  // 호스트 전용
@@ -259,13 +264,13 @@ export type CoopClientMessage =
 
 export type CoopServerMessage =
   // 방 관련
-  | { type: 'COOP_ROOM_CREATED'; roomCode: string; roomId: string }
+  | { type: 'COOP_ROOM_CREATED'; roomCode: string; roomId: string; isPrivate?: boolean; difficulty?: string }
   | { type: 'COOP_ROOM_JOINED'; roomId: string; roomCode: string; players: CoopPlayerInfo[]; yourIndex: number; isPrivate?: boolean; difficulty?: string }
   | { type: 'COOP_ROOM_LIST'; rooms: WaitingCoopRoomInfo[] }
   | { type: 'COOP_PLAYER_JOINED'; player: CoopPlayerInfo }
   | { type: 'COOP_PLAYER_LEFT'; playerId: string }
   | { type: 'COOP_PLAYER_READY'; playerId: string; isReady: boolean }
-  | { type: 'COOP_PLAYER_CLASS_CHANGED'; playerId: string; heroClass: HeroClass; characterLevel?: number }
+  | { type: 'COOP_PLAYER_CLASS_CHANGED'; playerId: string; heroClass: HeroClass; characterLevel?: number; advancedClass?: string; tier?: 1 | 2 }
   | { type: 'COOP_PLAYER_KICKED'; playerId: string; reason: string }
   | { type: 'COOP_ROOM_SETTINGS_CHANGED'; isPrivate: boolean; difficulty: string }  // 방 설정 변경 알림
   | { type: 'COOP_ROOM_ERROR'; message: string }
@@ -282,7 +287,7 @@ export type CoopServerMessage =
   | { type: 'COOP_PLAYER_DISCONNECTED'; playerId: string }
   | { type: 'COOP_PLAYER_RECONNECTED'; playerId: string }
   // 호스트 기반 메시지
-  | { type: 'COOP_GAME_START_HOST_BASED'; isHost: boolean; playerIndex: number; players: CoopPlayerInfo[]; hostPlayerId: string }
+  | { type: 'COOP_GAME_START_HOST_BASED'; isHost: boolean; playerIndex: number; players: CoopPlayerInfo[]; hostPlayerId: string; difficulty?: string }
   | { type: 'COOP_GAME_STATE_FROM_HOST'; state: SerializedGameState }
   | { type: 'COOP_PLAYER_INPUT'; input: PlayerInput }
   | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
@@ -329,6 +334,8 @@ export interface WaitingCoopRoomInfo {
   hostName: string;
   hostHeroClass: HeroClass;
   hostClassLevel: number;  // 호스트가 선택한 직업의 레벨
+  hostAdvancedClass?: string;  // 호스트의 전직 직업
+  hostTier?: 1 | 2;  // 호스트의 전직 단계
   playerCount: number;
   maxPlayers: number;
   createdAt: number;

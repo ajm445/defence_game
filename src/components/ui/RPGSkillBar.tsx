@@ -1,8 +1,9 @@
-import React, { useCallback } from 'react';
+import React, { useCallback, useMemo } from 'react';
 import { useHero, useRPGStore } from '../../stores/useRPGStore';
-import { Skill, SkillType, HeroClass } from '../../types/rpg';
+import { Skill, SkillType, HeroClass, AdvancedHeroClass, HeroUnit, RPGEnemy } from '../../types/rpg';
 import { getSkillDescription } from '../../game/rpg/skillSystem';
-import { CLASS_SKILLS, CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { CLASS_SKILLS, CLASS_CONFIGS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS } from '../../constants/rpgConfig';
+import { distance } from '../../utils/math';
 
 interface SkillButtonProps {
   skill: Skill;
@@ -10,6 +11,8 @@ interface SkillButtonProps {
   onUse: () => void;
   onHoverStart: () => void;
   onHoverEnd: () => void;
+  disabled?: boolean;  // 타겟 없음 등의 이유로 비활성화
+  disabledReason?: string;  // 비활성화 이유
 }
 
 // 직업별 스킬 아이콘
@@ -35,6 +38,24 @@ const getSkillIcon = (skillType: SkillType, _heroClass: HeroClass): string => {
     mage_q: '✨',
     mage_w: '🔥',
     mage_e: '☄️',
+    // 전직 W 스킬
+    blood_rush: '🩸',      // 버서커 - 피의 돌진
+    guardian_rush: '🛡️',   // 가디언 - 수호의 돌진
+    backflip_shot: '🔙',   // 저격수 - 후방 도약
+    multi_arrow: '🏹',     // 레인저 - 다중 화살
+    holy_charge: '✝️',     // 팔라딘 - 신성한 돌진
+    shadow_slash: '🗡️',    // 다크나이트 - 암흑 베기
+    inferno: '🔥',         // 대마법사 - 폭발 화염구
+    healing_light: '💚',   // 힐러 - 치유의 빛
+    // 전직 E 스킬
+    rage: '😡',            // 버서커 - 광란
+    shield: '🛡️',          // 가디언 - 보호막
+    snipe: '🎯',           // 저격수 - 저격
+    arrow_storm: '🌪️',     // 레인저 - 화살 폭풍
+    divine_light: '☀️',    // 팔라딘 - 신성한 빛
+    dark_blade: '⚫',      // 다크나이트 - 어둠의 칼날
+    meteor_shower: '☄️',   // 대마법사 - 메테오 샤워
+    spring_of_life: '💧',  // 힐러 - 생명의 샘
   };
   return iconMap[skillType] || '⭐';
 };
@@ -80,9 +101,10 @@ const getSkillLabel = (key: string): string => {
   return key;
 };
 
-const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHoverStart, onHoverEnd }) => {
+const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHoverStart, onHoverEnd, disabled, disabledReason }) => {
   const isOnCooldown = skill.currentCooldown > 0;
   const cooldownPercent = isOnCooldown ? (skill.currentCooldown / skill.cooldown) * 100 : 0;
+  const isDisabled = isOnCooldown || disabled;
 
   const skillIcon = getSkillIcon(skill.type, heroClass);
   const skillColor = getSkillColor(skill.key, heroClass);
@@ -96,11 +118,11 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
     >
       <button
         onClick={onUse}
-        disabled={isOnCooldown}
+        disabled={isDisabled}
         className={`
           relative w-14 h-14 rounded-lg border-2 overflow-hidden
           transition-all duration-200
-          ${isOnCooldown
+          ${isDisabled
             ? 'bg-dark-700/80 border-dark-500 cursor-not-allowed'
             : `bg-gradient-to-br ${skillColor} border-neon-cyan/50 hover:border-neon-cyan hover:scale-105 cursor-pointer`
           }
@@ -147,11 +169,33 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
           <div className="text-xs text-neon-cyan mt-1">
             쿨타임: {skill.cooldown}초
           </div>
+          {disabled && disabledReason && (
+            <div className="text-xs text-red-400 mt-1">
+              {disabledReason}
+            </div>
+          )}
         </div>
       </div>
     </div>
   );
 };
+
+// 스나이퍼 E 스킬 타겟 존재 여부 체크
+function checkSniperTarget(hero: HeroUnit, enemies: RPGEnemy[], mouseX: number, mouseY: number): boolean {
+  const targetAngle = Math.atan2(mouseY - hero.y, mouseX - hero.x);
+
+  for (const enemy of enemies) {
+    if (enemy.hp <= 0) continue;
+    const enemyAngle = Math.atan2(enemy.y - hero.y, enemy.x - hero.x);
+    const angleDiff = Math.abs(enemyAngle - targetAngle);
+    const normalizedDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff);
+
+    if (normalizedDiff < Math.PI / 6) {  // 30도 이내
+      return true;
+    }
+  }
+  return false;
+}
 
 interface RPGSkillBarProps {
   onUseSkill: (skillType: SkillType) => void;
@@ -199,11 +243,40 @@ function getSkillRangeInfo(
     return null;
   }
 
+  // 전직 W 스킬 사거리 정보
+  for (const [advClass, skillConfig] of Object.entries(ADVANCED_W_SKILLS)) {
+    if (skillConfig.type === skillType) {
+      if (skillConfig.distance) {
+        // 돌진 스킬 (버서커, 가디언, 팔라딘, 다크나이트, 저격수)
+        return { type: 'line', range: skillConfig.distance };
+      }
+      if (skillConfig.radius) {
+        // 범위 스킬 (대마법사 화염구, 힐러 치유의 빛, 레인저 다중화살)
+        return { type: 'circle', range: baseRange, radius: skillConfig.radius };
+      }
+      return null;
+    }
+  }
+
+  // 전직 E 스킬 사거리 정보
+  for (const [advClass, skillConfig] of Object.entries(ADVANCED_E_SKILLS)) {
+    if (skillConfig.type === skillType) {
+      if (skillConfig.radius) {
+        // 범위 스킬 - 무제한 사거리, 마우스 위치에 AoE 표시
+        return { type: 'aoe', range: 0, radius: skillConfig.radius };
+      }
+      // 버프 스킬 (버서커 광란, 레인저 화살 폭풍 등)은 사거리 표시 없음
+      return null;
+    }
+  }
+
   return null;
 }
 
 export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
   const hero = useHero();
+  const enemies = useRPGStore((state) => state.enemies);
+  const mousePosition = useRPGStore((state) => state.mousePosition);
 
   const handleSkillHoverStart = useCallback((skillType: SkillType, heroClass: HeroClass) => {
     const rangeInfo = getSkillRangeInfo(skillType, heroClass);
@@ -214,27 +287,47 @@ export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
     useRPGStore.getState().setHoveredSkillRange(null);
   }, []);
 
+  // 스나이퍼 E 스킬 타겟 체크
+  const hasSniperTarget = useMemo(() => {
+    if (!hero || hero.advancedClass !== 'sniper') return true;
+    return checkSniperTarget(hero, enemies, mousePosition.x, mousePosition.y);
+  }, [hero, enemies, mousePosition.x, mousePosition.y]);
+
   if (!hero) return null;
 
   // Q 스킬 제외 (자동 공격이므로), W와 E만 표시
   const displaySkills = hero.skills.filter(skill => skill.key === 'W' || skill.key === 'E');
 
+  // 스킬별 비활성화 상태 계산
+  const getSkillDisabledState = (skill: Skill): { disabled: boolean; reason?: string } => {
+    // 스나이퍼 E 스킬: 타겟 없으면 비활성화
+    if (hero.advancedClass === 'sniper' && skill.key === 'E' && !hasSniperTarget) {
+      return { disabled: true, reason: '타겟 없음 (마우스 방향 30도 내)' };
+    }
+    return { disabled: false };
+  };
+
   return (
     <>
-      {displaySkills.map((skill) => (
-        <div key={skill.type} className="flex flex-col items-center gap-1">
-          <div className="text-[10px] text-gray-400 font-medium">
-            {getSkillLabel(skill.key)}
+      {displaySkills.map((skill) => {
+        const { disabled, reason } = getSkillDisabledState(skill);
+        return (
+          <div key={skill.type} className="flex flex-col items-center gap-1">
+            <div className="text-[10px] text-gray-400 font-medium">
+              {getSkillLabel(skill.key)}
+            </div>
+            <SkillButton
+              skill={skill}
+              heroClass={hero.heroClass}
+              onUse={() => onUseSkill(skill.type)}
+              onHoverStart={() => handleSkillHoverStart(skill.type, hero.heroClass)}
+              onHoverEnd={handleSkillHoverEnd}
+              disabled={disabled}
+              disabledReason={reason}
+            />
           </div>
-          <SkillButton
-            skill={skill}
-            heroClass={hero.heroClass}
-            onUse={() => onUseSkill(skill.type)}
-            onHoverStart={() => handleSkillHoverStart(skill.type, hero.heroClass)}
-            onHoverEnd={handleSkillHoverEnd}
-          />
-        </div>
-      ))}
+        );
+      })}
     </>
   );
 };

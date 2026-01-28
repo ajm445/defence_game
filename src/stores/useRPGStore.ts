@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning, AdvancedHeroClass, SkillType } from '../types/rpg';
 import { UnitType } from '../types/unit';
-import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, JOB_ADVANCEMENT_REQUIREMENTS, SECOND_ENHANCEMENT_MULTIPLIER, ADVANCEMENT_OPTIONS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
 import { createInitialUpgradeLevels, getUpgradeCost, canUpgrade, getGoldReward, calculateAllUpgradeBonuses, UpgradeType } from '../game/rpg/goldSystem';
 import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '../types/auth';
@@ -67,7 +67,7 @@ interface RPGState extends RPGGameState {
 
 interface RPGActions {
   // 게임 초기화
-  initGame: (characterLevel?: number, statUpgrades?: CharacterStatUpgrades, difficulty?: RPGDifficulty) => void;
+  initGame: (characterLevel?: number, statUpgrades?: CharacterStatUpgrades, difficulty?: RPGDifficulty, advancedClass?: string, tier?: 1 | 2) => void;
   resetGame: () => void;
 
   // 난이도 선택
@@ -86,6 +86,11 @@ interface RPGActions {
   reviveHero: () => void;
   updateHeroPosition: (x: number, y: number) => void;
   updateHeroState: (heroUpdate: Partial<HeroUnit>) => void;
+
+  // 전직 관련
+  canAdvanceJob: () => boolean;
+  advanceJob: (advancedClass: AdvancedHeroClass) => boolean;
+  checkAndApplySecondEnhancement: () => boolean;
 
   // 마우스 위치 (스킬 타겟용)
   setMousePosition: (x: number, y: number) => void;
@@ -132,7 +137,7 @@ interface RPGActions {
 
   // 넥서스/기지
   damageNexus: (amount: number) => void;
-  damageBase: (baseId: EnemyBaseId, amount: number) => boolean; // returns true if destroyed
+  damageBase: (baseId: EnemyBaseId, amount: number, attackerId?: string) => { destroyed: boolean; goldReceived: number }; // returns destroyed status and gold received by caller
   spawnBosses: () => void;
   setGamePhase: (phase: RPGGamePhase) => void;
 
@@ -235,6 +240,7 @@ const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficu
       hp: Math.floor(ENEMY_BASE_CONFIG.left.hp * hpMultiplier),
       maxHp: Math.floor(ENEMY_BASE_CONFIG.left.hp * hpMultiplier),
       destroyed: false,
+      attackers: new Set<string>(),
     },
     {
       id: 'right',
@@ -243,6 +249,7 @@ const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficu
       hp: Math.floor(ENEMY_BASE_CONFIG.right.hp * hpMultiplier),
       maxHp: Math.floor(ENEMY_BASE_CONFIG.right.hp * hpMultiplier),
       destroyed: false,
+      attackers: new Set<string>(),
     },
   ];
 
@@ -255,6 +262,7 @@ const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficu
       hp: Math.floor(ENEMY_BASE_CONFIG.top.hp * hpMultiplier),
       maxHp: Math.floor(ENEMY_BASE_CONFIG.top.hp * hpMultiplier),
       destroyed: false,
+      attackers: new Set<string>(),
     });
   }
 
@@ -267,6 +275,7 @@ const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficu
       hp: Math.floor(ENEMY_BASE_CONFIG.bottom.hp * hpMultiplier),
       maxHp: Math.floor(ENEMY_BASE_CONFIG.bottom.hp * hpMultiplier),
       destroyed: false,
+      attackers: new Set<string>(),
     });
   }
 
@@ -384,13 +393,80 @@ function createClassSkills(heroClass: HeroClass): Skill[] {
   ];
 }
 
+// 전직 스킬 생성 (Q는 기본 직업 스킬 유지, W와 E는 전직 스킬로 변경)
+function createAdvancedClassSkills(heroClass: HeroClass, advancedClass: AdvancedHeroClass): Skill[] {
+  const baseSkills = CLASS_SKILLS[heroClass];
+  const advancedW = ADVANCED_W_SKILLS[advancedClass];
+  const advancedE = ADVANCED_E_SKILLS[advancedClass];
+
+  return [
+    // Q 스킬 - 기본 직업 스킬 유지
+    {
+      type: baseSkills.q.type,
+      name: baseSkills.q.name,
+      key: baseSkills.q.key,
+      cooldown: baseSkills.q.cooldown,
+      currentCooldown: 0,
+      level: 1,
+    },
+    // W 스킬 - 전직 스킬로 변경
+    {
+      type: advancedW.type as SkillType,
+      name: advancedW.name,
+      key: advancedW.key,
+      cooldown: advancedW.cooldown,
+      currentCooldown: 0,
+      level: 1,
+    },
+    // E 스킬 - 전직 스킬로 변경
+    {
+      type: advancedE.type as SkillType,
+      name: advancedE.name,
+      key: advancedE.key,
+      cooldown: advancedE.cooldown,
+      currentCooldown: 0,
+      level: 1,
+    },
+  ];
+}
+
 // 영웅 생성 (직업별)
 function createHeroUnit(
   heroClass: HeroClass,
   characterLevel: number = 1,
-  statUpgrades?: CharacterStatUpgrades
+  statUpgrades?: CharacterStatUpgrades,
+  advancedClass?: string,
+  tier?: 1 | 2
 ): HeroUnit {
-  const classConfig = CLASS_CONFIGS[heroClass];
+  // 전직 캐릭터인 경우 전직 스탯 사용
+  let baseStats: { hp: number; attack: number; attackSpeed: number; speed: number; range: number };
+  let configName: string;
+
+  if (advancedClass && ADVANCED_CLASS_CONFIGS[advancedClass as AdvancedHeroClass]) {
+    const advConfig = ADVANCED_CLASS_CONFIGS[advancedClass as AdvancedHeroClass];
+    const baseStat = advConfig.stats;
+
+    // 2차 강화인 경우 1.2배
+    const multiplier = tier === 2 ? SECOND_ENHANCEMENT_MULTIPLIER : 1;
+    baseStats = {
+      hp: Math.floor(baseStat.hp * multiplier),
+      attack: Math.floor(baseStat.attack * multiplier),
+      attackSpeed: baseStat.attackSpeed / multiplier, // 더 빠르게
+      speed: baseStat.speed * multiplier,
+      range: Math.floor(baseStat.range * multiplier),
+    };
+    configName = advConfig.name;
+  } else {
+    const classConfig = CLASS_CONFIGS[heroClass];
+    baseStats = {
+      hp: classConfig.hp,
+      attack: classConfig.attack,
+      attackSpeed: classConfig.attackSpeed,
+      speed: classConfig.speed,
+      range: classConfig.range,
+    };
+    configName = classConfig.name;
+  }
 
   // 캐릭터 레벨이 5 이상이면 패시브 활성화
   const passiveState = getPassiveFromCharacterLevel(heroClass, characterLevel) || createInitialPassiveState();
@@ -405,20 +481,27 @@ function createHeroUnit(
   // hpRegen은 게임 루프에서 적용됨
 
   // 최종 스탯 계산
-  const finalHp = classConfig.hp + hpBonus;
-  const finalAttack = classConfig.attack + attackBonus;
-  const finalSpeed = classConfig.speed + speedBonus;
+  const finalHp = baseStats.hp + hpBonus;
+  const finalAttack = baseStats.attack + attackBonus;
+  const finalSpeed = baseStats.speed + speedBonus;
   // 공격속도는 감소할수록 좋음 (빠른 공격), 최소 0.3초 보장
-  const finalAttackSpeed = Math.max(0.3, classConfig.attackSpeed - attackSpeedBonus);
-  const finalRange = classConfig.range + rangeBonus;
+  const finalAttackSpeed = Math.max(0.3, baseStats.attackSpeed - attackSpeedBonus);
+  const finalRange = baseStats.range + rangeBonus;
+
+  // 전직 스킬 또는 기본 스킬
+  const skills = advancedClass
+    ? createAdvancedClassSkills(heroClass, advancedClass as AdvancedHeroClass)
+    : createClassSkills(heroClass);
 
   return {
     id: 'hero',
     type: 'hero',
     heroClass,
     characterLevel,
+    advancedClass: advancedClass as AdvancedHeroClass | undefined,
+    tier,
     config: {
-      name: classConfig.name,
+      name: configName,
       cost: {},
       hp: finalHp,
       attack: finalAttack,
@@ -435,7 +518,7 @@ function createHeroUnit(
     attackCooldown: 0,
     team: 'player',
 
-    skills: createClassSkills(heroClass),
+    skills,
     baseAttack: finalAttack,
     baseSpeed: finalSpeed,
     baseAttackSpeed: finalAttackSpeed,
@@ -452,13 +535,13 @@ export const useRPGStore = create<RPGStore>()(
   subscribeWithSelector((set, get) => ({
     ...initialState,
 
-    initGame: (characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades, difficulty?: RPGDifficulty) => {
+    initGame: (characterLevel: number = 1, statUpgrades?: CharacterStatUpgrades, difficulty?: RPGDifficulty, advancedClass?: string, tier?: 1 | 2) => {
       const state = get();
       // 선택된 직업이 없으면 기본값 warrior 사용
       const heroClass = state.selectedClass || 'warrior';
       // 난이도가 전달되지 않으면 스토어의 선택된 난이도 사용
       const gameDifficulty = difficulty || state.selectedDifficulty;
-      const hero = createHeroUnit(heroClass, characterLevel, statUpgrades);
+      const hero = createHeroUnit(heroClass, characterLevel, statUpgrades, advancedClass, tier);
       set({
         ...initialState,
         running: true,
@@ -630,7 +713,13 @@ export const useRPGStore = create<RPGStore>()(
         // 사망 시 deathTime 설정 (부활 시스템용) - gameOver는 설정하지 않음
         if (isDead && !state.hero.deathTime) {
           return {
-            hero: { ...state.hero, hp: newHp, deathTime: state.gameTime },
+            hero: {
+              ...state.hero,
+              hp: newHp,
+              deathTime: state.gameTime,
+              castingUntil: undefined,  // 시전 상태 초기화
+              dashState: undefined,     // 돌진 상태 초기화
+            },
           };
         }
 
@@ -677,6 +766,8 @@ export const useRPGStore = create<RPGStore>()(
             moveDirection: undefined,
             state: 'idle',
             buffs: [...(state.hero.buffs || []), invincibleBuff],
+            castingUntil: undefined,  // 시전 상태 초기화
+            dashState: undefined,     // 돌진 상태 초기화
           },
         };
       });
@@ -699,6 +790,148 @@ export const useRPGStore = create<RPGStore>()(
           hero: { ...state.hero, ...heroUpdate },
         };
       });
+    },
+
+    // ============================================
+    // 전직 관련 액션
+    // ============================================
+
+    // 전직 가능 여부 확인
+    canAdvanceJob: () => {
+      const state = get();
+      if (!state.hero) return false;
+      // 이미 전직했으면 불가
+      if (state.hero.advancedClass) return false;
+      // 레벨 조건 확인
+      return state.hero.characterLevel >= JOB_ADVANCEMENT_REQUIREMENTS.minClassLevel;
+    },
+
+    // 전직 실행
+    advanceJob: (advancedClass: AdvancedHeroClass) => {
+      const state = get();
+      if (!state.hero) return false;
+      if (!get().canAdvanceJob()) return false;
+
+      // 전직 직업이 기본 직업에서 전직 가능한지 확인
+      const validOptions = ADVANCEMENT_OPTIONS[state.hero.heroClass];
+      if (!validOptions.includes(advancedClass)) return false;
+
+      // 전직 스탯 가져오기
+      const advancedConfig = ADVANCED_CLASS_CONFIGS[advancedClass];
+      const advancedStats = advancedConfig.stats;
+
+      // SP 업그레이드 보너스 다시 적용
+      const upgrades = state.hero.statUpgrades || { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 };
+      const attackBonus = getStatBonus('attack', upgrades.attack);
+      const speedBonus = getStatBonus('speed', upgrades.speed);
+      const hpBonus = getStatBonus('hp', upgrades.hp);
+      const attackSpeedBonus = getStatBonus('attackSpeed', upgrades.attackSpeed);
+      const rangeBonus = getStatBonus('range', upgrades.range);
+
+      // 최종 스탯 계산 (전직 기본 스탯 + SP 보너스)
+      const finalHp = advancedStats.hp + hpBonus;
+      const finalAttack = advancedStats.attack + attackBonus;
+      const finalSpeed = advancedStats.speed + speedBonus;
+      const finalAttackSpeed = Math.max(0.3, advancedStats.attackSpeed - attackSpeedBonus);
+      const finalRange = advancedStats.range + rangeBonus;
+
+      // 전직 스킬 생성
+      const advancedSkills = createAdvancedClassSkills(state.hero.heroClass, advancedClass);
+
+      // 현재 HP 비율 유지
+      const hpRatio = state.hero.hp / state.hero.maxHp;
+
+      set({
+        hero: {
+          ...state.hero,
+          advancedClass,
+          tier: 1,
+          // 스탯 업데이트
+          maxHp: finalHp,
+          hp: Math.floor(finalHp * hpRatio), // 현재 HP 비율 유지
+          baseAttack: finalAttack,
+          baseSpeed: finalSpeed,
+          baseAttackSpeed: finalAttackSpeed,
+          config: {
+            ...state.hero.config,
+            hp: finalHp,
+            attack: finalAttack,
+            attackSpeed: finalAttackSpeed,
+            speed: finalSpeed,
+            range: finalRange,
+          },
+          // 스킬 변경
+          skills: advancedSkills,
+        },
+      });
+
+      console.log(`[전직] ${state.hero.heroClass} → ${advancedClass} 전직 완료`);
+      return true;
+    },
+
+    // 2차 강화 확인 및 적용 (레벨 50 도달 시 자동 호출)
+    checkAndApplySecondEnhancement: () => {
+      const state = get();
+      if (!state.hero) return false;
+      // 전직하지 않았으면 불가
+      if (!state.hero.advancedClass) return false;
+      // 이미 2차 강화 완료
+      if (state.hero.tier === 2) return false;
+      // 레벨 조건 확인
+      if (state.hero.characterLevel < JOB_ADVANCEMENT_REQUIREMENTS.secondEnhancementLevel) return false;
+
+      // 전직 기본 스탯의 120%로 강화
+      const advancedConfig = ADVANCED_CLASS_CONFIGS[state.hero.advancedClass];
+      const baseStats = advancedConfig.stats;
+
+      // 2차 강화 스탯 (기본 스탯 × 1.2)
+      const enhancedHp = Math.floor(baseStats.hp * SECOND_ENHANCEMENT_MULTIPLIER);
+      const enhancedAttack = Math.floor(baseStats.attack * SECOND_ENHANCEMENT_MULTIPLIER);
+      const enhancedSpeed = baseStats.speed * SECOND_ENHANCEMENT_MULTIPLIER;
+      const enhancedAttackSpeed = baseStats.attackSpeed / SECOND_ENHANCEMENT_MULTIPLIER; // 더 빨라짐
+      const enhancedRange = Math.floor(baseStats.range * SECOND_ENHANCEMENT_MULTIPLIER);
+
+      // SP 업그레이드 보너스 다시 적용
+      const upgrades = state.hero.statUpgrades || { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 };
+      const attackBonus = getStatBonus('attack', upgrades.attack);
+      const speedBonus = getStatBonus('speed', upgrades.speed);
+      const hpBonus = getStatBonus('hp', upgrades.hp);
+      const attackSpeedBonus = getStatBonus('attackSpeed', upgrades.attackSpeed);
+      const rangeBonus = getStatBonus('range', upgrades.range);
+
+      // 최종 스탯 계산
+      const finalHp = enhancedHp + hpBonus;
+      const finalAttack = enhancedAttack + attackBonus;
+      const finalSpeed = enhancedSpeed + speedBonus;
+      const finalAttackSpeed = Math.max(0.3, enhancedAttackSpeed - attackSpeedBonus);
+      const finalRange = enhancedRange + rangeBonus;
+
+      // 현재 HP 비율 유지
+      const hpRatio = state.hero.hp / state.hero.maxHp;
+
+      set({
+        hero: {
+          ...state.hero,
+          tier: 2,
+          // 스탯 업데이트
+          maxHp: finalHp,
+          hp: Math.floor(finalHp * hpRatio),
+          baseAttack: finalAttack,
+          baseSpeed: finalSpeed,
+          baseAttackSpeed: finalAttackSpeed,
+          config: {
+            ...state.hero.config,
+            hp: finalHp,
+            attack: finalAttack,
+            attackSpeed: finalAttackSpeed,
+            speed: finalSpeed,
+            range: finalRange,
+          },
+        },
+      });
+
+      console.log(`[2차 강화] ${state.hero.advancedClass} 2차 강화 완료!`);
+      return true;
     },
 
     setMousePosition: (x, y) => {
@@ -1094,23 +1327,32 @@ export const useRPGStore = create<RPGStore>()(
     },
 
     // 적 기지 피해
-    damageBase: (baseId: EnemyBaseId, amount: number) => {
+    damageBase: (baseId: EnemyBaseId, amount: number, attackerId?: string) => {
       let destroyed = false;
+      let baseAttackers: string[] = [];
+      let goldReceived = 0;
 
       set((state) => {
         const updatedBases = state.enemyBases.map((base) => {
           if (base.id === baseId && !base.destroyed) {
+            // 공격자 추적 (멀티플레이 골드 배분용)
+            const newAttackers = new Set(base.attackers);
+            if (attackerId) {
+              newAttackers.add(attackerId);
+            }
+
             const newHp = Math.max(0, base.hp - amount);
             if (newHp <= 0) {
               destroyed = true;
-              return { ...base, hp: 0, destroyed: true };
+              baseAttackers = Array.from(newAttackers);
+              return { ...base, hp: 0, destroyed: true, attackers: newAttackers };
             }
-            return { ...base, hp: newHp };
+            return { ...base, hp: newHp, attackers: newAttackers };
           }
           return base;
         });
 
-        // 기지 파괴 시 통계 업데이트
+        // 기지 파괴 시 통계 업데이트 (골드는 아래에서 별도 처리)
         const statsUpdate = destroyed ? {
           stats: {
             ...state.stats,
@@ -1129,7 +1371,38 @@ export const useRPGStore = create<RPGStore>()(
         };
       });
 
-      return destroyed;
+      // 기지 파괴 시 골드 분배 (damageEnemy와 동일한 패턴)
+      if (destroyed) {
+        const state = get();
+        const myHeroId = state.multiplayer.myHeroId;
+        const isMultiplayer = state.multiplayer.isMultiplayer;
+        const baseReward = GOLD_CONFIG.BASE_DESTROY_REWARDS[state.selectedDifficulty];
+
+        if (isMultiplayer && baseAttackers.length > 0) {
+          // 멀티플레이: 공격에 참여한 모든 플레이어에게 균등 분배
+          const goldPerAttacker = Math.floor(baseReward / baseAttackers.length);
+
+          for (const heroId of baseAttackers) {
+            if (heroId === myHeroId) {
+              get().addGold(goldPerAttacker);
+              goldReceived = goldPerAttacker; // 호출자가 받은 골드
+            } else {
+              state.addGoldToOtherPlayer(heroId, goldPerAttacker);
+            }
+          }
+
+          // 호출자가 공격자 목록에 없었던 경우 (다른 플레이어가 마무리한 경우)
+          if (attackerId && !baseAttackers.includes(attackerId)) {
+            goldReceived = 0;
+          }
+        } else {
+          // 싱글플레이 또는 공격자가 없는 경우: 호스트에게 전체 골드 지급
+          get().addGold(baseReward);
+          goldReceived = baseReward;
+        }
+      }
+
+      return { destroyed, goldReceived };
     },
 
     // 보스 스폰
@@ -1581,11 +1854,13 @@ export const useRPGStore = create<RPGStore>()(
         const heroId = `hero_${player.id}`;
 
         if (player.id === state.multiplayer.myPlayerId) {
-          // 내 영웅은 기존 hero에 설정
+          // 내 영웅은 기존 hero에 설정 (전직 정보 포함)
           const hero = createHeroUnit(
             player.heroClass,
             player.characterLevel || 1,
-            player.statUpgrades
+            player.statUpgrades,
+            player.advancedClass,
+            player.tier
           );
           hero.x = spawnPositions[index].x;
           hero.y = spawnPositions[index].y;
@@ -1599,11 +1874,13 @@ export const useRPGStore = create<RPGStore>()(
             },
           });
         } else {
-          // 다른 플레이어 영웅
+          // 다른 플레이어 영웅 (전직 정보 포함)
           const hero = createHeroUnit(
             player.heroClass,
             player.characterLevel || 1,
-            player.statUpgrades
+            player.statUpgrades,
+            player.advancedClass,
+            player.tier
           );
           hero.x = spawnPositions[index].x;
           hero.y = spawnPositions[index].y;
@@ -1839,13 +2116,19 @@ export const useRPGStore = create<RPGStore>()(
         stunEndTime: enemy.stunEndTime,
       }));
 
+      // enemyBases 직렬화: Set을 Array로 변환
+      const serializedEnemyBases = state.enemyBases.map(base => ({
+        ...base,
+        attackers: Array.from(base.attackers),
+      }));
+
       return {
         gameTime: state.gameTime,
         gamePhase: state.gamePhase,
         heroes,
         enemies,
         nexus: state.nexus || createInitialNexus(),
-        enemyBases: state.enemyBases,
+        enemyBases: serializedEnemyBases as unknown as EnemyBase[],
         gold: state.gold,
         upgradeLevels: state.upgradeLevels,
         activeSkillEffects: state.activeSkillEffects,
@@ -2045,7 +2328,11 @@ export const useRPGStore = create<RPGStore>()(
         personalKills: myKills,
         enemies,
         nexus: serializedState.nexus,
-        enemyBases: serializedState.enemyBases,
+        // enemyBases 역직렬화: Array를 Set으로 변환
+        enemyBases: serializedState.enemyBases.map(base => ({
+          ...base,
+          attackers: new Set(Array.isArray((base as unknown as { attackers: string[] }).attackers) ? (base as unknown as { attackers: string[] }).attackers : []),
+        })),
         gold: myGold,  // 내 골드 적용
         upgradeLevels: myUpgrades,  // 내 업그레이드 적용
         activeSkillEffects: serializedState.activeSkillEffects,
@@ -2160,6 +2447,9 @@ function serializeHeroToNetwork(hero: HeroUnit, gold: number, upgradeLevels: Upg
     dashState: hero.dashState,
     statUpgrades: hero.statUpgrades,
     kills,
+    advancedClass: hero.advancedClass,
+    tier: hero.tier,
+    castingUntil: hero.castingUntil,
   };
 }
 
@@ -2168,13 +2458,41 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
   const classConfig = CLASS_CONFIGS[serialized.heroClass];
   const classSkills = CLASS_SKILLS[serialized.heroClass];
 
+  // 전직한 경우 전직 스킬 사용, 아니면 기본 스킬 사용
+  const advancedClass = serialized.advancedClass as AdvancedHeroClass | undefined;
+  let skills: Skill[];
+
+  if (advancedClass) {
+    // 전직 스킬 생성 후 쿨다운 적용
+    const advancedSkills = createAdvancedClassSkills(serialized.heroClass, advancedClass);
+    skills = advancedSkills.map((skill, index) => ({
+      ...skill,
+      currentCooldown: index === 0 ? serialized.skillCooldowns.Q :
+                       index === 1 ? serialized.skillCooldowns.W :
+                       serialized.skillCooldowns.E,
+    }));
+  } else {
+    skills = [
+      { ...classSkills.q, currentCooldown: serialized.skillCooldowns.Q, level: 1 },
+      { ...classSkills.w, currentCooldown: serialized.skillCooldowns.W, level: 1 },
+      { ...classSkills.e, currentCooldown: serialized.skillCooldowns.E, level: 1 },
+    ];
+  }
+
+  // 전직한 경우 전직 config 이름 사용
+  const configName = advancedClass && ADVANCED_CLASS_CONFIGS[advancedClass]
+    ? ADVANCED_CLASS_CONFIGS[advancedClass].name
+    : classConfig.name;
+
   return {
     id: serialized.id,
     type: 'hero',
     heroClass: serialized.heroClass,
     characterLevel: serialized.characterLevel,
+    advancedClass,
+    tier: serialized.tier,
     config: {
-      name: classConfig.name,
+      name: configName,
       cost: {},
       hp: serialized.maxHp,
       attack: serialized.attack,
@@ -2190,11 +2508,7 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
     state: serialized.moveDirection ? 'moving' : 'idle',
     attackCooldown: 0,
     team: 'player',
-    skills: [
-      { ...classSkills.q, currentCooldown: serialized.skillCooldowns.Q, level: 1 },
-      { ...classSkills.w, currentCooldown: serialized.skillCooldowns.W, level: 1 },
-      { ...classSkills.e, currentCooldown: serialized.skillCooldowns.E, level: 1 },
-    ],
+    skills,
     baseAttack: serialized.attack,
     baseSpeed: serialized.speed,
     baseAttackSpeed: serialized.attackSpeed,
@@ -2206,6 +2520,7 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
     dashState: serialized.dashState,
     statUpgrades: serialized.statUpgrades,
     deathTime: serialized.deathTime,  // 사망 시간 동기화
+    castingUntil: serialized.castingUntil,  // 시전 상태 동기화
   };
 }
 

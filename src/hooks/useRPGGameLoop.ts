@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG, UPGRADE_CONFIG } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG, UPGRADE_CONFIG, GOLD_CONFIG } from '../constants/rpgConfig';
 import { getStatBonus } from '../types/auth';
 import { updateHeroUnit, findNearestEnemy, findNearestEnemyBase } from '../game/rpg/heroUnit';
 import {
@@ -157,7 +157,11 @@ export function useRPGGameLoop() {
       }
 
       // 클라이언트도 자신의 영웅 이동을 로컬에서 처리 (부드러운 움직임)
-      if (clientHero && clientHero.moveDirection) {
+      // 단, 돌진 중이거나 시전 중일 때는 이동 불가
+      const isClientDashing = clientHero?.dashState && clientHero.dashState.progress < 1;
+      const isClientCasting = clientHero?.castingUntil && clientGameTime < clientHero.castingUntil;
+
+      if (clientHero && clientHero.moveDirection && !isClientDashing && !isClientCasting) {
         const dir = clientHero.moveDirection;
         if (dir.x !== 0 || dir.y !== 0) {
           const speed = clientHero.config.speed || clientHero.baseSpeed || 200;
@@ -230,22 +234,102 @@ export function useRPGGameLoop() {
         if (clientCurrentGameTime >= skill.triggerTime && !processedEffectIdsRef.current.has(pendingEffectId)) {
           processedEffectIdsRef.current.add(pendingEffectId);
 
-          // 운석 폭발 이펙트 (mage_e)
-          if (skill.type === 'mage_e') {
-            const explosionEffect: SkillEffect = {
-              type: 'mage_meteor' as SkillType,
-              position: { x: skill.position.x, y: skill.position.y },
-              radius: skill.radius,
-              damage: skill.damage,
-              duration: 0.5,
-              startTime: clientCurrentGameTime,
-            };
-            useRPGStore.getState().addSkillEffect(explosionEffect);
-          } else {
-            // 기본 이펙트
-            effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
+          // 스킬 타입별 이펙트/사운드 처리
+          switch (skill.type) {
+            case 'mage_e':
+              // 운석 폭발 이펙트
+              {
+                const explosionEffect: SkillEffect = {
+                  type: 'mage_meteor' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  damage: skill.damage,
+                  duration: 0.5,
+                  startTime: clientCurrentGameTime,
+                };
+                useRPGStore.getState().addSkillEffect(explosionEffect);
+                soundManager.play('attack_melee');
+              }
+              break;
+            case 'meteor_shower':
+              // 대마법사 메테오 샤워 이펙트
+              {
+                const meteorEffect: SkillEffect = {
+                  type: 'meteor_shower' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  damage: skill.damage,
+                  duration: 2.0,  // 운석 낙하 이펙트 시간
+                  startTime: clientCurrentGameTime,
+                };
+                useRPGStore.getState().addSkillEffect(meteorEffect);
+                soundManager.play('attack_melee');
+              }
+              break;
+            case 'inferno_burn':
+              // 대마법사 인페르노 화상 틱 이펙트
+              {
+                const burnEffect: SkillEffect = {
+                  type: 'inferno_burn' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  damage: skill.damage,
+                  duration: 1.0,
+                  startTime: clientCurrentGameTime,
+                };
+                useRPGStore.getState().addSkillEffect(burnEffect);
+                soundManager.play('attack_melee');
+              }
+              break;
+            case 'dark_blade':
+              // 다크나이트 어둠의 칼날 틱 이펙트
+              {
+                const darkBladeEffect: SkillEffect = {
+                  type: 'dark_blade' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  damage: skill.damage,
+                  duration: 1.0,
+                  startTime: clientCurrentGameTime,
+                };
+                useRPGStore.getState().addSkillEffect(darkBladeEffect);
+                soundManager.play('attack_melee');
+              }
+              break;
+            case 'spring_of_life':
+              // 힐러 생명의 샘 틱 이펙트
+              {
+                const springEffect: SkillEffect = {
+                  type: 'spring_of_life' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  duration: 1.0,
+                  startTime: clientCurrentGameTime,
+                };
+                useRPGStore.getState().addSkillEffect(springEffect);
+                soundManager.play('hero_revive');
+              }
+              break;
+            case 'snipe':
+              // 저격수 저격 이펙트
+              {
+                const snipeEffect: SkillEffect = {
+                  type: 'snipe' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  damage: skill.damage,
+                  duration: 0.5,
+                  startTime: clientCurrentGameTime,
+                };
+                useRPGStore.getState().addSkillEffect(snipeEffect);
+                soundManager.play('attack_ranged');
+              }
+              break;
+            default:
+              // 기본 이펙트
+              effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
+              soundManager.play('attack_melee');
+              break;
           }
-          soundManager.play('attack_melee');
         }
       }
 
@@ -300,8 +384,11 @@ export function useRPGGameLoop() {
     }
 
     // 자동 공격: 적이 사거리 내에 있고 Q 스킬이 준비되면 자동 발동 (호스트가 살아있을 때만)
+    // 단, 돌진 중이거나 시전 중일 때는 공격 불가
     const heroForAutoAttack = useRPGStore.getState().hero;
-    if (!isHostDead && heroForAutoAttack && !heroForAutoAttack.dashState) {
+    const autoAttackGameTime = useRPGStore.getState().gameTime;
+    const isHeroCasting = heroForAutoAttack?.castingUntil && autoAttackGameTime < heroForAutoAttack.castingUntil;
+    if (!isHostDead && heroForAutoAttack && !heroForAutoAttack.dashState && !isHeroCasting) {
       const heroClass = heroForAutoAttack.heroClass;
       const qSkillType = CLASS_SKILLS[heroClass].q.type;
       const qSkill = heroForAutoAttack.skills.find(s => s.type === qSkillType);
@@ -361,8 +448,9 @@ export function useRPGGameLoop() {
                 totalAttack = Math.floor(totalAttack * (1 + hostBerserkerBuff.attackBonus));
               }
 
-              // 기지에 데미지 적용
-              const destroyed = useRPGStore.getState().damageBase(nearestBase.id, totalAttack);
+              // 기지에 데미지 적용 (attackerId 전달로 골드 배분용 공격자 추적)
+              const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
+              const { destroyed, goldReceived } = useRPGStore.getState().damageBase(nearestBase.id, totalAttack, myHeroId);
 
               // 이펙트 및 사운드
               effectManager.createEffect('attack_melee', nearestBase.x, nearestBase.y);
@@ -375,7 +463,11 @@ export function useRPGGameLoop() {
               // 기지 파괴 시 알림
               if (destroyed) {
                 const showNotification = useUIStore.getState().showNotification;
-                showNotification(`적 기지 파괴!`);
+                if (goldReceived > 0) {
+                  showNotification(`적 기지 파괴! (+${goldReceived} 골드)`);
+                } else {
+                  showNotification(`적 기지 파괴!`);
+                }
                 soundManager.play('victory');
               }
             }
@@ -397,7 +489,7 @@ export function useRPGGameLoop() {
       animationIdRef.current = requestAnimationFrame(tick);
       return;
     }
-    const heroResult = updateHeroUnit(currentHeroForUpdate, deltaTime, state.enemies);
+    const heroResult = updateHeroUnit(currentHeroForUpdate, deltaTime, state.enemies, state.gameTime);
     const updatedHero = heroResult.hero;
 
     // 영웅 공격 데미지 처리
@@ -430,13 +522,14 @@ export function useRPGGameLoop() {
       }
     }
 
-    // 영웅 상태 업데이트 (위치, 돌진 상태, 이동 상태 등)
+    // 영웅 상태 업데이트 (위치, 돌진 상태, 시전 상태, 이동 상태 등)
     useRPGStore.getState().updateHeroState({
       x: updatedHero.x,
       y: updatedHero.y,
       state: updatedHero.state,
       dashState: updatedHero.dashState,
       targetPosition: updatedHero.targetPosition,
+      castingUntil: updatedHero.castingUntil,
     });
 
     // 카메라 영웅 추적
@@ -553,6 +646,7 @@ export function useRPGGameLoop() {
             : currentOtherHeroes.get(heroId);
 
           if (!targetHero) return;
+          if (targetHero.hp <= 0) return;  // 사망한 영웅에게 데미지 적용 안 함
 
           const finalDamage = calculateDamageAfterReduction(rawDamage, targetHero);
 
@@ -738,6 +832,7 @@ export function useRPGGameLoop() {
             : latestOtherHeroes.get(heroId);
 
           if (!targetHero) return;
+          if (targetHero.hp <= 0) return;  // 사망한 영웅에게 데미지 적용 안 함
 
           const finalDamage = calculateDamageAfterReduction(damage, targetHero);
 
@@ -762,6 +857,7 @@ export function useRPGGameLoop() {
             : latestOtherHeroes.get(heroId);
 
           if (!targetHero) return;
+          if (targetHero.hp <= 0) return;  // 사망한 영웅에게 스턴 적용 안 함
 
           if (heroId === latestHero?.id) {
             const stunnedHero = applyStunToHero(targetHero, stunDuration, state.gameTime);
@@ -781,15 +877,18 @@ export function useRPGGameLoop() {
 
         // 밀어내기(knockback) 처리 - 영웅 위치 변경
         bossSkillResult.knockbackHeroes.forEach((newPos, heroId) => {
+          // 사망한 영웅에게 넉백 적용 안 함
+          const targetHero = heroId === latestHero?.id
+            ? latestHero
+            : latestOtherHeroes.get(heroId);
+          if (!targetHero || targetHero.hp <= 0) return;
+
           if (heroId === latestHero?.id) {
             useRPGStore.getState().updateHeroState({ x: newPos.x, y: newPos.y });
             effectManager.createEffect('boss_knockback', newPos.x, newPos.y);
           } else {
             useRPGStore.getState().updateOtherHero(heroId, { x: newPos.x, y: newPos.y });
-            const otherHero = latestOtherHeroes.get(heroId);
-            if (otherHero) {
-              effectManager.createEffect('boss_knockback', newPos.x, newPos.y);
-            }
+            effectManager.createEffect('boss_knockback', newPos.x, newPos.y);
           }
         });
 
@@ -850,46 +949,226 @@ export function useRPGGameLoop() {
       if (currentGameTime >= skill.triggerTime) {
         triggeredSkills.push(index);
 
-        // 범위 내 적에게 데미지
         const enemies = useRPGStore.getState().enemies;
-        for (const enemy of enemies) {
-          if (enemy.hp <= 0) continue;
-          const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
-          if (dist <= skill.radius) {
-            // 마법사: 보스에게만 데미지 보너스 적용
-            const actualDamage = (enemy.type === 'boss' && skill.bossDamageMultiplier)
-              ? Math.floor(skill.damage * skill.bossDamageMultiplier)
-              : skill.damage;
-            const killed = useRPGStore.getState().damageEnemy(enemy.id, actualDamage, skill.casterId);
+
+        // 단일 타겟 스킬 처리 (스나이퍼 저격 등)
+        if (skill.targetId) {
+          const targetEnemy = enemies.find(e => e.id === skill.targetId);
+          if (targetEnemy && targetEnemy.hp > 0) {
+            const killed = useRPGStore.getState().damageEnemy(targetEnemy.id, skill.damage, skill.casterId);
             if (killed) {
-              // 골드 획득은 damageEnemy 내에서 자동 처리됨
-              useRPGStore.getState().removeEnemy(enemy.id);
+              useRPGStore.getState().removeEnemy(targetEnemy.id);
+            }
+            // 저격 이펙트
+            if (skill.type === 'snipe') {
+              const snipeEffect: SkillEffect = {
+                type: 'snipe' as SkillType,
+                position: { x: targetEnemy.x, y: targetEnemy.y },
+                damage: skill.damage,
+                duration: 0.5,
+                startTime: currentGameTime,
+              };
+              useRPGStore.getState().addSkillEffect(snipeEffect);
+              soundManager.play('attack_ranged');
+            } else {
+              effectManager.createEffect('attack_melee', targetEnemy.x, targetEnemy.y);
+              soundManager.play('attack_melee');
             }
           }
-        }
-
-        // 운석 폭발 이펙트 추가 (스킬 타입이 mage_e인 경우)
-        if (skill.type === 'mage_e') {
-          const explosionEffect: SkillEffect = {
-            type: 'mage_meteor' as SkillType,
-            position: { x: skill.position.x, y: skill.position.y },
-            radius: skill.radius,
-            damage: skill.damage,
-            duration: 0.5, // 폭발 애니메이션 시간
-            startTime: currentGameTime,
-          };
-          useRPGStore.getState().addSkillEffect(explosionEffect);
         } else {
-          // 기본 폭발 이펙트
-          effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
+          // 범위 내 적에게 데미지 (운석, 메테오 샤워 등)
+          for (const enemy of enemies) {
+            if (enemy.hp <= 0) continue;
+            const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
+            if (dist <= skill.radius) {
+              // 마법사: 보스에게만 데미지 보너스 적용
+              const actualDamage = (enemy.type === 'boss' && skill.bossDamageMultiplier)
+                ? Math.floor(skill.damage * skill.bossDamageMultiplier)
+                : skill.damage;
+              const killed = useRPGStore.getState().damageEnemy(enemy.id, actualDamage, skill.casterId);
+              if (killed) {
+                // 골드 획득은 damageEnemy 내에서 자동 처리됨
+                useRPGStore.getState().removeEnemy(enemy.id);
+              }
+            }
+          }
+
+          // 범위 내 적 기지에도 데미지 (데미지가 있는 스킬만)
+          if (skill.damage > 0) {
+            const enemyBases = useRPGStore.getState().enemyBases;
+            for (const base of enemyBases) {
+              if (base.destroyed) continue;
+              const baseDist = distance(skill.position.x, skill.position.y, base.x, base.y);
+              if (baseDist <= skill.radius + 50) {  // 기지는 크기가 크므로 추가 반경
+                useRPGStore.getState().damageBase(base.id, skill.damage, skill.casterId);
+              }
+            }
+          }
+
+          // 힐러 생명의 샘: 범위 내 아군 힐 (healPercent가 있는 경우)
+          if (skill.healPercent && skill.healPercent > 0) {
+            const healState = useRPGStore.getState();
+            const allHeroes: HeroUnit[] = [];
+            if (healState.hero && healState.hero.hp > 0) allHeroes.push(healState.hero);
+            healState.otherHeroes.forEach((h) => {
+              if (h && h.hp > 0) allHeroes.push(h);
+            });
+
+            for (const ally of allHeroes) {
+              const allyDist = distance(skill.position.x, skill.position.y, ally.x, ally.y);
+              if (allyDist <= skill.radius) {
+                const healAmount = Math.floor(ally.maxHp * skill.healPercent);
+                if (healState.hero && healState.hero.id === ally.id) {
+                  const newHp = Math.min(healState.hero.maxHp, healState.hero.hp + healAmount);
+                  useRPGStore.setState({ hero: { ...healState.hero, hp: newHp } });
+                } else {
+                  healState.updateOtherHero(ally.id, { hp: Math.min(ally.maxHp, ally.hp + healAmount) });
+                }
+                effectManager.createEffect('heal', ally.x, ally.y);
+              }
+            }
+          }
+
+          // 스킬 타입별 이펙트/사운드 처리
+          if (skill.type === 'mage_e') {
+            // 운석 폭발 이펙트
+            const explosionEffect: SkillEffect = {
+              type: 'mage_meteor' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              damage: skill.damage,
+              duration: 0.5,
+              startTime: currentGameTime,
+            };
+            useRPGStore.getState().addSkillEffect(explosionEffect);
+            soundManager.play('attack_melee');
+          } else if (skill.type === 'meteor_shower') {
+            // 대마법사 메테오 샤워 이펙트 (운석들이 순차적으로 낙하)
+            const meteorEffect: SkillEffect = {
+              type: 'meteor_shower' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              damage: skill.damage,
+              duration: 2.0,  // 운석 낙하 이펙트 시간 늘림
+              startTime: currentGameTime,
+            };
+            useRPGStore.getState().addSkillEffect(meteorEffect);
+            soundManager.play('attack_melee');
+          } else if (skill.type === 'spring_of_life') {
+            // 힐러 생명의 샘 틱 이펙트 (동기화용)
+            const springEffect: SkillEffect = {
+              type: 'spring_of_life' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              duration: 1.0,
+              startTime: currentGameTime,
+            };
+            useRPGStore.getState().addSkillEffect(springEffect);
+            soundManager.play('hero_revive');
+          } else if (skill.type === 'dark_blade') {
+            // 다크나이트 어둠의 칼날 틱 이펙트 (동기화용)
+            const darkBladeEffect: SkillEffect = {
+              type: 'dark_blade' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              damage: skill.damage,
+              duration: 1.0,
+              startTime: currentGameTime,
+            };
+            useRPGStore.getState().addSkillEffect(darkBladeEffect);
+            soundManager.play('attack_melee');
+          } else if (skill.type === 'inferno_burn') {
+            // 대마법사 인페르노 화상 틱 이펙트
+            const burnEffect: SkillEffect = {
+              type: 'inferno_burn' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              damage: skill.damage,
+              duration: 1.0,
+              startTime: currentGameTime,
+            };
+            useRPGStore.getState().addSkillEffect(burnEffect);
+            soundManager.play('attack_melee');
+          } else {
+            // 기본 폭발 이펙트
+            effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
+            soundManager.play('attack_melee');
+          }
         }
-        soundManager.play('attack_melee');
       }
     });
 
-    // 발동된 보류 스킬 제거 (역순)
+    // 발동된 보류 스킬 제거 및 틱/연속 스킬 재등록 (역순)
+    const skillsToAdd: PendingSkill[] = [];
     for (let i = triggeredSkills.length - 1; i >= 0; i--) {
+      const skill = pendingSkills[triggeredSkills[i]];
+
+      // 틱 스킬 재등록 (다크나이트 어둠의 칼날, 힐러 생명의 샘, 대마법사 화상)
+      // 데미지/힐은 위의 범위 스킬 처리에서 이미 적용됨
+      if (skill.tickCount && skill.tickCount > 1) {
+        // 화상 지역은 고정 위치에서 틱 데미지
+        if (skill.type === 'inferno_burn') {
+          skillsToAdd.push({
+            ...skill,
+            // 위치 고정 (영웅을 따라가지 않음)
+            triggerTime: currentGameTime + 1,  // 1초 후 다음 틱
+            tickCount: skill.tickCount - 1,
+          });
+        } else {
+          // 다른 틱 스킬은 영웅을 따라다님
+          const state = useRPGStore.getState();
+
+          // 캐스터 영웅 찾기 (스킬이 영웅을 따라다니도록)
+          let casterHero: HeroUnit | null | undefined = null;
+          if (skill.casterId === state.hero?.id) {
+            casterHero = state.hero;
+          } else {
+            casterHero = state.otherHeroes.get(skill.casterId || '');
+          }
+
+          // 캐스터가 살아있으면 다음 틱 재등록
+          if (casterHero && casterHero.hp > 0) {
+            skillsToAdd.push({
+              ...skill,
+              position: { x: casterHero.x, y: casterHero.y },  // 영웅 현재 위치로 업데이트
+              triggerTime: currentGameTime + 1,  // 1초 후 다음 틱
+              tickCount: skill.tickCount - 1,
+            });
+          }
+        }
+      }
+      // 메테오 샤워: 랜덤 위치에 연속 운석
+      else if (skill.meteorCount && skill.meteorCount > 0 && skill.duration) {
+        const areaRadius = 300;  // 메테오 낙하 범위
+        const randomX = skill.position.x + (Math.random() - 0.5) * areaRadius * 2;
+        const randomY = skill.position.y + (Math.random() - 0.5) * areaRadius * 2;
+        const interval = skill.duration / (skill.meteorCount + 1);  // 균등 간격
+
+        skillsToAdd.push({
+          ...skill,
+          position: { x: randomX, y: randomY },
+          triggerTime: currentGameTime + interval,
+          meteorCount: skill.meteorCount - 1,
+        });
+
+        // 운석 낙하 이펙트
+        const meteorEffect: SkillEffect = {
+          type: 'meteor_shower' as SkillType,
+          position: { x: skill.position.x, y: skill.position.y },
+          radius: skill.radius,
+          damage: skill.damage,
+          duration: 0.5,
+          startTime: currentGameTime,
+        };
+        useRPGStore.getState().addSkillEffect(meteorEffect);
+      }
+
       useRPGStore.getState().removePendingSkill(triggeredSkills[i]);
+    }
+
+    // 연속 스킬 재등록
+    for (const newSkill of skillsToAdd) {
+      useRPGStore.getState().addPendingSkill(newSkill);
     }
 
     // 넥서스 디펜스: 연속 스폰 처리
@@ -1041,10 +1320,14 @@ export function useRPGGameLoop() {
       // 기지 데미지 적용
       if (result.baseDamages && result.baseDamages.length > 0) {
         for (const baseDamage of result.baseDamages) {
-          const destroyed = useRPGStore.getState().damageBase(baseDamage.baseId, baseDamage.damage);
+          const { destroyed, goldReceived } = useRPGStore.getState().damageBase(baseDamage.baseId, baseDamage.damage, killerHeroId);
           if (destroyed) {
             const showNotification = useUIStore.getState().showNotification;
-            showNotification(`적 기지 파괴!`);
+            if (goldReceived > 0) {
+              showNotification(`적 기지 파괴! (+${goldReceived} 골드)`);
+            } else {
+              showNotification(`적 기지 파괴!`);
+            }
             soundManager.play('victory');
           }
         }
@@ -1082,6 +1365,54 @@ export function useRPGGameLoop() {
         const showNotification = useUIStore.getState().showNotification;
         showNotification(`${result.stunTargets.length}명 기절! (${stunDuration}초)`);
       }
+
+      // 아군 힐 적용 (팔라딘, 힐러 W 스킬)
+      if (result.allyHeals && result.allyHeals.length > 0) {
+        const currentState = useRPGStore.getState();
+        for (const heal of result.allyHeals) {
+          // 내 영웅인 경우
+          if (currentState.hero && currentState.hero.id === heal.heroId) {
+            // 사망한 영웅에게는 힐 적용 안 함
+            if (currentState.hero.hp <= 0) continue;
+            const newHp = Math.min(currentState.hero.maxHp, currentState.hero.hp + heal.heal);
+            useRPGStore.setState({ hero: { ...currentState.hero, hp: newHp } });
+            effectManager.createEffect('heal', currentState.hero.x, currentState.hero.y);
+          } else {
+            // 다른 영웅인 경우
+            const targetHero = currentState.otherHeroes.get(heal.heroId);
+            if (targetHero) {
+              // 사망한 영웅에게는 힐 적용 안 함
+              if (targetHero.hp <= 0) continue;
+              const newHp = Math.min(targetHero.maxHp, targetHero.hp + heal.heal);
+              currentState.updateOtherHero(heal.heroId, { hp: newHp });
+              effectManager.createEffect('heal', targetHero.x, targetHero.y);
+            }
+          }
+        }
+      }
+
+      // 아군 버프 적용 (가디언, 팔라딘 E 스킬)
+      if (result.allyBuffs && result.allyBuffs.length > 0) {
+        const currentState = useRPGStore.getState();
+        for (const allyBuff of result.allyBuffs) {
+          // 내 영웅인 경우
+          if (currentState.hero && currentState.hero.id === allyBuff.heroId) {
+            // 사망한 영웅에게는 버프 적용 안 함
+            if (currentState.hero.hp <= 0) continue;
+            const existingBuffs = currentState.hero.buffs.filter(b => b.type !== allyBuff.buff.type);
+            useRPGStore.setState({ hero: { ...currentState.hero, buffs: [...existingBuffs, allyBuff.buff] } });
+          } else {
+            // 다른 영웅인 경우
+            const targetHero = currentState.otherHeroes.get(allyBuff.heroId);
+            if (targetHero) {
+              // 사망한 영웅에게는 버프 적용 안 함
+              if (targetHero.hp <= 0) continue;
+              const existingBuffs = targetHero.buffs.filter(b => b.type !== allyBuff.buff.type);
+              currentState.updateOtherHero(allyBuff.heroId, { buffs: [...existingBuffs, allyBuff.buff] });
+            }
+          }
+        }
+      }
     },
     []
   );
@@ -1091,6 +1422,7 @@ export function useRPGGameLoop() {
     (skillType: SkillType, gameTime: number) => {
       const state = useRPGStore.getState();
       if (!state.hero) return;
+      if (state.hero.hp <= 0) return;  // 사망한 영웅은 스킬 사용 불가
 
       const heroClass = state.hero.heroClass;
       // 마우스 위치를 스킬 타겟으로 사용 (바라보는 방향으로 공격)
@@ -1104,41 +1436,58 @@ export function useRPGGameLoop() {
       // 인게임 공격력 업그레이드 레벨
       const attackUpgradeLevel = state.upgradeLevels.attack;
 
-      // Q 스킬
-      if (skillType === classSkills.q.type) {
+      // 영웅의 실제 스킬 타입 가져오기 (전직 캐릭터의 경우 전직 스킬 타입)
+      const heroQSkillType = state.hero.skills.find(s => s.key === 'Q')?.type;
+      const heroWSkillType = state.hero.skills.find(s => s.key === 'W')?.type;
+      const heroESkillType = state.hero.skills.find(s => s.key === 'E')?.type;
+
+      // Q 스킬 (기본 스킬 또는 영웅의 Q 스킬)
+      if (skillType === classSkills.q.type || skillType === heroQSkillType) {
         const result = executeQSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, attackUpgradeLevel);
         processSkillResult(result, state, myHeroId);
         return;
       }
 
-      // W 스킬
-      if (skillType === classSkills.w.type) {
-        const result = executeWSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, attackUpgradeLevel);
+      // W 스킬 (기본 스킬 또는 영웅의 W 스킬 - 전직 스킬 포함)
+      if (skillType === classSkills.w.type || skillType === heroWSkillType) {
+        // 아군 목록 (내 영웅 + 다른 플레이어 영웅)
+        const allies: HeroUnit[] = [];
+        if (state.hero) allies.push(state.hero);
+        state.otherHeroes.forEach((h) => allies.push(h));
+
+        const result = executeWSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, attackUpgradeLevel, allies);
         processSkillResult(result, state, myHeroId);
 
-        // 기사 방패 돌진 알림
-        if (heroClass === 'knight') {
+        // 기사 방패 돌진 알림 (전직하지 않은 경우에만)
+        if (heroClass === 'knight' && !state.hero.advancedClass) {
           const showNotification = useUIStore.getState().showNotification;
           showNotification('방패 돌진!');
         }
         return;
       }
 
-      // E 스킬
-      if (skillType === classSkills.e.type) {
-        const result = executeESkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, myHeroId, attackUpgradeLevel);
+      // E 스킬 (기본 스킬 또는 영웅의 E 스킬 - 전직 스킬 포함)
+      if (skillType === classSkills.e.type || skillType === heroESkillType) {
+        // 아군 목록 (내 영웅 + 다른 플레이어 영웅)
+        const eAllies: HeroUnit[] = [];
+        if (state.hero) eAllies.push(state.hero);
+        state.otherHeroes.forEach((h) => eAllies.push(h));
+
+        const result = executeESkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, myHeroId, attackUpgradeLevel, eAllies);
         processSkillResult(result, state, myHeroId);
 
-        // 특수 알림
-        if (heroClass === 'knight') {
-          const showNotification = useUIStore.getState().showNotification;
-          showNotification('철벽 방어 발동!');
-        } else if (heroClass === 'warrior') {
-          const showNotification = useUIStore.getState().showNotification;
-          showNotification('광전사 모드 발동!');
-        } else if (heroClass === 'mage') {
-          const showNotification = useUIStore.getState().showNotification;
-          showNotification('운석 낙하 시전 중...');
+        // 특수 알림 (전직하지 않은 경우에만)
+        if (!state.hero.advancedClass) {
+          if (heroClass === 'knight') {
+            const showNotification = useUIStore.getState().showNotification;
+            showNotification('철벽 방어 발동!');
+          } else if (heroClass === 'warrior') {
+            const showNotification = useUIStore.getState().showNotification;
+            showNotification('광전사 모드 발동!');
+          } else if (heroClass === 'mage') {
+            const showNotification = useUIStore.getState().showNotification;
+            showNotification('운석 낙하 시전 중...');
+          }
         }
         return;
       }
@@ -1150,10 +1499,35 @@ export function useRPGGameLoop() {
   const requestSkill = useCallback((skillType: SkillType) => {
     const state = useRPGStore.getState();
     if (!state.hero) return false;
+    if (state.hero.hp <= 0) return false;  // 사망한 영웅은 스킬 사용 불가
 
     const skill = state.hero.skills.find((s) => s.type === skillType);
     if (!skill || skill.currentCooldown > 0) {
       return false;
+    }
+
+    // 스나이퍼 E 스킬: 타겟이 없으면 스킬 사용 불가
+    if (skillType === 'snipe' && state.hero.advancedClass === 'sniper') {
+      const mouseX = state.mousePosition.x;
+      const mouseY = state.mousePosition.y;
+      const targetAngle = Math.atan2(mouseY - state.hero.y, mouseX - state.hero.x);
+
+      // 마우스 방향 30도 내에 적이 있는지 체크
+      let hasTarget = false;
+      for (const enemy of state.enemies) {
+        if (enemy.hp <= 0) continue;
+        const enemyAngle = Math.atan2(enemy.y - state.hero.y, enemy.x - state.hero.x);
+        const angleDiff = Math.abs(enemyAngle - targetAngle);
+        const normalizedDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff);
+        if (normalizedDiff < Math.PI / 6) {
+          hasTarget = true;
+          break;
+        }
+      }
+
+      if (!hasTarget) {
+        return false;  // 타겟 없음 - 쿨다운 시작 안 함
+      }
     }
 
     // 스킬 쿨다운 시작
@@ -1229,6 +1603,8 @@ function updateOtherHeroesRevive(gameTime: number) {
           moveDirection: undefined,
           state: 'idle',
           buffs: [...(hero.buffs || []), invincibleBuff],
+          castingUntil: undefined,
+          dashState: undefined,
         });
 
         console.log(`[GameLoop] 플레이어 부활: ${heroId}`);
@@ -1526,13 +1902,17 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대: -0.5)
             if (dot < -0.5) continue;
 
-            // 기지 데미지 적용
-            const destroyed = state.damageBase(base.id, totalDamage);
+            // 기지 데미지 적용 (heroId 전달로 골드 배분용 공격자 추적)
+            const { destroyed, goldReceived } = state.damageBase(base.id, totalDamage, heroId);
             hitTargets.push({ x: base.x, y: base.y, damage: totalDamage });
 
             if (destroyed) {
               const showNotification = useUIStore.getState().showNotification;
-              showNotification(`적 기지 파괴!`);
+              if (goldReceived > 0) {
+                showNotification(`적 기지 파괴! (+${goldReceived} 골드)`);
+              } else {
+                showNotification(`적 기지 파괴!`);
+              }
               soundManager.play('victory');
             }
           }
@@ -1655,7 +2035,8 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             baseTotalDamage = Math.floor(baseTotalDamage * (1 + berserkerBuff.attackBonus));
           }
 
-          const destroyed = state.damageBase(nearestBase.id, baseTotalDamage);
+          // 기지 데미지 적용 (heroId 전달로 골드 배분용 공격자 추적)
+          const { destroyed, goldReceived } = state.damageBase(nearestBase.id, baseTotalDamage, heroId);
 
           // 공격 방향 계산
           const baseDirX = nearestBase.x - hero.x;
@@ -1695,7 +2076,11 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
 
           if (destroyed) {
             const showNotification = useUIStore.getState().showNotification;
-            showNotification(`적 기지 파괴!`);
+            if (goldReceived > 0) {
+              showNotification(`적 기지 파괴! (+${goldReceived} 골드)`);
+            } else {
+              showNotification(`적 기지 파괴!`);
+            }
             soundManager.play('victory');
           }
         }

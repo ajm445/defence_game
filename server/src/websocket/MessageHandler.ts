@@ -102,15 +102,15 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     // 협동 모드 메시지
     case 'CREATE_COOP_ROOM':
-      handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades, (message as any).isPrivate, (message as any).difficulty);
+      handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades, (message as any).isPrivate, (message as any).difficulty, (message as any).advancedClass, (message as any).tier);
       break;
 
     case 'JOIN_COOP_ROOM':
-      handleJoinCoopRoom(playerId, message.roomCode, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades);
+      handleJoinCoopRoom(playerId, message.roomCode, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades, message.advancedClass, message.tier);
       break;
 
     case 'JOIN_COOP_ROOM_BY_ID':
-      handleJoinCoopRoomById(playerId, (message as any).roomId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades);
+      handleJoinCoopRoomById(playerId, (message as any).roomId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades, (message as any).advancedClass, (message as any).tier);
       break;
 
     case 'GET_COOP_ROOM_LIST':
@@ -130,7 +130,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       break;
 
     case 'CHANGE_COOP_CLASS':
-      handleChangeCoopClass(playerId, message.heroClass, message.characterLevel, message.statUpgrades);
+      handleChangeCoopClass(playerId, message.heroClass, message.characterLevel, message.statUpgrades, message.advancedClass, message.tier);
       break;
 
     case 'START_COOP_GAME':
@@ -316,33 +316,33 @@ const DIFFICULTY_NAMES: Record<string, string> = {
   extreme: '극한',
 };
 
-function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean, difficulty?: string): void {
+function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean, difficulty?: string, advancedClass?: string, tier?: 1 | 2): void {
   const player = players.get(playerId);
   if (!player) return;
 
   const name = playerName || `Player_${playerId.slice(0, 4)}`;
   const roomType = isPrivate ? '비밀방' : '공개방';
   const difficultyName = DIFFICULTY_NAMES[difficulty ?? 'easy'] || '쉬움';
-  console.log(`[Coop] ${name}(${playerId}) 방 생성 요청 (Lv.${characterLevel ?? 1}, ${roomType}, 난이도: ${difficultyName})`);
-  createCoopRoom(playerId, name, heroClass, characterLevel ?? 1, statUpgrades, isPrivate ?? false, difficulty ?? 'easy');
+  console.log(`[Coop] ${name}(${playerId}) 방 생성 요청 (Lv.${characterLevel ?? 1}, 전직: ${advancedClass ?? '없음'}, ${roomType}, 난이도: ${difficultyName})`);
+  createCoopRoom(playerId, name, heroClass, characterLevel ?? 1, statUpgrades, isPrivate ?? false, difficulty ?? 'easy', advancedClass, tier);
 }
 
-function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
+function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, advancedClass?: string, tier?: 1 | 2): void {
   const player = players.get(playerId);
   if (!player) return;
 
   const name = playerName || `Player_${playerId.slice(0, 4)}`;
-  console.log(`[Coop] ${name}(${playerId}) 방 참가 요청: ${roomCode} (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
-  joinCoopRoom(roomCode, playerId, name, heroClass, characterLevel ?? 1, statUpgrades);
+  console.log(`[Coop] ${name}(${playerId}) 방 참가 요청: ${roomCode} (Lv.${characterLevel ?? 1}, 전직: ${advancedClass ?? '없음'})`);
+  joinCoopRoom(roomCode, playerId, name, heroClass, characterLevel ?? 1, statUpgrades, advancedClass, tier);
 }
 
-function handleJoinCoopRoomById(playerId: string, roomId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
+function handleJoinCoopRoomById(playerId: string, roomId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, advancedClass?: string, tier?: 1 | 2): void {
   const player = players.get(playerId);
   if (!player) return;
 
   const name = playerName || `Player_${playerId.slice(0, 4)}`;
-  console.log(`[Coop] ${name}(${playerId}) 방 참가 요청(ID): ${roomId} (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
-  joinCoopRoomById(roomId, playerId, name, heroClass, characterLevel ?? 1, statUpgrades);
+  console.log(`[Coop] ${name}(${playerId}) 방 참가 요청(ID): ${roomId} (Lv.${characterLevel ?? 1}, 전직: ${advancedClass ?? '없음'})`);
+  joinCoopRoomById(roomId, playerId, name, heroClass, characterLevel ?? 1, statUpgrades, advancedClass, tier);
 }
 
 function handleGetCoopRoomList(playerId: string): void {
@@ -405,18 +405,18 @@ function handleCoopReady(playerId: string, isReady: boolean): void {
   }
 }
 
-function handleChangeCoopClass(playerId: string, heroClass: any, characterLevel?: number, statUpgrades?: any): void {
-  console.log(`[Coop] ${playerId} 직업 변경: ${heroClass} (Lv.${characterLevel ?? 1}, SP: ${JSON.stringify(statUpgrades ?? {})})`);
+function handleChangeCoopClass(playerId: string, heroClass: any, characterLevel?: number, statUpgrades?: any, advancedClass?: string, tier?: 1 | 2): void {
+  console.log(`[Coop] ${playerId} 직업 변경: ${heroClass} (Lv.${characterLevel ?? 1}, 전직: ${advancedClass ?? '없음'}, 강화: ${tier ?? 1}차)`);
 
   // 먼저 대기 중인 방에서 찾기
-  changeCoopClass(playerId, heroClass, characterLevel ?? 1, statUpgrades);
+  changeCoopClass(playerId, heroClass, characterLevel ?? 1, statUpgrades, advancedClass, tier);
 
   // 게임 방에서도 찾기 (게임 종료 후 로비 복귀 시)
   const player = players.get(playerId);
   if (player && player.roomId) {
     const room = coopGameRooms.get(player.roomId);
     if (room) {
-      room.changePlayerClass(playerId, heroClass, characterLevel ?? 1, statUpgrades);
+      room.changePlayerClass(playerId, heroClass, characterLevel ?? 1, statUpgrades, advancedClass, tier);
     }
   }
 }

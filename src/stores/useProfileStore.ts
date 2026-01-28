@@ -14,7 +14,7 @@ import {
   STAT_UPGRADE_CONFIG,
   getUpgradeableStats,
 } from '../types/auth';
-import { HeroClass, RPGDifficulty } from '../types/rpg';
+import { HeroClass, RPGDifficulty, AdvancedHeroClass } from '../types/rpg';
 import {
   getClassProgress,
   getGameHistory,
@@ -22,6 +22,8 @@ import {
   getPlayerStats,
   upgradeCharacterStat,
   resetCharacterStats,
+  advanceJob,
+  applySecondEnhancement,
 } from '../services/profileService';
 import { useAuthStore } from './useAuthStore';
 
@@ -104,6 +106,12 @@ interface ProfileActions {
 
   // SP 초기화 (스탯 리셋)
   resetCharacterStatsAction: (className: HeroClass) => Promise<boolean>;
+
+  // 전직 (직업 전환)
+  advanceJobAction: (className: HeroClass, advancedClass: AdvancedHeroClass) => Promise<boolean>;
+
+  // 2차 강화 (레벨 50 도달 시)
+  applySecondEnhancementAction: (className: HeroClass) => Promise<boolean>;
 
   // 전체 초기화 (로그아웃 시)
   reset: () => void;
@@ -427,6 +435,94 @@ export const useProfileStore = create<ProfileStore>()(
       // useAuthStore의 classProgress도 동기화
       authState.updateClassProgress(updatedProgress);
 
+      return true;
+    },
+
+    // 전직 액션 (전직 변경도 지원)
+    advanceJobAction: async (className, advancedClass) => {
+      const authState = useAuthStore.getState();
+      const profile = authState.profile;
+
+      if (!profile || profile.isGuest) return false;
+
+      const { classProgress } = get();
+      const progress = classProgress.find((p) => p.className === className);
+
+      if (!progress) return false;
+
+      // 레벨 조건 확인 (Lv.15 이상)
+      if (progress.classLevel < 15) return false;
+
+      // 같은 전직으로 변경하는 경우 무시
+      if (progress.advancedClass === advancedClass) return false;
+
+      // 전직 변경 여부 로깅
+      const isJobChange = !!progress.advancedClass;
+
+      // 서버에 전직 정보 저장
+      const updatedProgress = await advanceJob(profile.id, className, advancedClass, progress);
+
+      if (!updatedProgress) {
+        console.error(`[전직] ${className} → ${advancedClass} 전직 실패`);
+        return false;
+      }
+
+      // 로컬 상태 업데이트 (useProfileStore)
+      const updatedList = classProgress.map((p) =>
+        p.className === className ? updatedProgress : p
+      );
+      set({ classProgress: updatedList });
+
+      // useAuthStore의 classProgress도 동기화
+      authState.updateClassProgress(updatedProgress);
+
+      if (isJobChange) {
+        console.log(`[전직 변경] ${progress.advancedClass} → ${advancedClass} 완료 (레벨 15, SP 14, 스탯 초기화)`);
+      } else {
+        console.log(`[전직] ${className} → ${advancedClass} 전직 완료 (서버 저장)`);
+      }
+      return true;
+    },
+
+    // 2차 강화 액션
+    applySecondEnhancementAction: async (className) => {
+      const authState = useAuthStore.getState();
+      const profile = authState.profile;
+
+      if (!profile || profile.isGuest) return false;
+
+      const { classProgress } = get();
+      const progress = classProgress.find((p) => p.className === className);
+
+      if (!progress) return false;
+
+      // 레벨 조건 확인 (Lv.50 이상)
+      if (progress.classLevel < 50) return false;
+
+      // 전직했는지 확인
+      if (!progress.advancedClass) return false;
+
+      // 이미 2차 강화했는지 확인
+      if (progress.tier === 2) return false;
+
+      // 서버에 2차 강화 정보 저장
+      const updatedProgress = await applySecondEnhancement(profile.id, className, progress);
+
+      if (!updatedProgress) {
+        console.error(`[2차 강화] ${className} 2차 강화 실패`);
+        return false;
+      }
+
+      // 로컬 상태 업데이트 (useProfileStore)
+      const updatedList = classProgress.map((p) =>
+        p.className === className ? updatedProgress : p
+      );
+      set({ classProgress: updatedList });
+
+      // useAuthStore의 classProgress도 동기화
+      authState.updateClassProgress(updatedProgress);
+
+      console.log(`[2차 강화] ${className} → tier 2 강화 완료 (서버 저장)`);
       return true;
     },
 

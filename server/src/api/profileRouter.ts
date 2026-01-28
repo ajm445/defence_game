@@ -45,6 +45,8 @@ router.get('/class-progress/:playerId', async (req: Request, res: Response) => {
       classExp: row.class_exp,
       sp: row.sp ?? 0,  // SP 포함
       statUpgrades: row.stat_upgrades ?? { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 },  // 스탯 업그레이드 포함
+      advancedClass: row.advanced_class ?? null,  // 전직 직업
+      tier: row.tier ?? null,  // 전직 단계
       createdAt: row.created_at,
       updatedAt: row.updated_at,
     }));
@@ -58,7 +60,7 @@ router.get('/class-progress/:playerId', async (req: Request, res: Response) => {
 
 // 클래스 진행 상황 업데이트/생성
 router.post('/class-progress', async (req: Request, res: Response) => {
-  const { playerId, className, classLevel, classExp, sp, statUpgrades } = req.body;
+  const { playerId, className, classLevel, classExp, sp, statUpgrades, advancedClass, tier } = req.body;
 
   if (!playerId || !className || classLevel === undefined || classExp === undefined) {
     res.status(400).json({ success: false, error: '필수 파라미터가 누락되었습니다.' });
@@ -68,17 +70,27 @@ router.post('/class-progress', async (req: Request, res: Response) => {
   const supabase = getSupabaseAdmin()!;
 
   try {
+    const upsertData: Record<string, unknown> = {
+      player_id: playerId,
+      class_name: className,
+      class_level: classLevel,
+      class_exp: classExp,
+      sp: sp ?? 0,  // SP 저장
+      stat_upgrades: statUpgrades ?? { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 },  // 스탯 업그레이드 저장
+      updated_at: new Date().toISOString(),
+    };
+
+    // 전직 정보가 있으면 추가 (둘 다 있거나 둘 다 없어야 함)
+    if (advancedClass !== undefined) {
+      upsertData.advanced_class = advancedClass;
+    }
+    if (tier !== undefined) {
+      upsertData.tier = tier;
+    }
+
     const { error } = await supabase
       .from('class_progress')
-      .upsert({
-        player_id: playerId,
-        class_name: className,
-        class_level: classLevel,
-        class_exp: classExp,
-        sp: sp ?? 0,  // SP 저장
-        stat_upgrades: statUpgrades ?? { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 },  // 스탯 업그레이드 저장
-        updated_at: new Date().toISOString(),
-      }, {
+      .upsert(upsertData, {
         onConflict: 'player_id,class_name',
       });
 

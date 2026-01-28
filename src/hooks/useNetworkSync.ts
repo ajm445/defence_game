@@ -2,7 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
 import { wsClient } from '../services/WebSocketClient';
-import { CLASS_SKILLS } from '../constants/rpgConfig';
+import { CLASS_SKILLS, GOLD_CONFIG } from '../constants/rpgConfig';
 import {
   executeQSkill,
   executeWSkill,
@@ -72,8 +72,8 @@ export function useNetworkSync() {
       return;
     }
 
-    // 이동 방향 및 위치 업데이트
-    if (input.moveDirection !== undefined) {
+    // 이동 방향 및 위치 업데이트 (사망한 영웅은 이동 불가)
+    if (input.moveDirection !== undefined && hero.hp > 0) {
       const updateData: Record<string, any> = {
         moveDirection: input.moveDirection || undefined,
         state: input.moveDirection ? 'moving' : 'idle',
@@ -107,8 +107,8 @@ export function useNetworkSync() {
       );
     }
 
-    // 업그레이드 요청 (각 플레이어별 골드/업그레이드 사용)
-    if (input.upgradeRequested) {
+    // 업그레이드 요청 (각 플레이어별 골드/업그레이드 사용, 사망한 영웅은 업그레이드 불가)
+    if (input.upgradeRequested && hero.hp > 0) {
       const upgradeType = input.upgradeRequested as 'attack' | 'speed' | 'hp' | 'attackSpeed' | 'goldRate' | 'range';
       const success = state.upgradeOtherHeroStat(heroId, upgradeType);
       if (success) {
@@ -462,24 +462,34 @@ function executeOtherHeroSkill(
   targetY: number
 ) {
   const state = useRPGStore.getState();
-  const heroClass = hero.heroClass;
-  const classSkills = CLASS_SKILLS[heroClass];
 
-  // 스킬 타입 결정
-  let skillType: SkillType;
+  // 사망한 영웅은 스킬 사용 불가
+  if (hero.hp <= 0) {
+    console.log(`[NetworkSync] 사망한 영웅은 스킬 사용 불가: ${heroId}`);
+    return;
+  }
+
+  // 스킬 슬롯에 해당하는 스킬 인덱스
+  const skillIndex = skillSlot === 'Q' ? 0 : skillSlot === 'W' ? 1 : 2;
+
+  // 영웅의 실제 스킬에서 타입 가져오기 (전직 스킬 포함)
+  const skill = hero.skills[skillIndex];
+  if (!skill) {
+    console.log(`[NetworkSync] 스킬을 찾을 수 없음: ${heroId}, ${skillSlot}`);
+    return;
+  }
+
+  const skillType = skill.type;
   let executeSkill: typeof executeQSkill | typeof executeWSkill | typeof executeESkill;
 
   switch (skillSlot) {
     case 'Q':
-      skillType = classSkills.q.type;
       executeSkill = executeQSkill;
       break;
     case 'W':
-      skillType = classSkills.w.type;
       executeSkill = executeWSkill;
       break;
     case 'E':
-      skillType = classSkills.e.type;
       executeSkill = executeESkill;
       break;
     default:
@@ -487,16 +497,23 @@ function executeOtherHeroSkill(
   }
 
   // 스킬 쿨다운 확인
-  const skill = hero.skills.find(s => s.type === skillType);
-  if (!skill || skill.currentCooldown > 0) {
+  if (skill.currentCooldown > 0) {
     console.log(`[NetworkSync] 스킬 쿨다운 중: ${heroId}, ${skillSlot}`);
     return;
   }
 
-  // 스킬 실행 (enemyBases 전달, E 스킬은 casterId도 전달)
+  // 스킬 실행 (enemyBases 전달, E 스킬은 casterId도 전달, W 스킬은 allies 전달)
   let result;
+
+  // 모든 아군 영웅 목록 (내 영웅 + 다른 영웅들)
+  const allAllies: HeroUnit[] = [];
+  if (state.hero) allAllies.push(state.hero);
+  state.otherHeroes.forEach((h) => allAllies.push(h));
+
   if (skillSlot === 'E') {
     result = (executeSkill as typeof executeESkill)(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases, heroId);
+  } else if (skillSlot === 'W') {
+    result = (executeSkill as typeof executeWSkill)(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases, 0, allAllies);
   } else {
     result = executeSkill(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases);
   }
@@ -524,6 +541,7 @@ function executeOtherHeroSkill(
     skills: updatedSkills,  // 쿨다운 리셋된 스킬
     buffs: updatedBuffs,    // 새 버프 포함
     dashState: updatedHero.dashState,
+    castingUntil: updatedHero.castingUntil,  // 시전 상태 (스나이퍼 E 스킬 등)
     facingAngle: Math.atan2(targetY - hero.y, targetX - hero.x),
   });
 
@@ -546,13 +564,17 @@ function executeOtherHeroSkill(
     }
   }
 
-  // 기지 데미지 적용
+  // 기지 데미지 적용 - heroId를 전달하여 골드 배분용 공격자 추적
   if (result.baseDamages && result.baseDamages.length > 0) {
     for (const baseDamage of result.baseDamages) {
-      const destroyed = state.damageBase(baseDamage.baseId, baseDamage.damage);
+      const { destroyed, goldReceived } = state.damageBase(baseDamage.baseId, baseDamage.damage, heroId);
       if (destroyed) {
         const showNotification = useUIStore.getState().showNotification;
-        showNotification(`적 기지 파괴!`);
+        if (goldReceived > 0) {
+          showNotification(`적 기지 파괴! (+${goldReceived} 골드)`);
+        } else {
+          showNotification(`적 기지 파괴!`);
+        }
         soundManager.play('victory');
       }
     }
@@ -563,6 +585,44 @@ function executeOtherHeroSkill(
   if (result.buff && (result.buff.type === 'berserker' || result.buff.type === 'ironwall')) {
     // result.hero는 스킬 실행 후의 영웅 상태 (정확한 위치 정보 포함)
     shareBuffToAllies(result.buff, result.hero, heroId);
+  }
+
+  // 아군 힐 적용 (전직 스킬: 성기사, 힐러)
+  if (result.allyHeals && result.allyHeals.length > 0) {
+    for (const heal of result.allyHeals) {
+      // 내 영웅인 경우
+      if (state.hero && state.hero.id === heal.heroId) {
+        const newHp = Math.min(state.hero.maxHp, state.hero.hp + heal.heal);
+        useRPGStore.setState({ hero: { ...state.hero, hp: newHp } });
+        effectManager.createEffect('heal', state.hero.x, state.hero.y);
+      } else {
+        // 다른 영웅인 경우
+        const targetHero = state.otherHeroes.get(heal.heroId);
+        if (targetHero) {
+          const newHp = Math.min(targetHero.maxHp, targetHero.hp + heal.heal);
+          state.updateOtherHero(heal.heroId, { hp: newHp });
+          effectManager.createEffect('heal', targetHero.x, targetHero.y);
+        }
+      }
+    }
+  }
+
+  // 아군 버프 적용 (전직 스킬: 성기사, 힐러)
+  if (result.allyBuffs && result.allyBuffs.length > 0) {
+    for (const allyBuff of result.allyBuffs) {
+      // 내 영웅인 경우
+      if (state.hero && state.hero.id === allyBuff.heroId) {
+        const existingBuffs = state.hero.buffs.filter(b => b.type !== allyBuff.buff.type);
+        useRPGStore.setState({ hero: { ...state.hero, buffs: [...existingBuffs, allyBuff.buff] } });
+      } else {
+        // 다른 영웅인 경우
+        const targetHero = state.otherHeroes.get(allyBuff.heroId);
+        if (targetHero) {
+          const existingBuffs = targetHero.buffs.filter(b => b.type !== allyBuff.buff.type);
+          state.updateOtherHero(allyBuff.heroId, { buffs: [...existingBuffs, allyBuff.buff] });
+        }
+      }
+    }
   }
 
   // 보류 스킬 (운석 낙하 등)
@@ -587,7 +647,7 @@ function executeOtherHeroSkill(
   }
 
   // 사운드 재생
-  if (heroClass === 'archer' || heroClass === 'mage') {
+  if (hero.heroClass === 'archer' || hero.heroClass === 'mage') {
     soundManager.play('attack_ranged');
   } else {
     soundManager.play('attack_melee');
@@ -808,25 +868,42 @@ export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'gol
 /**
  * 멀티플레이 방 생성
  */
-export function createMultiplayerRoom(playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean, difficulty?: string) {
+export function createMultiplayerRoom(
+  playerName: string,
+  heroClass: any,
+  characterLevel?: number,
+  statUpgrades?: any,
+  isPrivate?: boolean,
+  difficulty?: string,
+  advancedClass?: string,
+  tier?: 1 | 2
+) {
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
     connectionState: 'connecting',
   });
 
-  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false, difficulty ?? 'easy');
+  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false, difficulty ?? 'easy', advancedClass as any, tier);
 }
 
 /**
  * 멀티플레이 방 참가
  */
-export function joinMultiplayerRoom(roomCode: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any) {
+export function joinMultiplayerRoom(
+  roomCode: string,
+  playerName: string,
+  heroClass: any,
+  characterLevel?: number,
+  statUpgrades?: any,
+  advancedClass?: string,
+  tier?: 1 | 2
+) {
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
     connectionState: 'connecting',
   });
 
-  wsClient.joinCoopRoom(roomCode, playerName, heroClass, characterLevel, statUpgrades);
+  wsClient.joinCoopRoom(roomCode, playerName, heroClass, characterLevel, statUpgrades, advancedClass as any, tier);
 }
 
 /**

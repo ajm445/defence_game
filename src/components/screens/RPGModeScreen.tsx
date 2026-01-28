@@ -9,6 +9,8 @@ import { RPGGameTimer } from '../ui/RPGGameTimer';
 import { RPGUpgradePanel } from '../ui/RPGUpgradePanel';
 import { Notification } from '../ui/Notification';
 import { LevelUpNotification } from '../ui/LevelUpNotification';
+import { SecondEnhancementNotification } from '../ui/SecondEnhancementNotification';
+import { AdvancedHeroClass } from '../../types/rpg';
 import { useRPGStore, useRPGGameOver, useRPGResult, useSelectedClass, usePersonalKills, useSelectedDifficulty } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
@@ -46,19 +48,25 @@ export const RPGModeScreen: React.FC = () => {
   const [showLevelUp, setShowLevelUp] = useState(false);
   const expSavedRef = useRef(false);
 
+  // 2차 강화 알림 상태
+  const [showSecondEnhancement, setShowSecondEnhancement] = useState(false);
+  const [enhancedClass, setEnhancedClass] = useState<AdvancedHeroClass | null>(null);
+
   // 게임 초기화 (이미 실행 중이면 초기화하지 않음)
   useEffect(() => {
     const state = useRPGStore.getState();
     // 멀티플레이어 모드면 initMultiplayerGame이 이미 호출됨 - 초기화 스킵
     // 이미 영웅이 있고 게임이 실행 중이면 (일시정지에서 돌아온 경우) 초기화하지 않음
     if (!state.hero && !state.multiplayer.isMultiplayer) {
-      // 싱글플레이어 모드: 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
+      // 싱글플레이어 모드: 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드, 전직 정보 가져오기
       const heroClass = state.selectedClass || 'warrior';
       const classProgress = classProgressList.find(p => p.className === heroClass);
       const characterLevel = classProgress?.classLevel ?? 1;
       const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
+      const advancedClass = classProgress?.advancedClass;
+      const tier = classProgress?.tier;
 
-      useRPGStore.getState().initGame(characterLevel, statUpgrades);
+      useRPGStore.getState().initGame(characterLevel, statUpgrades, undefined, advancedClass, tier);
       // 게임 시작 시에만 레퍼런스 초기화 (새 게임일 때만)
       expSavedRef.current = false;
     }
@@ -96,6 +104,20 @@ export const RPGModeScreen: React.FC = () => {
           setLevelUpResult(levelResult);
           setShowLevelUp(true);
           soundManager.play('level_up');
+
+          // 2차 강화 체크: 레벨 50 도달 + 1차 전직 완료 + 아직 2차 강화 안함
+          if (levelResult.classLeveledUp && levelResult.newClassLevel && levelResult.newClassLevel >= 50 && levelResult.className) {
+            const classProgress = useProfileStore.getState().classProgress.find(p => p.className === levelResult.className);
+            if (classProgress && classProgress.advancedClass && classProgress.tier !== 2) {
+              // 2차 강화 서버 저장 및 알림
+              useProfileStore.getState().applySecondEnhancementAction(levelResult.className).then((success) => {
+                if (success) {
+                  setEnhancedClass(classProgress.advancedClass as AdvancedHeroClass);
+                  // 레벨업 알림이 닫힌 후 2차 강화 알림을 표시하기 위해 약간의 딜레이
+                }
+              });
+            }
+          }
         }
       });
     }
@@ -158,14 +180,16 @@ export const RPGModeScreen: React.FC = () => {
     setShowLevelUp(false);
     expSavedRef.current = false;
 
-    // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드 가져오기
+    // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드, 전직 정보 가져오기
     const state = useRPGStore.getState();
     const heroClass = state.selectedClass || 'warrior';
     const classProgress = classProgressList.find(p => p.className === heroClass);
     const characterLevel = classProgress?.classLevel ?? 1;
     const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
+    const advancedClass = classProgress?.advancedClass;
+    const tier = classProgress?.tier;
 
-    useRPGStore.getState().initGame(characterLevel, statUpgrades);
+    useRPGStore.getState().initGame(characterLevel, statUpgrades, undefined, advancedClass, tier);
   }, [resetGame, clearLastGameResult, classProgressList]);
 
   // 멀티플레이어: 로비로 돌아가기 (호스트만)
@@ -203,6 +227,16 @@ export const RPGModeScreen: React.FC = () => {
   // 레벨업 알림 닫기
   const handleCloseLevelUp = useCallback(() => {
     setShowLevelUp(false);
+    // 2차 강화 알림이 대기 중이면 표시
+    if (enhancedClass) {
+      setShowSecondEnhancement(true);
+    }
+  }, [enhancedClass]);
+
+  // 2차 강화 알림 닫기
+  const handleCloseSecondEnhancement = useCallback(() => {
+    setShowSecondEnhancement(false);
+    setEnhancedClass(null);
   }, []);
 
   return (
@@ -415,6 +449,14 @@ export const RPGModeScreen: React.FC = () => {
         <LevelUpNotification
           result={levelUpResult}
           onClose={handleCloseLevelUp}
+        />
+      )}
+
+      {/* 2차 강화 알림 */}
+      {showSecondEnhancement && enhancedClass && (
+        <SecondEnhancementNotification
+          advancedClass={enhancedClass}
+          onClose={handleCloseSecondEnhancement}
         />
       )}
 
