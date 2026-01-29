@@ -279,6 +279,36 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
           <p className="text-gray-500 text-xs mt-2">
             * 캐릭터 레벨 5 이상에서 활성화, 이후 레벨업마다 자동 성장
           </p>
+
+          {/* 전직 특수 효과 */}
+          {progress.advancedClass && advancedConfig?.specialEffects && (
+            <div className="mt-4 pt-3 border-t border-gray-700">
+              <h4 className="text-yellow-400 font-bold mb-2 text-sm">전직 특수 효과</h4>
+              <div className="text-orange-300 font-bold">
+                {advancedConfig.specialEffects.lifestealMultiplier && (
+                  <span>피해흡혈 {advancedConfig.specialEffects.lifestealMultiplier}배</span>
+                )}
+                {advancedConfig.specialEffects.damageReduction && (
+                  <span>받는 피해 {Math.round(advancedConfig.specialEffects.damageReduction * 100)}% 감소</span>
+                )}
+                {advancedConfig.specialEffects.critChance && (
+                  <span>크리티컬 확률 {Math.round(advancedConfig.specialEffects.critChance * 100)}%</span>
+                )}
+                {advancedConfig.specialEffects.multiTarget && (
+                  <span>다중 타겟 {advancedConfig.specialEffects.multiTarget}명</span>
+                )}
+                {advancedConfig.specialEffects.lifesteal && (
+                  <span>피해흡혈 {Math.round(advancedConfig.specialEffects.lifesteal * 100)}%</span>
+                )}
+                {advancedConfig.specialEffects.bossBonus && (
+                  <span>보스에게 {Math.round(advancedConfig.specialEffects.bossBonus * 100)}% 추가 데미지</span>
+                )}
+                {advancedConfig.specialEffects.healAlly && (
+                  <span>아군 힐 가능</span>
+                )}
+              </div>
+            </div>
+          )}
         </div>
 
         <div style={{ height: '10px' }} />

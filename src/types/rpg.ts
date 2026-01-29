@@ -417,6 +417,8 @@ export interface SkillEffect {
   startTime: number;      // 시작 시간
   hitTargets?: HitTarget[]; // 피격 대상 위치들 (공격 이펙트용)
   heroClass?: HeroClass;   // 발동한 영웅 직업 (이펙트 스타일 결정용)
+  advancedClass?: AdvancedHeroClass; // 전직 직업 (이펙트 색상 차별화용)
+  targetId?: string;      // 타겟 적 ID (실시간 위치 추적용, 저격 등)
 }
 
 // 기본 공격 이펙트 (네트워크 동기화용)
@@ -426,6 +428,19 @@ export interface BasicAttackEffect {
   y: number;
   type: 'melee' | 'ranged';
   timestamp: number;    // 생성 시간
+}
+
+// 플로팅 데미지 숫자 타입
+export type DamageNumberType = 'damage' | 'critical' | 'heal';
+
+// 플로팅 데미지 숫자 인터페이스
+export interface DamageNumber {
+  id: string;
+  x: number;
+  y: number;
+  amount: number;
+  type: DamageNumberType;
+  createdAt: number;
 }
 
 // 경험치 테이블 (적 유닛별) - 레거시, 계정 경험치용

@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG, UPGRADE_CONFIG, GOLD_CONFIG } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG, UPGRADE_CONFIG, GOLD_CONFIG, ADVANCED_CLASS_CONFIGS } from '../constants/rpgConfig';
 import { getStatBonus } from '../types/auth';
 import { updateHeroUnit, findNearestEnemy, findNearestEnemyBase } from '../game/rpg/heroUnit';
 import {
@@ -35,7 +35,8 @@ export function useRPGGameLoop() {
   const bossesSpawnedRef = useRef<boolean>(false);
   const lastBroadcastTimeRef = useRef<number>(0);
   const wasRunningRef = useRef<boolean>(false);
-  const processedEffectIdsRef = useRef<Set<string>>(new Set());
+  // 이펙트 ID와 처리 시간을 함께 저장하여 메모리 누수 방지
+  const processedEffectIdsRef = useRef<Map<string, number>>(new Map());
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -65,26 +66,28 @@ export function useRPGGameLoop() {
       // 클라이언트: 이펙트 업데이트 + 로컬 영웅 이동 예측
       effectManager.update(deltaTime);
 
-      // 동기화된 기본 공격 이펙트 처리 (클라이언트)
+      // 동기화된 기본 공격 이펙트 처리 (클라이언트) - 적의 영웅 공격 포함
       const clientBasicAttackEffects = useRPGStore.getState().basicAttackEffects;
+      const clientNow = Date.now();
       for (const effect of clientBasicAttackEffects) {
         if (!processedEffectIdsRef.current.has(effect.id)) {
-          processedEffectIdsRef.current.add(effect.id);
+          processedEffectIdsRef.current.set(effect.id, clientNow);
           const effectType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
           effectManager.createEffect(effectType, effect.x, effect.y);
+          // 사운드도 함께 재생
+          const soundType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+          soundManager.play(soundType);
         }
       }
 
       // 동기화된 넥서스 레이저 이펙트 처리 (클라이언트)
-      const clientNexus = useRPGStore.getState().nexus;
+      // 참고: 레이저 빔 렌더링은 rpgRenderer.ts의 drawNexusLaserBeams에서 처리
+      // 여기서는 사운드만 재생 (한 번만)
       const clientLaserEffects = useRPGStore.getState().nexusLaserEffects;
       for (const effect of clientLaserEffects) {
         if (!processedEffectIdsRef.current.has(effect.id)) {
-          processedEffectIdsRef.current.add(effect.id);
-          if (clientNexus) {
-            effectManager.createEffect('nexus_laser', clientNexus.x, clientNexus.y, effect.targetX, effect.targetY);
-            soundManager.play('laser_attack');
-          }
+          processedEffectIdsRef.current.set(effect.id, clientNow);
+          soundManager.play('laser_attack');
         }
       }
 
@@ -99,7 +102,7 @@ export function useRPGGameLoop() {
         // 경고가 거의 끝날 때 (95% 이상) 이펙트 재생 (한 번만)
         const effectId = `boss_skill_${warning.skillType}_${warning.startTime}`;
         if (progress >= 0.95 && !processedEffectIdsRef.current.has(effectId)) {
-          processedEffectIdsRef.current.add(effectId);
+          processedEffectIdsRef.current.set(effectId, clientNow);
 
           // 스킬 타입별 이펙트 및 사운드
           switch (warning.skillType) {
@@ -133,11 +136,10 @@ export function useRPGGameLoop() {
         }
       }
 
-      // 오래된 이펙트 ID 정리 (300ms 이후)
-      const now = Date.now();
-      for (const effectId of processedEffectIdsRef.current) {
-        const timestamp = parseInt(effectId.split('_')[2]) || 0;
-        if (now - timestamp > 1000) {
+      // 오래된 이펙트 ID 정리 (1초 이후)
+      // Map에 저장된 처리 시간을 사용하여 정확히 정리
+      for (const [effectId, processedTime] of processedEffectIdsRef.current) {
+        if (clientNow - processedTime > 1000) {
           processedEffectIdsRef.current.delete(effectId);
         }
       }
@@ -234,7 +236,7 @@ export function useRPGGameLoop() {
         // 스킬 발동 시점에 이펙트/사운드 재생 (한 번만)
         const pendingEffectId = `pending_${skill.type}_${skill.triggerTime}`;
         if (clientCurrentGameTime >= skill.triggerTime && !processedEffectIdsRef.current.has(pendingEffectId)) {
-          processedEffectIdsRef.current.add(pendingEffectId);
+          processedEffectIdsRef.current.set(pendingEffectId, clientNow);
 
           // 스킬 타입별 이펙트/사운드 처리
           switch (skill.type) {
@@ -333,6 +335,14 @@ export function useRPGGameLoop() {
               break;
           }
         }
+      }
+
+      // 클라이언트: 보류된 W/E 스킬 로컬 실행 (이펙트, 돌진 상태 등)
+      // 데미지는 호스트에서 처리하고 동기화됨
+      if (pendingSkillRef.current) {
+        const skillType = pendingSkillRef.current;
+        pendingSkillRef.current = null;
+        handleClientSkillExecution(skillType, clientCurrentGameTime);
       }
 
       animationIdRef.current = requestAnimationFrame(tick);
@@ -454,6 +464,9 @@ export function useRPGGameLoop() {
               const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
               const { destroyed, goldReceived } = useRPGStore.getState().damageBase(nearestBase.id, totalAttack, myHeroId);
 
+              // 기지 데미지 숫자 표시
+              useRPGStore.getState().addDamageNumber(nearestBase.x, nearestBase.y, totalAttack, 'damage');
+
               // 이펙트 및 사운드
               effectManager.createEffect('attack_melee', nearestBase.x, nearestBase.y);
               if (heroClass === 'archer' || heroClass === 'mage') {
@@ -497,26 +510,30 @@ export function useRPGGameLoop() {
     // 영웅 공격 데미지 처리
     if (heroResult.enemyDamage) {
       const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
+      const target = state.enemies.find((e) => e.id === heroResult.enemyDamage!.targetId);
       const killed = useRPGStore.getState().damageEnemy(
         heroResult.enemyDamage.targetId,
         heroResult.enemyDamage.damage,
         myHeroId
       );
 
+      // 데미지 숫자 표시
+      if (target) {
+        useRPGStore.getState().addDamageNumber(target.x, target.y, heroResult.enemyDamage.damage, 'damage');
+      }
+
       if (killed) {
-        const enemy = state.enemies.find((e) => e.id === heroResult.enemyDamage!.targetId);
-        if (enemy) {
+        if (target) {
           // 골드 획득은 damageEnemy 내에서 자동 처리됨
           // 적 제거
-          useRPGStore.getState().removeEnemy(enemy.id);
+          useRPGStore.getState().removeEnemy(target.id);
 
           // 킬 이펙트
-          effectManager.createEffect('attack_melee', enemy.x, enemy.y);
+          effectManager.createEffect('attack_melee', target.x, target.y);
           soundManager.play('attack_melee');
         }
       } else {
         // 공격 이펙트
-        const target = state.enemies.find((e) => e.id === heroResult.enemyDamage!.targetId);
         if (target) {
           effectManager.createEffect('attack_melee', target.x, target.y);
           soundManager.play('attack_melee');
@@ -596,6 +613,59 @@ export function useRPGGameLoop() {
       }
     });
 
+    // ============================================
+    // 힐러 오로라 힐 처리 (주변 아군 초당 회복, 본인 포함)
+    // ============================================
+    const allHeroesForAura: HeroUnit[] = [];
+    const auraHeroState = useRPGStore.getState().hero;
+    const auraOtherHeroes = useRPGStore.getState().otherHeroes;
+
+    // 모든 살아있는 영웅 수집
+    if (auraHeroState && auraHeroState.hp > 0) {
+      allHeroesForAura.push(auraHeroState);
+    }
+    auraOtherHeroes.forEach((h) => {
+      if (h.hp > 0) allHeroesForAura.push(h);
+    });
+
+    // 힐러 오로라 처리 (모든 힐러 영웅에 대해)
+    for (const healer of allHeroesForAura) {
+      // 힐러 전직인지 확인
+      if (healer.advancedClass !== 'healer') continue;
+
+      // 힐러가 살아있어야 함
+      if (healer.hp <= 0) continue;
+
+      // 힐러 오로라 설정 가져오기
+      const healerConfig = ADVANCED_CLASS_CONFIGS.healer;
+      const healAura = healerConfig.specialEffects.healAura;
+      if (!healAura) continue;
+
+      const auraRadius = healAura.radius;
+      const healPerSecond = healAura.healPerSecond;
+
+      // 범위 내 아군에게 힐 적용 (본인 포함)
+      for (const ally of allHeroesForAura) {
+        // 살아있고, 체력이 풀피가 아닌 경우만
+        if (ally.hp <= 0 || ally.hp >= ally.maxHp) continue;
+
+        // 거리 계산
+        const dist = distance(healer.x, healer.y, ally.x, ally.y);
+        if (dist > auraRadius) continue;
+
+        // 힐량 계산 (최대 HP의 2% * deltaTime)
+        const healAmount = ally.maxHp * healPerSecond * deltaTime;
+        const newHp = Math.min(ally.maxHp, ally.hp + healAmount);
+
+        // 힐 적용
+        if (auraHeroState && ally.id === auraHeroState.id) {
+          useRPGStore.getState().updateHeroState({ hp: newHp });
+        } else {
+          useRPGStore.getState().updateOtherHero(ally.id, { hp: newHp });
+        }
+      }
+    }
+
     // 버프 업데이트
     useRPGStore.getState().updateBuffs(deltaTime);
 
@@ -656,6 +726,16 @@ export function useRPGGameLoop() {
             // 호스트 영웅 데미지
             useRPGStore.getState().damageHero(finalDamage);
             effectManager.createEffect('attack_melee', currentHeroState.x, currentHeroState.y);
+            // 피격 데미지 숫자 표시
+            useRPGStore.getState().addDamageNumber(currentHeroState.x, currentHeroState.y, finalDamage, 'damage');
+            // 피격 이펙트 동기화 (클라이언트에서도 표시)
+            useRPGStore.getState().addBasicAttackEffect({
+              id: `enemy_attack_${Date.now()}_${heroId}`,
+              type: 'melee',
+              x: currentHeroState.x,
+              y: currentHeroState.y,
+              timestamp: Date.now(),
+            });
           } else {
             // 다른 플레이어 영웅 데미지
             const otherHero = currentOtherHeroes.get(heroId);
@@ -676,6 +756,16 @@ export function useRPGGameLoop() {
                 useRPGStore.getState().updateOtherHero(heroId, { hp: newHp });
               }
               effectManager.createEffect('attack_melee', otherHero.x, otherHero.y);
+              // 피격 데미지 숫자 표시
+              useRPGStore.getState().addDamageNumber(otherHero.x, otherHero.y, finalDamage, 'damage');
+              // 피격 이펙트 동기화 (클라이언트에서도 표시)
+              useRPGStore.getState().addBasicAttackEffect({
+                id: `enemy_attack_${Date.now()}_${heroId}`,
+                type: 'melee',
+                x: otherHero.x,
+                y: otherHero.y,
+                timestamp: Date.now(),
+              });
             }
           }
           soundManager.play('attack_melee');
@@ -726,6 +816,8 @@ export function useRPGGameLoop() {
           useRPGStore.getState().damageHero(finalDamage);
           effectManager.createEffect('attack_melee', updatedHero.x, updatedHero.y);
           soundManager.play('attack_melee');
+          // 피격 데미지 숫자 표시
+          useRPGStore.getState().addDamageNumber(updatedHero.x, updatedHero.y, finalDamage, 'damage');
 
           // 사망 체크 (부활 시스템으로 처리됨 - gameOver 설정하지 않음)
           const heroAfterDamage = useRPGStore.getState().hero;
@@ -767,11 +859,10 @@ export function useRPGGameLoop() {
           useRPGStore.setState({ nexus: laserResult.updatedNexus });
         }
 
-        // 레이저 이펙트 추가 (시각 효과 + 네트워크 동기화)
+        // 레이저 이펙트 추가 (네트워크 동기화 + 사운드)
+        // 참고: 레이저 빔 렌더링은 rpgRenderer.ts의 drawNexusLaserBeams에서 처리
         for (const effect of laserResult.laserEffects) {
           useRPGStore.getState().addNexusLaserEffect(effect);
-          // 시각 이펙트 생성 (넥서스에서 타겟으로)
-          effectManager.createEffect('nexus_laser', latestNexus!.x, latestNexus!.y, effect.targetX, effect.targetY);
           soundManager.play('laser_attack');
         }
 
@@ -780,6 +871,7 @@ export function useRPGGameLoop() {
           const targetEnemy = updatedEnemies.find(e => e.id === enemyId);
           if (targetEnemy) {
             targetEnemy.hp -= damage;
+            // 넥서스 레이저는 데미지 숫자 표시하지 않음 (시각적으로 너무 복잡해짐)
             if (targetEnemy.hp <= 0) {
               // 넥서스가 처치한 경우 - 호스트에게 골드 (또는 아무도 안 받음)
               // 여기서는 간단히 아무도 골드를 받지 않도록 처리
@@ -875,12 +967,45 @@ export function useRPGGameLoop() {
           if (heroId === latestHero?.id) {
             useRPGStore.getState().damageHero(finalDamage);
             effectManager.createEffect('boss_smash', targetHero.x, targetHero.y);
+            // 피격 데미지 숫자 표시
+            useRPGStore.getState().addDamageNumber(targetHero.x, targetHero.y, finalDamage, 'damage');
+            // 보스 스킬 피격 이펙트 동기화 (클라이언트에서도 표시)
+            useRPGStore.getState().addBasicAttackEffect({
+              id: `boss_skill_hit_${Date.now()}_${heroId}`,
+              type: 'melee',
+              x: targetHero.x,
+              y: targetHero.y,
+              timestamp: Date.now(),
+            });
           } else {
             const otherHero = latestOtherHeroes.get(heroId);
             if (otherHero) {
               const newHp = Math.max(0, otherHero.hp - finalDamage);
-              useRPGStore.getState().updateOtherHero(heroId, { hp: newHp });
+              const wasDead = otherHero.hp <= 0;
+              const isDead = newHp <= 0;
+
+              // 사망 시 deathTime 설정 (부활 시스템용)
+              if (isDead && !wasDead && !otherHero.deathTime) {
+                useRPGStore.getState().updateOtherHero(heroId, {
+                  hp: newHp,
+                  deathTime: state.gameTime,
+                  moveDirection: undefined,  // 이동 중지
+                });
+                soundManager.play('hero_death');
+              } else {
+                useRPGStore.getState().updateOtherHero(heroId, { hp: newHp });
+              }
               effectManager.createEffect('boss_smash', otherHero.x, otherHero.y);
+              // 피격 데미지 숫자 표시
+              useRPGStore.getState().addDamageNumber(otherHero.x, otherHero.y, finalDamage, 'damage');
+              // 보스 스킬 피격 이펙트 동기화 (클라이언트에서도 표시)
+              useRPGStore.getState().addBasicAttackEffect({
+                id: `boss_skill_hit_${Date.now()}_${heroId}`,
+                type: 'melee',
+                x: otherHero.x,
+                y: otherHero.y,
+                timestamp: Date.now(),
+              });
             }
           }
           soundManager.play('attack_melee');
@@ -995,6 +1120,8 @@ export function useRPGGameLoop() {
           const targetEnemy = enemies.find(e => e.id === skill.targetId);
           if (targetEnemy && targetEnemy.hp > 0) {
             const killed = useRPGStore.getState().damageEnemy(targetEnemy.id, skill.damage, skill.casterId);
+            // 저격은 항상 크리티컬로 표시 (1000% 데미지)
+            useRPGStore.getState().addDamageNumber(targetEnemy.x, targetEnemy.y, skill.damage, 'critical');
             if (killed) {
               useRPGStore.getState().removeEnemy(targetEnemy.id);
             }
@@ -1025,6 +1152,8 @@ export function useRPGGameLoop() {
                 ? Math.floor(skill.damage * skill.bossDamageMultiplier)
                 : skill.damage;
               const killed = useRPGStore.getState().damageEnemy(enemy.id, actualDamage, skill.casterId);
+              // 스킬 데미지 숫자 표시 (범위 스킬은 일반 데미지로)
+              useRPGStore.getState().addDamageNumber(enemy.x, enemy.y, actualDamage, 'damage');
               if (killed) {
                 // 골드 획득은 damageEnemy 내에서 자동 처리됨
                 useRPGStore.getState().removeEnemy(enemy.id);
@@ -1040,6 +1169,8 @@ export function useRPGGameLoop() {
               const baseDist = distance(skill.position.x, skill.position.y, base.x, base.y);
               if (baseDist <= skill.radius + 50) {  // 기지는 크기가 크므로 추가 반경
                 useRPGStore.getState().damageBase(base.id, skill.damage, skill.casterId);
+                // 기지 데미지 숫자 표시
+                useRPGStore.getState().addDamageNumber(base.x, base.y, skill.damage, 'damage');
               }
             }
           }
@@ -1064,6 +1195,8 @@ export function useRPGGameLoop() {
                   healState.updateOtherHero(ally.id, { hp: Math.min(ally.maxHp, ally.hp + healAmount) });
                 }
                 effectManager.createEffect('heal', ally.x, ally.y);
+                // 힐 플로팅 숫자 표시
+                useRPGStore.getState().addDamageNumber(ally.x, ally.y, healAmount, 'heal');
               }
             }
           }
@@ -1216,7 +1349,7 @@ export function useRPGGameLoop() {
     const difficulty = latestState.selectedDifficulty;
     // 멀티플레이어 인원 수 (싱글=1, 멀티=실제 인원 수)
     const playerCount = latestState.multiplayer.isMultiplayer
-      ? Object.keys(latestState.otherHeroes).length + 1  // 내 영웅 + 다른 플레이어들
+      ? latestState.otherHeroes.size + 1  // 내 영웅 + 다른 플레이어들 (Map.size 사용)
       : 1;
 
     // 게임 단계에 따른 처리
@@ -1293,15 +1426,26 @@ export function useRPGGameLoop() {
 
     // 동기화된 기본 공격 이펙트 처리 (호스트 및 싱글플레이어)
     const hostBasicAttackEffects = useRPGStore.getState().basicAttackEffects;
+    const hostNow = Date.now();
     for (const effect of hostBasicAttackEffects) {
       if (!processedEffectIdsRef.current.has(effect.id)) {
-        processedEffectIdsRef.current.add(effect.id);
+        processedEffectIdsRef.current.set(effect.id, hostNow);
         const effectType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
         effectManager.createEffect(effectType, effect.x, effect.y);
       }
     }
     // 오래된 기본 공격 이펙트 정리
     useRPGStore.getState().cleanBasicAttackEffects();
+
+    // 호스트 측 오래된 이펙트 ID 정리 (메모리 누수 방지)
+    for (const [effectId, processedTime] of processedEffectIdsRef.current) {
+      if (hostNow - processedTime > 1000) {
+        processedEffectIdsRef.current.delete(effectId);
+      }
+    }
+
+    // 타겟 추적 이펙트 위치 업데이트 (저격 등 - 적이 이동해도 이펙트가 따라감)
+    useRPGStore.getState().updateSkillEffectTargetPositions();
 
     // 스킬 이펙트 업데이트
     const activeEffects = useRPGStore.getState().activeSkillEffects;
@@ -1344,10 +1488,25 @@ export function useRPGGameLoop() {
       }
 
       // 적 데미지 적용
+      // 크리티컬 타입 판정 (저격수 전직 캐릭터의 스킬)
+      const isCriticalClass = result.hero.advancedClass === 'sniper';
       for (const damage of result.enemyDamages) {
+        const enemy = state.enemies.find((e) => e.id === damage.enemyId);
         const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage, killerHeroId);
+
+        // 플로팅 데미지 숫자 표시
+        if (enemy) {
+          // 저격수의 고데미지 스킬(저격)이나 W스킬은 크리티컬로 표시
+          const isCritical = isCriticalClass && damage.damage >= 300;
+          useRPGStore.getState().addDamageNumber(
+            enemy.x,
+            enemy.y,
+            damage.damage,
+            isCritical ? 'critical' : 'damage'
+          );
+        }
+
         if (killed) {
-          const enemy = state.enemies.find((e) => e.id === damage.enemyId);
           if (enemy) {
             // 골드 획득은 damageEnemy 내에서 자동 처리됨
             useRPGStore.getState().removeEnemy(enemy.id);
@@ -1359,7 +1518,15 @@ export function useRPGGameLoop() {
       // 기지 데미지 적용
       if (result.baseDamages && result.baseDamages.length > 0) {
         for (const baseDamage of result.baseDamages) {
+          // 기지 위치 찾기
+          const base = state.enemyBases.find(b => b.id === baseDamage.baseId);
           const { destroyed, goldReceived } = useRPGStore.getState().damageBase(baseDamage.baseId, baseDamage.damage, killerHeroId);
+
+          // 기지 데미지 숫자 표시
+          if (base) {
+            useRPGStore.getState().addDamageNumber(base.x, base.y, baseDamage.damage, 'damage');
+          }
+
           if (destroyed) {
             const showNotification = useUIStore.getState().showNotification;
             if (goldReceived > 0) {
@@ -1416,6 +1583,8 @@ export function useRPGGameLoop() {
             const newHp = Math.min(currentState.hero.maxHp, currentState.hero.hp + heal.heal);
             useRPGStore.setState({ hero: { ...currentState.hero, hp: newHp } });
             effectManager.createEffect('heal', currentState.hero.x, currentState.hero.y);
+            // 힐 플로팅 숫자 표시
+            useRPGStore.getState().addDamageNumber(currentState.hero.x, currentState.hero.y, heal.heal, 'heal');
           } else {
             // 다른 영웅인 경우
             const targetHero = currentState.otherHeroes.get(heal.heroId);
@@ -1425,6 +1594,8 @@ export function useRPGGameLoop() {
               const newHp = Math.min(targetHero.maxHp, targetHero.hp + heal.heal);
               currentState.updateOtherHero(heal.heroId, { hp: newHp });
               effectManager.createEffect('heal', targetHero.x, targetHero.y);
+              // 힐 플로팅 숫자 표시
+              useRPGStore.getState().addDamageNumber(targetHero.x, targetHero.y, heal.heal, 'heal');
             }
           }
         }
@@ -1456,6 +1627,128 @@ export function useRPGGameLoop() {
     []
   );
 
+  // 클라이언트 스킬 실행 처리 (이펙트와 돌진 상태만 로컬 처리, 데미지는 호스트에서 동기화)
+  const handleClientSkillExecution = useCallback(
+    (skillType: SkillType, gameTime: number) => {
+      const state = useRPGStore.getState();
+      if (!state.hero) return;
+      if (state.hero.hp <= 0) return;
+
+      const heroClass = state.hero.heroClass;
+      const targetX = state.mousePosition.x;
+      const targetY = state.mousePosition.y;
+
+      // 방향 계산
+      const dx = targetX - state.hero.x;
+      const dy = targetY - state.hero.y;
+      const dist = Math.sqrt(dx * dx + dy * dy);
+      const dirX = dist > 0 ? dx / dist : (state.hero.facingRight ? 1 : -1);
+      const dirY = dist > 0 ? dy / dist : 0;
+
+      const classSkills = CLASS_SKILLS[heroClass];
+      const heroWSkillType = state.hero.skills.find(s => s.key === 'W')?.type;
+      const heroESkillType = state.hero.skills.find(s => s.key === 'E')?.type;
+
+      // W 스킬 - 돌진 관련 이펙트와 상태
+      if (skillType === classSkills.w.type || skillType === heroWSkillType) {
+        // 돌진 스킬인 경우 로컬에서 돌진 상태 설정 (호스트 동기화와 병행)
+        const advancedClass = state.hero.advancedClass;
+        const isDashSkill =
+          heroClass === 'warrior' ||
+          heroClass === 'knight' ||
+          advancedClass === 'berserker' ||
+          advancedClass === 'guardian' ||
+          advancedClass === 'paladin' ||
+          advancedClass === 'darkKnight';
+
+        const isBackflip = advancedClass === 'sniper';  // 후방 도약
+
+        if (isDashSkill || isBackflip) {
+          const dashDistance = isDashSkill ? 150 : 150;  // 기본 돌진 거리
+          const dashDuration = 0.25;
+
+          // 후방 도약은 반대 방향
+          const moveDir = isBackflip ? -1 : 1;
+          const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, state.hero.x + dirX * dashDistance * moveDir));
+          const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, state.hero.y + dirY * dashDistance * moveDir));
+
+          // 돌진 상태 설정 (로컬 애니메이션용)
+          useRPGStore.getState().updateHeroState({
+            dashState: {
+              startX: state.hero.x,
+              startY: state.hero.y,
+              targetX: newX,
+              targetY: newY,
+              progress: 0,
+              duration: dashDuration,
+              dirX: dirX * moveDir,
+              dirY: dirY * moveDir,
+            },
+            facingRight: dirX >= 0,
+            facingAngle: Math.atan2(dirY, dirX),
+          });
+        }
+
+        // 이펙트 추가 (렌더링용)
+        const attackRange = state.hero.config.range || 80;
+        const effect: SkillEffect = {
+          type: skillType,
+          position: { x: state.hero.x, y: state.hero.y },
+          direction: { x: dirX, y: dirY },
+          radius: isDashSkill ? 150 : attackRange,
+          duration: 0.5,
+          startTime: gameTime,
+          heroClass,
+          advancedClass,
+        };
+        useRPGStore.setState((s) => ({
+          activeSkillEffects: [...s.activeSkillEffects, effect],
+        }));
+        return;
+      }
+
+      // E 스킬 - 버프 및 특수 이펙트
+      if (skillType === classSkills.e.type || skillType === heroESkillType) {
+        const advancedClass = state.hero.advancedClass;
+
+        // 버프 스킬 이펙트
+        const effect: SkillEffect = {
+          type: skillType,
+          position: { x: state.hero.x, y: state.hero.y },
+          direction: { x: dirX, y: dirY },
+          radius: 150,  // 기본 범위
+          duration: 1.0,
+          startTime: gameTime,
+          heroClass,
+          advancedClass,
+        };
+
+        // 범위 스킬인 경우 타겟 위치에 이펙트
+        if (heroClass === 'archer' || heroClass === 'mage' ||
+            advancedClass === 'archmage') {
+          effect.position = { x: targetX, y: targetY };
+        }
+
+        useRPGStore.setState((s) => ({
+          activeSkillEffects: [...s.activeSkillEffects, effect],
+        }));
+
+        // 특수 알림
+        if (!advancedClass) {
+          if (heroClass === 'knight') {
+            useUIStore.getState().showNotification('철벽 방어 발동!');
+          } else if (heroClass === 'warrior') {
+            useUIStore.getState().showNotification('광전사 모드 발동!');
+          } else if (heroClass === 'mage') {
+            useUIStore.getState().showNotification('운석 낙하 시전 중...');
+          }
+        }
+        return;
+      }
+    },
+    []
+  );
+
   // 스킬 실행 처리
   const handleSkillExecution = useCallback(
     (skillType: SkillType, gameTime: number) => {
@@ -1480,20 +1773,20 @@ export function useRPGGameLoop() {
       const heroWSkillType = state.hero.skills.find(s => s.key === 'W')?.type;
       const heroESkillType = state.hero.skills.find(s => s.key === 'E')?.type;
 
+      // 아군 목록 (내 영웅 + 다른 플레이어 영웅)
+      const allies: HeroUnit[] = [];
+      if (state.hero) allies.push(state.hero);
+      state.otherHeroes.forEach((h) => allies.push(h));
+
       // Q 스킬 (기본 스킬 또는 영웅의 Q 스킬)
       if (skillType === classSkills.q.type || skillType === heroQSkillType) {
-        const result = executeQSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, attackUpgradeLevel);
+        const result = executeQSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, attackUpgradeLevel, allies);
         processSkillResult(result, state, myHeroId);
         return;
       }
 
       // W 스킬 (기본 스킬 또는 영웅의 W 스킬 - 전직 스킬 포함)
       if (skillType === classSkills.w.type || skillType === heroWSkillType) {
-        // 아군 목록 (내 영웅 + 다른 플레이어 영웅)
-        const allies: HeroUnit[] = [];
-        if (state.hero) allies.push(state.hero);
-        state.otherHeroes.forEach((h) => allies.push(h));
-
         const result = executeWSkill(state.hero, state.enemies, targetX, targetY, gameTime, state.enemyBases, attackUpgradeLevel, allies);
         processSkillResult(result, state, myHeroId);
 
@@ -1817,6 +2110,9 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           }
           hitTargets.push({ x: enemy.x, y: enemy.y, damage: actualDamage });
 
+          // 데미지 숫자 표시
+          useRPGStore.getState().addDamageNumber(enemy.x, enemy.y, actualDamage, 'damage');
+
           // 광전사 버프 피해흡혈 (궁수도 버프 받으면 적용)
           if (berserkerBuff?.lifesteal) {
             totalHealAmount += Math.floor(actualDamage * berserkerBuff.lifesteal);
@@ -1918,6 +2214,10 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
               state.removeEnemy(enemy.id);
             }
             hitTargets.push({ x: enemy.x, y: enemy.y, damage: actualDamage });
+
+            // 데미지 숫자 표시
+            useRPGStore.getState().addDamageNumber(enemy.x, enemy.y, actualDamage, 'damage');
+
             hitCount++;
           }
 
@@ -1945,6 +2245,9 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             const { destroyed, goldReceived } = state.damageBase(base.id, totalDamage, heroId);
             hitTargets.push({ x: base.x, y: base.y, damage: totalDamage });
 
+            // 기지 데미지 숫자 표시
+            useRPGStore.getState().addDamageNumber(base.x, base.y, totalDamage, 'damage');
+
             if (destroyed) {
               const showNotification = useUIStore.getState().showNotification;
               if (goldReceived > 0) {
@@ -1962,6 +2265,10 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             state.removeEnemy(nearestEnemy.id);
           }
           hitTargets.push({ x: nearestEnemy.x, y: nearestEnemy.y, damage: totalDamage });
+
+          // 데미지 숫자 표시
+          useRPGStore.getState().addDamageNumber(nearestEnemy.x, nearestEnemy.y, totalDamage, 'damage');
+
           hitCount = 1;
         }
 
@@ -2076,6 +2383,9 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
 
           // 기지 데미지 적용 (heroId 전달로 골드 배분용 공격자 추적)
           const { destroyed, goldReceived } = state.damageBase(nearestBase.id, baseTotalDamage, heroId);
+
+          // 기지 데미지 숫자 표시
+          useRPGStore.getState().addDamageNumber(nearestBase.x, nearestBase.y, baseTotalDamage, 'damage');
 
           // 공격 방향 계산
           const baseDirX = nearestBase.x - hero.x;

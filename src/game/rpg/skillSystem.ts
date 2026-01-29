@@ -1,5 +1,5 @@
 import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget, EnemyBase, EnemyBaseId, AdvancedHeroClass } from '../../types/rpg';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, UPGRADE_CONFIG, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS } from '../../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, UPGRADE_CONFIG, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
 import { rollMultiTarget } from './passiveSystem';
 
@@ -122,7 +122,8 @@ export function executeQSkill(
   targetY: number,
   gameTime: number,
   enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
-  attackUpgradeLevel: number = 0  // 인게임 공격력 업그레이드 레벨
+  attackUpgradeLevel: number = 0,  // 인게임 공격력 업그레이드 레벨
+  allies: HeroUnit[] = []  // 아군 히어로들 (팔라딘 기본 공격 힐용)
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].q;
@@ -258,6 +259,7 @@ export function executeQSkill(
     startTime: gameTime,
     hitTargets, // 피격 대상 위치들
     heroClass, // 직업 정보 (렌더링용)
+    advancedClass: hero.advancedClass, // 전직 직업 정보 (이펙트 색상 차별화용)
   };
 
   let updatedHero = startSkillCooldown(hero, skillConfig.type);
@@ -309,7 +311,48 @@ export function executeQSkill(
     updatedHero = { ...updatedHero, skills: updatedSkills };
   }
 
-  return { hero: updatedHero, effect, enemyDamages, baseDamages };
+  // 가디언/팔라딘: Q 스킬 적중 시 W 스킬 쿨타임 1초 감소 (적중당)
+  if (hero.advancedClass && (hero.advancedClass === 'guardian' || hero.advancedClass === 'paladin') && enemyDamages.length > 0) {
+    const cooldownReduction = 1.0 * enemyDamages.length; // 적중한 적 수만큼 1초씩 감소
+    const wSkillType = ADVANCED_W_SKILLS[hero.advancedClass].type;
+    const updatedSkills = updatedHero.skills.map((skill) => {
+      if (skill.type === wSkillType && skill.currentCooldown > 0) {
+        return {
+          ...skill,
+          currentCooldown: Math.max(0, skill.currentCooldown - cooldownReduction),
+        };
+      }
+      return skill;
+    });
+    updatedHero = { ...updatedHero, skills: updatedSkills };
+  }
+
+  // 팔라딘: 기본 공격 시 주변 아군 힐 (본인 제외)
+  const allyHeals: { heroId: string; heal: number }[] = [];
+  if (hero.advancedClass === 'paladin' && enemyDamages.length > 0) {
+    const advancedConfig = ADVANCED_CLASS_CONFIGS.paladin;
+    const basicAttackHeal = advancedConfig.specialEffects.basicAttackHeal;
+    if (basicAttackHeal) {
+      const healRange = basicAttackHeal.range;
+      const healPercent = basicAttackHeal.healPercent;
+      const healAmount = Math.floor((baseDamage + attackBonus) * healPercent);
+
+      if (healAmount > 0) {
+        for (const ally of allies) {
+          // 본인 제외, 사망한 아군 제외
+          if (ally.id === hero.id) continue;
+          if (ally.hp <= 0) continue;
+
+          const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
+          if (allyDist <= healRange) {
+            allyHeals.push({ heroId: ally.id, heal: healAmount });
+          }
+        }
+      }
+    }
+  }
+
+  return { hero: updatedHero, effect, enemyDamages, baseDamages, allyHeals: allyHeals.length > 0 ? allyHeals : undefined };
 }
 
 /**
@@ -1553,6 +1596,7 @@ function executeAdvancedESkill(
           targetPosition: { x: targetEnemy.x, y: targetEnemy.y },
           duration: chargeTime,
           startTime: gameTime,
+          targetId: targetEnemy.id,  // 타겟 적 ID (실시간 추적용)
         };
 
         // 시전 상태 설정 (3초간 이동/공격 불가)
