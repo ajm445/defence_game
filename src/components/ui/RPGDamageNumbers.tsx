@@ -5,7 +5,7 @@ import { DamageNumber } from '../../types/rpg';
 /**
  * 개별 데미지 숫자 컴포넌트
  * - 위로 떠오르며 페이드아웃
- * - 타입별 색상: damage(흰색), critical(노란색/주황색), heal(초록색)
+ * - 타입별 색상: damage(흰색), critical(금색), heal(초록색), enemy_damage(빨간색)
  */
 const DamageNumberItem: React.FC<{
   item: DamageNumber;
@@ -46,6 +46,12 @@ const DamageNumberItem: React.FC<{
           color: '#32CD32', // 라임 그린
           fontSize: '1.25rem',
           textShadow: '0 0 6px #228B22, 2px 2px 4px rgba(0,0,0,0.8)',
+        };
+      case 'enemy_damage':
+        return {
+          color: '#FF4444', // 빨간색
+          fontSize: '1.25rem',
+          textShadow: '0 0 6px #CC0000, 2px 2px 4px rgba(0,0,0,0.8)',
         };
       case 'damage':
       default:

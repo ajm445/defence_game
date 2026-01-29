@@ -68,7 +68,21 @@ interface RPGState extends RPGGameState {
   // 다른 플레이어별 처치 수 (멀티플레이어)
   otherPlayersKills: Map<string, number>;
   // 다른 플레이어 영웅 보간 데이터 (클라이언트용)
-  otherHeroesInterpolation: Map<string, { prevX: number; prevY: number; targetX: number; targetY: number; lastUpdateTime: number }>;
+  otherHeroesInterpolation: Map<string, HeroInterpolation>;
+}
+
+// 영웅 보간 데이터 타입 (클라이언트 움직임 개선)
+interface HeroInterpolation {
+  prevX: number;
+  prevY: number;
+  targetX: number;
+  targetY: number;
+  velocityX: number;        // 이동 속도 X
+  velocityY: number;        // 이동 속도 Y
+  moveDirectionX: number;   // 이동 방향 X (-1, 0, 1)
+  moveDirectionY: number;   // 이동 방향 Y (-1, 0, 1)
+  moveSpeed: number;        // 영웅 이동 속도 (stats.speed)
+  lastUpdateTime: number;
 }
 
 interface RPGActions {
@@ -2245,7 +2259,7 @@ export const useRPGStore = create<RPGStore>()(
       const newOtherPlayersGold = new Map<string, number>();
       const newOtherPlayersUpgrades = new Map<string, UpgradeLevels>();
       const newOtherPlayersKills = new Map<string, number>();
-      const newOtherHeroesInterpolation = new Map<string, { prevX: number; prevY: number; targetX: number; targetY: number; lastUpdateTime: number }>();
+      const newOtherHeroesInterpolation = new Map<string, HeroInterpolation>();
       let myHero: HeroUnit | null = null;
       let myGold = 0;
       let myUpgrades = createInitialUpgradeLevels();
@@ -2349,22 +2363,40 @@ export const useRPGStore = create<RPGStore>()(
           const existingInterpolation = currentState.otherHeroesInterpolation.get(hero.id);
           const existingHero = currentState.otherHeroes.get(hero.id);
 
+          // 이동 방향 및 속도 추출
+          const moveDir = hero.moveDirection || { x: 0, y: 0 };
+          const heroMoveSpeed = hero.config?.speed || 200;
+
           // 보간 데이터 업데이트
           if (existingHero && existingInterpolation) {
             // 기존 보간 데이터가 있으면, 현재 보간된 위치를 prevX/Y로 설정
             const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
-            const interpolationDuration = 50; // 50ms (상태 동기화 간격과 동일)
+            const interpolationDuration = 80; // 80ms (네트워크 지터 흡수)
             const t = Math.min(1, timeSinceUpdate / interpolationDuration);
 
-            // 현재 보간 위치 계산
-            const currentX = existingInterpolation.prevX + (existingInterpolation.targetX - existingInterpolation.prevX) * t;
-            const currentY = existingInterpolation.prevY + (existingInterpolation.targetY - existingInterpolation.prevY) * t;
+            // ease-out cubic 적용
+            const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
+            const easedT = easeOutCubic(t);
+
+            // 현재 보간 위치 계산 (이징 적용)
+            const currentX = existingInterpolation.prevX + (existingInterpolation.targetX - existingInterpolation.prevX) * easedT;
+            const currentY = existingInterpolation.prevY + (existingInterpolation.targetY - existingInterpolation.prevY) * easedT;
+
+            // 속도 계산 (위치 변화 기반)
+            const deltaTime = timeSinceUpdate / 1000;
+            const velocityX = deltaTime > 0 ? (hero.x - existingInterpolation.targetX) / (50 / 1000) : 0;
+            const velocityY = deltaTime > 0 ? (hero.y - existingInterpolation.targetY) / (50 / 1000) : 0;
 
             newOtherHeroesInterpolation.set(hero.id, {
               prevX: currentX,
               prevY: currentY,
               targetX: hero.x,
               targetY: hero.y,
+              velocityX,
+              velocityY,
+              moveDirectionX: moveDir.x,
+              moveDirectionY: moveDir.y,
+              moveSpeed: heroMoveSpeed,
               lastUpdateTime: now,
             });
 
@@ -2381,6 +2413,11 @@ export const useRPGStore = create<RPGStore>()(
               prevY: hero.y,
               targetX: hero.x,
               targetY: hero.y,
+              velocityX: 0,
+              velocityY: 0,
+              moveDirectionX: moveDir.x,
+              moveDirectionY: moveDir.y,
+              moveSpeed: heroMoveSpeed,
               lastUpdateTime: now,
             });
             newOtherHeroes.set(hero.id, hero);
@@ -2476,23 +2513,51 @@ export const useRPGStore = create<RPGStore>()(
 
       const now = performance.now();
       const updatedHeroes = new Map<string, HeroUnit>();
-      const interpolationDuration = 50; // 50ms
+      const updatedInterpolation = new Map<string, HeroInterpolation>();
+      const interpolationDuration = 80; // 80ms (네트워크 지터 흡수)
+
+      // ease-out cubic 함수
+      const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
 
       state.otherHeroes.forEach((hero, heroId) => {
         const interp = state.otherHeroesInterpolation.get(heroId);
         if (interp) {
           const timeSinceUpdate = now - interp.lastUpdateTime;
           const t = Math.min(1, timeSinceUpdate / interpolationDuration);
+          const easedT = easeOutCubic(t);
 
-          // 선형 보간 (lerp)
-          const x = interp.prevX + (interp.targetX - interp.prevX) * t;
-          const y = interp.prevY + (interp.targetY - interp.prevY) * t;
+          let x: number;
+          let y: number;
+
+          // 클라이언트 측 이동 시뮬레이션
+          const isMoving = interp.moveDirectionX !== 0 || interp.moveDirectionY !== 0;
+
+          if (t >= 1 && isMoving) {
+            // 보간 완료 후 이동 중이면 예측 이동
+            const extraTime = (timeSinceUpdate - interpolationDuration) / 1000;
+            const predictedMoveX = interp.moveDirectionX * interp.moveSpeed * extraTime;
+            const predictedMoveY = interp.moveDirectionY * interp.moveSpeed * extraTime;
+
+            x = interp.targetX + predictedMoveX;
+            y = interp.targetY + predictedMoveY;
+
+            // 맵 경계 제한
+            x = Math.max(0, Math.min(RPG_CONFIG.MAP_WIDTH, x));
+            y = Math.max(0, Math.min(RPG_CONFIG.MAP_HEIGHT, y));
+          } else {
+            // 보간 중: 이징 함수 적용
+            x = interp.prevX + (interp.targetX - interp.prevX) * easedT;
+            y = interp.prevY + (interp.targetY - interp.prevY) * easedT;
+          }
 
           updatedHeroes.set(heroId, {
             ...hero,
             x,
             y,
           });
+
+          // 보간 데이터 유지 (서버 업데이트 시까지)
+          updatedInterpolation.set(heroId, interp);
         } else {
           updatedHeroes.set(heroId, hero);
         }

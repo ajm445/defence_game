@@ -726,8 +726,8 @@ export function useRPGGameLoop() {
             // 호스트 영웅 데미지
             useRPGStore.getState().damageHero(finalDamage);
             effectManager.createEffect('attack_melee', currentHeroState.x, currentHeroState.y);
-            // 피격 데미지 숫자 표시
-            useRPGStore.getState().addDamageNumber(currentHeroState.x, currentHeroState.y, finalDamage, 'damage');
+            // 피격 데미지 숫자 표시 (적 공격 - 빨간색)
+            useRPGStore.getState().addDamageNumber(currentHeroState.x, currentHeroState.y, finalDamage, 'enemy_damage');
             // 피격 이펙트 동기화 (클라이언트에서도 표시)
             useRPGStore.getState().addBasicAttackEffect({
               id: `enemy_attack_${Date.now()}_${heroId}`,
@@ -756,8 +756,8 @@ export function useRPGGameLoop() {
                 useRPGStore.getState().updateOtherHero(heroId, { hp: newHp });
               }
               effectManager.createEffect('attack_melee', otherHero.x, otherHero.y);
-              // 피격 데미지 숫자 표시
-              useRPGStore.getState().addDamageNumber(otherHero.x, otherHero.y, finalDamage, 'damage');
+              // 피격 데미지 숫자 표시 (적 공격 - 빨간색)
+              useRPGStore.getState().addDamageNumber(otherHero.x, otherHero.y, finalDamage, 'enemy_damage');
               // 피격 이펙트 동기화 (클라이언트에서도 표시)
               useRPGStore.getState().addBasicAttackEffect({
                 id: `enemy_attack_${Date.now()}_${heroId}`,
@@ -816,8 +816,8 @@ export function useRPGGameLoop() {
           useRPGStore.getState().damageHero(finalDamage);
           effectManager.createEffect('attack_melee', updatedHero.x, updatedHero.y);
           soundManager.play('attack_melee');
-          // 피격 데미지 숫자 표시
-          useRPGStore.getState().addDamageNumber(updatedHero.x, updatedHero.y, finalDamage, 'damage');
+          // 피격 데미지 숫자 표시 (적 공격 - 빨간색)
+          useRPGStore.getState().addDamageNumber(updatedHero.x, updatedHero.y, finalDamage, 'enemy_damage');
 
           // 사망 체크 (부활 시스템으로 처리됨 - gameOver 설정하지 않음)
           const heroAfterDamage = useRPGStore.getState().hero;
@@ -967,8 +967,8 @@ export function useRPGGameLoop() {
           if (heroId === latestHero?.id) {
             useRPGStore.getState().damageHero(finalDamage);
             effectManager.createEffect('boss_smash', targetHero.x, targetHero.y);
-            // 피격 데미지 숫자 표시
-            useRPGStore.getState().addDamageNumber(targetHero.x, targetHero.y, finalDamage, 'damage');
+            // 피격 데미지 숫자 표시 (보스 공격 - 빨간색)
+            useRPGStore.getState().addDamageNumber(targetHero.x, targetHero.y, finalDamage, 'enemy_damage');
             // 보스 스킬 피격 이펙트 동기화 (클라이언트에서도 표시)
             useRPGStore.getState().addBasicAttackEffect({
               id: `boss_skill_hit_${Date.now()}_${heroId}`,
@@ -996,8 +996,8 @@ export function useRPGGameLoop() {
                 useRPGStore.getState().updateOtherHero(heroId, { hp: newHp });
               }
               effectManager.createEffect('boss_smash', otherHero.x, otherHero.y);
-              // 피격 데미지 숫자 표시
-              useRPGStore.getState().addDamageNumber(otherHero.x, otherHero.y, finalDamage, 'damage');
+              // 피격 데미지 숫자 표시 (보스 공격 - 빨간색)
+              useRPGStore.getState().addDamageNumber(otherHero.x, otherHero.y, finalDamage, 'enemy_damage');
               // 보스 스킬 피격 이펙트 동기화 (클라이언트에서도 표시)
               useRPGStore.getState().addBasicAttackEffect({
                 id: `boss_skill_hit_${Date.now()}_${heroId}`,

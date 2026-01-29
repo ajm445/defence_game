@@ -431,7 +431,7 @@ export interface BasicAttackEffect {
 }
 
 // 플로팅 데미지 숫자 타입
-export type DamageNumberType = 'damage' | 'critical' | 'heal';
+export type DamageNumberType = 'damage' | 'critical' | 'heal' | 'enemy_damage';
 
 // 플로팅 데미지 숫자 인터페이스
 export interface DamageNumber {
