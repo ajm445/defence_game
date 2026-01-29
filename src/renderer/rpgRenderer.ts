@@ -89,13 +89,13 @@ export function renderRPG(
   const multiplayerPlayers = useRPGStore.getState().multiplayer.players;
   if (otherHeroes && otherHeroes.size > 0) {
     otherHeroes.forEach((otherHero) => {
-      if (otherHero.hp > 0) {
-        // 플레이어 ID에서 hero_ 접두사 제거하여 플레이어 이름 찾기
-        const playerId = otherHero.id.replace('hero_', '');
-        const player = multiplayerPlayers.find(p => p.id === playerId);
-        const otherNickname = player?.name || '플레이어';
-        drawHero(ctx, otherHero, camera, scaledWidth, scaledHeight, state.gameTime, true, otherNickname);
-      }
+      // 사망한 영웅도 렌더링 (사망 애니메이션 표시)
+      // 플레이어 ID에서 hero_ 접두사 제거하여 플레이어 이름 찾기
+      const playerId = otherHero.id.replace('hero_', '');
+      const player = multiplayerPlayers.find(p => p.id === playerId);
+      const otherNickname = player?.name || '플레이어';
+      // 다른 플레이어는 lastDamageTime 0 전달 (깜빡임 효과 없음)
+      drawHero(ctx, otherHero, camera, scaledWidth, scaledHeight, state.gameTime, true, otherNickname, 0);
     });
   }
 
@@ -116,7 +116,9 @@ export function renderRPG(
 
     // 내 닉네임 가져오기
     const myNickname = useAuthStore.getState().profile?.nickname || '나';
-    drawHero(ctx, state.hero, camera, scaledWidth, scaledHeight, state.gameTime, false, myNickname);
+    // 마지막 피격 시간 전달 (피격 시 빨간색 깜빡임 효과용)
+    const lastDamageTime = useRPGStore.getState().lastDamageTime;
+    drawHero(ctx, state.hero, camera, scaledWidth, scaledHeight, state.gameTime, false, myNickname, lastDamageTime);
   }
 
   // 파티클 이펙트 렌더링

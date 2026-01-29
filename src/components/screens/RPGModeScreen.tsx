@@ -7,6 +7,8 @@ import { RPGSkillBar } from '../ui/RPGSkillBar';
 import { RPGWaveInfo } from '../ui/RPGWaveInfo';
 import { RPGGameTimer } from '../ui/RPGGameTimer';
 import { RPGUpgradePanel } from '../ui/RPGUpgradePanel';
+import { RPGScreenEffects } from '../ui/RPGScreenEffects';
+import { RPGDamageNumbers } from '../ui/RPGDamageNumbers';
 import { Notification } from '../ui/Notification';
 import { LevelUpNotification } from '../ui/LevelUpNotification';
 import { SecondEnhancementNotification } from '../ui/SecondEnhancementNotification';
@@ -105,8 +107,8 @@ export const RPGModeScreen: React.FC = () => {
           setShowLevelUp(true);
           soundManager.play('level_up');
 
-          // 2차 강화 체크: 레벨 50 도달 + 1차 전직 완료 + 아직 2차 강화 안함
-          if (levelResult.classLeveledUp && levelResult.newClassLevel && levelResult.newClassLevel >= 50 && levelResult.className) {
+          // 2차 강화 체크: 레벨 40 도달 + 1차 전직 완료 + 아직 2차 강화 안함
+          if (levelResult.classLeveledUp && levelResult.newClassLevel && levelResult.newClassLevel >= 40 && levelResult.className) {
             const classProgress = useProfileStore.getState().classProgress.find(p => p.className === levelResult.className);
             if (classProgress && classProgress.advancedClass && classProgress.tier !== 2) {
               // 2차 강화 서버 저장 및 알림
@@ -243,6 +245,12 @@ export const RPGModeScreen: React.FC = () => {
     <div className="relative w-full h-screen overflow-hidden bg-dark-900">
       {/* 메인 캔버스 */}
       <RPGCanvas />
+
+      {/* 피격/위험 화면 효과 */}
+      <RPGScreenEffects />
+
+      {/* 플로팅 데미지 숫자 */}
+      <RPGDamageNumbers />
 
       {/* 상단 중앙 타이머 */}
       <RPGGameTimer />

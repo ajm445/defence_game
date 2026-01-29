@@ -109,6 +109,14 @@ export function useNetworkSync() {
 
     // 업그레이드 요청 (각 플레이어별 골드/업그레이드 사용, 사망한 영웅은 업그레이드 불가)
     if (input.upgradeRequested && hero.hp > 0) {
+      // 업그레이드 시에도 위치 업데이트 (위치 되돌아감 버그 방지)
+      if (input.position) {
+        state.updateOtherHero(heroId, {
+          x: input.position.x,
+          y: input.position.y,
+        });
+      }
+
       const upgradeType = input.upgradeRequested as 'attack' | 'speed' | 'hp' | 'attackSpeed' | 'goldRate' | 'range';
       const success = state.upgradeOtherHeroStat(heroId, upgradeType);
       if (success) {
@@ -502,7 +510,7 @@ function executeOtherHeroSkill(
     return;
   }
 
-  // 스킬 실행 (enemyBases 전달, E 스킬은 casterId도 전달, W 스킬은 allies 전달)
+  // 스킬 실행 (enemyBases 전달, E 스킬은 casterId도 전달, W/E 스킬은 allies 전달)
   let result;
 
   // 모든 아군 영웅 목록 (내 영웅 + 다른 영웅들)
@@ -510,19 +518,27 @@ function executeOtherHeroSkill(
   if (state.hero) allAllies.push(state.hero);
   state.otherHeroes.forEach((h) => allAllies.push(h));
 
+  // 인게임 공격력 업그레이드 레벨 (해당 플레이어의 업그레이드 레벨 사용)
+  const playerUpgrades = state.getOtherPlayerUpgrades(heroId);
+  const attackUpgradeLevel = playerUpgrades.attack;
+
   if (skillSlot === 'E') {
-    result = (executeSkill as typeof executeESkill)(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases, heroId);
+    // E 스킬: casterId, attackUpgradeLevel, allies 전달 (가디언/팔라딘 궁극기 아군 버프/힐 적용)
+    result = (executeSkill as typeof executeESkill)(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases, heroId, attackUpgradeLevel, allAllies);
   } else if (skillSlot === 'W') {
-    result = (executeSkill as typeof executeWSkill)(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases, 0, allAllies);
+    result = (executeSkill as typeof executeWSkill)(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases, attackUpgradeLevel, allAllies);
   } else {
-    result = executeSkill(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases);
+    // Q 스킬: allies 전달 (팔라딘 기본 공격 시 주변 아군 힐)
+    result = (executeSkill as typeof executeQSkill)(hero, state.enemies, targetX, targetY, state.gameTime, state.enemyBases, attackUpgradeLevel, allAllies);
   }
 
   // 영웅 상태 업데이트 (스킬 쿨다운 포함)
   const updatedHero = result.hero;
 
-  // 스킬 쿨다운 리셋 (스킬 함수에서 skills를 업데이트하지 않으므로 여기서 처리)
-  const updatedSkills = hero.skills.map(s =>
+  // 스킬 쿨다운 처리:
+  // 1. result.hero.skills에는 가디언/팔라딘 W 스킬 쿨다운 감소가 적용되어 있음
+  // 2. 현재 사용한 스킬의 쿨다운을 리셋
+  const updatedSkills = updatedHero.skills.map(s =>
     s.type === skillType ? { ...s, currentCooldown: s.cooldown } : s
   );
 
@@ -553,10 +569,19 @@ function executeOtherHeroSkill(
   }
 
   // 적 데미지 적용 - heroId를 전달하여 해당 플레이어에게 골드 지급
+  // 저격수 전직 여부 확인 (크리티컬 표시용)
+  const isCriticalClass = hero.advancedClass === 'sniper';
   for (const damage of result.enemyDamages) {
+    const enemy = state.enemies.find((e) => e.id === damage.enemyId);
     const killed = state.damageEnemy(damage.enemyId, damage.damage, heroId);
+
+    // 플로팅 데미지 숫자 표시
+    if (enemy) {
+      const isCritical = isCriticalClass && damage.damage >= 300;
+      useRPGStore.getState().addDamageNumber(enemy.x, enemy.y, damage.damage, isCritical ? 'critical' : 'damage');
+    }
+
     if (killed) {
-      const enemy = state.enemies.find((e) => e.id === damage.enemyId);
       if (enemy) {
         state.removeEnemy(enemy.id);
         effectManager.createEffect('attack_melee', enemy.x, enemy.y);
@@ -595,6 +620,8 @@ function executeOtherHeroSkill(
         const newHp = Math.min(state.hero.maxHp, state.hero.hp + heal.heal);
         useRPGStore.setState({ hero: { ...state.hero, hp: newHp } });
         effectManager.createEffect('heal', state.hero.x, state.hero.y);
+        // 힐 플로팅 숫자 표시
+        useRPGStore.getState().addDamageNumber(state.hero.x, state.hero.y, heal.heal, 'heal');
       } else {
         // 다른 영웅인 경우
         const targetHero = state.otherHeroes.get(heal.heroId);
@@ -602,6 +629,8 @@ function executeOtherHeroSkill(
           const newHp = Math.min(targetHero.maxHp, targetHero.hp + heal.heal);
           state.updateOtherHero(heal.heroId, { hp: newHp });
           effectManager.createEffect('heal', targetHero.x, targetHero.y);
+          // 힐 플로팅 숫자 표시
+          useRPGStore.getState().addDamageNumber(targetHero.x, targetHero.y, heal.heal, 'heal');
         }
       }
     }
@@ -850,14 +879,24 @@ export function sendSkillUse(skillSlot: 'Q' | 'W' | 'E', targetX: number, target
 
 /**
  * 업그레이드 요청 전송 (클라이언트 → 서버 → 호스트)
+ * 위치 정보를 함께 전송하여 업그레이드 후 위치가 되돌아가는 버그 방지
  */
-export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'goldRate') {
+export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'goldRate' | 'attackSpeed' | 'range') {
   const state = useRPGStore.getState();
   if (!state.multiplayer.isMultiplayer) return;
 
   // 호스트가 아닐 때만 서버로 전송
   if (!state.multiplayer.isHost) {
-    wsClient.coopUpgradeHeroStat(upgradeType);
+    const hero = state.hero;
+    const input: PlayerInput = {
+      playerId: state.multiplayer.myPlayerId || '',
+      moveDirection: null,
+      // 업그레이드 시에도 현재 위치 전송 (위치 되돌아감 버그 방지)
+      position: hero ? { x: hero.x, y: hero.y } : undefined,
+      upgradeRequested: upgradeType,
+      timestamp: Date.now(),
+    };
+    wsClient.send({ type: 'HOST_PLAYER_INPUT', input });
   }
 }
 

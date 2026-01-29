@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning, AdvancedHeroClass, SkillType } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning, AdvancedHeroClass, SkillType, DamageNumber, DamageNumberType } from '../types/rpg';
 import { UnitType } from '../types/unit';
 import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, JOB_ADVANCEMENT_REQUIREMENTS, SECOND_ENHANCEMENT_MULTIPLIER, ADVANCEMENT_OPTIONS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
@@ -20,6 +20,9 @@ interface RPGState extends RPGGameState {
   // 선택된 난이도
   selectedDifficulty: RPGDifficulty;
 
+  // 마지막 피격 시간 (화면 효과용)
+  lastDamageTime: number;
+
   // 활성 스킬 효과
   activeSkillEffects: SkillEffect[];
 
@@ -28,6 +31,9 @@ interface RPGState extends RPGGameState {
 
   // 넥서스 레이저 효과 (네트워크 동기화용)
   nexusLaserEffects: NexusLaserEffect[];
+
+  // 플로팅 데미지 숫자
+  damageNumbers: DamageNumber[];
 
   // 결과
   result: RPGGameResult | null;
@@ -62,7 +68,21 @@ interface RPGState extends RPGGameState {
   // 다른 플레이어별 처치 수 (멀티플레이어)
   otherPlayersKills: Map<string, number>;
   // 다른 플레이어 영웅 보간 데이터 (클라이언트용)
-  otherHeroesInterpolation: Map<string, { prevX: number; prevY: number; targetX: number; targetY: number; lastUpdateTime: number }>;
+  otherHeroesInterpolation: Map<string, HeroInterpolation>;
+}
+
+// 영웅 보간 데이터 타입 (클라이언트 움직임 개선)
+interface HeroInterpolation {
+  prevX: number;
+  prevY: number;
+  targetX: number;
+  targetY: number;
+  velocityX: number;        // 이동 속도 X
+  velocityY: number;        // 이동 속도 Y
+  moveDirectionX: number;   // 이동 방향 X (-1, 0, 1)
+  moveDirectionY: number;   // 이동 방향 Y (-1, 0, 1)
+  moveSpeed: number;        // 영웅 이동 속도 (stats.speed)
+  lastUpdateTime: number;
 }
 
 interface RPGActions {
@@ -116,6 +136,7 @@ interface RPGActions {
   updateSkillCooldowns: (deltaTime: number) => void;
   addSkillEffect: (effect: SkillEffect) => void;
   removeSkillEffect: (index: number) => void;
+  updateSkillEffectTargetPositions: () => void;  // 타겟 추적 이펙트 위치 업데이트
 
   // 기본 공격 이펙트 (네트워크 동기화용)
   addBasicAttackEffect: (effect: BasicAttackEffect) => void;
@@ -128,6 +149,11 @@ interface RPGActions {
   // 보스 스킬 경고 (시각화용)
   addBossSkillWarning: (warning: BossSkillWarning) => void;
   updateBossSkillWarnings: (gameTime: number) => void;
+
+  // 플로팅 데미지 숫자
+  addDamageNumber: (x: number, y: number, amount: number, type: DamageNumberType) => void;
+  removeDamageNumber: (id: string) => void;
+  cleanDamageNumbers: () => void;
 
   // 적 관리
   addEnemy: (enemy: RPGEnemy) => void;
@@ -291,6 +317,7 @@ const initialState: RPGState = {
   hero: null,
   selectedClass: null,
   selectedDifficulty: 'easy',
+  lastDamageTime: 0,
 
   // 골드 시스템
   gold: GOLD_CONFIG.STARTING_GOLD,
@@ -332,6 +359,7 @@ const initialState: RPGState = {
   activeSkillEffects: [],
   basicAttackEffects: [],
   nexusLaserEffects: [],
+  damageNumbers: [],
   pendingSkills: [],
   bossSkillWarnings: [],
   result: null,
@@ -560,6 +588,7 @@ export const useRPGStore = create<RPGStore>()(
         activeSkillEffects: [],
         basicAttackEffects: [],
         nexusLaserEffects: [],
+        damageNumbers: [],
         pendingSkills: [],
         gameOver: false,
         victory: false,
@@ -713,6 +742,7 @@ export const useRPGStore = create<RPGStore>()(
         // 사망 시 deathTime 설정 (부활 시스템용) - gameOver는 설정하지 않음
         if (isDead && !state.hero.deathTime) {
           return {
+            lastDamageTime: state.gameTime,
             hero: {
               ...state.hero,
               hp: newHp,
@@ -724,6 +754,7 @@ export const useRPGStore = create<RPGStore>()(
         }
 
         return {
+          lastDamageTime: state.gameTime,
           hero: { ...state.hero, hp: newHp },
         };
       });
@@ -749,6 +780,9 @@ export const useRPGStore = create<RPGStore>()(
         const offsetX = (Math.random() - 0.5) * RPG_CONFIG.REVIVE.SPAWN_OFFSET * 2;
         const offsetY = (Math.random() - 0.5) * RPG_CONFIG.REVIVE.SPAWN_OFFSET * 2;
 
+        const reviveX = nexusX + offsetX;
+        const reviveY = nexusY + offsetY;
+
         // 풀 HP로 부활 + 무적 버프 추가
         const invincibleBuff: Buff = {
           type: 'invincible',
@@ -760,14 +794,20 @@ export const useRPGStore = create<RPGStore>()(
           hero: {
             ...state.hero,
             hp: state.hero.maxHp * RPG_CONFIG.REVIVE.REVIVE_HP_PERCENT,
-            x: nexusX + offsetX,
-            y: nexusY + offsetY,
+            x: reviveX,
+            y: reviveY,
             deathTime: undefined,
             moveDirection: undefined,
             state: 'idle',
             buffs: [...(state.hero.buffs || []), invincibleBuff],
             castingUntil: undefined,  // 시전 상태 초기화
             dashState: undefined,     // 돌진 상태 초기화
+          },
+          // 부활 시 카메라를 영웅 위치로 자동 고정
+          camera: {
+            ...state.camera,
+            x: reviveX,
+            y: reviveY,
           },
         };
       });
@@ -976,10 +1016,12 @@ export const useRPGStore = create<RPGStore>()(
           return false;
         }
 
-        // 호스트에게 업그레이드 요청 전송
+        // 호스트에게 업그레이드 요청 전송 (위치 포함하여 위치 되돌아감 버그 방지)
+        const hero = state.hero;
         const input: PlayerInput = {
           playerId: state.multiplayer.myPlayerId || '',
           moveDirection: null,
+          position: hero ? { x: hero.x, y: hero.y } : undefined,
           upgradeRequested: stat,
           timestamp: Date.now(),
         };
@@ -1120,6 +1162,36 @@ export const useRPGStore = create<RPGStore>()(
       }));
     },
 
+    // 타겟 ID가 있는 스킬 이펙트의 targetPosition을 적의 실시간 위치로 업데이트 (저격 등)
+    updateSkillEffectTargetPositions: () => {
+      set((state) => {
+        const enemies = state.enemies;
+        let hasUpdates = false;
+
+        const updatedEffects = state.activeSkillEffects.map(effect => {
+          // targetId가 있는 이펙트만 업데이트 (저격 스킬 등)
+          if (effect.targetId) {
+            const targetEnemy = enemies.find(e => e.id === effect.targetId);
+            if (targetEnemy && targetEnemy.hp > 0) {
+              // 적의 현재 위치로 targetPosition 업데이트
+              if (effect.targetPosition?.x !== targetEnemy.x ||
+                  effect.targetPosition?.y !== targetEnemy.y) {
+                hasUpdates = true;
+                return {
+                  ...effect,
+                  targetPosition: { x: targetEnemy.x, y: targetEnemy.y },
+                };
+              }
+            }
+          }
+          return effect;
+        });
+
+        // 변경이 있을 때만 상태 업데이트
+        return hasUpdates ? { activeSkillEffects: updatedEffects } : {};
+      });
+    },
+
     // 기본 공격 이펙트 추가 (네트워크 동기화용)
     addBasicAttackEffect: (effect) => {
       set((state) => ({
@@ -1161,6 +1233,40 @@ export const useRPGStore = create<RPGStore>()(
     updateBossSkillWarnings: (gameTime: number) => {
       set((state) => ({
         bossSkillWarnings: state.bossSkillWarnings.filter(w => gameTime < w.startTime + w.duration),
+      }));
+    },
+
+    // 플로팅 데미지 숫자 추가
+    addDamageNumber: (x: number, y: number, amount: number, type: DamageNumberType) => {
+      const id = `dmg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      // 약간의 랜덤 오프셋 추가 (겹치지 않도록)
+      const offsetX = (Math.random() - 0.5) * 30;
+      const offsetY = (Math.random() - 0.5) * 20;
+      const damageNumber: DamageNumber = {
+        id,
+        x: x + offsetX,
+        y: y + offsetY,
+        amount,
+        type,
+        createdAt: Date.now(),
+      };
+      set((state) => ({
+        damageNumbers: [...state.damageNumbers, damageNumber],
+      }));
+    },
+
+    // 플로팅 데미지 숫자 제거
+    removeDamageNumber: (id: string) => {
+      set((state) => ({
+        damageNumbers: state.damageNumbers.filter(d => d.id !== id),
+      }));
+    },
+
+    // 오래된 데미지 숫자 정리 (1초 후 제거)
+    cleanDamageNumbers: () => {
+      const now = Date.now();
+      set((state) => ({
+        damageNumbers: state.damageNumbers.filter(d => now - d.createdAt < 1000),
       }));
     },
 
@@ -2137,6 +2243,7 @@ export const useRPGStore = create<RPGStore>()(
         nexusLaserEffects: state.nexusLaserEffects,
         pendingSkills: state.pendingSkills,
         bossSkillWarnings: state.bossSkillWarnings,
+        damageNumbers: state.damageNumbers,
         running: state.running,
         paused: state.paused,
         gameOver: state.gameOver,
@@ -2152,11 +2259,13 @@ export const useRPGStore = create<RPGStore>()(
       const newOtherPlayersGold = new Map<string, number>();
       const newOtherPlayersUpgrades = new Map<string, UpgradeLevels>();
       const newOtherPlayersKills = new Map<string, number>();
-      const newOtherHeroesInterpolation = new Map<string, { prevX: number; prevY: number; targetX: number; targetY: number; lastUpdateTime: number }>();
+      const newOtherHeroesInterpolation = new Map<string, HeroInterpolation>();
       let myHero: HeroUnit | null = null;
       let myGold = 0;
       let myUpgrades = createInitialUpgradeLevels();
       let myKills = 0;
+      let newLastDamageTime = currentState.lastDamageTime;  // 클라이언트 피격 시간 업데이트용
+      let newCamera = currentState.camera;  // 클라이언트 부활 시 카메라 위치 업데이트용
       const now = performance.now();
 
       // 영웅 상태 적용
@@ -2195,6 +2304,19 @@ export const useRPGStore = create<RPGStore>()(
             const isDashing = hero.dashState !== undefined;
             const dashSyncX = isDashing ? hero.x : syncX;
             const dashSyncY = isDashing ? hero.y : syncY;
+
+            // 클라이언트 피격 감지: HP가 감소했을 때 lastDamageTime 업데이트 (피격 화면 효과용)
+            if (hero.hp < localHero.hp) {
+              newLastDamageTime = serializedState.gameTime;
+            }
+
+            // 클라이언트 부활 감지: HP가 0 이하에서 양수가 되면 카메라를 영웅 위치로 이동
+            const wasDeadBeforeSync = localHero.hp <= 0;
+            const isAliveAfterSync = hero.hp > 0;
+            if (wasDeadBeforeSync && isAliveAfterSync) {
+              // 부활했으므로 카메라를 영웅 위치로 이동
+              newCamera = { ...currentState.camera, x: hero.x, y: hero.y };
+            }
 
             myHero = {
               ...localHero,
@@ -2241,22 +2363,40 @@ export const useRPGStore = create<RPGStore>()(
           const existingInterpolation = currentState.otherHeroesInterpolation.get(hero.id);
           const existingHero = currentState.otherHeroes.get(hero.id);
 
+          // 이동 방향 및 속도 추출
+          const moveDir = hero.moveDirection || { x: 0, y: 0 };
+          const heroMoveSpeed = hero.config?.speed || 200;
+
           // 보간 데이터 업데이트
           if (existingHero && existingInterpolation) {
             // 기존 보간 데이터가 있으면, 현재 보간된 위치를 prevX/Y로 설정
             const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
-            const interpolationDuration = 50; // 50ms (상태 동기화 간격과 동일)
+            const interpolationDuration = 80; // 80ms (네트워크 지터 흡수)
             const t = Math.min(1, timeSinceUpdate / interpolationDuration);
 
-            // 현재 보간 위치 계산
-            const currentX = existingInterpolation.prevX + (existingInterpolation.targetX - existingInterpolation.prevX) * t;
-            const currentY = existingInterpolation.prevY + (existingInterpolation.targetY - existingInterpolation.prevY) * t;
+            // ease-out cubic 적용
+            const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
+            const easedT = easeOutCubic(t);
+
+            // 현재 보간 위치 계산 (이징 적용)
+            const currentX = existingInterpolation.prevX + (existingInterpolation.targetX - existingInterpolation.prevX) * easedT;
+            const currentY = existingInterpolation.prevY + (existingInterpolation.targetY - existingInterpolation.prevY) * easedT;
+
+            // 속도 계산 (위치 변화 기반)
+            const deltaTime = timeSinceUpdate / 1000;
+            const velocityX = deltaTime > 0 ? (hero.x - existingInterpolation.targetX) / (50 / 1000) : 0;
+            const velocityY = deltaTime > 0 ? (hero.y - existingInterpolation.targetY) / (50 / 1000) : 0;
 
             newOtherHeroesInterpolation.set(hero.id, {
               prevX: currentX,
               prevY: currentY,
               targetX: hero.x,
               targetY: hero.y,
+              velocityX,
+              velocityY,
+              moveDirectionX: moveDir.x,
+              moveDirectionY: moveDir.y,
+              moveSpeed: heroMoveSpeed,
               lastUpdateTime: now,
             });
 
@@ -2273,6 +2413,11 @@ export const useRPGStore = create<RPGStore>()(
               prevY: hero.y,
               targetX: hero.x,
               targetY: hero.y,
+              velocityX: 0,
+              velocityY: 0,
+              moveDirectionX: moveDir.x,
+              moveDirectionY: moveDir.y,
+              moveSpeed: heroMoveSpeed,
               lastUpdateTime: now,
             });
             newOtherHeroes.set(hero.id, hero);
@@ -2350,6 +2495,9 @@ export const useRPGStore = create<RPGStore>()(
         nexusLaserEffects: serializedState.nexusLaserEffects || [],
         pendingSkills: serializedState.pendingSkills,
         bossSkillWarnings: serializedState.bossSkillWarnings || [],
+        damageNumbers: serializedState.damageNumbers || [],
+        lastDamageTime: newLastDamageTime,  // 클라이언트 피격 화면 효과용
+        camera: newCamera,  // 클라이언트 부활 시 카메라 자동 고정
         running: serializedState.running,
         paused: serializedState.paused,
         gameOver: serializedState.gameOver,
@@ -2365,23 +2513,51 @@ export const useRPGStore = create<RPGStore>()(
 
       const now = performance.now();
       const updatedHeroes = new Map<string, HeroUnit>();
-      const interpolationDuration = 50; // 50ms
+      const updatedInterpolation = new Map<string, HeroInterpolation>();
+      const interpolationDuration = 80; // 80ms (네트워크 지터 흡수)
+
+      // ease-out cubic 함수
+      const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
 
       state.otherHeroes.forEach((hero, heroId) => {
         const interp = state.otherHeroesInterpolation.get(heroId);
         if (interp) {
           const timeSinceUpdate = now - interp.lastUpdateTime;
           const t = Math.min(1, timeSinceUpdate / interpolationDuration);
+          const easedT = easeOutCubic(t);
 
-          // 선형 보간 (lerp)
-          const x = interp.prevX + (interp.targetX - interp.prevX) * t;
-          const y = interp.prevY + (interp.targetY - interp.prevY) * t;
+          let x: number;
+          let y: number;
+
+          // 클라이언트 측 이동 시뮬레이션
+          const isMoving = interp.moveDirectionX !== 0 || interp.moveDirectionY !== 0;
+
+          if (t >= 1 && isMoving) {
+            // 보간 완료 후 이동 중이면 예측 이동
+            const extraTime = (timeSinceUpdate - interpolationDuration) / 1000;
+            const predictedMoveX = interp.moveDirectionX * interp.moveSpeed * extraTime;
+            const predictedMoveY = interp.moveDirectionY * interp.moveSpeed * extraTime;
+
+            x = interp.targetX + predictedMoveX;
+            y = interp.targetY + predictedMoveY;
+
+            // 맵 경계 제한
+            x = Math.max(0, Math.min(RPG_CONFIG.MAP_WIDTH, x));
+            y = Math.max(0, Math.min(RPG_CONFIG.MAP_HEIGHT, y));
+          } else {
+            // 보간 중: 이징 함수 적용
+            x = interp.prevX + (interp.targetX - interp.prevX) * easedT;
+            y = interp.prevY + (interp.targetY - interp.prevY) * easedT;
+          }
 
           updatedHeroes.set(heroId, {
             ...hero,
             x,
             y,
           });
+
+          // 보간 데이터 유지 (서버 업데이트 시까지)
+          updatedInterpolation.set(heroId, interp);
         } else {
           updatedHeroes.set(heroId, hero);
         }
@@ -2548,6 +2724,7 @@ export const useVisibility = () => useRPGStore((state) => state.visibility);
 export const usePendingSkills = () => useRPGStore((state) => state.pendingSkills);
 export const useShowAttackRange = () => useRPGStore((state) => state.showAttackRange);
 export const useHoveredSkillRange = () => useRPGStore((state) => state.hoveredSkillRange);
+export const useDamageNumbers = () => useRPGStore((state) => state.damageNumbers);
 
 // 넥서스 디펜스 훅
 export const useGold = () => useRPGStore((state) => state.gold);
@@ -2557,6 +2734,7 @@ export const useEnemyBases = () => useRPGStore((state) => state.enemyBases);
 export const useRPGGamePhase = () => useRPGStore((state) => state.gamePhase);
 export const useGameTime = () => useRPGStore((state) => state.gameTime);
 export const useFiveMinuteRewardClaimed = () => useRPGStore((state) => state.fiveMinuteRewardClaimed);
+export const useLastDamageTime = () => useRPGStore((state) => state.lastDamageTime);
 
 // 멀티플레이 훅
 export const useMultiplayer = () => useRPGStore((state) => state.multiplayer);

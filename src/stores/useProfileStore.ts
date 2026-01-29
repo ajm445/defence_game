@@ -496,8 +496,8 @@ export const useProfileStore = create<ProfileStore>()(
 
       if (!progress) return false;
 
-      // 레벨 조건 확인 (Lv.50 이상)
-      if (progress.classLevel < 50) return false;
+      // 레벨 조건 확인 (Lv.40 이상)
+      if (progress.classLevel < 40) return false;
 
       // 전직했는지 확인
       if (!progress.advancedClass) return false;

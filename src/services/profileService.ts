@@ -263,8 +263,8 @@ export const applySecondEnhancement = async (
   className: HeroClass,
   currentProgress: ClassProgress
 ): Promise<ClassProgress | null> => {
-  // 레벨 조건 확인 (Lv.50 이상)
-  if (currentProgress.classLevel < 50) {
+  // 레벨 조건 확인 (Lv.40 이상)
+  if (currentProgress.classLevel < 40) {
     console.error('Level requirement not met for second enhancement');
     return null;
   }

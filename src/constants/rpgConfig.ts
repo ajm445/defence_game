@@ -907,6 +907,14 @@ export interface AdvancedClassConfig {
     multiTarget?: number;          // 다중 타겟 수
     healAlly?: boolean;            // 아군 힐 가능
     bossBonus?: number;            // 보스 추가 데미지 (0.5 = 50%)
+    basicAttackHeal?: {            // 기본 공격 시 주변 아군 힐 (본인 제외)
+      range: number;               // 힐 범위 (px)
+      healPercent: number;         // 공격력 대비 힐량 비율 (0.05 = 5%)
+    };
+    healAura?: {                   // 힐러 오로라 - 주변 아군 초당 힐 (본인 포함)
+      radius: number;              // 오로라 범위 (px)
+      healPerSecond: number;       // 초당 최대 HP 대비 힐량 (0.02 = 2%)
+    };
   };
 }
 
@@ -1011,6 +1019,10 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
     },
     specialEffects: {
       healAlly: true,    // 아군 힐 가능
+      basicAttackHeal: {
+        range: 200,       // 힐 범위 (기본 공격 시 주변 200px 내 아군)
+        healPercent: 0.05, // 공격력의 5% 힐
+      },
     },
   },
   darkKnight: {
@@ -1068,6 +1080,10 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
     },
     specialEffects: {
       healAlly: true,    // 아군 힐 가능
+      healAura: {
+        radius: 150,     // 오로라 범위 (px)
+        healPerSecond: 0.02,  // 초당 최대 HP의 2% 회복
+      },
     },
   },
 };
@@ -1125,7 +1141,7 @@ export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     nameEn: 'Guardian Rush',
     key: 'W',
     cooldown: 8,
-    description: '전방 돌진 + 경로상 적에게 최대 HP 10% 데미지 + 2초 기절 + 3초간 보호막 (최대 HP 20%)',
+    description: '전방 돌진 + 경로상 적에게 최대 HP 10% 데미지 + 2초 기절 + 3초간 보호막 (최대 HP 20%) [기본공격 적중 시 쿨타임 1초 감소]',
     damageMultiplier: 0.1,  // 최대 HP 10% (특수 계산 필요)
     distance: 150,
     stunDuration: 2.0,
@@ -1164,7 +1180,7 @@ export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     nameEn: 'Holy Charge',
     key: 'W',
     cooldown: 8,
-    description: '전방 돌진 + 경로상 적에게 최대 HP 10% 데미지 + 기절 + 주변 아군 HP 10% 회복',
+    description: '전방 돌진 + 경로상 적에게 최대 HP 10% 데미지 + 기절 + 주변 아군 HP 10% 회복 [기본공격 적중 시 쿨타임 1초 감소]',
     damageMultiplier: 0.1,  // 최대 HP 10% (특수 계산 필요)
     distance: 150,
     stunDuration: 1.5,

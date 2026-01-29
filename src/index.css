@@ -129,6 +129,26 @@ body {
   animation: bounceIn 0.5s ease-out;
 }
 
+/* 데미지 숫자 플로팅 애니메이션 */
+@keyframes damageFloat {
+  0% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateY(0) scale(1);
+  }
+  20% {
+    opacity: 1;
+    transform: translate(-50%, -50%) translateY(-15px) scale(1.1);
+  }
+  100% {
+    opacity: 0;
+    transform: translate(-50%, -50%) translateY(-50px) scale(0.8);
+  }
+}
+
+.animate-damage-float {
+  animation: damageFloat 1s ease-out forwards;
+}
+
 /* 배경 그라데이션 */
 @utility bg-game-gradient {
   background:

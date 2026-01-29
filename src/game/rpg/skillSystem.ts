@@ -1,5 +1,5 @@
 import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, HeroClass, HitTarget, EnemyBase, EnemyBaseId, AdvancedHeroClass } from '../../types/rpg';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, UPGRADE_CONFIG, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS } from '../../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, UPGRADE_CONFIG, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
 import { rollMultiTarget } from './passiveSystem';
 
@@ -122,7 +122,8 @@ export function executeQSkill(
   targetY: number,
   gameTime: number,
   enemyBases: EnemyBase[] = [],  // 적 기지 (선택적)
-  attackUpgradeLevel: number = 0  // 인게임 공격력 업그레이드 레벨
+  attackUpgradeLevel: number = 0,  // 인게임 공격력 업그레이드 레벨
+  allies: HeroUnit[] = []  // 아군 히어로들 (팔라딘 기본 공격 힐용)
 ): ClassSkillResult {
   const heroClass = hero.heroClass;
   const skillConfig = CLASS_SKILLS[heroClass].q;
@@ -175,7 +176,11 @@ export function executeQSkill(
   const useGrowthMultiTarget = heroClass === 'archer' && isPassiveUnlocked && rollMultiTarget(hero.passiveGrowth?.currentValue || 0);
   const multiTargetCount = useGrowthMultiTarget ? baseMultiTargetCount : 1;
 
-  const targetEnemies: { enemy: RPGEnemy; dist: number }[] = [];
+  // 궁수용 통합 타겟 풀 (적 + 기지)
+  type ArcherTarget =
+    | { type: 'enemy'; enemy: RPGEnemy; dist: number; x: number; y: number }
+    | { type: 'base'; base: EnemyBase; dist: number; x: number; y: number };
+  const archerTargets: ArcherTarget[] = [];
 
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
@@ -203,45 +208,76 @@ export function executeQSkill(
       enemyDamages.push({ enemyId: enemy.id, damage: actualDamage });
       hitTargets.push({ x: enemy.x, y: enemy.y, damage: actualDamage });
     } else {
-      // 다중 타겟 (궁수): 가까운 순서로 정렬 후 선택
-      targetEnemies.push({ enemy, dist: distToHero });
+      // 궁수: 통합 타겟 풀에 추가
+      archerTargets.push({ type: 'enemy', enemy, dist: distToHero, x: enemy.x, y: enemy.y });
     }
   }
 
-  // 다중 타겟 캐릭터 (궁수) - 가까운 순서로 정렬 후 multiTargetCount 명 공격
-  if (!isAoE && targetEnemies.length > 0) {
-    targetEnemies.sort((a, b) => a.dist - b.dist);
-    const targets = targetEnemies.slice(0, multiTargetCount);
+  // 궁수: 기지도 통합 타겟 풀에 추가
+  if (!isAoE) {
+    for (const base of enemyBases) {
+      if (base.destroyed) continue;
+
+      const distToBase = distance(hero.x, hero.y, base.x, base.y);
+      if (distToBase > baseAttackRange) continue;
+
+      // 바라보는 방향 체크
+      const baseDx = base.x - hero.x;
+      const baseDy = base.y - hero.y;
+      const baseDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
+      if (baseDist === 0) continue;
+
+      const baseDirX = baseDx / baseDist;
+      const baseDirY = baseDy / baseDist;
+      const dot = dirX * baseDirX + dirY * baseDirY;
+
+      // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대하게)
+      if (dot < -0.5) continue;
+
+      archerTargets.push({ type: 'base', base, dist: distToBase, x: base.x, y: base.y });
+    }
+  }
+
+  // 궁수: 가까운 순서로 정렬 후 multiTargetCount개 타겟 공격 (적 + 기지 통합)
+  if (!isAoE && archerTargets.length > 0) {
+    archerTargets.sort((a, b) => a.dist - b.dist);
+    const targets = archerTargets.slice(0, multiTargetCount);
     for (const t of targets) {
-      // 마법사: 보스에게만 데미지 보너스 적용 (다중 타겟에는 마법사가 없지만 일관성 유지)
-      const actualDamage = t.enemy.type === 'boss' ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
-      enemyDamages.push({ enemyId: t.enemy.id, damage: actualDamage });
-      hitTargets.push({ x: t.enemy.x, y: t.enemy.y, damage: actualDamage });
+      if (t.type === 'enemy') {
+        const actualDamage = t.enemy.type === 'boss' ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
+        enemyDamages.push({ enemyId: t.enemy.id, damage: actualDamage });
+        hitTargets.push({ x: t.x, y: t.y, damage: actualDamage });
+      } else {
+        baseDamages.push({ baseId: t.base.id, damage: finalDamage });
+        hitTargets.push({ x: t.x, y: t.y, damage: finalDamage });
+      }
     }
   }
 
-  // 적 기지 데미지 (범위 내 + 파괴되지 않은 기지)
-  for (const base of enemyBases) {
-    if (base.destroyed) continue;
+  // 범위 공격 직업 (전사, 기사, 마법사): 기지도 별도로 공격
+  if (isAoE) {
+    for (const base of enemyBases) {
+      if (base.destroyed) continue;
 
-    const distToBase = distance(hero.x, hero.y, base.x, base.y);
-    if (distToBase > baseAttackRange) continue;
+      const distToBase = distance(hero.x, hero.y, base.x, base.y);
+      if (distToBase > baseAttackRange) continue;
 
-    // 바라보는 방향 체크
-    const baseDx = base.x - hero.x;
-    const baseDy = base.y - hero.y;
-    const baseDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
-    if (baseDist === 0) continue;
+      // 바라보는 방향 체크
+      const baseDx = base.x - hero.x;
+      const baseDy = base.y - hero.y;
+      const baseDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
+      if (baseDist === 0) continue;
 
-    const baseDirX = baseDx / baseDist;
-    const baseDirY = baseDy / baseDist;
-    const dot = dirX * baseDirX + dirY * baseDirY;
+      const baseDirX = baseDx / baseDist;
+      const baseDirY = baseDy / baseDist;
+      const dot = dirX * baseDirX + dirY * baseDirY;
 
-    // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대하게)
-    if (dot < -0.5) continue;
+      // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대하게)
+      if (dot < -0.5) continue;
 
-    baseDamages.push({ baseId: base.id, damage: finalDamage });
-    hitTargets.push({ x: base.x, y: base.y, damage: finalDamage });
+      baseDamages.push({ baseId: base.id, damage: finalDamage });
+      hitTargets.push({ x: base.x, y: base.y, damage: finalDamage });
+    }
   }
 
   // 이펙트는 타겟 방향으로 표시
@@ -258,6 +294,7 @@ export function executeQSkill(
     startTime: gameTime,
     hitTargets, // 피격 대상 위치들
     heroClass, // 직업 정보 (렌더링용)
+    advancedClass: hero.advancedClass, // 전직 직업 정보 (이펙트 색상 차별화용)
   };
 
   let updatedHero = startSkillCooldown(hero, skillConfig.type);
@@ -309,7 +346,48 @@ export function executeQSkill(
     updatedHero = { ...updatedHero, skills: updatedSkills };
   }
 
-  return { hero: updatedHero, effect, enemyDamages, baseDamages };
+  // 가디언/팔라딘: Q 스킬 적중 시 W 스킬 쿨타임 1초 감소 (적중당)
+  if (hero.advancedClass && (hero.advancedClass === 'guardian' || hero.advancedClass === 'paladin') && enemyDamages.length > 0) {
+    const cooldownReduction = 1.0 * enemyDamages.length; // 적중한 적 수만큼 1초씩 감소
+    const wSkillType = ADVANCED_W_SKILLS[hero.advancedClass].type;
+    const updatedSkills = updatedHero.skills.map((skill) => {
+      if (skill.type === wSkillType && skill.currentCooldown > 0) {
+        return {
+          ...skill,
+          currentCooldown: Math.max(0, skill.currentCooldown - cooldownReduction),
+        };
+      }
+      return skill;
+    });
+    updatedHero = { ...updatedHero, skills: updatedSkills };
+  }
+
+  // 팔라딘: 기본 공격 시 주변 아군 힐 (본인 제외)
+  const allyHeals: { heroId: string; heal: number }[] = [];
+  if (hero.advancedClass === 'paladin' && enemyDamages.length > 0) {
+    const advancedConfig = ADVANCED_CLASS_CONFIGS.paladin;
+    const basicAttackHeal = advancedConfig.specialEffects.basicAttackHeal;
+    if (basicAttackHeal) {
+      const healRange = basicAttackHeal.range;
+      const healPercent = basicAttackHeal.healPercent;
+      const healAmount = Math.floor((baseDamage + attackBonus) * healPercent);
+
+      if (healAmount > 0) {
+        for (const ally of allies) {
+          // 본인 제외, 사망한 아군 제외
+          if (ally.id === hero.id) continue;
+          if (ally.hp <= 0) continue;
+
+          const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
+          if (allyDist <= healRange) {
+            allyHeals.push({ heroId: ally.id, heal: healAmount });
+          }
+        }
+      }
+    }
+  }
+
+  return { hero: updatedHero, effect, enemyDamages, baseDamages, allyHeals: allyHeals.length > 0 ? allyHeals : undefined };
 }
 
 /**
@@ -1553,6 +1631,7 @@ function executeAdvancedESkill(
           targetPosition: { x: targetEnemy.x, y: targetEnemy.y },
           duration: chargeTime,
           startTime: gameTime,
+          targetId: targetEnemy.id,  // 타겟 적 ID (실시간 추적용)
         };
 
         // 시전 상태 설정 (3초간 이동/공격 불가)

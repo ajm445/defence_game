@@ -13,9 +13,88 @@ const CLASS_VISUALS: Record<HeroClass, { unitType: UnitType; emoji: string; colo
   mage: { unitType: 'mage', emoji: '🔮', color: '#a855f7', glowColor: '#a855f7' },
 };
 
+// 전직 직업별 기본 공격 이펙트 색상 설정
+interface AdvancedClassColors {
+  primary: string;      // 주 색상
+  secondary: string;    // 보조 색상
+  glow: string;         // 글로우 색상
+  impact: string;       // 피격 이펙트 색상
+}
+
+const ADVANCED_CLASS_ATTACK_COLORS: Record<AdvancedHeroClass, AdvancedClassColors> = {
+  // 전사 계열
+  berserker: {
+    primary: '#ff3300',     // 붉은색 (광폭)
+    secondary: '#ff6600',   // 주황색
+    glow: '#ff4400',
+    impact: '#ff5500',
+  },
+  guardian: {
+    primary: '#00aaff',     // 파란색 (수호)
+    secondary: '#66ccff',   // 하늘색
+    glow: '#0088ff',
+    impact: '#44bbff',
+  },
+  // 궁수 계열 (화살 색상)
+  sniper: {
+    primary: '#9933ff',     // 보라색 (정밀)
+    secondary: '#cc66ff',   // 자주색
+    glow: '#aa44ff',
+    impact: '#bb55ff',
+  },
+  ranger: {
+    primary: '#22cc44',     // 초록색 (자연)
+    secondary: '#66ff88',   // 연두색
+    glow: '#33dd55',
+    impact: '#44ee66',
+  },
+  // 기사 계열
+  paladin: {
+    primary: '#ffcc00',     // 금색 (신성)
+    secondary: '#ffee66',   // 노란색
+    glow: '#ffdd33',
+    impact: '#ffdd44',
+  },
+  darkKnight: {
+    primary: '#9900cc',     // 보라색 (암흑)
+    secondary: '#330066',   // 검은 보라색
+    glow: '#6600aa',
+    impact: '#7711bb',
+  },
+  // 마법사 계열
+  archmage: {
+    primary: '#ff4400',     // 빨간색 (불꽃)
+    secondary: '#ff8800',   // 주황색
+    glow: '#ff5500',
+    impact: '#ff6600',
+  },
+  healer: {
+    primary: '#00ff88',     // 초록색 (치유)
+    secondary: '#66ffbb',   // 민트색
+    glow: '#33ffaa',
+    impact: '#44ffaa',
+  },
+};
+
+// 전직 직업에 따른 색상 가져오기 (전직이 없으면 기본 직업 색상 사용)
+function getAttackColors(heroClass?: HeroClass, advancedClass?: AdvancedHeroClass): AdvancedClassColors {
+  if (advancedClass && ADVANCED_CLASS_ATTACK_COLORS[advancedClass]) {
+    return ADVANCED_CLASS_ATTACK_COLORS[advancedClass];
+  }
+  // 기본 직업 색상 반환
+  const defaultColors: Record<HeroClass, AdvancedClassColors> = {
+    warrior: { primary: '#ff6b35', secondary: '#ffaa00', glow: '#ff6b35', impact: '#ff8855' },
+    archer: { primary: '#22c55e', secondary: '#4ade80', glow: '#22c55e', impact: '#33dd6e' },
+    knight: { primary: '#3b82f6', secondary: '#60a5fa', glow: '#3b82f6', impact: '#5599ff' },
+    mage: { primary: '#a855f7', secondary: '#c084fc', glow: '#a855f7', impact: '#bb66ff' },
+  };
+  return defaultColors[heroClass || 'warrior'];
+}
+
 /**
  * 영웅 유닛 렌더링
  * @param isOtherPlayer - 다른 플레이어의 영웅인지 (멀티플레이어용)
+ * @param lastDamageTime - 마지막 피격 시간 (빨간색 깜빡임 효과용)
  */
 export function drawHero(
   ctx: CanvasRenderingContext2D,
@@ -25,7 +104,8 @@ export function drawHero(
   canvasHeight: number,
   gameTime: number = 0,
   isOtherPlayer: boolean = false,
-  nickname?: string
+  nickname?: string,
+  lastDamageTime: number = 0
 ) {
   const screenX = hero.x - camera.x;
   const screenY = hero.y - camera.y;
@@ -105,6 +185,11 @@ export function drawHero(
   const hasBerserker = hero.buffs?.some(b => b.type === 'berserker' && b.duration > 0);
   const hasIronwall = hero.buffs?.some(b => b.type === 'ironwall' && b.duration > 0);
   const hasInvincible = hero.buffs?.some(b => b.type === 'invincible' && b.duration > 0);
+
+  // 피격 시 빨간색 깜빡임 효과 (0.2초간)
+  const DAMAGE_BLINK_DURATION = 0.2;
+  const timeSinceDamage = gameTime - lastDamageTime;
+  const isDamageBlinking = lastDamageTime > 0 && timeSinceDamage < DAMAGE_BLINK_DURATION && !isOtherPlayer;
 
   ctx.save();
 
@@ -276,6 +361,68 @@ export function drawHero(
     ctx.fill();
   }
 
+  // 힐러 오로라 이펙트 (힐러 전직 전용)
+  if (hero.advancedClass === 'healer') {
+    const healerConfig = ADVANCED_CLASS_CONFIGS.healer;
+    const healAura = healerConfig.specialEffects.healAura;
+    if (healAura) {
+      const auraRadius = healAura.radius;
+      const time = gameTime * 2;
+
+      // 오로라 베이스 - 녹색 그라데이션 원
+      ctx.globalAlpha = 0.25;
+      const auraGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, auraRadius);
+      auraGradient.addColorStop(0, 'rgba(34, 197, 94, 0.4)');
+      auraGradient.addColorStop(0.5, 'rgba(74, 222, 128, 0.2)');
+      auraGradient.addColorStop(0.8, 'rgba(134, 239, 172, 0.1)');
+      auraGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = auraGradient;
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, auraRadius, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 펄스 효과 - 확장되는 원형 파동 (3개)
+      for (let i = 0; i < 3; i++) {
+        const pulsePhase = (time + i * 0.33) % 1;
+        const pulseRadius = auraRadius * (0.3 + pulsePhase * 0.7);
+        const pulseAlpha = (1 - pulsePhase) * 0.35;
+
+        ctx.globalAlpha = pulseAlpha;
+        ctx.strokeStyle = '#4ade80';
+        ctx.lineWidth = 2;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, pulseRadius, 0, Math.PI * 2);
+        ctx.stroke();
+      }
+
+      // 외곽 테두리 (점선)
+      ctx.globalAlpha = 0.4;
+      ctx.strokeStyle = '#22c55e';
+      ctx.lineWidth = 2;
+      ctx.setLineDash([8, 6]);
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, auraRadius, 0, Math.PI * 2);
+      ctx.stroke();
+      ctx.setLineDash([]);
+
+      // 떠다니는 힐 파티클 (+)
+      ctx.globalAlpha = 0.7;
+      ctx.fillStyle = '#86efac';
+      ctx.font = 'bold 12px Arial';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      for (let i = 0; i < 6; i++) {
+        const angle = (i / 6) * Math.PI * 2 + time * 0.5;
+        const dist = auraRadius * 0.6 + Math.sin(time * 2 + i) * 15;
+        const particleX = screenX + Math.cos(angle) * dist;
+        const particleY = screenY + Math.sin(angle) * dist + Math.sin(time * 3 + i * 0.5) * 10;
+        ctx.fillText('+', particleX, particleY);
+      }
+
+      ctx.globalAlpha = 1;
+    }
+  }
+
   // 다른 플레이어 표시 (팀원 구분용 외곽 링)
   if (isOtherPlayer) {
     // 시안색 팀원 표시 링
@@ -353,6 +500,32 @@ export function drawHero(
       ? ADVANCED_CLASS_CONFIGS[hero.advancedClass as AdvancedHeroClass]?.emoji || classVisual.emoji
       : classVisual.emoji;
     drawEmoji(ctx, emoji, screenX, screenY, 28);
+  }
+
+  // 피격 시 빨간색 오버레이 깜빡임 효과
+  if (isDamageBlinking) {
+    ctx.save();
+    // 빠르게 깜빡이는 효과 (0.05초 간격)
+    const blinkPhase = Math.floor(timeSinceDamage / 0.05) % 2;
+    if (blinkPhase === 0) {
+      // 빨간색 오버레이
+      ctx.globalCompositeOperation = 'source-atop';
+      ctx.fillStyle = 'rgba(255, 50, 50, 0.6)';
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, 30, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 빨간색 외곽 글로우
+      ctx.globalCompositeOperation = 'source-over';
+      ctx.shadowColor = '#ff3333';
+      ctx.shadowBlur = 20;
+      ctx.strokeStyle = 'rgba(255, 50, 50, 0.8)';
+      ctx.lineWidth = 4;
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, 28, 0, Math.PI * 2);
+      ctx.stroke();
+    }
+    ctx.restore();
   }
 
   // 캐릭터 레벨 배지 (계정 레벨)
@@ -635,6 +808,9 @@ export function drawSkillEffect(
 
   ctx.save();
 
+  // 전직 직업에 따른 색상 가져오기
+  const colors = getAttackColors(effect.heroClass, effect.advancedClass);
+
   switch (effect.type) {
     // Q 스킬 (기본 공격) 이펙트들
     case 'warrior_q':
@@ -647,9 +823,9 @@ export function drawSkillEffect(
           const slashAngle = Math.atan2(effect.direction.y, effect.direction.x);
           const slashProgress = progress;
 
-          // 베기 궤적 (호 형태)
+          // 베기 궤적 (호 형태) - 전직별 색상 적용
           ctx.globalAlpha = (1 - progress) * 0.8;
-          ctx.strokeStyle = '#ff6b35';
+          ctx.strokeStyle = colors.primary;
           ctx.lineWidth = 8 - slashProgress * 6;
           ctx.lineCap = 'round';
 
@@ -662,9 +838,9 @@ export function drawSkillEffect(
           ctx.arc(screenX, screenY, arcRadius, arcStart, arcEnd);
           ctx.stroke();
 
-          // 내부 밝은 베기 궤적
+          // 내부 밝은 베기 궤적 - 전직별 보조 색상 적용
           ctx.globalAlpha = (1 - progress) * 0.5;
-          ctx.strokeStyle = '#ffaa00';
+          ctx.strokeStyle = colors.secondary;
           ctx.lineWidth = 3;
           ctx.beginPath();
           ctx.arc(screenX, screenY, arcRadius - 5, arcStart + 0.1, arcEnd - 0.1);
@@ -677,7 +853,7 @@ export function drawSkillEffect(
             const targetScreenX = target.x - camera.x;
             const targetScreenY = target.y - camera.y;
 
-            // 피격 스파크
+            // 피격 스파크 - 전직별 색상 적용
             ctx.globalAlpha = (1 - progress) * 0.9;
             for (let i = 0; i < 6; i++) {
               const sparkAngle = (i / 6) * Math.PI * 2 + progress * Math.PI;
@@ -685,7 +861,7 @@ export function drawSkillEffect(
               const sparkX = targetScreenX + Math.cos(sparkAngle) * sparkDist;
               const sparkY = targetScreenY + Math.sin(sparkAngle) * sparkDist;
 
-              ctx.strokeStyle = i % 2 === 0 ? '#ff6b35' : '#ffcc00';
+              ctx.strokeStyle = i % 2 === 0 ? colors.primary : colors.secondary;
               ctx.lineWidth = 2;
               ctx.beginPath();
               ctx.moveTo(targetScreenX, targetScreenY);
@@ -693,9 +869,9 @@ export function drawSkillEffect(
               ctx.stroke();
             }
 
-            // 피격 충격 원
+            // 피격 충격 원 - 전직별 색상 적용
             ctx.globalAlpha = (1 - progress) * 0.6;
-            ctx.strokeStyle = '#ff6b35';
+            ctx.strokeStyle = colors.impact;
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.arc(targetScreenX, targetScreenY, 20 * progress, 0, Math.PI * 2);
@@ -723,12 +899,12 @@ export function drawSkillEffect(
             const currentY = screenY + (targetScreenY - screenY) * arrowProgress;
 
             if (arrowProgress < 1) {
-              drawArrow(ctx, currentX, currentY, angle, screenX, screenY);
+              drawArrow(ctx, currentX, currentY, angle, screenX, screenY, colors);
             } else {
               // 피격 이펙트
               const impactProgress = (arrowProgress - 1) * 3;
               if (impactProgress < 1) {
-                drawArrowImpact(ctx, targetScreenX, targetScreenY, impactProgress);
+                drawArrowImpact(ctx, targetScreenX, targetScreenY, impactProgress, colors);
               }
             }
           }
@@ -740,7 +916,7 @@ export function drawSkillEffect(
           const targetY = screenY + effect.direction.y * maxRange * arrowProgress;
 
           if (arrowProgress < 1) {
-            drawArrow(ctx, targetX, targetY, angle, screenX, screenY);
+            drawArrow(ctx, targetX, targetY, angle, screenX, screenY, colors);
           }
         }
       }
@@ -751,12 +927,12 @@ export function drawSkillEffect(
       {
         const attackRange = effect.radius || 60;
 
-        // 방패 타격 호 (항상 표시)
+        // 방패 타격 호 (항상 표시) - 전직별 색상 적용
         if (effect.direction) {
           const bashAngle = Math.atan2(effect.direction.y, effect.direction.x);
 
           ctx.globalAlpha = (1 - progress) * 0.7;
-          ctx.strokeStyle = '#3b82f6';
+          ctx.strokeStyle = colors.primary;
           ctx.lineWidth = 10 - progress * 8;
           ctx.lineCap = 'round';
 
@@ -765,9 +941,9 @@ export function drawSkillEffect(
           ctx.arc(screenX, screenY, arcRadius, bashAngle - Math.PI / 4, bashAngle + Math.PI / 4);
           ctx.stroke();
 
-          // 방패 충격 라인
+          // 방패 충격 라인 - 전직별 보조 색상 적용
           ctx.globalAlpha = (1 - progress) * 0.5;
-          ctx.strokeStyle = '#93c5fd';
+          ctx.strokeStyle = colors.secondary;
           ctx.lineWidth = 4;
           for (let i = 0; i < 3; i++) {
             const lineAngle = bashAngle + (i - 1) * 0.3;
@@ -780,7 +956,7 @@ export function drawSkillEffect(
           }
         }
 
-        // 각 피격 대상에 히트 이펙트 (적중 시에만)
+        // 각 피격 대상에 히트 이펙트 (적중 시에만) - 전직별 색상 적용
         if (effect.hitTargets) {
           for (const target of effect.hitTargets) {
             const targetScreenX = target.x - camera.x;
@@ -788,14 +964,14 @@ export function drawSkillEffect(
 
             // 방패 충격 마크
             ctx.globalAlpha = (1 - progress) * 0.8;
-            ctx.fillStyle = '#3b82f6';
+            ctx.fillStyle = colors.primary;
             ctx.beginPath();
             ctx.arc(targetScreenX, targetScreenY, 12 * (1 - progress * 0.5), 0, Math.PI * 2);
             ctx.fill();
 
             // 충격파
             ctx.globalAlpha = (1 - progress) * 0.5;
-            ctx.strokeStyle = '#60a5fa';
+            ctx.strokeStyle = colors.impact;
             ctx.lineWidth = 3;
             ctx.beginPath();
             ctx.arc(targetScreenX, targetScreenY, 20 + progress * 25, 0, Math.PI * 2);
@@ -826,12 +1002,12 @@ export function drawSkillEffect(
             const currentY = screenY + (targetScreenY - screenY) * boltProgress;
 
             if (boltProgress < 1) {
-              drawMagicBolt(ctx, currentX, currentY, angle, screenX, screenY);
+              drawMagicBolt(ctx, currentX, currentY, angle, screenX, screenY, colors);
             } else {
               // 피격 폭발
               const impactProgress = (boltProgress - 1) * 2;
               if (impactProgress < 1) {
-                drawMagicImpact(ctx, targetScreenX, targetScreenY, impactProgress);
+                drawMagicImpact(ctx, targetScreenX, targetScreenY, impactProgress, colors);
               }
             }
           }
@@ -843,7 +1019,7 @@ export function drawSkillEffect(
           const targetY = screenY + effect.direction.y * maxRange * boltProgress;
 
           if (boltProgress < 1) {
-            drawMagicBolt(ctx, targetX, targetY, angle, screenX, screenY);
+            drawMagicBolt(ctx, targetX, targetY, angle, screenX, screenY, colors);
           }
         }
       }
@@ -2790,6 +2966,7 @@ export function drawSkillRange(
 
 /**
  * 궁수 화살 그리기 헬퍼
+ * @param colors - 전직 직업별 색상 (옵션)
  */
 function drawArrow(
   ctx: CanvasRenderingContext2D,
@@ -2797,8 +2974,13 @@ function drawArrow(
   y: number,
   angle: number,
   startX: number,
-  startY: number
+  startY: number,
+  colors?: AdvancedClassColors
 ) {
+  // 기본 색상 (전직이 없을 때)
+  const arrowColor = colors?.primary || '#22c55e';
+  const trailColor = colors?.secondary || '#4ade80';
+
   // 화살 본체
   ctx.globalAlpha = 1;
   ctx.save();
@@ -2813,8 +2995,8 @@ function drawArrow(
   ctx.lineTo(5, 0);
   ctx.stroke();
 
-  // 화살촉 (금속색)
-  ctx.fillStyle = '#22c55e';
+  // 화살촉 (전직별 색상)
+  ctx.fillStyle = arrowColor;
   ctx.beginPath();
   ctx.moveTo(12, 0);
   ctx.lineTo(2, -4);
@@ -2823,8 +3005,8 @@ function drawArrow(
   ctx.closePath();
   ctx.fill();
 
-  // 깃털 (뒤쪽)
-  ctx.fillStyle = '#ffffff';
+  // 깃털 (뒤쪽) - 전직별 보조 색상
+  ctx.fillStyle = trailColor;
   ctx.beginPath();
   ctx.moveTo(-25, 0);
   ctx.lineTo(-18, -5);
@@ -2841,9 +3023,9 @@ function drawArrow(
 
   ctx.restore();
 
-  // 잔상
+  // 잔상 - 전직별 색상
   ctx.globalAlpha = 0.2;
-  ctx.strokeStyle = '#22c55e';
+  ctx.strokeStyle = arrowColor;
   ctx.lineWidth = 2;
   ctx.setLineDash([6, 4]);
   ctx.beginPath();
@@ -2855,16 +3037,22 @@ function drawArrow(
 
 /**
  * 궁수 화살 피격 이펙트 헬퍼
+ * @param colors - 전직 직업별 색상 (옵션)
  */
 function drawArrowImpact(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  progress: number
+  progress: number,
+  colors?: AdvancedClassColors
 ) {
+  // 기본 색상 (전직이 없을 때)
+  const impactColor = colors?.impact || '#22c55e';
+  const sparkColor = colors?.secondary || '#4ade80';
+
   // 피격 충격파
   ctx.globalAlpha = (1 - progress) * 0.7;
-  ctx.strokeStyle = '#22c55e';
+  ctx.strokeStyle = impactColor;
   ctx.lineWidth = 3;
   ctx.beginPath();
   ctx.arc(x, y, 15 + progress * 20, 0, Math.PI * 2);
@@ -2878,7 +3066,7 @@ function drawArrowImpact(
     const sparkX = x + Math.cos(sparkAngle) * sparkDist;
     const sparkY = y + Math.sin(sparkAngle) * sparkDist;
 
-    ctx.fillStyle = i % 2 === 0 ? '#22c55e' : '#4ade80';
+    ctx.fillStyle = i % 2 === 0 ? impactColor : sparkColor;
     ctx.beginPath();
     ctx.arc(sparkX, sparkY, 3 * (1 - progress), 0, Math.PI * 2);
     ctx.fill();
@@ -2887,6 +3075,7 @@ function drawArrowImpact(
 
 /**
  * 마법사 마법 볼트 그리기 헬퍼
+ * @param colors - 전직 직업별 색상 (옵션)
  */
 function drawMagicBolt(
   ctx: CanvasRenderingContext2D,
@@ -2894,35 +3083,41 @@ function drawMagicBolt(
   y: number,
   angle: number,
   startX: number,
-  startY: number
+  startY: number,
+  colors?: AdvancedClassColors
 ) {
+  // 기본 색상 (전직이 없을 때)
+  const boltColor = colors?.primary || '#a855f7';
+  const tailColor = colors?.secondary || '#c084fc';
+
   // 마법 볼트 본체
   ctx.globalAlpha = 0.9;
   const boltGradient = ctx.createRadialGradient(x, y, 0, x, y, 15);
   boltGradient.addColorStop(0, '#ffffff');
-  boltGradient.addColorStop(0.4, '#a855f7');
-  boltGradient.addColorStop(1, '#7c3aed80');
+  boltGradient.addColorStop(0.4, boltColor);
+  boltGradient.addColorStop(1, boltColor + '80');
   ctx.fillStyle = boltGradient;
   ctx.beginPath();
   ctx.arc(x, y, 12, 0, Math.PI * 2);
   ctx.fill();
 
-  // 마법 꼬리
+  // 마법 꼬리 - 전직별 색상
   ctx.globalAlpha = 0.6;
   for (let i = 1; i <= 5; i++) {
     const tailX = x - Math.cos(angle) * i * 8;
     const tailY = y - Math.sin(angle) * i * 8;
     const tailSize = 10 - i * 1.5;
 
-    ctx.fillStyle = `rgba(168, 85, 247, ${0.5 - i * 0.08})`;
+    ctx.globalAlpha = 0.5 - i * 0.08;
+    ctx.fillStyle = tailColor;
     ctx.beginPath();
     ctx.arc(tailX, tailY, tailSize, 0, Math.PI * 2);
     ctx.fill();
   }
 
-  // 잔상
+  // 잔상 - 전직별 색상
   ctx.globalAlpha = 0.2;
-  ctx.strokeStyle = '#a855f7';
+  ctx.strokeStyle = boltColor;
   ctx.lineWidth = 3;
   ctx.setLineDash([8, 4]);
   ctx.beginPath();
@@ -2934,13 +3129,19 @@ function drawMagicBolt(
 
 /**
  * 마법사 마법 피격 이펙트 헬퍼
+ * @param colors - 전직 직업별 색상 (옵션)
  */
 function drawMagicImpact(
   ctx: CanvasRenderingContext2D,
   x: number,
   y: number,
-  progress: number
+  progress: number,
+  colors?: AdvancedClassColors
 ) {
+  // 기본 색상 (전직이 없을 때)
+  const impactColor = colors?.impact || '#a855f7';
+  const sparkColor = colors?.secondary || '#c084fc';
+
   // 마법 폭발
   ctx.globalAlpha = (1 - progress) * 0.8;
   const explodeGradient = ctx.createRadialGradient(
@@ -2948,14 +3149,14 @@ function drawMagicImpact(
     x, y, 25 * (0.5 + progress)
   );
   explodeGradient.addColorStop(0, '#ffffff');
-  explodeGradient.addColorStop(0.3, '#a855f7');
+  explodeGradient.addColorStop(0.3, impactColor);
   explodeGradient.addColorStop(1, 'transparent');
   ctx.fillStyle = explodeGradient;
   ctx.beginPath();
   ctx.arc(x, y, 25 * (0.5 + progress), 0, Math.PI * 2);
   ctx.fill();
 
-  // 마법 파편
+  // 마법 파편 - 전직별 색상
   ctx.globalAlpha = (1 - progress) * 0.7;
   for (let i = 0; i < 6; i++) {
     const sparkAngle = (i / 6) * Math.PI * 2 + progress * Math.PI;
@@ -2963,7 +3164,7 @@ function drawMagicImpact(
     const sparkX = x + Math.cos(sparkAngle) * sparkDist;
     const sparkY = y + Math.sin(sparkAngle) * sparkDist;
 
-    ctx.fillStyle = i % 2 === 0 ? '#a855f7' : '#c084fc';
+    ctx.fillStyle = i % 2 === 0 ? impactColor : sparkColor;
     ctx.beginPath();
     ctx.arc(sparkX, sparkY, 4 * (1 - progress), 0, Math.PI * 2);
     ctx.fill();
