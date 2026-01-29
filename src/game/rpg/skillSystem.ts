@@ -176,7 +176,11 @@ export function executeQSkill(
   const useGrowthMultiTarget = heroClass === 'archer' && isPassiveUnlocked && rollMultiTarget(hero.passiveGrowth?.currentValue || 0);
   const multiTargetCount = useGrowthMultiTarget ? baseMultiTargetCount : 1;
 
-  const targetEnemies: { enemy: RPGEnemy; dist: number }[] = [];
+  // 궁수용 통합 타겟 풀 (적 + 기지)
+  type ArcherTarget =
+    | { type: 'enemy'; enemy: RPGEnemy; dist: number; x: number; y: number }
+    | { type: 'base'; base: EnemyBase; dist: number; x: number; y: number };
+  const archerTargets: ArcherTarget[] = [];
 
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
@@ -204,45 +208,76 @@ export function executeQSkill(
       enemyDamages.push({ enemyId: enemy.id, damage: actualDamage });
       hitTargets.push({ x: enemy.x, y: enemy.y, damage: actualDamage });
     } else {
-      // 다중 타겟 (궁수): 가까운 순서로 정렬 후 선택
-      targetEnemies.push({ enemy, dist: distToHero });
+      // 궁수: 통합 타겟 풀에 추가
+      archerTargets.push({ type: 'enemy', enemy, dist: distToHero, x: enemy.x, y: enemy.y });
     }
   }
 
-  // 다중 타겟 캐릭터 (궁수) - 가까운 순서로 정렬 후 multiTargetCount 명 공격
-  if (!isAoE && targetEnemies.length > 0) {
-    targetEnemies.sort((a, b) => a.dist - b.dist);
-    const targets = targetEnemies.slice(0, multiTargetCount);
+  // 궁수: 기지도 통합 타겟 풀에 추가
+  if (!isAoE) {
+    for (const base of enemyBases) {
+      if (base.destroyed) continue;
+
+      const distToBase = distance(hero.x, hero.y, base.x, base.y);
+      if (distToBase > baseAttackRange) continue;
+
+      // 바라보는 방향 체크
+      const baseDx = base.x - hero.x;
+      const baseDy = base.y - hero.y;
+      const baseDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
+      if (baseDist === 0) continue;
+
+      const baseDirX = baseDx / baseDist;
+      const baseDirY = baseDy / baseDist;
+      const dot = dirX * baseDirX + dirY * baseDirY;
+
+      // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대하게)
+      if (dot < -0.5) continue;
+
+      archerTargets.push({ type: 'base', base, dist: distToBase, x: base.x, y: base.y });
+    }
+  }
+
+  // 궁수: 가까운 순서로 정렬 후 multiTargetCount개 타겟 공격 (적 + 기지 통합)
+  if (!isAoE && archerTargets.length > 0) {
+    archerTargets.sort((a, b) => a.dist - b.dist);
+    const targets = archerTargets.slice(0, multiTargetCount);
     for (const t of targets) {
-      // 마법사: 보스에게만 데미지 보너스 적용 (다중 타겟에는 마법사가 없지만 일관성 유지)
-      const actualDamage = t.enemy.type === 'boss' ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
-      enemyDamages.push({ enemyId: t.enemy.id, damage: actualDamage });
-      hitTargets.push({ x: t.enemy.x, y: t.enemy.y, damage: actualDamage });
+      if (t.type === 'enemy') {
+        const actualDamage = t.enemy.type === 'boss' ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
+        enemyDamages.push({ enemyId: t.enemy.id, damage: actualDamage });
+        hitTargets.push({ x: t.x, y: t.y, damage: actualDamage });
+      } else {
+        baseDamages.push({ baseId: t.base.id, damage: finalDamage });
+        hitTargets.push({ x: t.x, y: t.y, damage: finalDamage });
+      }
     }
   }
 
-  // 적 기지 데미지 (범위 내 + 파괴되지 않은 기지)
-  for (const base of enemyBases) {
-    if (base.destroyed) continue;
+  // 범위 공격 직업 (전사, 기사, 마법사): 기지도 별도로 공격
+  if (isAoE) {
+    for (const base of enemyBases) {
+      if (base.destroyed) continue;
 
-    const distToBase = distance(hero.x, hero.y, base.x, base.y);
-    if (distToBase > baseAttackRange) continue;
+      const distToBase = distance(hero.x, hero.y, base.x, base.y);
+      if (distToBase > baseAttackRange) continue;
 
-    // 바라보는 방향 체크
-    const baseDx = base.x - hero.x;
-    const baseDy = base.y - hero.y;
-    const baseDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
-    if (baseDist === 0) continue;
+      // 바라보는 방향 체크
+      const baseDx = base.x - hero.x;
+      const baseDy = base.y - hero.y;
+      const baseDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
+      if (baseDist === 0) continue;
 
-    const baseDirX = baseDx / baseDist;
-    const baseDirY = baseDy / baseDist;
-    const dot = dirX * baseDirX + dirY * baseDirY;
+      const baseDirX = baseDx / baseDist;
+      const baseDirY = baseDy / baseDist;
+      const dot = dirX * baseDirX + dirY * baseDirY;
 
-    // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대하게)
-    if (dot < -0.5) continue;
+      // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대하게)
+      if (dot < -0.5) continue;
 
-    baseDamages.push({ baseId: base.id, damage: finalDamage });
-    hitTargets.push({ x: base.x, y: base.y, damage: finalDamage });
+      baseDamages.push({ baseId: base.id, damage: finalDamage });
+      hitTargets.push({ x: base.x, y: base.y, damage: finalDamage });
+    }
   }
 
   // 이펙트는 타겟 방향으로 표시
