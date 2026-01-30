@@ -595,9 +595,11 @@ function executeOtherHeroSkill(
     }
   }
 
-  // 버프 공유 (광전사, 철벽 방어)
+  // 버프 공유 (광전사, 기사 철벽 방어)
   // 아군에게 버프 공유 처리 (버프는 위에서 이미 시전자에게 적용됨)
-  if (result.buff && (result.buff.type === 'berserker' || result.buff.type === 'ironwall')) {
+  // 가디언 수호의 돌진 (damageReduction = 0.2)은 allyBuffs로 별도 처리하므로 제외
+  const isKnightIronwallBuff = result.buff?.type === 'ironwall' && (result.buff.damageReduction || 0) >= 0.5;
+  if (result.buff && (result.buff.type === 'berserker' || isKnightIronwallBuff)) {
     // result.hero는 스킬 실행 후의 영웅 상태 (정확한 위치 정보 포함)
     shareBuffToAllies(result.buff, result.hero, heroId);
   }
@@ -607,6 +609,8 @@ function executeOtherHeroSkill(
     for (const heal of result.allyHeals) {
       // 내 영웅인 경우
       if (state.hero && state.hero.id === heal.heroId) {
+        // 사망한 영웅에게는 힐 적용 안 함
+        if (state.hero.hp <= 0) continue;
         const newHp = Math.min(state.hero.maxHp, state.hero.hp + heal.heal);
         useRPGStore.setState({ hero: { ...state.hero, hp: newHp } });
         effectManager.createEffect('heal', state.hero.x, state.hero.y);
@@ -616,6 +620,8 @@ function executeOtherHeroSkill(
         // 다른 영웅인 경우
         const targetHero = state.otherHeroes.get(heal.heroId);
         if (targetHero) {
+          // 사망한 영웅에게는 힐 적용 안 함
+          if (targetHero.hp <= 0) continue;
           const newHp = Math.min(targetHero.maxHp, targetHero.hp + heal.heal);
           state.updateOtherHero(heal.heroId, { hp: newHp });
           effectManager.createEffect('heal', targetHero.x, targetHero.y);
@@ -626,17 +632,21 @@ function executeOtherHeroSkill(
     }
   }
 
-  // 아군 버프 적용 (전직 스킬: 성기사, 힐러)
+  // 아군 버프 적용 (전직 스킬: 가디언, 팔라딘)
   if (result.allyBuffs && result.allyBuffs.length > 0) {
     for (const allyBuff of result.allyBuffs) {
       // 내 영웅인 경우
       if (state.hero && state.hero.id === allyBuff.heroId) {
+        // 사망한 영웅에게는 버프 적용 안 함
+        if (state.hero.hp <= 0) continue;
         const existingBuffs = state.hero.buffs.filter(b => b.type !== allyBuff.buff.type);
         useRPGStore.setState({ hero: { ...state.hero, buffs: [...existingBuffs, allyBuff.buff] } });
       } else {
         // 다른 영웅인 경우
         const targetHero = state.otherHeroes.get(allyBuff.heroId);
         if (targetHero) {
+          // 사망한 영웅에게는 버프 적용 안 함
+          if (targetHero.hp <= 0) continue;
           const existingBuffs = targetHero.buffs.filter(b => b.type !== allyBuff.buff.type);
           state.updateOtherHero(allyBuff.heroId, { buffs: [...existingBuffs, allyBuff.buff] });
         }
@@ -676,11 +686,18 @@ function executeOtherHeroSkill(
 }
 
 /**
- * 아군에게 버프 공유 (광전사, 철벽 방어)
+ * 아군에게 버프 공유 (광전사, 기사 철벽 방어)
  * - 광전사(berserker): 일정 범위 내 아군에게 버프 공유
- * - 철벽 방어(ironwall): 모든 아군에게 버프 공유
+ * - 철벽 방어(ironwall): 모든 아군에게 버프 공유 (기사만, 가디언 제외)
  */
 function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
+  // 가디언 수호의 돌진 (damageReduction = 0.2)은 allyBuffs로 별도 처리하므로 제외
+  const isGuardianShield = buff.type === 'ironwall' && (buff.damageReduction || 0) < 0.5;
+  if (isGuardianShield) {
+    // 가디언 보호막은 skillSystem에서 allyBuffs로 처리
+    return;
+  }
+
   // 공유 범위 결정
   let shareRange: number;
   if (buff.type === 'berserker') {
@@ -692,14 +709,18 @@ function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
     return;
   }
 
-  // 철벽 방어는 HP 20% 회복 효과도 함께 적용
-  const isIronwall = buff.type === 'ironwall';
+  // 기사 철벽 방어 (damageReduction >= 0.5)만 HP 20% 회복 효과 적용
+  // 가디언 수호의 돌진 (damageReduction = 0.2)은 보호막만, HP 회복 없음
+  const isKnightIronwall = buff.type === 'ironwall' && (buff.damageReduction || 0) >= 0.5;
   const healPercent = 0.2; // 20% HP 회복
 
   // 호스트 영웅에게 버프 공유 (시전자가 다른 플레이어인 경우)
   // 최신 상태에서 호스트 영웅 정보 조회 (stale data 방지)
   const freshHostHero = useRPGStore.getState().hero;
   if (freshHostHero && freshHostHero.id !== casterId) {
+    // 사망한 영웅은 스킵 (사망 상태에서 HP 회복으로 부활하는 버그 방지)
+    if (freshHostHero.hp <= 0) return;
+
     const distToHost = distance(caster.x, caster.y, freshHostHero.x, freshHostHero.y);
     if (distToHost <= shareRange) {
       // 같은 타입의 버프가 이미 있으면 제거 후 새로 추가
@@ -710,14 +731,14 @@ function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
         buffs: [...filteredBuffs, sharedBuff],
       };
 
-      // 철벽 방어: HP 20% 회복
-      if (isIronwall) {
+      // 기사 철벽 방어: HP 20% 회복 (가디언 보호막은 회복 없음)
+      if (isKnightIronwall) {
         const healAmount = Math.floor(freshHostHero.maxHp * healPercent);
         updateData.hp = Math.min(freshHostHero.maxHp, freshHostHero.hp + healAmount);
       }
 
       useRPGStore.getState().updateHeroState(updateData);
-      console.log(`[NetworkSync] 호스트에게 ${buff.type} 버프 공유${isIronwall ? ' + HP 회복' : ''}`);
+      console.log(`[NetworkSync] 호스트에게 ${buff.type} 버프 공유${isKnightIronwall ? ' + HP 회복' : ''}`);
     }
   }
 
@@ -747,14 +768,14 @@ function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
         buffs: [...filteredBuffs, sharedBuff],
       };
 
-      // 철벽 방어: HP 20% 회복
-      if (isIronwall) {
+      // 기사 철벽 방어: HP 20% 회복 (가디언 보호막은 회복 없음)
+      if (isKnightIronwall) {
         const healAmount = Math.floor(currentOtherHero.maxHp * healPercent);
         updateData.hp = Math.min(currentOtherHero.maxHp, currentOtherHero.hp + healAmount);
       }
 
       useRPGStore.getState().updateOtherHero(otherHeroId, updateData);
-      console.log(`[NetworkSync] ${otherHeroId}에게 ${buff.type} 버프 공유${isIronwall ? ' + HP 회복' : ''}`);
+      console.log(`[NetworkSync] ${otherHeroId}에게 ${buff.type} 버프 공유${isKnightIronwall ? ' + HP 회복' : ''}`);
     }
   });
 }
@@ -768,6 +789,13 @@ export function shareHostBuffToAllies(buff: Buff, hostHero: HeroUnit) {
   const multiplayer = useRPGStore.getState().multiplayer;
   if (!multiplayer.isMultiplayer || !multiplayer.isHost) return;
 
+  // 가디언 수호의 돌진 (damageReduction = 0.2)은 allyBuffs로 별도 처리하므로 제외
+  const isGuardianShield = buff.type === 'ironwall' && (buff.damageReduction || 0) < 0.5;
+  if (isGuardianShield) {
+    // 가디언 보호막은 skillSystem에서 allyBuffs로 처리
+    return;
+  }
+
   // 공유 범위 결정
   let shareRange: number;
   if (buff.type === 'berserker') {
@@ -779,8 +807,9 @@ export function shareHostBuffToAllies(buff: Buff, hostHero: HeroUnit) {
     return;
   }
 
-  // 철벽 방어는 HP 20% 회복 효과도 함께 적용
-  const isIronwall = buff.type === 'ironwall';
+  // 기사 철벽 방어 (damageReduction >= 0.5)만 HP 20% 회복 효과 적용
+  // 가디언 수호의 돌진 (damageReduction = 0.2)은 보호막만, HP 회복 없음
+  const isKnightIronwall = buff.type === 'ironwall' && (buff.damageReduction || 0) >= 0.5;
   const healPercent = 0.2; // 20% HP 회복
 
   // 다른 플레이어 영웅들에게 버프 공유 (매번 최신 상태 조회)
@@ -808,14 +837,14 @@ export function shareHostBuffToAllies(buff: Buff, hostHero: HeroUnit) {
         buffs: [...filteredBuffs, sharedBuff],
       };
 
-      // 철벽 방어: HP 20% 회복
-      if (isIronwall) {
+      // 기사 철벽 방어: HP 20% 회복 (가디언 보호막은 회복 없음)
+      if (isKnightIronwall) {
         const healAmount = Math.floor(currentOtherHero.maxHp * healPercent);
         updateData.hp = Math.min(currentOtherHero.maxHp, currentOtherHero.hp + healAmount);
       }
 
       useRPGStore.getState().updateOtherHero(otherHeroId, updateData);
-      console.log(`[NetworkSync] 호스트 버프 ${buff.type}를 ${otherHeroId}에게 공유${isIronwall ? ' + HP 회복' : ''}`);
+      console.log(`[NetworkSync] 호스트 버프 ${buff.type}를 ${otherHeroId}에게 공유${isKnightIronwall ? ' + HP 회복' : ''}`);
     }
   });
 }

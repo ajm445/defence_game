@@ -466,12 +466,12 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
                       {/* 스킬 */}
                       <div className="space-y-2 text-xs">
                         <div className="bg-gray-700/50 p-2 rounded">
-                          <span className="text-orange-400 font-bold">W</span>
+                          <span className="text-orange-400 font-bold">Shift</span>
                           <span className="text-white ml-2">{wSkill.name}</span>
                           <span className="text-gray-500 ml-2">({wSkill.cooldown}초)</span>
                         </div>
                         <div className="bg-gray-700/50 p-2 rounded">
-                          <span className="text-purple-400 font-bold">E</span>
+                          <span className="text-purple-400 font-bold">R</span>
                           <span className="text-white ml-2">{eSkill.name}</span>
                           <span className="text-gray-500 ml-2">({eSkill.cooldown}초)</span>
                         </div>
@@ -520,7 +520,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
               <div className="bg-gray-800/50 rounded-lg p-4 mb-4">
                 <ul className="text-sm text-gray-300 space-y-1">
                   <li>• 스탯이 전직 직업에 맞게 변경됩니다</li>
-                  <li>• W, E 스킬이 새로운 스킬로 변경됩니다</li>
+                  <li>• Shift, R 스킬이 새로운 스킬로 변경됩니다</li>
                   {progress.advancedClass ? (
                     <>
                       <li className="text-red-400 font-bold">• 캐릭터 레벨이 15로 초기화됩니다!</li>

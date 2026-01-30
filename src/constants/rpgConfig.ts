@@ -1141,7 +1141,7 @@ export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     nameEn: 'Guardian Rush',
     key: 'W',
     cooldown: 8,
-    description: '전방 돌진 + 경로상 적에게 최대 HP 10% 데미지 + 2초 기절 + 3초간 보호막 (최대 HP 20%) [기본공격 적중 시 쿨타임 1초 감소]',
+    description: '전방 돌진 + 경로상 적에게 최대 HP 10% 데미지 + 2초 기절 + 자신과 주변 아군에게 3초간 보호막 (최대 HP 20%) [기본공격 적중 시 쿨타임 1초 감소]',
     damageMultiplier: 0.1,  // 최대 HP 10% (특수 계산 필요)
     distance: 150,
     stunDuration: 2.0,
@@ -1290,16 +1290,16 @@ export const ADVANCED_E_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     invincibleDuration: 3,
     radius: 500,
   },
-  // 다크나이트: 어둠의 칼날 - 주변 적에게 5초간 초당 50% 데미지
+  // 다크나이트: 어둠의 칼날 - 주변 적에게 5초간 초당 75% 데미지
   darkKnight: {
     type: 'dark_blade',
     name: '어둠의 칼날',
     nameEn: 'Dark Blade',
     key: 'E',
     cooldown: 40,
-    description: '5초간 주변 적에게 초당 공격력 50% 데미지',
+    description: '5초간 주변 적에게 초당 공격력 75% 데미지',
     duration: 5,
-    damageMultiplier: 0.5,
+    damageMultiplier: 0.75,
     radius: 150,
   },
   // 대마법사: 메테오 샤워 - 5초간 랜덤 위치에 운석 10개 낙하

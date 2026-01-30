@@ -902,6 +902,7 @@ function executeAdvancedWSkill(
   const baseDamages: { baseId: EnemyBaseId; damage: number }[] = [];
   const stunTargets: string[] = [];
   const allyHeals: { heroId: string; heal: number }[] = [];
+  const allyBuffs: { heroId: string; buff: Buff }[] = [];
   let effect: SkillEffect | undefined;
   let buff: Buff | undefined;
   let pendingSkill: PendingSkill | undefined;
@@ -988,7 +989,7 @@ function executeAdvancedWSkill(
       break;
 
     case 'guardian':
-      // 수호의 돌진 - 전방 돌진 + 기절 + 보호막
+      // 수호의 돌진 - 전방 돌진 + 기절 + 보호막 (자신 + 주변 아군)
       {
         const dashDistance = skillConfig.distance || 150;
         const dashDuration = 0.25;
@@ -996,6 +997,7 @@ function executeAdvancedWSkill(
         const shieldPercent = skillConfig.shieldPercent || 0.2;
         const shieldDuration = skillConfig.duration || 3;
         const hpBasedDamage = Math.floor(hero.maxHp * (skillConfig.damageMultiplier || 0.1));
+        const shieldShareRange = 200; // 보호막 공유 범위
 
         const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + dirX * dashDistance));
         const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + dirY * dashDistance));
@@ -1028,6 +1030,24 @@ function executeAdvancedWSkill(
           startTime: gameTime,
           damageReduction: shieldPercent,  // 실제로는 shield amount로 처리 필요
         };
+
+        // 주변 아군에게 보호막 공유
+        for (const ally of allies) {
+          if (ally.id === hero.id) continue;
+          if (ally.hp <= 0) continue;
+          const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
+          if (allyDist <= shieldShareRange) {
+            allyBuffs.push({
+              heroId: ally.id,
+              buff: {
+                type: 'ironwall',
+                duration: shieldDuration,
+                startTime: gameTime,
+                damageReduction: shieldPercent,
+              },
+            });
+          }
+        }
 
         effect = {
           type: skillConfig.type,
@@ -1462,6 +1482,7 @@ function executeAdvancedWSkill(
     stunDuration: returnStunDuration,
     buff,
     allyHeals: allyHeals.length > 0 ? allyHeals : undefined,
+    allyBuffs: allyBuffs.length > 0 ? allyBuffs : undefined,
     pendingSkill,
   };
 }

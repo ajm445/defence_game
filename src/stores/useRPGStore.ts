@@ -1766,9 +1766,12 @@ export const useRPGStore = create<RPGStore>()(
         // ============================================
 
         // 버프 공유 범위 결정
-        const getShareRange = (buffType: string): number => {
+        // 가디언 보호막은 스킬 사용 시 한 번만 적용되고 오라로 공유하지 않음
+        const getShareRange = (buffType: string, damageReduction?: number): number => {
           if (buffType === 'berserker') return BERSERKER_SHARE_RANGE;
-          if (buffType === 'ironwall') return IRONWALL_SHARE_RANGE;
+          // 기사 철벽 방어 (damageReduction >= 0.5)만 오라로 공유
+          // 가디언 보호막 (damageReduction = 0.2)은 allyBuffs로 이미 처리됨
+          if (buffType === 'ironwall' && (damageReduction || 0) >= 0.5) return IRONWALL_SHARE_RANGE;
           return 0; // 공유 대상 아님
         };
 
@@ -1814,7 +1817,7 @@ export const useRPGStore = create<RPGStore>()(
           // 본인이 시전한 버프 중 오라 타입 찾기
           const ownBuffs = hero.buffs.filter(b => !b.casterId);
           for (const buff of ownBuffs) {
-            const shareRange = getShareRange(buff.type);
+            const shareRange = getShareRange(buff.type, buff.damageReduction);
             if (shareRange > 0) {
               // 새로 추가된 버프인지 확인
               const isNewBuff = state.gameTime - buff.startTime < deltaTime;
