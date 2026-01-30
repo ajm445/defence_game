@@ -117,7 +117,48 @@ router.post('/signin', async (req: Request, res: Response) => {
         return;
       }
 
-      // 3. 성공 응답
+      // 3. 밴 상태 확인
+      if (profile.is_banned) {
+        // 기간제 밴인 경우 만료 여부 확인
+        if (profile.banned_until) {
+          const bannedUntil = new Date(profile.banned_until);
+          if (bannedUntil > new Date()) {
+            // 아직 밴 기간 중
+            const formattedDate = bannedUntil.toLocaleString('ko-KR');
+            res.status(403).json({
+              success: false,
+              error: `계정이 정지되었습니다. 정지 해제일: ${formattedDate}`,
+              isBanned: true,
+              bannedUntil: profile.banned_until
+            });
+            return;
+          } else {
+            // 밴 기간 만료 - 자동 해제
+            await supabaseAdmin
+              .from('player_profiles')
+              .update({ is_banned: false, banned_until: null })
+              .eq('id', authData.user.id);
+
+            // 밴 기록도 비활성화
+            await supabaseAdmin
+              .from('player_bans')
+              .update({ is_active: false })
+              .eq('player_id', authData.user.id)
+              .eq('is_active', true);
+          }
+        } else {
+          // 영구 밴
+          res.status(403).json({
+            success: false,
+            error: '계정이 영구 정지되었습니다.',
+            isBanned: true,
+            bannedUntil: null
+          });
+          return;
+        }
+      }
+
+      // 4. 성공 응답
       res.json({
         success: true,
         user: {

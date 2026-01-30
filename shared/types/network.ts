@@ -32,7 +32,11 @@ export type ClientMessage =
   | { type: 'SELL_HERB' }
   | { type: 'COLLECT_RESOURCE'; nodeId: string }
   // 협동 모드 메시지
-  | CoopClientMessage;
+  | CoopClientMessage
+  // 관리자 메시지
+  | { type: 'ADMIN_SUBSCRIBE'; token: string }
+  | { type: 'ADMIN_UNSUBSCRIBE' }
+  | { type: 'ADMIN_REQUEST_STATUS' };
 
 // ============================================
 // 서버 → 클라이언트 메시지
@@ -40,6 +44,8 @@ export type ClientMessage =
 
 export type ServerMessage =
   | { type: 'CONNECTED'; playerId: string }
+  // 밴 메시지
+  | { type: 'BANNED'; message: string; bannedUntil: string | null }
   // 방 관련 메시지
   | { type: 'ROOM_CREATED'; roomCode: string; roomId: string }
   | { type: 'ROOM_JOINED'; roomId: string; opponent: string; side: PlayerSide }
@@ -55,7 +61,31 @@ export type ServerMessage =
   | { type: 'OPPONENT_DISCONNECTED' }
   | { type: 'ERROR'; message: string }
   // 협동 모드 메시지
-  | CoopServerMessage;
+  | CoopServerMessage
+  // 관리자 메시지
+  | { type: 'ADMIN_SUBSCRIBED'; adminId: string }
+  | { type: 'ADMIN_ERROR'; error: string }
+  | { type: 'ADMIN_SERVER_STATUS'; status: AdminServerStatus }
+  | { type: 'ADMIN_PLAYER_ACTIVITY'; activity: AdminPlayerActivity };
+
+// ============================================
+// 관리자 타입
+// ============================================
+
+export interface AdminServerStatus {
+  currentOnline: number;
+  activeGames: number;
+  serverUptime: number;
+  memoryUsage: number;
+}
+
+export interface AdminPlayerActivity {
+  type: 'connect' | 'disconnect' | 'game_start' | 'game_end';
+  playerId: string;
+  playerName?: string;
+  timestamp: string;
+  details?: Record<string, unknown>;
+}
 
 // ============================================
 // 게임 이벤트 (델타 업데이트)

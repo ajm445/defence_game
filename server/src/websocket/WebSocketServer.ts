@@ -3,11 +3,12 @@ import { createServer } from 'http';
 import express from 'express';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
-import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect } from './MessageHandler';
+import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect, handleAdminDisconnect, broadcastToAdmins, getServerStatus } from './MessageHandler';
 import { handlePlayerDisconnect } from '../room/RoomManager';
-import { players, sendMessage, Player } from '../state/players';
+import { players, sendMessage, Player, onlineUserIds } from '../state/players';
 import authRouter from '../api/authRouter';
 import profileRouter from '../api/profileRouter';
+import adminRouter from '../api/admin/adminRouter';
 
 // Re-export for backwards compatibility
 export { players, sendMessage, sendToPlayer } from '../state/players';
@@ -36,6 +37,7 @@ export function createWebSocketServer(port: number) {
   // API 라우터
   app.use('/api/auth', authRouter);
   app.use('/api/profile', profileRouter);
+  app.use('/api/admin', adminRouter);
 
   // HTTP 서버 생성 (Express 앱 사용)
   const httpServer = createServer(app);
@@ -48,12 +50,21 @@ export function createWebSocketServer(port: number) {
     console.log(`서버 시작: http://localhost:${port} (WebSocket + REST API 지원)`);
   });
 
+  // 관리자에게 주기적으로 서버 상태 전송 (10초마다)
+  const adminStatusInterval = setInterval(() => {
+    broadcastToAdmins({
+      type: 'ADMIN_SERVER_STATUS',
+      status: getServerStatus(),
+    });
+  }, 10000);
+
   wss.on('connection', (ws: WebSocket) => {
     const playerId = uuidv4();
 
     // 플레이어 생성
     const player: Player = {
       id: playerId,
+      userId: null,
       name: '',
       ws,
       roomId: null,
@@ -61,6 +72,23 @@ export function createWebSocketServer(port: number) {
 
     players.set(playerId, player);
     console.log(`플레이어 연결: ${playerId} (현재 ${players.size}명)`);
+
+    // 관리자에게 접속 이벤트 브로드캐스트
+    broadcastToAdmins({
+      type: 'ADMIN_PLAYER_ACTIVITY',
+      activity: {
+        type: 'connect',
+        playerId,
+        playerName: `Player_${playerId.slice(0, 4)}`,
+        timestamp: new Date().toISOString(),
+      },
+    });
+
+    // 관리자에게 서버 상태 업데이트
+    broadcastToAdmins({
+      type: 'ADMIN_SERVER_STATUS',
+      status: getServerStatus(),
+    });
 
     // 연결 확인 메시지 전송
     sendMessage(ws, {
@@ -87,6 +115,23 @@ export function createWebSocketServer(port: number) {
       console.log(`플레이어 연결 해제: ${playerId}`);
 
       const player = players.get(playerId);
+      const playerName = player?.name || `Player_${playerId.slice(0, 4)}`;
+
+      // 온라인 사용자 목록에서 제거
+      if (player?.userId) {
+        onlineUserIds.delete(player.userId);
+      }
+
+      // 관리자에게 접속 종료 이벤트 브로드캐스트
+      broadcastToAdmins({
+        type: 'ADMIN_PLAYER_ACTIVITY',
+        activity: {
+          type: 'disconnect',
+          playerId,
+          playerName,
+          timestamp: new Date().toISOString(),
+        },
+      });
       if (player && player.roomId) {
         // PvP 게임 방에서 플레이어 제거 처리
         const room = getRoom(player.roomId);
@@ -107,8 +152,17 @@ export function createWebSocketServer(port: number) {
       // 협동 대기 방에서 제거
       handleCoopDisconnect(playerId);
 
+      // 관리자 구독 해제
+      handleAdminDisconnect(playerId);
+
       players.delete(playerId);
       console.log(`현재 접속자: ${players.size}명`);
+
+      // 관리자에게 서버 상태 업데이트
+      broadcastToAdmins({
+        type: 'ADMIN_SERVER_STATUS',
+        status: getServerStatus(),
+      });
     });
 
     // 에러 처리
@@ -119,6 +173,7 @@ export function createWebSocketServer(port: number) {
 
   // 서버 종료 함수
   const close = () => {
+    clearInterval(adminStatusInterval);
     wss.clients.forEach((ws) => {
       ws.close();
     });

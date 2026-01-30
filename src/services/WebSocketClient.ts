@@ -27,6 +27,7 @@ class WebSocketClient {
   private reconnectDelay = 1000;
   private serverUrl: string;
   private pendingLogin: PendingLoginInfo | null = null;
+  private isBanned = false;
 
   public connectionState: ConnectionState = 'disconnected';
   public playerId: string | null = null;
@@ -101,6 +102,12 @@ class WebSocketClient {
   }
 
   private attemptReconnect(): void {
+    // 밴된 경우 재연결 시도하지 않음
+    if (this.isBanned) {
+      console.log('계정 정지로 인해 재연결이 차단되었습니다.');
+      return;
+    }
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log('최대 재연결 시도 횟수 초과');
       return;
@@ -120,6 +127,12 @@ class WebSocketClient {
     // CONNECTED 메시지 처리
     if (message.type === 'CONNECTED') {
       this.playerId = message.playerId;
+    }
+
+    // BANNED 메시지 처리 - 재연결 방지
+    if (message.type === 'BANNED') {
+      this.isBanned = true;
+      console.log('계정이 정지되어 재연결이 차단됩니다.');
     }
 
     // 등록된 핸들러에 메시지 전달
