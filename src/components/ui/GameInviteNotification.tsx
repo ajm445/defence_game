@@ -8,7 +8,7 @@ interface GameInviteNotificationProps {
   onJoinRoom?: (roomCode: string) => void;
 }
 
-export const GameInviteNotification: React.FC<GameInviteNotificationProps> = ({ onJoinRoom }) => {
+export const GameInviteNotification: React.FC<GameInviteNotificationProps> = ({ onJoinRoom: _onJoinRoom }) => {
   const receivedInvites = useReceivedInvites();
   const removeGameInvite = useFriendStore((state) => state.removeGameInvite);
   const [visibleInvite, setVisibleInvite] = useState<GameInviteInfo | null>(null);

@@ -1,5 +1,5 @@
 import type { ClientMessage } from '../../../shared/types/network';
-import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOffline, setOnlineStatusCallback } from '../state/players';
+import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOffline, setOnlineStatusCallback, getPlayerByUserId } from '../state/players';
 import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { getSupabaseAdmin } from '../services/supabaseAdmin';
@@ -298,6 +298,20 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
 
   const player = players.get(playerId);
   if (!player) return;
+
+  // 중복 연결 처리: 같은 userId로 이미 연결된 플레이어가 있으면 기존 연결 종료
+  if (!isGuest && userId) {
+    const existingPlayer = getPlayerByUserId(userId);
+    if (existingPlayer && existingPlayer.id !== playerId) {
+      console.log(`[Auth] 중복 연결 감지: ${nickname} - 기존 연결 종료 (${existingPlayer.id})`);
+      // 기존 연결에 알림 전송 후 종료
+      sendMessage(existingPlayer.ws, {
+        type: 'DUPLICATE_LOGIN',
+        message: '다른 기기에서 로그인하여 연결이 종료됩니다.',
+      } as any);
+      existingPlayer.ws.close();
+    }
+  }
 
   // 게스트가 아닌 경우 밴 상태 확인
   if (!isGuest) {

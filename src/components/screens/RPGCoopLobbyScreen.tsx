@@ -18,7 +18,7 @@ import {
   joinRoomByInvite,
 } from '../../hooks/useNetworkSync';
 import { ProfileButton } from '../ui/ProfileButton';
-import { FriendPanel } from '../ui/FriendPanel';
+import { FriendSidebar } from '../ui/FriendSidebar';
 import { FriendRequestNotification } from '../ui/FriendRequestNotification';
 import { GameInviteNotification } from '../ui/GameInviteNotification';
 import { ServerStatusBar } from '../ui/ServerStatusBar';
@@ -1076,7 +1076,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex overflow-hidden">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-pulse-slow" />
@@ -1088,57 +1088,55 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         <ProfileButton />
       </div>
 
-      {/* 오른쪽 상단 친구 패널 */}
-      <div className="absolute top-8 right-8 z-20">
-        <FriendPanel
-          currentRoomId={multiplayer.connectionState === 'in_lobby' ? multiplayer.roomId : undefined}
-        />
-      </div>
-
       {/* 친구 요청 알림 */}
       <FriendRequestNotification />
 
       {/* 게임 초대 알림 */}
       <GameInviteNotification />
 
-      {/* 메인 컨텐츠 */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in">
-        {/* 타이틀 */}
-        <h1 className="font-game text-3xl md:text-4xl text-green-400 mb-4">
-          RPG 게임
-        </h1>
+      {/* 메인 컨텐츠 영역 */}
+      <div className="flex-1 flex flex-col items-center justify-center">
+        {/* 메인 컨텐츠 */}
+        <div className="relative z-10 flex flex-col items-center animate-fade-in">
+          {/* 타이틀 */}
+          <h1 className="font-game text-3xl md:text-4xl text-green-400 mb-4">
+            RPG 게임
+          </h1>
 
-        <div style={{ height: '10px' }} />
+          <div style={{ height: '10px' }} />
 
-        <p className="text-gray-400 mb-4">1~4명이 함께 보스를 물리치세요 (혼자 시작 가능)</p>
+          <p className="text-gray-400 mb-4">1~4명이 함께 보스를 물리치세요 (혼자 시작 가능)</p>
 
-        {/* 서버 상태 표시 */}
-        <div className="mb-6">
-          <ServerStatusBar />
+          <div style={{ height: '30px' }} />
+
+          {/* 연결 상태에 따른 UI */}
+          <div className="bg-gray-900/50 border border-gray-700 rounded-xl px-10 py-10 min-w-[900px] min-h-[480px] flex flex-col items-center justify-center">
+            {renderContent()}
+          </div>
+
+          <div style={{ height: '30px' }} />
+
+          {/* 뒤로 가기 */}
+          <button
+            onClick={handleBack}
+            className="mt-8 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+          >
+            뒤로 가기
+          </button>
         </div>
+      </div>
 
-        {/* 연결 상태에 따른 UI */}
-        <div className="bg-gray-900/50 border border-gray-700 rounded-xl px-10 py-10 min-w-[900px] min-h-[480px] flex flex-col items-center justify-center">
-          {renderContent()}
-        </div>
-
-        <div style={{ height: '30px' }} />
-
-        {/* 뒤로 가기 */}
-        <button
-          onClick={handleBack}
-          className="mt-8 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
-          style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
-        >
-          뒤로 가기
-        </button>
+      {/* 오른쪽 친구 사이드바 */}
+      <div className="relative z-20 h-full">
+        <FriendSidebar
+          currentRoomId={multiplayer.connectionState === 'in_lobby' ? multiplayer.roomId ?? undefined : undefined}
+        />
       </div>
 
       {/* 코너 장식 */}
       <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-green-500/30" />
-      <div className="absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 border-green-500/30" />
       <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-green-500/30" />
-      <div className="absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 border-green-500/30" />
 
       {/* 직업 선택 모달 */}
       {showClassModal && (
