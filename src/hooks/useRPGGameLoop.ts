@@ -711,7 +711,7 @@ export function useRPGGameLoop() {
       let updatedEnemies: typeof currentEnemies;
       let totalNexusDamage = 0;
 
-      if (isMultiplayer && allHeroes.length > 1) {
+      if (isMultiplayer && allHeroes.length >= 1) {
         // 멀티플레이어: 모든 영웅을 고려한 AI
         const result = updateAllEnemiesAINexusMultiplayer(
           currentEnemies,
