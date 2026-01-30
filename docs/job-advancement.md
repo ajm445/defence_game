@@ -1654,6 +1654,10 @@ interface GameStateSyncMessage {
       // 전직 관련 추가 필드
       advancedClass: AdvancedHeroClass | null;
       tier: 1 | 2;
+      // 기본 스탯 (V1.17.18+, 업그레이드 계산용)
+      baseAttack: number;
+      baseSpeed: number;
+      baseAttackSpeed: number;
     };
   };
 }
@@ -2610,3 +2614,22 @@ if (DEBUG_MODE) {
 - [ ] 저사양 기기에서 LOW 품질로 플레이 가능
 - [ ] 30분 연속 플레이 후 메모리 누수 없음
 - [ ] 네트워크 지연 200ms 환경에서 전직 동기화 정상
+
+---
+
+## 15. 변경 이력
+
+### V1.17.18
+- **기본 스탯 직렬화 추가** (`baseAttack`, `baseSpeed`, `baseAttackSpeed`)
+  - 다른 플레이어 영웅의 업그레이드가 복리로 적용되던 문제 수정
+  - `GameStateSyncMessage` 인터페이스에 기본 스탯 필드 추가
+- **문서 업데이트**: 동기화 메시지 타입에 기본 스탯 필드 명세 추가
+
+### V1.17.12
+- **2차 강화 레벨 하향** (레벨 50 → 40)
+- **캐릭터 정보 UI 개선** (전직 특수 효과 표시)
+- **전직별 기본 공격 이펙트 색상 차별화**
+
+### V1.17.11
+- **멀티플레이어 전직 캐릭터 부활 동기화 수정**
+  - `advancedClass`, `tier`, `config` 스탯 동기화 추가
