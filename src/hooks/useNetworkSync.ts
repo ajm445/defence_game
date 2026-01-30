@@ -867,7 +867,7 @@ export function sendSkillUse(skillSlot: 'Q' | 'W' | 'E', targetX: number, target
     const hero = state.hero;
     const input: PlayerInput = {
       playerId: state.multiplayer.myPlayerId || '',
-      moveDirection: null,
+      moveDirection: null,  // 스킬 사용 시 기존 이동 방향 유지
       // 클라이언트 실제 위치 전송 (보스 스킬 데미지 계산용)
       position: hero ? { x: hero.x, y: hero.y } : undefined,
       skillUsed: { skillSlot, targetX, targetY },
@@ -890,7 +890,7 @@ export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'gol
     const hero = state.hero;
     const input: PlayerInput = {
       playerId: state.multiplayer.myPlayerId || '',
-      moveDirection: null,
+      moveDirection: null,  // 업그레이드 시 기존 이동 방향 유지
       // 업그레이드 시에도 현재 위치 전송 (위치 되돌아감 버그 방지)
       position: hero ? { x: hero.x, y: hero.y } : undefined,
       upgradeRequested: upgradeType,

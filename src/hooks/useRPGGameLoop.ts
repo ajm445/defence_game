@@ -1,7 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
-import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG, UPGRADE_CONFIG, GOLD_CONFIG, ADVANCED_CLASS_CONFIGS } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, MILESTONE_CONFIG, UPGRADE_CONFIG, GOLD_CONFIG, ADVANCED_CLASS_CONFIGS, ADVANCED_W_SKILLS } from '../constants/rpgConfig';
 import { getStatBonus } from '../types/auth';
 import { updateHeroUnit, findNearestEnemy, findNearestEnemyBase } from '../game/rpg/heroUnit';
 import {
@@ -91,46 +91,44 @@ export function useRPGGameLoop() {
         }
       }
 
-      // 동기화된 보스 스킬 경고 이펙트 처리 (클라이언트)
-      // 보스 스킬 경고가 끝나갈 때(95% 이상) 이펙트와 사운드 재생
-      const clientBossSkillWarnings = useRPGStore.getState().bossSkillWarnings;
-      const clientGameTime = useRPGStore.getState().gameTime;
-      for (const warning of clientBossSkillWarnings) {
-        const elapsed = clientGameTime - warning.startTime;
-        const progress = elapsed / warning.duration;
-
-        // 경고가 거의 끝날 때 (95% 이상) 이펙트 재생 (한 번만)
-        const effectId = `boss_skill_${warning.skillType}_${warning.startTime}`;
-        if (progress >= 0.95 && !processedEffectIdsRef.current.has(effectId)) {
-          processedEffectIdsRef.current.set(effectId, clientNow);
+      // 동기화된 보스 스킬 실행 이펙트 처리 (클라이언트)
+      // 호스트가 스킬 실행 시 추가한 이펙트를 클라이언트에서 재생
+      const clientBossSkillExecutedEffects = useRPGStore.getState().bossSkillExecutedEffects;
+      for (const effect of clientBossSkillExecutedEffects) {
+        if (!processedEffectIdsRef.current.has(effect.id)) {
+          processedEffectIdsRef.current.set(effect.id, clientNow);
 
           // 스킬 타입별 이펙트 및 사운드
-          switch (warning.skillType) {
+          switch (effect.skillType) {
             case 'smash':
-              effectManager.createEffect('boss_smash', warning.x, warning.y);
+              effectManager.createEffect('boss_smash', effect.x, effect.y);
               soundManager.play('attack_melee');
               break;
             case 'shockwave':
-              effectManager.createEffect('boss_shockwave', warning.x, warning.y);
+              effectManager.createEffect('boss_shockwave', effect.x, effect.y);
               soundManager.play('warning');
               break;
             case 'summon':
-              effectManager.createEffect('boss_summon', warning.x, warning.y);
+              effectManager.createEffect('boss_summon', effect.x, effect.y);
               soundManager.play('boss_spawn');
               break;
             case 'knockback':
-              effectManager.createEffect('boss_knockback', warning.x, warning.y);
+              effectManager.createEffect('boss_knockback', effect.x, effect.y);
               soundManager.play('warning');
               break;
             case 'charge':
-              effectManager.createEffect('boss_charge', warning.x, warning.y);
+              effectManager.createEffect('boss_charge', effect.x, effect.y);
               soundManager.play('warning');
               break;
             case 'heal':
-              effectManager.createEffect('boss_heal', warning.x, warning.y);
+              effectManager.createEffect('boss_heal', effect.x, effect.y);
               soundManager.play('hero_revive');
-              // 클라이언트에서도 보스 회복 알림 표시
-              useUIStore.getState().showNotification(`⚠️ 보스가 회복합니다!`);
+              // 클라이언트에서도 보스 회복 알림 표시 (회복량 포함)
+              if (effect.healPercent) {
+                useUIStore.getState().showNotification(`⚠️ 보스가 회복합니다! (+${effect.healPercent}%)`);
+              } else {
+                useUIStore.getState().showNotification(`⚠️ 보스가 회복합니다!`);
+              }
               break;
           }
         }
@@ -163,7 +161,8 @@ export function useRPGGameLoop() {
       // 클라이언트도 자신의 영웅 이동을 로컬에서 처리 (부드러운 움직임)
       // 단, 돌진 중이거나 시전 중일 때는 이동 불가
       const isClientDashing = clientHero?.dashState && clientHero.dashState.progress < 1;
-      const isClientCasting = clientHero?.castingUntil && clientGameTime < clientHero.castingUntil;
+      const clientGameTimeNow = useRPGStore.getState().gameTime;
+      const isClientCasting = clientHero?.castingUntil && clientGameTimeNow < clientHero.castingUntil;
 
       if (clientHero && clientHero.moveDirection && !isClientDashing && !isClientCasting) {
         const dir = clientHero.moveDirection;
@@ -955,16 +954,21 @@ export function useRPGGameLoop() {
 
         // 스킬 데미지 적용
         bossSkillResult.heroDamages.forEach((damage, heroId) => {
-          const targetHero = heroId === latestHero?.id
-            ? latestHero
-            : latestOtherHeroes.get(heroId);
+          // 최신 상태에서 영웅 정보 가져오기 (여러 보스가 같은 프레임에서 데미지 처리 시 stale 참조 방지)
+          const currentState = useRPGStore.getState();
+          const currentHero = currentState.hero;
+          const currentOtherHeroes = currentState.otherHeroes;
+
+          const targetHero = heroId === currentHero?.id
+            ? currentHero
+            : currentOtherHeroes.get(heroId);
 
           if (!targetHero) return;
           if (targetHero.hp <= 0) return;  // 사망한 영웅에게 데미지 적용 안 함
 
           const finalDamage = calculateDamageAfterReduction(damage, targetHero);
 
-          if (heroId === latestHero?.id) {
+          if (heroId === currentHero?.id) {
             useRPGStore.getState().damageHero(finalDamage);
             effectManager.createEffect('boss_smash', targetHero.x, targetHero.y);
             // 피격 데미지 숫자 표시 (보스 공격 - 빨간색)
@@ -978,8 +982,9 @@ export function useRPGGameLoop() {
               timestamp: Date.now(),
             });
           } else {
-            const otherHero = latestOtherHeroes.get(heroId);
+            const otherHero = currentOtherHeroes.get(heroId);
             if (otherHero) {
+              // 최신 HP를 사용하여 새 HP 계산 (stale 상태 방지)
               const newHp = Math.max(0, otherHero.hp - finalDamage);
               const wasDead = otherHero.hp <= 0;
               const isDead = newHp <= 0;
@@ -1013,14 +1018,19 @@ export function useRPGGameLoop() {
 
         // 스턴 적용
         bossSkillResult.stunnedHeroes.forEach((stunDuration, heroId) => {
-          const targetHero = heroId === latestHero?.id
-            ? latestHero
-            : latestOtherHeroes.get(heroId);
+          // 최신 상태에서 영웅 정보 가져오기 (stale 참조 방지)
+          const stunState = useRPGStore.getState();
+          const stunHero = stunState.hero;
+          const stunOtherHeroes = stunState.otherHeroes;
+
+          const targetHero = heroId === stunHero?.id
+            ? stunHero
+            : stunOtherHeroes.get(heroId);
 
           if (!targetHero) return;
           if (targetHero.hp <= 0) return;  // 사망한 영웅에게 스턴 적용 안 함
 
-          if (heroId === latestHero?.id) {
+          if (heroId === stunHero?.id) {
             const stunnedHero = applyStunToHero(targetHero, stunDuration, state.gameTime);
             useRPGStore.getState().updateHeroState(stunnedHero);
           } else {
@@ -1038,13 +1048,19 @@ export function useRPGGameLoop() {
 
         // 밀어내기(knockback) 처리 - 영웅 위치 변경
         bossSkillResult.knockbackHeroes.forEach((newPos, heroId) => {
+          // 최신 상태에서 영웅 정보 가져오기 (stale 참조 방지)
+          const kbState = useRPGStore.getState();
+          const kbHero = kbState.hero;
+          const kbOtherHeroes = kbState.otherHeroes;
+
+          const targetHero = heroId === kbHero?.id
+            ? kbHero
+            : kbOtherHeroes.get(heroId);
+
           // 사망한 영웅에게 넉백 적용 안 함
-          const targetHero = heroId === latestHero?.id
-            ? latestHero
-            : latestOtherHeroes.get(heroId);
           if (!targetHero || targetHero.hp <= 0) return;
 
-          if (heroId === latestHero?.id) {
+          if (heroId === kbHero?.id) {
             useRPGStore.getState().updateHeroState({ x: newPos.x, y: newPos.y });
             effectManager.createEffect('boss_knockback', newPos.x, newPos.y);
           } else {
@@ -1076,27 +1092,44 @@ export function useRPGGameLoop() {
         }
 
         // 스킬 실행 시 이펙트 및 사운드
-        if (bossSkillResult.skillExecuted === 'smash') {
-          effectManager.createEffect('boss_smash', boss.x, boss.y);
-          soundManager.play('attack_melee');
-        } else if (bossSkillResult.skillExecuted === 'shockwave') {
-          effectManager.createEffect('boss_shockwave', boss.x, boss.y);
-          soundManager.play('warning');
-        } else if (bossSkillResult.skillExecuted === 'summon') {
-          effectManager.createEffect('boss_summon', boss.x, boss.y);
-          soundManager.play('boss_spawn');
-        } else if (bossSkillResult.skillExecuted === 'knockback') {
-          effectManager.createEffect('boss_knockback', boss.x, boss.y);
-          soundManager.play('warning');
-        } else if (bossSkillResult.skillExecuted === 'charge') {
-          effectManager.createEffect('boss_charge', boss.x, boss.y);
-          soundManager.play('warning');
-        } else if (bossSkillResult.skillExecuted === 'heal') {
-          effectManager.createEffect('boss_heal', boss.x, boss.y);
-          soundManager.play('hero_revive');
-          // 보스 회복 알림 표시
-          const healPercent = Math.round((bossSkillResult.bossHeal || 0) / boss.maxHp * 100);
-          useUIStore.getState().showNotification(`⚠️ 보스가 회복합니다! (+${healPercent}%)`);
+        if (bossSkillResult.skillExecuted) {
+          const skillType = bossSkillResult.skillExecuted;
+          const healPercent = skillType === 'heal' ? Math.round((bossSkillResult.bossHeal || 0) / boss.maxHp * 100) : undefined;
+
+          // 멀티플레이어: 클라이언트 동기화용 이펙트 추가
+          if (isMultiplayer && isHost) {
+            useRPGStore.getState().addBossSkillExecutedEffect({
+              id: `boss_skill_${skillType}_${Date.now()}_${boss.id}`,
+              skillType,
+              x: boss.x,
+              y: boss.y,
+              timestamp: Date.now(),
+              healPercent,
+            });
+          }
+
+          // 호스트/싱글플레이: 로컬 이펙트 즉시 재생
+          if (skillType === 'smash') {
+            effectManager.createEffect('boss_smash', boss.x, boss.y);
+            soundManager.play('attack_melee');
+          } else if (skillType === 'shockwave') {
+            effectManager.createEffect('boss_shockwave', boss.x, boss.y);
+            soundManager.play('warning');
+          } else if (skillType === 'summon') {
+            effectManager.createEffect('boss_summon', boss.x, boss.y);
+            soundManager.play('boss_spawn');
+          } else if (skillType === 'knockback') {
+            effectManager.createEffect('boss_knockback', boss.x, boss.y);
+            soundManager.play('warning');
+          } else if (skillType === 'charge') {
+            effectManager.createEffect('boss_charge', boss.x, boss.y);
+            soundManager.play('warning');
+          } else if (skillType === 'heal') {
+            effectManager.createEffect('boss_heal', boss.x, boss.y);
+            soundManager.play('hero_revive');
+            // 보스 회복 알림 표시
+            useUIStore.getState().showNotification(`⚠️ 보스가 회복합니다! (+${healPercent}%)`);
+          }
         }
       }
 
@@ -1436,6 +1469,11 @@ export function useRPGGameLoop() {
     }
     // 오래된 기본 공격 이펙트 정리
     useRPGStore.getState().cleanBasicAttackEffects();
+
+    // 오래된 보스 스킬 실행 이펙트 정리 (호스트)
+    if (isHost || !isMultiplayer) {
+      useRPGStore.getState().cleanBossSkillExecutedEffects();
+    }
 
     // 호스트 측 오래된 이펙트 ID 정리 (메모리 누수 방지)
     for (const [effectId, processedTime] of processedEffectIdsRef.current) {
@@ -2334,6 +2372,18 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           if (heroClass === 'knight') {
             const cooldownReduction = 1.0 * hitCount;
             const wSkillType = CLASS_SKILLS.knight.w.type;
+            skillsWithCooldown = skillsWithCooldown.map(s => {
+              if (s.type === wSkillType && s.currentCooldown > 0) {
+                return { ...s, currentCooldown: Math.max(0, s.currentCooldown - cooldownReduction) };
+              }
+              return s;
+            });
+          }
+
+          // 가디언/팔라딘 Q 스킬 적중 시 W 스킬 쿨다운 1초 감소 (적중 수만큼)
+          if (hero.advancedClass === 'guardian' || hero.advancedClass === 'paladin') {
+            const cooldownReduction = 1.0 * hitCount;
+            const wSkillType = ADVANCED_W_SKILLS[hero.advancedClass].type;
             skillsWithCooldown = skillsWithCooldown.map(s => {
               if (s.type === wSkillType && s.currentCooldown > 0) {
                 return { ...s, currentCooldown: Math.max(0, s.currentCooldown - cooldownReduction) };

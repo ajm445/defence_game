@@ -191,27 +191,51 @@
 호스트:
 1. 보스 스킬 조건 확인 및 시전 결정
 2. bossSkillWarnings 생성 (경고 표시 정보)
-3. 게임 상태 직렬화 (bossSkillWarnings 포함)
-4. 클라이언트에 브로드캐스트
+3. 스킬 실행 시 bossSkillExecutedEffects 생성 (이펙트 동기화)
+4. 게임 상태 직렬화 (warnings + executedEffects 포함)
+5. 클라이언트에 브로드캐스트 (50ms 간격)
 
 클라이언트:
 1. 게임 상태 수신 및 적용
 2. bossSkillWarnings 렌더링 (바닥 경고 표시)
-3. 경고 95% 진행 시 이펙트/사운드 재생
+3. bossSkillExecutedEffects 처리 (이펙트/사운드 재생)
 ```
 
 ### 동기화 데이터
 
 | 데이터 | 설명 |
 |--------|------|
-| `bossSkillWarnings` | 현재 시전 중인 스킬 경고 목록 |
+| `bossSkillWarnings` | 현재 시전 중인 스킬 경고 목록 (바닥 표시용) |
+| `bossSkillExecutedEffects` | 스킬 실행 이펙트 (클라이언트 이펙트/사운드 재생용) |
 | `gameTime` | 경고 진행도 계산용 게임 시간 |
 | `enemies` | 보스 위치/상태 (돌진 후 위치 변경) |
 | `hero/otherHeroes` | 영웅 위치 (넉백 후 위치 변경) |
 
+### 스킬 실행 이펙트 동기화 (V1.17.12+)
+
+기존 방식은 클라이언트가 `bossSkillWarnings`의 진행도 95%를 감지하여 이펙트를 재생했으나,
+호스트가 스킬 실행 후 경고를 제거하면 클라이언트가 상태를 받을 때 이미 경고가 없어 이펙트가 누락되는 문제가 있었습니다.
+
+**개선된 방식:**
+- 호스트가 스킬 실행 시 `bossSkillExecutedEffects` 배열에 이펙트 정보 추가
+- 클라이언트가 동기화된 이펙트 배열을 처리하여 이펙트/사운드 재생
+- 이펙트는 500ms 후 자동 정리
+
+```typescript
+// BossSkillExecutedEffect 인터페이스
+interface BossSkillExecutedEffect {
+  id: string;           // 고유 ID (중복 방지)
+  skillType: BossSkillType;
+  x: number;
+  y: number;
+  timestamp: number;
+  healPercent?: number; // 힐 스킬의 경우 회복량 (UI 알림용)
+}
+```
+
 ### 클라이언트 이펙트 처리
 
-클라이언트는 경고 진행도가 95% 이상일 때 스킬 이펙트와 사운드를 재생합니다:
+클라이언트는 `bossSkillExecutedEffects` 배열에서 새로운 이펙트를 감지하여 재생합니다:
 
 | 스킬 | 이펙트 | 사운드 |
 |------|--------|--------|
