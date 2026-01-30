@@ -1,6 +1,6 @@
 # 클라이언트 캐릭터 움직임 개선
 
-> 버전: V1.17.12
+> 버전: V1.17.20
 > 최종 수정: 2025-01-30
 
 ## 개요
@@ -286,6 +286,70 @@ const BUFFER_SIZE = 3; // 3개 스냅샷 유지
 // 서버에서 클라이언트 위치 예측
 const predictedPos = lastKnownPos + velocity * timeSinceLastUpdate;
 ```
+
+---
+
+## 데미지 숫자 중복 버그 수정 (V1.17.20)
+
+### 문제점
+
+멀티플레이어 클라이언트(비호스트)에서 데미지 숫자가 중복으로 나타나는 버그:
+
+```
+1. 호스트가 데미지 숫자 생성 (ID: dmg_123)
+2. 호스트가 50ms 간격으로 상태 브로드캐스트
+3. 클라이언트가 데미지 숫자 수신 및 렌더링
+4. 클라이언트의 로컬 타이머 (1초) 만료 → 데미지 숫자 로컬 제거
+5. 호스트가 아직 정리하지 않은 상태에서 다음 브로드캐스트
+6. 클라이언트가 동일한 데미지 숫자 다시 수신 → 중복 렌더링!
+```
+
+**근본 원인:** 호스트와 클라이언트의 정리 타이밍 불일치
+
+### 해결 방안
+
+멀티플레이어 클라이언트에서는 로컬 타이머로 데미지 숫자를 제거하지 않고, 호스트의 상태 동기화에만 의존:
+
+```typescript
+// RPGDamageNumbers.tsx
+
+// 멀티플레이어 클라이언트 여부 확인
+const isMultiplayerClient = multiplayer.isMultiplayer && !multiplayer.isHost;
+
+// DamageNumberItem 컴포넌트
+useEffect(() => {
+  if (isMultiplayerClient) return; // 클라이언트는 로컬에서 제거하지 않음
+
+  const timer = setTimeout(() => {
+    removeDamageNumber(item.id);
+  }, 1000);
+  return () => clearTimeout(timer);
+}, [item.id, removeDamageNumber, isMultiplayerClient]);
+
+// 컨테이너 컴포넌트의 정리 인터벌도 동일하게 처리
+useEffect(() => {
+  if (isMultiplayerClient) return; // 클라이언트는 로컬 정리하지 않음
+
+  const interval = setInterval(() => {
+    cleanDamageNumbers();
+  }, 500);
+  return () => clearInterval(interval);
+}, [cleanDamageNumbers, isMultiplayerClient]);
+```
+
+### 동작 방식
+
+| 모드 | 데미지 숫자 생성 | 데미지 숫자 제거 |
+|------|-----------------|-----------------|
+| 싱글플레이어 | 로컬 게임 루프 | 로컬 타이머 (1초) + 정리 인터벌 (500ms) |
+| 멀티플레이어 호스트 | 호스트 게임 루프 | 로컬 타이머 (1초) + 정리 인터벌 (500ms) |
+| 멀티플레이어 클라이언트 | 호스트 상태 동기화 | 호스트 상태 동기화 (로컬 제거 없음) |
+
+### 변경된 파일
+
+| 파일 | 변경 내용 |
+|------|----------|
+| `src/components/ui/RPGDamageNumbers.tsx` | 멀티플레이어 클라이언트 여부 확인 및 조건부 로컬 제거 |
 
 ---
 
