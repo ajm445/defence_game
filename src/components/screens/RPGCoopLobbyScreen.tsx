@@ -1130,7 +1130,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       {/* 오른쪽 친구 사이드바 */}
       <div className="relative z-20 h-full">
         <FriendSidebar
-          currentRoomId={multiplayer.connectionState === 'in_lobby' ? multiplayer.roomId : undefined}
+          currentRoomId={multiplayer.connectionState === 'in_lobby' ? multiplayer.roomId ?? undefined : undefined}
         />
       </div>
 

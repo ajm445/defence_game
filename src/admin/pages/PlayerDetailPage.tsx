@@ -744,7 +744,7 @@ function ConfirmModal({ title, message, confirmText, confirmClass, onClose, onCo
 }
 
 // 클래스 수정 모달
-function ClassEditModal({ classProgress, className, classDisplayName, onClose, onSave }: {
+function ClassEditModal({ classProgress, className: _className, classDisplayName, onClose, onSave }: {
   playerId: string;
   classProgress: { classLevel: number; classExp: number; sp?: number };
   className: string;
