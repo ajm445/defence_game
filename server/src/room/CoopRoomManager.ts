@@ -651,3 +651,91 @@ export function joinCoopRoomById(
 
   return true;
 }
+
+// 친구 초대로 비밀방 참가 (코드 없이 직접 입장)
+export function joinCoopRoomByInvite(
+  roomId: string,
+  playerId: string,
+  playerName: string,
+  heroClass: HeroClass,
+  characterLevel: number = 1,
+  statUpgrades?: CharacterStatUpgrades,
+  advancedClass?: string,
+  tier?: 1 | 2
+): boolean {
+  const player = players.get(playerId);
+  if (!player) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '플레이어를 찾을 수 없습니다.' });
+    return false;
+  }
+
+  // 이미 방에 있는지 확인
+  if (player.roomId) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '이미 방에 참가 중입니다.' });
+    return false;
+  }
+
+  const room = waitingCoopRooms.get(roomId);
+  if (!room) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '존재하지 않는 방입니다.' });
+    return false;
+  }
+
+  // 방이 이미 가득 찼는지 확인
+  if (room.players.size >= MAX_PLAYERS) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '방이 가득 찼습니다. (최대 4명)' });
+    return false;
+  }
+
+  // 방이 이미 시작됐는지 확인
+  if (room.state === 'started') {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '이미 시작된 방입니다.' });
+    return false;
+  }
+
+  // 참가 처리 (비밀방 체크 생략 - 초대로 입장)
+  const playerInfo: CoopPlayerInfo = {
+    id: playerId,
+    name: playerName,
+    heroClass,
+    isHost: false,
+    isReady: false,
+    connected: true,
+    characterLevel,
+    statUpgrades,
+    advancedClass,
+    tier,
+  };
+
+  room.players.set(playerId, playerInfo);
+  player.roomId = roomId;
+  player.name = playerName;
+
+  const playersArray = Array.from(room.players.values());
+  const playerIndex = playersArray.findIndex(p => p.id === playerId);
+
+  console.log(`[Coop] 방 참가(초대): ${room.code} (Player: ${playerName}, Class: ${heroClass})`);
+
+  // 기존 플레이어들에게 새 플레이어 알림
+  room.players.forEach((p, id) => {
+    if (id !== playerId) {
+      sendToPlayer(id, {
+        type: 'COOP_PLAYER_JOINED',
+        player: playerInfo,
+      });
+    }
+  });
+
+  // 참가자에게 방 정보 전송
+  sendToPlayer(playerId, {
+    type: 'COOP_ROOM_JOINED',
+    roomId,
+    roomCode: room.code,
+    players: playersArray,
+    yourIndex: playerIndex,
+    isPrivate: room.isPrivate,
+    difficulty: room.difficulty,
+  });
+
+  return true;
+}

@@ -984,3 +984,25 @@ export function startMultiplayerGame() {
 
   wsClient.startCoopGame();
 }
+
+/**
+ * 친구 초대로 방 참가 (비밀방 코드 없이 입장)
+ */
+export function joinRoomByInvite(
+  roomCode: string,
+  playerName: string,
+  heroClass: any,
+  characterLevel?: number,
+  statUpgrades?: any,
+  advancedClass?: string,
+  tier?: 1 | 2
+) {
+  useRPGStore.getState().setMultiplayerState({
+    isMultiplayer: true,
+    connectionState: 'connecting',
+  });
+
+  // 초대를 통한 입장이므로 일반 코드 입장과 동일하게 처리
+  // (서버에서 초대 유효성은 이미 검증됨)
+  wsClient.joinCoopRoom(roomCode, playerName, heroClass, characterLevel, statUpgrades, advancedClass as any, tier);
+}

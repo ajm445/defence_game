@@ -44,3 +44,34 @@ export function sendToPlayer(playerId: string, message: ServerMessage): void {
     sendMessage(player.ws, message);
   }
 }
+
+// 온라인 상태 변경 콜백 (FriendManager에서 등록)
+type OnlineStatusCallback = (userId: string, isOnline: boolean, currentRoom?: string) => void;
+let onlineStatusCallback: OnlineStatusCallback | null = null;
+
+export function setOnlineStatusCallback(callback: OnlineStatusCallback): void {
+  onlineStatusCallback = callback;
+}
+
+// 사용자 온라인 등록 (로그인 시)
+export function registerUserOnline(userId: string): void {
+  onlineUserIds.add(userId);
+  if (onlineStatusCallback) {
+    onlineStatusCallback(userId, true, undefined);
+  }
+}
+
+// 사용자 오프라인 등록 (로그아웃/연결 해제 시)
+export function registerUserOffline(userId: string): void {
+  onlineUserIds.delete(userId);
+  if (onlineStatusCallback) {
+    onlineStatusCallback(userId, false, undefined);
+  }
+}
+
+// 사용자 방 상태 변경 알림 (방 입장/퇴장 시)
+export function notifyUserRoomChange(userId: string, roomId: string | null): void {
+  if (onlineStatusCallback && onlineUserIds.has(userId)) {
+    onlineStatusCallback(userId, true, roomId || undefined);
+  }
+}

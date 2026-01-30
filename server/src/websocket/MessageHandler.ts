@@ -1,5 +1,5 @@
 import type { ClientMessage } from '../../../shared/types/network';
-import { players, sendMessage, onlineUserIds } from '../state/players';
+import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOffline, setOnlineStatusCallback } from '../state/players';
 import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { getSupabaseAdmin } from '../services/supabaseAdmin';
@@ -7,6 +7,7 @@ import {
   createCoopRoom,
   joinCoopRoom,
   joinCoopRoomById,
+  joinCoopRoomByInvite,
   leaveCoopRoom,
   setCoopReady,
   changeCoopClass,
@@ -20,6 +21,9 @@ import {
 import { sendToPlayer } from '../state/players';
 import { GameRoom } from '../game/GameRoom';
 import { RPGCoopGameRoom } from '../game/RPGCoopGameRoom';
+import { friendManager } from '../friend/FriendManager';
+import { friendRequestHandler } from '../friend/FriendRequestHandler';
+import { gameInviteManager } from '../friend/GameInviteManager';
 
 // 게임 방 저장소
 const gameRooms = new Map<string, GameRoom>();
@@ -47,6 +51,11 @@ export function getServerStatus() {
     memoryUsage: process.memoryUsage().heapUsed,
   };
 }
+
+// 친구 온라인 상태 알림 콜백 등록
+setOnlineStatusCallback((userId, isOnline, currentRoom) => {
+  friendManager.notifyFriendsStatusChange(userId, isOnline, currentRoom);
+});
 
 export function getRoom(roomId: string): GameRoom | undefined {
   return gameRooms.get(roomId);
@@ -236,6 +245,43 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleAdminRequestStatus(playerId);
       break;
 
+    // 친구 시스템 메시지
+    case 'GET_FRIENDS_LIST':
+      handleGetFriendsList(playerId);
+      break;
+
+    case 'GET_ONLINE_PLAYERS':
+      handleGetOnlinePlayers(playerId);
+      break;
+
+    case 'SEND_FRIEND_REQUEST':
+      handleSendFriendRequest(playerId, (message as any).targetUserId);
+      break;
+
+    case 'RESPOND_FRIEND_REQUEST':
+      handleRespondFriendRequest(playerId, (message as any).requestId, (message as any).accept);
+      break;
+
+    case 'CANCEL_FRIEND_REQUEST':
+      handleCancelFriendRequest(playerId, (message as any).requestId);
+      break;
+
+    case 'REMOVE_FRIEND':
+      handleRemoveFriend(playerId, (message as any).friendId);
+      break;
+
+    case 'SEND_GAME_INVITE':
+      handleSendGameInvite(playerId, (message as any).friendId, (message as any).roomId);
+      break;
+
+    case 'RESPOND_GAME_INVITE':
+      handleRespondGameInvite(playerId, (message as any).inviteId, (message as any).accept);
+      break;
+
+    case 'GET_SERVER_STATUS':
+      handleGetServerStatus(playerId);
+      break;
+
     default:
       console.warn(`알 수 없는 메시지 타입: ${(message as any).type}`);
   }
@@ -316,7 +362,7 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
 
   // 온라인 사용자 목록에 추가 (게스트가 아닌 경우)
   if (!isGuest && userId) {
-    onlineUserIds.add(userId);
+    registerUserOnline(userId);
   }
 
   // 관리자에게 로그인 이벤트 브로드캐스트
@@ -332,9 +378,9 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
 }
 
 function handleUserLogout(playerId: string, userId: string, nickname: string): void {
-  // 온라인 사용자 목록에서 제거
+  // 온라인 사용자 목록에서 제거 및 친구에게 알림
   if (userId) {
-    onlineUserIds.delete(userId);
+    registerUserOffline(userId);
   }
 
   const player = players.get(playerId);
@@ -841,4 +887,171 @@ function handleAdminRequestStatus(playerId: string): void {
 // 플레이어 연결 해제 시 관리자 구독 해제
 export function handleAdminDisconnect(playerId: string): void {
   adminSubscribers.delete(playerId);
+}
+
+// ============================================
+// 친구 시스템 핸들러
+// ============================================
+
+async function handleGetFriendsList(playerId: string): Promise<void> {
+  const player = players.get(playerId);
+  if (!player || !player.userId) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  const friends = await friendManager.getFriendsList(player.userId);
+  const pendingRequests = await friendRequestHandler.getPendingRequests(player.userId);
+  const sentRequests = await friendRequestHandler.getSentRequests(player.userId);
+
+  sendToPlayer(playerId, { type: 'FRIENDS_LIST', friends });
+  sendToPlayer(playerId, { type: 'PENDING_FRIEND_REQUESTS', requests: pendingRequests });
+  sendToPlayer(playerId, { type: 'SENT_FRIEND_REQUESTS', requests: sentRequests });
+}
+
+async function handleGetOnlinePlayers(playerId: string): Promise<void> {
+  const player = players.get(playerId);
+  if (!player || !player.userId) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  const onlinePlayers = await friendManager.getOnlinePlayers(player.userId);
+  sendToPlayer(playerId, { type: 'ONLINE_PLAYERS_LIST', players: onlinePlayers });
+}
+
+async function handleSendFriendRequest(playerId: string, targetUserId: string): Promise<void> {
+  const player = players.get(playerId);
+  if (!player || !player.userId) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  const result = await friendRequestHandler.sendFriendRequest(player.userId, targetUserId);
+  if (!result.success) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: result.message });
+  }
+  // 성공 시 요청 받은 사람에게 자동으로 알림이 전송됨 (FriendRequestHandler에서 처리)
+}
+
+async function handleRespondFriendRequest(playerId: string, requestId: string, accept: boolean): Promise<void> {
+  const player = players.get(playerId);
+  if (!player || !player.userId) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  const result = await friendRequestHandler.respondFriendRequest(requestId, accept, player.userId);
+  if (!result.success) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: result.message });
+  } else if (accept) {
+    // 수락 시 양쪽 모두에게 친구 목록 갱신
+    const friends = await friendManager.getFriendsList(player.userId);
+    sendToPlayer(playerId, { type: 'FRIENDS_LIST', friends });
+  }
+}
+
+async function handleCancelFriendRequest(playerId: string, requestId: string): Promise<void> {
+  const player = players.get(playerId);
+  if (!player || !player.userId) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  const result = await friendRequestHandler.cancelFriendRequest(requestId, player.userId);
+  if (!result.success) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: result.message });
+  }
+}
+
+async function handleRemoveFriend(playerId: string, friendId: string): Promise<void> {
+  const player = players.get(playerId);
+  if (!player || !player.userId) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  const success = await friendManager.removeFriend(player.userId, friendId);
+  if (!success) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '친구 삭제에 실패했습니다.' });
+  } else {
+    sendToPlayer(playerId, { type: 'FRIEND_REMOVED', friendId });
+  }
+}
+
+async function handleSendGameInvite(playerId: string, friendId: string, roomId: string): Promise<void> {
+  const player = players.get(playerId);
+  if (!player || !player.userId) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  if (!player.roomId) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '방에 입장한 상태에서만 초대할 수 있습니다.' });
+    return;
+  }
+
+  // 방 정보 조회
+  const waitingRoom = getCoopRoomByPlayerId(playerId);
+  const gameRoom = coopGameRooms.get(player.roomId);
+
+  let roomCode = '';
+  let isPrivate = false;
+
+  if (waitingRoom) {
+    roomCode = waitingRoom.code;
+    isPrivate = waitingRoom.isPrivate;
+  } else if (gameRoom) {
+    roomCode = gameRoom.roomCode;
+    isPrivate = gameRoom.isPrivate;
+  } else {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '방 정보를 찾을 수 없습니다.' });
+    return;
+  }
+
+  const result = await gameInviteManager.sendInvite(
+    player.userId,
+    friendId,
+    player.roomId,
+    roomCode,
+    isPrivate
+  );
+
+  if (!result.success) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: result.message });
+  }
+}
+
+async function handleRespondGameInvite(playerId: string, inviteId: string, accept: boolean): Promise<void> {
+  const player = players.get(playerId);
+  if (!player || !player.userId) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  const result = await gameInviteManager.respondInvite(inviteId, accept, player.userId);
+
+  if (!result.success) {
+    sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: result.message });
+    return;
+  }
+
+  if (accept && result.roomId && result.roomCode) {
+    // 초대 수락 시 방 정보 전송 - 클라이언트에서 입장 처리
+    sendToPlayer(playerId, {
+      type: 'GAME_INVITE_ACCEPTED',
+      roomId: result.roomId,
+      roomCode: result.roomCode,
+    });
+  }
+}
+
+function handleGetServerStatus(playerId: string): void {
+  const waitingRooms = getAllWaitingCoopRooms();
+  const status = {
+    onlinePlayers: players.size,
+    activeGames: coopGameRooms.size,
+    waitingRooms: waitingRooms.filter(r => !r.isInGame).length,
+  };
+  sendToPlayer(playerId, { type: 'SERVER_STATUS', status });
 }

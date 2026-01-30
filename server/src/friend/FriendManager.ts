@@ -1,0 +1,316 @@
+import { getSupabaseAdmin } from '../services/supabaseAdmin';
+import { players, onlineUserIds, getPlayerByUserId, sendToPlayer } from '../state/players';
+import type { FriendInfo, OnlinePlayerInfo, FriendRequestInfo, ServerStatusInfo } from '../../../shared/types/friendNetwork';
+
+export class FriendManager {
+  private static instance: FriendManager;
+
+  private constructor() {}
+
+  public static getInstance(): FriendManager {
+    if (!FriendManager.instance) {
+      FriendManager.instance = new FriendManager();
+    }
+    return FriendManager.instance;
+  }
+
+  /**
+   * 친구 목록 조회 (온라인 상태 포함)
+   */
+  async getFriendsList(userId: string): Promise<FriendInfo[]> {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return [];
+
+    try {
+      // user_id로 친구 목록 조회
+      const { data: friendsAsUser, error: error1 } = await supabase
+        .from('friends')
+        .select(`
+          friend_id,
+          created_at,
+          friend:player_profiles!friends_friend_id_fkey(id, nickname, player_level)
+        `)
+        .eq('user_id', userId);
+
+      // friend_id로 친구 목록 조회 (역방향)
+      const { data: friendsAsFriend, error: error2 } = await supabase
+        .from('friends')
+        .select(`
+          user_id,
+          created_at,
+          friend:player_profiles!friends_user_id_fkey(id, nickname, player_level)
+        `)
+        .eq('friend_id', userId);
+
+      if (error1 || error2) {
+        console.error('[FriendManager] 친구 목록 조회 오류:', error1 || error2);
+        return [];
+      }
+
+      const friends: FriendInfo[] = [];
+
+      // user_id 기준 친구들
+      if (friendsAsUser) {
+        for (const f of friendsAsUser) {
+          const friendProfile = f.friend as any;
+          if (!friendProfile) continue;
+
+          const isOnline = onlineUserIds.has(friendProfile.id);
+          const onlinePlayer = isOnline ? getPlayerByUserId(friendProfile.id) : null;
+
+          friends.push({
+            id: friendProfile.id,
+            name: friendProfile.nickname,
+            isOnline,
+            playerLevel: friendProfile.player_level || 1,
+            currentRoom: onlinePlayer?.roomId || undefined,
+          });
+        }
+      }
+
+      // friend_id 기준 친구들 (역방향)
+      if (friendsAsFriend) {
+        for (const f of friendsAsFriend) {
+          const friendProfile = f.friend as any;
+          if (!friendProfile) continue;
+
+          // 중복 체크
+          if (friends.some(friend => friend.id === friendProfile.id)) continue;
+
+          const isOnline = onlineUserIds.has(friendProfile.id);
+          const onlinePlayer = isOnline ? getPlayerByUserId(friendProfile.id) : null;
+
+          friends.push({
+            id: friendProfile.id,
+            name: friendProfile.nickname,
+            isOnline,
+            playerLevel: friendProfile.player_level || 1,
+            currentRoom: onlinePlayer?.roomId || undefined,
+          });
+        }
+      }
+
+      // 온라인 친구 먼저, 그 다음 레벨 순 정렬
+      friends.sort((a, b) => {
+        if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+        return b.playerLevel - a.playerLevel;
+      });
+
+      return friends;
+    } catch (err) {
+      console.error('[FriendManager] 친구 목록 조회 예외:', err);
+      return [];
+    }
+  }
+
+  /**
+   * 온라인 플레이어 목록 조회 (친구 여부 표시)
+   */
+  async getOnlinePlayers(userId: string): Promise<OnlinePlayerInfo[]> {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return [];
+
+    try {
+      // 현재 온라인인 사용자 ID들
+      const onlineIds = Array.from(onlineUserIds);
+      if (onlineIds.length === 0) return [];
+
+      // 온라인 사용자 프로필 조회
+      const { data: profiles, error } = await supabase
+        .from('player_profiles')
+        .select('id, nickname, player_level')
+        .in('id', onlineIds);
+
+      if (error || !profiles) {
+        console.error('[FriendManager] 온라인 플레이어 조회 오류:', error);
+        return [];
+      }
+
+      // 친구 ID 목록 조회
+      const friendIds = await this.getFriendIds(userId);
+
+      const onlinePlayers: OnlinePlayerInfo[] = profiles
+        .filter(p => p.id !== userId) // 자신 제외
+        .map(p => {
+          const player = getPlayerByUserId(p.id);
+          return {
+            id: p.id,
+            name: p.nickname,
+            playerLevel: p.player_level || 1,
+            isFriend: friendIds.has(p.id),
+            currentRoom: player?.roomId || undefined,
+          };
+        });
+
+      // 친구 먼저, 그 다음 레벨 순 정렬
+      onlinePlayers.sort((a, b) => {
+        if (a.isFriend !== b.isFriend) return a.isFriend ? -1 : 1;
+        return b.playerLevel - a.playerLevel;
+      });
+
+      return onlinePlayers;
+    } catch (err) {
+      console.error('[FriendManager] 온라인 플레이어 조회 예외:', err);
+      return [];
+    }
+  }
+
+  /**
+   * 친구 ID 목록 조회 (Set으로 반환)
+   */
+  async getFriendIds(userId: string): Promise<Set<string>> {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return new Set();
+
+    try {
+      const { data: friendsAsUser } = await supabase
+        .from('friends')
+        .select('friend_id')
+        .eq('user_id', userId);
+
+      const { data: friendsAsFriend } = await supabase
+        .from('friends')
+        .select('user_id')
+        .eq('friend_id', userId);
+
+      const friendIds = new Set<string>();
+
+      if (friendsAsUser) {
+        friendsAsUser.forEach(f => friendIds.add(f.friend_id));
+      }
+      if (friendsAsFriend) {
+        friendsAsFriend.forEach(f => friendIds.add(f.user_id));
+      }
+
+      return friendIds;
+    } catch (err) {
+      console.error('[FriendManager] 친구 ID 목록 조회 예외:', err);
+      return new Set();
+    }
+  }
+
+  /**
+   * 친구 여부 확인
+   */
+  async areFriends(userId1: string, userId2: string): Promise<boolean> {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return false;
+
+    try {
+      const { data, error } = await supabase
+        .from('friends')
+        .select('id')
+        .or(`and(user_id.eq.${userId1},friend_id.eq.${userId2}),and(user_id.eq.${userId2},friend_id.eq.${userId1})`)
+        .limit(1);
+
+      return !error && data && data.length > 0;
+    } catch (err) {
+      console.error('[FriendManager] 친구 여부 확인 예외:', err);
+      return false;
+    }
+  }
+
+  /**
+   * 친구 삭제 (양방향)
+   */
+  async removeFriend(userId: string, friendId: string): Promise<boolean> {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return false;
+
+    try {
+      // 양방향 삭제
+      const { error: error1 } = await supabase
+        .from('friends')
+        .delete()
+        .eq('user_id', userId)
+        .eq('friend_id', friendId);
+
+      const { error: error2 } = await supabase
+        .from('friends')
+        .delete()
+        .eq('user_id', friendId)
+        .eq('friend_id', userId);
+
+      if (error1 && error2) {
+        console.error('[FriendManager] 친구 삭제 오류:', error1, error2);
+        return false;
+      }
+
+      console.log(`[FriendManager] 친구 삭제 완료: ${userId} <-> ${friendId}`);
+
+      // 상대방에게 알림 (온라인인 경우)
+      const friendPlayer = getPlayerByUserId(friendId);
+      if (friendPlayer) {
+        sendToPlayer(friendPlayer.id, { type: 'FRIEND_REMOVED', friendId: userId });
+      }
+
+      return true;
+    } catch (err) {
+      console.error('[FriendManager] 친구 삭제 예외:', err);
+      return false;
+    }
+  }
+
+  /**
+   * 친구 관계 추가 (양방향)
+   */
+  async addFriendship(userId1: string, userId2: string): Promise<boolean> {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return false;
+
+    try {
+      // 양방향 관계 생성
+      const { error } = await supabase
+        .from('friends')
+        .insert([
+          { user_id: userId1, friend_id: userId2 },
+          { user_id: userId2, friend_id: userId1 },
+        ]);
+
+      if (error) {
+        console.error('[FriendManager] 친구 관계 추가 오류:', error);
+        return false;
+      }
+
+      console.log(`[FriendManager] 친구 관계 추가 완료: ${userId1} <-> ${userId2}`);
+      return true;
+    } catch (err) {
+      console.error('[FriendManager] 친구 관계 추가 예외:', err);
+      return false;
+    }
+  }
+
+  /**
+   * 서버 상태 조회
+   */
+  getServerStatus(): ServerStatusInfo {
+    // MessageHandler에서 가져오는 함수 import 필요
+    // 여기서는 간단히 players 맵 사이즈로 계산
+    return {
+      onlinePlayers: players.size,
+      activeGames: 0, // 외부에서 설정해야 함
+      waitingRooms: 0, // 외부에서 설정해야 함
+    };
+  }
+
+  /**
+   * 친구에게 온라인 상태 변경 알림
+   */
+  async notifyFriendsStatusChange(userId: string, isOnline: boolean, currentRoom?: string): Promise<void> {
+    const friendIds = await this.getFriendIds(userId);
+
+    for (const friendId of friendIds) {
+      const friendPlayer = getPlayerByUserId(friendId);
+      if (friendPlayer) {
+        sendToPlayer(friendPlayer.id, {
+          type: 'FRIEND_STATUS_CHANGED',
+          friendId: userId,
+          isOnline,
+          currentRoom,
+        });
+      }
+    }
+  }
+}
+
+export const friendManager = FriendManager.getInstance();

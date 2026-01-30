@@ -15,8 +15,14 @@ import {
   joinMultiplayerRoom,
   leaveMultiplayerRoom,
   startMultiplayerGame,
+  joinRoomByInvite,
 } from '../../hooks/useNetworkSync';
 import { ProfileButton } from '../ui/ProfileButton';
+import { FriendPanel } from '../ui/FriendPanel';
+import { FriendRequestNotification } from '../ui/FriendRequestNotification';
+import { GameInviteNotification } from '../ui/GameInviteNotification';
+import { ServerStatusBar } from '../ui/ServerStatusBar';
+import { useFriendMessages } from '../../hooks/useFriendMessages';
 
 // 난이도 색상 설정
 const difficultyColors: Record<RPGDifficulty, { bg: string; border: string; text: string; hoverBg: string }> = {
@@ -57,6 +63,9 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   // 현재 방 설정 (로비에서 표시/변경용)
   const [roomIsPrivate, setRoomIsPrivate] = useState(false);
   const [roomDifficulty, setRoomDifficulty] = useState<RPGDifficulty>('easy');
+
+  // 친구 시스템 메시지 핸들러
+  useFriendMessages();
 
   // 게임 시작 시 게임 화면으로 전환
   useEffect(() => {
@@ -355,6 +364,31 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           soundManager.init(); // AudioContext 초기화 (fallback)
           useRPGStore.getState().initMultiplayerGame(message.players, message.isHost, message.difficulty as RPGDifficulty);
           break;
+
+        // 친구 게임 초대 수락 시 자동 방 참가
+        case 'GAME_INVITE_ACCEPTED': {
+          console.log('[Lobby] 게임 초대 수락 - 방 참가:', message.roomCode);
+          const inviteClassProgress = useAuthStore.getState().classProgress;
+          const defaultClass: HeroClass = 'archer';
+          const inviteProgress = inviteClassProgress.find(p => p.className === defaultClass);
+          const inviteCharacterLevel = inviteProgress?.classLevel || 1;
+          const inviteStatUpgrades = inviteProgress?.statUpgrades || createDefaultStatUpgrades();
+          const inviteAdvancedClass = inviteProgress?.advancedClass;
+          const inviteTier = inviteProgress?.tier;
+          const invitePlayerName = profile?.nickname || '플레이어';
+
+          selectClass(defaultClass);
+          joinRoomByInvite(
+            message.roomCode,
+            invitePlayerName,
+            defaultClass,
+            inviteCharacterLevel,
+            inviteStatUpgrades,
+            inviteAdvancedClass,
+            inviteTier
+          );
+          break;
+        }
       }
     };
 
@@ -810,14 +844,15 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
+        {/* 친구 초대 안내 (방이 가득 차지 않았을 때만 표시) */}
+        {players.length < 4 && (
+          <p className="text-gray-500 text-xs mt-2">
+            오른쪽 상단의 친구 패널에서 친구를 초대할 수 있습니다
+          </p>
+        )}
+
         {/* 액션 버튼 */}
         <div className="flex gap-4 mt-4">
-          {/* <button
-            onClick={handleLeaveRoom}
-            className="px-6 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
-          >
-            나가기
-          </button> */}
 
           {isHostPlayer ? (
             <button
@@ -1053,6 +1088,19 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         <ProfileButton />
       </div>
 
+      {/* 오른쪽 상단 친구 패널 */}
+      <div className="absolute top-8 right-8 z-20">
+        <FriendPanel
+          currentRoomId={multiplayer.connectionState === 'in_lobby' ? multiplayer.roomId : undefined}
+        />
+      </div>
+
+      {/* 친구 요청 알림 */}
+      <FriendRequestNotification />
+
+      {/* 게임 초대 알림 */}
+      <GameInviteNotification />
+
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 flex flex-col items-center animate-fade-in">
         {/* 타이틀 */}
@@ -1062,9 +1110,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
         <div style={{ height: '10px' }} />
 
-        <p className="text-gray-400 mb-8">1~4명이 함께 보스를 물리치세요 (혼자 시작 가능)</p>
+        <p className="text-gray-400 mb-4">1~4명이 함께 보스를 물리치세요 (혼자 시작 가능)</p>
 
-        <div style={{ height: '30px' }} />
+        {/* 서버 상태 표시 */}
+        <div className="mb-6">
+          <ServerStatusBar />
+        </div>
 
         {/* 연결 상태에 따른 UI */}
         <div className="bg-gray-900/50 border border-gray-700 rounded-xl px-10 py-10 min-w-[900px] min-h-[480px] flex flex-col items-center justify-center">

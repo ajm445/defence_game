@@ -5,6 +5,10 @@ import type { UnitType } from '../../src/types/unit';
 import type { Position } from '../../src/types/game';
 import type { CharacterStatUpgrades } from '../../src/types/auth';
 import type { SerializedGameState, PlayerInput, HostBasedClientMessage, HostBasedServerMessage } from './hostBasedNetwork';
+import type { FriendClientMessage, FriendServerMessage } from './friendNetwork';
+
+// Re-export friend network types for convenience
+export * from './friendNetwork';
 
 // ============================================
 // 협동 모드 설정
@@ -256,7 +260,9 @@ export type CoopClientMessage =
   | { type: 'PAUSE_COOP_GAME' }
   | { type: 'RESUME_COOP_GAME' }
   // 게임 중단 (호스트 전용)
-  | { type: 'STOP_COOP_GAME' };
+  | { type: 'STOP_COOP_GAME' }
+  // 친구 시스템 메시지
+  | FriendClientMessage;
 
 // ============================================
 // 서버 → 클라이언트 메시지
@@ -297,7 +303,9 @@ export type CoopServerMessage =
   | { type: 'COOP_GAME_PAUSED' }
   | { type: 'COOP_GAME_RESUMED' }
   // 게임 중단 (호스트가 중단)
-  | { type: 'COOP_GAME_STOPPED' };
+  | { type: 'COOP_GAME_STOPPED' }
+  // 친구 시스템 메시지
+  | FriendServerMessage;
 
 // ============================================
 // 연결 상태
