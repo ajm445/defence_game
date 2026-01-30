@@ -90,13 +90,8 @@ export function useNetworkSync() {
 
     // 스킬 사용
     if (input.skillUsed) {
-      // 스킬 사용 시에도 위치 업데이트
-      if (input.position) {
-        state.updateOtherHero(heroId, {
-          x: input.position.x,
-          y: input.position.y,
-        });
-      }
+      // 스킬 사용 시 위치 업데이트 제거 (이동 중 위치 되돌아감 버그 방지)
+      // 보스 스킬 데미지 계산에는 input.position 사용 (hero 위치와 별개)
 
       executeOtherHeroSkill(
         heroId,
@@ -109,13 +104,8 @@ export function useNetworkSync() {
 
     // 업그레이드 요청 (각 플레이어별 골드/업그레이드 사용, 사망한 영웅은 업그레이드 불가)
     if (input.upgradeRequested && hero.hp > 0) {
-      // 업그레이드 시에도 위치 업데이트 (위치 되돌아감 버그 방지)
-      if (input.position) {
-        state.updateOtherHero(heroId, {
-          x: input.position.x,
-          y: input.position.y,
-        });
-      }
+      // 업그레이드 시 위치 업데이트 제거 (이동 중 위치 되돌아감 버그 방지)
+      // 위치는 이동 입력(moveDirection)으로만 업데이트됨
 
       const upgradeType = input.upgradeRequested as 'attack' | 'speed' | 'hp' | 'attackSpeed' | 'goldRate' | 'range';
       const success = state.upgradeOtherHeroStat(heroId, upgradeType);
@@ -867,7 +857,7 @@ export function sendSkillUse(skillSlot: 'Q' | 'W' | 'E', targetX: number, target
     const hero = state.hero;
     const input: PlayerInput = {
       playerId: state.multiplayer.myPlayerId || '',
-      moveDirection: null,  // 스킬 사용 시 기존 이동 방향 유지
+      // moveDirection 생략 = 기존 이동 방향 유지
       // 클라이언트 실제 위치 전송 (보스 스킬 데미지 계산용)
       position: hero ? { x: hero.x, y: hero.y } : undefined,
       skillUsed: { skillSlot, targetX, targetY },
@@ -890,7 +880,7 @@ export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'gol
     const hero = state.hero;
     const input: PlayerInput = {
       playerId: state.multiplayer.myPlayerId || '',
-      moveDirection: null,  // 업그레이드 시 기존 이동 방향 유지
+      // moveDirection 생략 = 기존 이동 방향 유지
       // 업그레이드 시에도 현재 위치 전송 (위치 되돌아감 버그 방지)
       position: hero ? { x: hero.x, y: hero.y } : undefined,
       upgradeRequested: upgradeType,

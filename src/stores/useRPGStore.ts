@@ -1029,7 +1029,7 @@ export const useRPGStore = create<RPGStore>()(
         const hero = state.hero;
         const input: PlayerInput = {
           playerId: state.multiplayer.myPlayerId || '',
-          moveDirection: null,  // 업그레이드 시 기존 이동 방향 유지
+          // moveDirection 생략 = 기존 이동 방향 유지
           position: hero ? { x: hero.x, y: hero.y } : undefined,
           upgradeRequested: stat,
           timestamp: Date.now(),
@@ -2332,8 +2332,11 @@ export const useRPGStore = create<RPGStore>()(
 
             // 클라이언트 피격 감지: HP가 감소했을 때 lastDamageTime 업데이트 (피격 화면 효과용)
             // 무적 상태일 때는 피격 이펙트 표시하지 않음 (서버 버프로 체크)
+            // HP 재생 타이밍 차이로 인한 오탐 방지: 최소 5 이상 감소했을 때만 피격으로 판정
             const isInvincible = hero.buffs?.some(b => b.type === 'invincible' && b.duration > 0);
-            if (hero.hp < localHero.hp && !isInvincible) {
+            const hpDecrease = localHero.hp - hero.hp;
+            const MIN_DAMAGE_THRESHOLD = 5;  // HP 재생 타이밍 차이 무시
+            if (hpDecrease >= MIN_DAMAGE_THRESHOLD && !isInvincible) {
               newLastDamageTime = serializedState.gameTime;
             }
 
