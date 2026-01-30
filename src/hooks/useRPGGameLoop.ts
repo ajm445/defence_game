@@ -37,6 +37,8 @@ export function useRPGGameLoop() {
   const wasRunningRef = useRef<boolean>(false);
   // 이펙트 ID와 처리 시간을 함께 저장하여 메모리 누수 방지
   const processedEffectIdsRef = useRef<Map<string, number>>(new Map());
+  // 힐러 오로라 누적 힐량 추적 (heroId -> accumulatedHeal)
+  const accumulatedAuraHealRef = useRef<Map<string, number>>(new Map());
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -654,13 +656,27 @@ export function useRPGGameLoop() {
 
         // 힐량 계산 (최대 HP의 2% * deltaTime)
         const healAmount = ally.maxHp * healPerSecond * deltaTime;
-        const newHp = Math.min(ally.maxHp, ally.hp + healAmount);
+        const actualHeal = Math.min(ally.maxHp - ally.hp, healAmount);
+        const newHp = ally.hp + actualHeal;
 
         // 힐 적용
         if (auraHeroState && ally.id === auraHeroState.id) {
           useRPGStore.getState().updateHeroState({ hp: newHp });
         } else {
           useRPGStore.getState().updateOtherHero(ally.id, { hp: newHp });
+        }
+
+        // 누적 힐량 추적 및 주기적으로 힐 숫자 표시
+        if (actualHeal > 0) {
+          const prevAccum = accumulatedAuraHealRef.current.get(ally.id) || 0;
+          const newAccum = prevAccum + actualHeal;
+          const HEAL_NUMBER_THRESHOLD = 10; // 10 이상 누적되면 표시
+          if (newAccum >= HEAL_NUMBER_THRESHOLD) {
+            useRPGStore.getState().addDamageNumber(ally.x, ally.y - 30, Math.round(newAccum), 'heal');
+            accumulatedAuraHealRef.current.set(ally.id, 0);
+          } else {
+            accumulatedAuraHealRef.current.set(ally.id, newAccum);
+          }
         }
       }
     }
