@@ -1,7 +1,7 @@
 # 클라이언트 캐릭터 움직임 개선
 
-> 버전: V1.17.16
-> 작성일: 2025-01-29
+> 버전: V1.17.12
+> 최종 수정: 2025-01-30
 
 ## 개요
 
@@ -179,8 +179,10 @@ if (t >= 1 && isMoving) {
 
 | 파일 | 변경 내용 |
 |------|----------|
-| `src/stores/useRPGStore.ts` | `HeroInterpolation` 타입 정의, 보간 로직 개선 |
-| `src/hooks/useRPGGameLoop.ts` | 클라이언트 보간 업데이트 호출 |
+| `src/stores/useRPGStore.ts` | `HeroInterpolation` 타입 정의, 보간 로직 개선, 이펙트 동기화 |
+| `src/hooks/useRPGGameLoop.ts` | 클라이언트 보간 업데이트 호출, 이펙트 처리 |
+| `src/types/rpg.ts` | `BossSkillExecutedEffect` 타입 추가 |
+| `shared/types/hostBasedNetwork.ts` | 네트워크 상태에 이펙트 배열 추가 |
 
 ### HeroInterpolation 타입 (신규)
 
@@ -206,11 +208,57 @@ interface HeroInterpolation {
 
 ---
 
+---
+
+## 이펙트 동기화 (V1.17.12)
+
+### 문제점
+
+기존 보스 스킬 이펙트 동기화 방식의 문제:
+
+1. 클라이언트가 `bossSkillWarnings`의 진행도 95%를 감지하여 이펙트 재생
+2. 호스트에서 스킬 실행 후 경고가 즉시 제거됨
+3. 클라이언트가 상태를 받을 때 이미 경고가 없어 이펙트 누락
+
+### 해결 방안
+
+`BasicAttackEffect`와 동일한 패턴으로 별도의 동기화 배열 추가:
+
+```typescript
+// 보스 스킬 실행 이펙트 인터페이스
+interface BossSkillExecutedEffect {
+  id: string;           // 고유 ID (중복 방지)
+  skillType: BossSkillType;
+  x: number;
+  y: number;
+  timestamp: number;
+  healPercent?: number; // 힐 스킬의 경우
+}
+```
+
+### 동기화 흐름
+
+```
+호스트:
+1. 스킬 실행 시 addBossSkillExecutedEffect() 호출
+2. 이펙트 정보가 bossSkillExecutedEffects 배열에 추가
+3. serializeGameState()로 상태 직렬화 시 포함
+4. cleanBossSkillExecutedEffects()로 500ms 후 정리
+
+클라이언트:
+1. applySerializedState()로 이펙트 배열 수신
+2. 새로운 이펙트 ID 감지 시 이펙트/사운드 재생
+3. processedEffectIdsRef로 중복 재생 방지
+```
+
+---
+
 ## 테스트 체크리스트
 
 - [x] 싱글플레이어에서 기존 동작 유지
 - [x] 멀티플레이어 호스트에서 다른 플레이어 움직임 부드러움
 - [x] 멀티플레이어 클라이언트에서 모든 캐릭터 움직임 부드러움
+- [x] 클라이언트에서 보스 스킬 이펙트/사운드 정상 재생
 - [ ] 네트워크 지연 상황에서의 동작 (추가 테스트 필요)
 - [ ] 급격한 방향 전환 시 자연스러운 보정 (추가 테스트 필요)
 

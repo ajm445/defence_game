@@ -73,8 +73,9 @@ export const RPGScreenEffects: React.FC = () => {
     return null;
   }
 
-  // 비네팅 + 펄스 강도 합산
-  const totalVignetteIntensity = Math.min(0.9, vignetteIntensity + pulseIntensity);
+  // 비네팅 + 펄스 강도 합산 (피격 플래시 중일 때는 비네팅 효과 약화)
+  const vignetteReduction = damageFlashIntensity > 0 ? 0.5 : 1;
+  const totalVignetteIntensity = Math.min(0.9, (vignetteIntensity + pulseIntensity) * vignetteReduction);
 
   return (
     <>
@@ -94,18 +95,24 @@ export const RPGScreenEffects: React.FC = () => {
         />
       )}
 
-      {/* 피격 플래시 효과 (화면 전체 빨간 틴트) */}
+      {/* 피격 플래시 효과 (테두리만 깜빡임 - 비네팅 스타일) */}
       {damageFlashIntensity > 0 && (
         <div
           className="absolute inset-0 pointer-events-none z-41"
           style={{
-            backgroundColor: `rgba(255, 0, 0, ${damageFlashIntensity})`,
+            background: `radial-gradient(
+              ellipse at center,
+              transparent 50%,
+              rgba(255, 0, 0, ${damageFlashIntensity * 0.4}) 70%,
+              rgba(255, 0, 0, ${damageFlashIntensity * 0.8}) 85%,
+              rgba(255, 0, 0, ${damageFlashIntensity}) 100%
+            )`,
           }}
         />
       )}
 
-      {/* 위험 경고 테두리 펄스 */}
-      {isDanger && pulseIntensity > 0 && (
+      {/* 위험 경고 테두리 펄스 (피격 플래시 중에는 표시 안함) */}
+      {isDanger && pulseIntensity > 0 && damageFlashIntensity === 0 && (
         <div
           className="absolute inset-0 pointer-events-none z-40"
           style={{

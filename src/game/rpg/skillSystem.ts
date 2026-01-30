@@ -1522,11 +1522,10 @@ function executeAdvancedESkill(
       break;
 
     case 'guardian':
-      // 보호막 - 아군 전체에게 5초간 피해 50% 감소
+      // 보호막 - 아군 전체에게 5초간 피해 50% 감소 (사거리 제한 없음)
       {
         const duration = skillConfig.duration || 5;
         const damageReduction = skillConfig.damageReduction || 0.5;
-        const radius = skillConfig.radius || 500;
 
         // 자신에게 버프
         buff = {
@@ -1536,22 +1535,19 @@ function executeAdvancedESkill(
           damageReduction,
         };
 
-        // 아군 전체에게 버프
+        // 아군 전체에게 버프 (사거리 제한 없음)
         for (const ally of allies) {
           if (ally.id === hero.id) continue;
           if (ally.hp <= 0) continue;  // 사망한 아군 제외
-          const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
-          if (allyDist <= radius) {
-            allyBuffs.push({
-              heroId: ally.id,
-              buff: {
-                type: 'ironwall',
-                duration,
-                startTime: gameTime,
-                damageReduction,
-              },
-            });
-          }
+          allyBuffs.push({
+            heroId: ally.id,
+            buff: {
+              type: 'ironwall',
+              duration,
+              startTime: gameTime,
+              damageReduction,
+            },
+          });
         }
 
         effect = {
@@ -1666,11 +1662,10 @@ function executeAdvancedESkill(
       break;
 
     case 'paladin':
-      // 신성한 빛 - 아군 전체 HP 30% 회복 + 3초 무적
+      // 신성한 빛 - 아군 전체 HP 30% 회복 + 3초 무적 (사거리 제한 없음)
       {
         const healPercent = skillConfig.healPercent || 0.3;
         const invincibleDuration = skillConfig.invincibleDuration || 3;
-        const radius = skillConfig.radius || 500;
 
         // 자신 힐 + 무적
         const selfHeal = Math.floor(hero.maxHp * healPercent);
@@ -1685,23 +1680,20 @@ function executeAdvancedESkill(
           startTime: gameTime,
         };
 
-        // 아군 전체 힐 + 무적
+        // 아군 전체 힐 + 무적 (사거리 제한 없음)
         for (const ally of allies) {
           if (ally.id === hero.id) continue;
           if (ally.hp <= 0) continue;  // 사망한 아군 제외
-          const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
-          if (allyDist <= radius) {
-            const healAmount = Math.floor(ally.maxHp * healPercent);
-            allyHeals.push({ heroId: ally.id, heal: healAmount });
-            allyBuffs.push({
-              heroId: ally.id,
-              buff: {
-                type: 'invincible',
-                duration: invincibleDuration,
-                startTime: gameTime,
-              },
-            });
-          }
+          const healAmount = Math.floor(ally.maxHp * healPercent);
+          allyHeals.push({ heroId: ally.id, heal: healAmount });
+          allyBuffs.push({
+            heroId: ally.id,
+            buff: {
+              type: 'invincible',
+              duration: invincibleDuration,
+              startTime: gameTime,
+            },
+          });
         }
 
         effect = {

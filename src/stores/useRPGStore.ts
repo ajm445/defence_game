@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning, AdvancedHeroClass, SkillType, DamageNumber, DamageNumberType } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning, AdvancedHeroClass, SkillType, DamageNumber, DamageNumberType, BossSkillExecutedEffect } from '../types/rpg';
 import { UnitType } from '../types/unit';
 import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, JOB_ADVANCEMENT_REQUIREMENTS, SECOND_ENHANCEMENT_MULTIPLIER, ADVANCEMENT_OPTIONS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
@@ -31,6 +31,9 @@ interface RPGState extends RPGGameState {
 
   // 넥서스 레이저 효과 (네트워크 동기화용)
   nexusLaserEffects: NexusLaserEffect[];
+
+  // 보스 스킬 실행 이펙트 (네트워크 동기화용)
+  bossSkillExecutedEffects: BossSkillExecutedEffect[];
 
   // 플로팅 데미지 숫자
   damageNumbers: DamageNumber[];
@@ -145,6 +148,10 @@ interface RPGActions {
   // 넥서스 레이저 이펙트 (네트워크 동기화용)
   addNexusLaserEffect: (effect: NexusLaserEffect) => void;
   cleanNexusLaserEffects: () => void;
+
+  // 보스 스킬 실행 이펙트 (네트워크 동기화용)
+  addBossSkillExecutedEffect: (effect: BossSkillExecutedEffect) => void;
+  cleanBossSkillExecutedEffects: () => void;
 
   // 보스 스킬 경고 (시각화용)
   addBossSkillWarning: (warning: BossSkillWarning) => void;
@@ -359,6 +366,7 @@ const initialState: RPGState = {
   activeSkillEffects: [],
   basicAttackEffects: [],
   nexusLaserEffects: [],
+  bossSkillExecutedEffects: [],
   damageNumbers: [],
   pendingSkills: [],
   bossSkillWarnings: [],
@@ -588,6 +596,7 @@ export const useRPGStore = create<RPGStore>()(
         activeSkillEffects: [],
         basicAttackEffects: [],
         nexusLaserEffects: [],
+        bossSkillExecutedEffects: [],
         damageNumbers: [],
         pendingSkills: [],
         gameOver: false,
@@ -1020,7 +1029,7 @@ export const useRPGStore = create<RPGStore>()(
         const hero = state.hero;
         const input: PlayerInput = {
           playerId: state.multiplayer.myPlayerId || '',
-          moveDirection: null,
+          // 업그레이드 시 기존 이동 방향 유지 (moveDirection을 보내지 않음)
           position: hero ? { x: hero.x, y: hero.y } : undefined,
           upgradeRequested: stat,
           timestamp: Date.now(),
@@ -1219,6 +1228,21 @@ export const useRPGStore = create<RPGStore>()(
       const now = Date.now();
       set((state) => ({
         nexusLaserEffects: state.nexusLaserEffects.filter(e => now - e.timestamp < 500),
+      }));
+    },
+
+    // 보스 스킬 실행 이펙트 추가 (네트워크 동기화용)
+    addBossSkillExecutedEffect: (effect: BossSkillExecutedEffect) => {
+      set((state) => ({
+        bossSkillExecutedEffects: [...state.bossSkillExecutedEffects, effect],
+      }));
+    },
+
+    // 오래된 보스 스킬 실행 이펙트 정리 (500ms 이후)
+    cleanBossSkillExecutedEffects: () => {
+      const now = Date.now();
+      set((state) => ({
+        bossSkillExecutedEffects: state.bossSkillExecutedEffects.filter(e => now - e.timestamp < 500),
       }));
     },
 
@@ -2241,6 +2265,7 @@ export const useRPGStore = create<RPGStore>()(
         activeSkillEffects: state.activeSkillEffects,
         basicAttackEffects: state.basicAttackEffects,
         nexusLaserEffects: state.nexusLaserEffects,
+        bossSkillExecutedEffects: state.bossSkillExecutedEffects,
         pendingSkills: state.pendingSkills,
         bossSkillWarnings: state.bossSkillWarnings,
         damageNumbers: state.damageNumbers,
@@ -2306,7 +2331,9 @@ export const useRPGStore = create<RPGStore>()(
             const dashSyncY = isDashing ? hero.y : syncY;
 
             // 클라이언트 피격 감지: HP가 감소했을 때 lastDamageTime 업데이트 (피격 화면 효과용)
-            if (hero.hp < localHero.hp) {
+            // 무적 상태일 때는 피격 이펙트 표시하지 않음 (서버 버프로 체크)
+            const isInvincible = hero.buffs?.some(b => b.type === 'invincible' && b.duration > 0);
+            if (hero.hp < localHero.hp && !isInvincible) {
               newLastDamageTime = serializedState.gameTime;
             }
 
@@ -2327,6 +2354,7 @@ export const useRPGStore = create<RPGStore>()(
               buffs: hero.buffs,
               deathTime: hero.deathTime,  // 사망 시간 동기화 (부활 타이머용)
               dashState: hero.dashState,  // 돌진 상태 동기화 (스킬 이동용)
+              castingUntil: hero.castingUntil,  // 시전 상태 동기화 (스턴 시 시전 취소)
               // 전직 정보 동기화 (부활 시 전직 상태 유지)
               advancedClass: hero.advancedClass,
               tier: hero.tier,
@@ -2493,6 +2521,7 @@ export const useRPGStore = create<RPGStore>()(
         activeSkillEffects: serializedState.activeSkillEffects,
         basicAttackEffects: serializedState.basicAttackEffects || [],
         nexusLaserEffects: serializedState.nexusLaserEffects || [],
+        bossSkillExecutedEffects: serializedState.bossSkillExecutedEffects || [],
         pendingSkills: serializedState.pendingSkills,
         bossSkillWarnings: serializedState.bossSkillWarnings || [],
         damageNumbers: serializedState.damageNumbers || [],
@@ -2614,6 +2643,10 @@ function serializeHeroToNetwork(hero: HeroUnit, gold: number, upgradeLevels: Upg
     attackSpeed: hero.config.attackSpeed || 1,
     speed: hero.config.speed,
     range: hero.config.range || 0,
+    // 기본 스탯 직렬화 (업그레이드 계산에 필요)
+    baseAttack: hero.baseAttack,
+    baseSpeed: hero.baseSpeed,
+    baseAttackSpeed: hero.baseAttackSpeed,
     gold,
     upgradeLevels,
     isDead: hero.hp <= 0,
@@ -2695,9 +2728,10 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
     attackCooldown: 0,
     team: 'player',
     skills,
-    baseAttack: serialized.attack,
-    baseSpeed: serialized.speed,
-    baseAttackSpeed: serialized.attackSpeed,
+    // 기본 스탯 역직렬화 (직렬화된 base 값 사용, 없으면 현재 값으로 폴백)
+    baseAttack: serialized.baseAttack ?? serialized.attack,
+    baseSpeed: serialized.baseSpeed ?? serialized.speed,
+    baseAttackSpeed: serialized.baseAttackSpeed ?? serialized.attackSpeed,
     buffs: serialized.buffs,
     facingRight: serialized.facingRight,
     facingAngle: serialized.facingAngle,

@@ -430,6 +430,16 @@ export interface BasicAttackEffect {
   timestamp: number;    // 생성 시간
 }
 
+// 보스 스킬 실행 이펙트 (네트워크 동기화용)
+export interface BossSkillExecutedEffect {
+  id: string;           // 고유 ID (중복 생성 방지)
+  skillType: BossSkillType;
+  x: number;
+  y: number;
+  timestamp: number;    // 생성 시간
+  healPercent?: number; // 힐 스킬의 경우 회복량 (UI 알림용)
+}
+
 // 플로팅 데미지 숫자 타입
 export type DamageNumberType = 'damage' | 'critical' | 'heal' | 'enemy_damage';
 

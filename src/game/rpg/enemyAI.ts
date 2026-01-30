@@ -343,14 +343,14 @@ export function calculateDamageAfterReduction(
   damage: number,
   hero: HeroUnit
 ): number {
-  // 무적 버프 체크 (돌진 중)
-  const invincibleBuff = hero.buffs?.find(b => b.type === 'invincible');
+  // 무적 버프 체크 (돌진 중) - duration > 0 인 경우만 유효
+  const invincibleBuff = hero.buffs?.find(b => b.type === 'invincible' && b.duration > 0);
   if (invincibleBuff) {
     return 0;
   }
 
-  // 철벽 방어 버프 체크
-  const ironwallBuff = hero.buffs?.find(b => b.type === 'ironwall');
+  // 철벽 방어 버프 체크 - duration > 0 인 경우만 유효
+  const ironwallBuff = hero.buffs?.find(b => b.type === 'ironwall' && b.duration > 0);
   if (ironwallBuff && ironwallBuff.damageReduction) {
     return Math.floor(damage * (1 - ironwallBuff.damageReduction));
   }
