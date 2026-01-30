@@ -1029,7 +1029,7 @@ export const useRPGStore = create<RPGStore>()(
         const hero = state.hero;
         const input: PlayerInput = {
           playerId: state.multiplayer.myPlayerId || '',
-          // 업그레이드 시 기존 이동 방향 유지 (moveDirection을 보내지 않음)
+          moveDirection: null,  // 업그레이드 시 기존 이동 방향 유지
           position: hero ? { x: hero.x, y: hero.y } : undefined,
           upgradeRequested: stat,
           timestamp: Date.now(),

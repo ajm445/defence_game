@@ -161,7 +161,8 @@ export function useRPGGameLoop() {
       // 클라이언트도 자신의 영웅 이동을 로컬에서 처리 (부드러운 움직임)
       // 단, 돌진 중이거나 시전 중일 때는 이동 불가
       const isClientDashing = clientHero?.dashState && clientHero.dashState.progress < 1;
-      const isClientCasting = clientHero?.castingUntil && clientGameTime < clientHero.castingUntil;
+      const clientGameTimeNow = useRPGStore.getState().gameTime;
+      const isClientCasting = clientHero?.castingUntil && clientGameTimeNow < clientHero.castingUntil;
 
       if (clientHero && clientHero.moveDirection && !isClientDashing && !isClientCasting) {
         const dir = clientHero.moveDirection;

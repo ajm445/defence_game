@@ -1553,7 +1553,7 @@ function executeAdvancedESkill(
         effect = {
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
-          radius,
+          radius: skillConfig.radius || 300,
           duration: 1.0,
           startTime: gameTime,
         };
@@ -1699,7 +1699,7 @@ function executeAdvancedESkill(
         effect = {
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
-          radius,
+          radius: skillConfig.radius || 300,
           heal: selfHeal,
           duration: 1.0,
           startTime: gameTime,
