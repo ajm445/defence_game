@@ -376,6 +376,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
         // 친구 게임 초대 수락 시 자동 방 참가
         case 'GAME_INVITE_ACCEPTED': {
+          // 이미 방에 있으면 무시 (호스트가 받은 경우)
+          if (multiplayer.roomCode) {
+            console.log('[Lobby] 이미 방에 있음 - 초대 수락 알림 무시');
+            break;
+          }
+
           console.log('[Lobby] 게임 초대 수락 - 방 참가:', message.roomCode);
           const inviteClassProgress = useAuthStore.getState().classProgress;
           const defaultClass: HeroClass = 'archer';
