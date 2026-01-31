@@ -1,5 +1,26 @@
 # Changelog
 
+## [1.18.3] - 2026-02-01
+
+### Bug Fixes
+- **온라인 상태 알림 버그 수정**: 연결 종료 시 친구들에게 오프라인 알림이 전달되지 않던 버그 수정
+  - `onlineUserIds.delete()` 직접 호출 → `registerUserOffline()` 함수 호출로 변경
+  - 콜백을 통해 친구들에게 상태 변경 알림 정상 전달
+- **중복 로그인 정책 변경**: 기존 연결 종료 방식 → 새 로그인 거부 방식으로 변경
+  - 이미 활성 세션이 있으면 새 로그인 시도 거부
+  - 기존 세션이 비활성 상태(연결 끊김)인 경우에만 새 로그인 허용
+- **중복 로그인 시 방 처리 추가**: 비활성 세션 정리 시 해당 플레이어의 방 참여 상태도 정리
+  - 게임 방(`coopGameRooms`)에서 플레이어 제거
+  - 대기 방(`waitingCoopRooms`)에서 플레이어 제거
+
+### Technical Changes
+- `server/src/websocket/WebSocketServer.ts`: `registerUserOffline()` import 및 사용
+- `server/src/websocket/MessageHandler.ts`: 중복 로그인 처리 로직 개선
+  - 기존 연결의 `ws.readyState` 확인하여 활성/비활성 상태 판단
+  - 비활성 상태 시 방 정리 로직 추가
+
+---
+
 ## [1.18.2] - 2026-01-31
 
 ### Bug Fixes

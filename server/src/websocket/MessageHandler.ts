@@ -299,23 +299,49 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
   const player = players.get(playerId);
   if (!player) return;
 
-  // 중복 연결 처리: 같은 userId로 이미 연결된 플레이어가 있으면 기존 연결 종료
+  // 중복 연결 처리: 같은 userId로 이미 연결된 플레이어가 있으면 새 로그인 거부
   if (!isGuest && userId) {
     const existingPlayer = getPlayerByUserId(userId);
     if (existingPlayer && existingPlayer.id !== playerId) {
-      console.log(`[Auth] 중복 연결 감지: ${nickname} - 기존 연결 종료 (${existingPlayer.id})`);
+      // 기존 연결이 실제로 활성 상태인지 확인
+      if (existingPlayer.ws.readyState === 1) { // WebSocket.OPEN = 1
+        console.log(`[Auth] 중복 로그인 시도 거부: ${nickname} - 이미 연결된 세션 있음 (${existingPlayer.id})`);
 
-      // 기존 플레이어의 userId를 null로 설정하여 close 이벤트에서 onlineUserIds 제거 방지
-      existingPlayer.userId = null;
+        // 새 연결에 중복 로그인 알림 전송 후 종료
+        sendMessage(player.ws, {
+          type: 'DUPLICATE_LOGIN',
+          message: '이미 다른 곳에서 로그인되어 있습니다. 기존 세션을 먼저 종료해주세요.',
+        });
 
-      // 기존 연결에 알림 전송 후 종료
-      sendMessage(existingPlayer.ws, {
-        type: 'DUPLICATE_LOGIN',
-        message: '다른 기기에서 로그인하여 연결이 종료됩니다.',
-      });
+        // 새 연결 종료
+        player.ws.close();
+        return;
+      } else {
+        // 기존 연결이 비활성 상태면 정리
+        console.log(`[Auth] 기존 연결 비활성 상태, 정리 후 새 로그인 허용: ${existingPlayer.id}`);
 
-      // 기존 연결 종료 (close 이벤트에서 userId가 null이므로 onlineUserIds 제거 안 됨)
-      existingPlayer.ws.close();
+        // 기존 플레이어가 방에 있으면 먼저 방에서 제거
+        if (existingPlayer.roomId) {
+          const existingRoomId = existingPlayer.roomId;
+          console.log(`[Auth] 기존 플레이어 방 정리: roomId=${existingRoomId}`);
+
+          // 게임 방에서 제거
+          const coopRoom = coopGameRooms.get(existingRoomId);
+          if (coopRoom) {
+            coopRoom.handlePlayerDisconnect(existingPlayer.id);
+          }
+
+          // 대기 방에서 제거
+          leaveCoopRoom(existingPlayer.id);
+
+          existingPlayer.roomId = null;
+          existingPlayer.isInGame = false;
+        }
+
+        // 기존 플레이어 정리
+        existingPlayer.userId = null;
+        players.delete(existingPlayer.id);
+      }
     }
   }
 

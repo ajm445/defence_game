@@ -5,7 +5,7 @@ import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
 import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect, handleAdminDisconnect, broadcastToAdmins, getServerStatus } from './MessageHandler';
 import { handlePlayerDisconnect } from '../room/RoomManager';
-import { players, sendMessage, Player, onlineUserIds } from '../state/players';
+import { players, sendMessage, Player, registerUserOffline } from '../state/players';
 import authRouter from '../api/authRouter';
 import profileRouter from '../api/profileRouter';
 import adminRouter from '../api/admin/adminRouter';
@@ -118,9 +118,9 @@ export function createWebSocketServer(port: number) {
       const player = players.get(playerId);
       const playerName = player?.name || `Player_${playerId.slice(0, 4)}`;
 
-      // 온라인 사용자 목록에서 제거
+      // 온라인 사용자 목록에서 제거 및 친구들에게 오프라인 알림
       if (player?.userId) {
-        onlineUserIds.delete(player.userId);
+        registerUserOffline(player.userId);
       }
 
       // 관리자에게 접속 종료 이벤트 브로드캐스트
