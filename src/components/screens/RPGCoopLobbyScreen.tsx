@@ -166,12 +166,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
     fetchRoomList();
 
-    // 3초마다 방 목록 갱신
+    // 10초마다 방 목록 갱신 (백업용 - 실시간 Push 업데이트가 기본)
     const interval = setInterval(() => {
       if (wsClient.isConnected()) {
         wsClient.getCoopRoomList();
       }
-    }, 3000);
+    }, 10000);
 
     return () => clearInterval(interval);
   }, [multiplayer.connectionState]);
@@ -193,6 +193,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
           useRPGStore.getState().setMultiplayerState({
             roomCode: message.roomCode,
+            roomId: message.roomId,
             isHost: true,
             connectionState: 'in_lobby',
             roomIsPrivate: createdRoomIsPrivate,
@@ -295,6 +296,14 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           setIsLoadingRooms(false);
           break;
 
+        // 방 목록 실시간 업데이트 (Push 방식)
+        case 'COOP_ROOM_LIST_UPDATED':
+          // 로비에서 대기 중일 때만 방 목록 업데이트
+          if (multiplayer.connectionState !== 'in_lobby' && multiplayer.connectionState !== 'countdown') {
+            setRoomList(message.rooms || []);
+          }
+          break;
+
         case 'COOP_GAME_COUNTDOWN':
           useRPGStore.getState().setMultiplayerState({
             connectionState: 'countdown',
@@ -389,6 +398,30 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           );
           break;
         }
+
+        // 중복 로그인 처리
+        case 'DUPLICATE_LOGIN':
+          setError(message.message || '다른 기기에서 로그인하여 연결이 종료됩니다.');
+          useRPGStore.getState().setMultiplayerState({
+            connectionState: 'disconnected',
+            isMultiplayer: false,
+            roomCode: null,
+            roomId: null,
+            players: [],
+          });
+          break;
+
+        // 계정 정지 처리
+        case 'BANNED':
+          setError(message.message || '계정이 정지되었습니다.');
+          useRPGStore.getState().setMultiplayerState({
+            connectionState: 'disconnected',
+            isMultiplayer: false,
+            roomCode: null,
+            roomId: null,
+            players: [],
+          });
+          break;
       }
     };
 

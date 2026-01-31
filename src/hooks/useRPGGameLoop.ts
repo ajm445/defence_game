@@ -39,6 +39,8 @@ export function useRPGGameLoop() {
   const processedEffectIdsRef = useRef<Map<string, number>>(new Map());
   // 힐러 오로라 누적 힐량 추적 (heroId -> accumulatedHeal)
   const accumulatedAuraHealRef = useRef<Map<string, number>>(new Map());
+  // 클라이언트: 이전 프레임 사망 상태 추적 (사망 알림 중복 방지)
+  const wasClientDeadRef = useRef<boolean>(false);
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -145,9 +147,17 @@ export function useRPGGameLoop() {
       }
 
       const clientHero = useRPGStore.getState().hero;
+      const isClientDead = clientHero && clientHero.hp <= 0;
+
+      // 클라이언트: 방금 사망한 경우 알림 (호스트로부터 HP 동기화 받은 후)
+      if (isClientDead && !wasClientDeadRef.current) {
+        soundManager.play('hero_death');
+        useUIStore.getState().showNotification(`사망! ${RPG_CONFIG.REVIVE.BASE_TIME}초 후 부활합니다.`);
+      }
+      wasClientDeadRef.current = !!isClientDead;
 
       // 사망 체크: HP가 0 이하면 이동 불가 및 사망 상태 처리
-      if (clientHero && clientHero.hp <= 0) {
+      if (isClientDead) {
         // 이동 방향 초기화 (사망 시 이동 중지)
         if (clientHero.moveDirection) {
           useRPGStore.getState().setMoveDirection(undefined);
@@ -428,6 +438,18 @@ export function useRPGGameLoop() {
             } else {
               soundManager.play('attack_melee');
             }
+
+            // 멀티플레이어: 기본 공격 이펙트 동기화 (클라이언트에서도 사운드 재생)
+            const mpState = useRPGStore.getState().multiplayer;
+            if (mpState.isMultiplayer && mpState.isHost) {
+              useRPGStore.getState().addBasicAttackEffect({
+                id: `hero_attack_${Date.now()}_${heroForAutoAttack.id}`,
+                type: heroClass === 'archer' || heroClass === 'mage' ? 'ranged' : 'melee',
+                x: nearestEnemy.x,
+                y: nearestEnemy.y,
+                timestamp: Date.now(),
+              });
+            }
           }
         }
 
@@ -474,6 +496,18 @@ export function useRPGGameLoop() {
                 soundManager.play('attack_ranged');
               } else {
                 soundManager.play('attack_melee');
+              }
+
+              // 멀티플레이어: 기본 공격 이펙트 동기화 (클라이언트에서도 사운드 재생)
+              const baseMpState = useRPGStore.getState().multiplayer;
+              if (baseMpState.isMultiplayer && baseMpState.isHost) {
+                useRPGStore.getState().addBasicAttackEffect({
+                  id: `hero_attack_base_${Date.now()}_${heroForAutoAttack.id}`,
+                  type: heroClass === 'archer' || heroClass === 'mage' ? 'ranged' : 'melee',
+                  x: nearestBase.x,
+                  y: nearestBase.y,
+                  timestamp: Date.now(),
+                });
               }
 
               // 기지 파괴 시 알림
@@ -711,8 +745,8 @@ export function useRPGGameLoop() {
       let updatedEnemies: typeof currentEnemies;
       let totalNexusDamage = 0;
 
-      if (isMultiplayer && allHeroes.length >= 1) {
-        // 멀티플레이어: 모든 영웅을 고려한 AI
+      if (isMultiplayer) {
+        // 멀티플레이어: 모든 영웅을 고려한 AI (살아있는 영웅이 없어도 넥서스 공격 처리)
         const result = updateAllEnemiesAINexusMultiplayer(
           currentEnemies,
           allHeroes,
@@ -739,7 +773,18 @@ export function useRPGGameLoop() {
 
           if (heroId === currentHeroState.id) {
             // 호스트 영웅 데미지
+            const wasHostDead = currentHeroState.hp <= 0;
             useRPGStore.getState().damageHero(finalDamage);
+            const heroAfterHostDamage = useRPGStore.getState().hero;
+            const isHostDead = heroAfterHostDamage && heroAfterHostDamage.hp <= 0;
+
+            // 방금 사망한 경우 알림 (부활 시스템)
+            if (isHostDead && !wasHostDead) {
+              soundManager.play('hero_death');
+              const showNotification = useUIStore.getState().showNotification;
+              showNotification(`사망! ${RPG_CONFIG.REVIVE.BASE_TIME}초 후 부활합니다.`);
+            }
+
             effectManager.createEffect('attack_melee', currentHeroState.x, currentHeroState.y);
             // 피격 데미지 숫자 표시 (적 공격 - 빨간색)
             useRPGStore.getState().addDamageNumber(currentHeroState.x, currentHeroState.y, finalDamage, 'enemy_damage');
@@ -786,32 +831,7 @@ export function useRPGGameLoop() {
           soundManager.play('attack_melee');
         });
 
-        // 게임 오버 체크 (모든 플레이어 사망 시)
-        const heroAfterDamage = useRPGStore.getState().hero;
-        const otherHeroesAfterDamage = useRPGStore.getState().otherHeroes;
-
-        // 호스트 생존 여부
-        const hostAlive = heroAfterDamage && heroAfterDamage.hp > 0;
-
-        // 다른 플레이어들 생존 여부
-        let anyOtherAlive = false;
-        otherHeroesAfterDamage.forEach((otherHero) => {
-          if (otherHero.hp > 0) {
-            anyOtherAlive = true;
-          }
-        });
-
-        // 모든 플레이어가 사망했을 때만 게임 오버
-        if (!hostAlive && !anyOtherAlive) {
-          useRPGStore.getState().setGameOver(false);
-          soundManager.play('defeat');
-          // 멀티플레이어: 클라이언트들에게 게임 종료 알림
-          const mpState = useRPGStore.getState().multiplayer;
-          if (mpState.isMultiplayer && mpState.isHost) {
-            wsClient.hostBroadcastGameOver({ victory: false });
-          }
-          return;
-        }
+        // 게임 종료 조건: 넥서스 파괴 시에만 (플레이어 사망은 부활로 처리)
       } else {
         // 싱글플레이어: 기존 로직
         const result = updateAllEnemiesAINexus(
@@ -2211,6 +2231,16 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
         });
 
         soundManager.play('attack_ranged');
+
+        // 멀티플레이어: 기본 공격 이펙트 동기화 (클라이언트에서도 사운드 재생)
+        useRPGStore.getState().addBasicAttackEffect({
+          id: `other_hero_attack_archer_${Date.now()}_${heroId}`,
+          type: 'ranged',
+          x: firstTarget.x,
+          y: firstTarget.y,
+          timestamp: Date.now(),
+        });
+
         attackedTarget = true;
       }
     } else {
@@ -2413,12 +2443,21 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             facingAngle: Math.atan2(nearestEnemy.y - hero.y, nearestEnemy.x - hero.x),
           });
 
-          // 사운드 재생
+          // 사운드 재생 (archer는 위에서 이미 처리됨)
           if (heroClass === 'mage') {
             soundManager.play('attack_ranged');
           } else {
             soundManager.play('attack_melee');
           }
+
+          // 멀티플레이어: 기본 공격 이펙트 동기화 (클라이언트에서도 사운드 재생)
+          useRPGStore.getState().addBasicAttackEffect({
+            id: `other_hero_attack_${Date.now()}_${heroId}`,
+            type: heroClass === 'mage' ? 'ranged' : 'melee',
+            x: nearestEnemy.x,
+            y: nearestEnemy.y,
+            timestamp: Date.now(),
+          });
 
           attackedTarget = true;
         }
@@ -2488,6 +2527,15 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           } else {
             soundManager.play('attack_melee');
           }
+
+          // 멀티플레이어: 기본 공격 이펙트 동기화 (클라이언트에서도 사운드 재생)
+          useRPGStore.getState().addBasicAttackEffect({
+            id: `other_hero_attack_base_${Date.now()}_${heroId}`,
+            type: heroClass === 'archer' || heroClass === 'mage' ? 'ranged' : 'melee',
+            x: nearestBase.x,
+            y: nearestBase.y,
+            timestamp: Date.now(),
+          });
 
           if (destroyed) {
             const showNotification = useUIStore.getState().showNotification;

@@ -46,6 +46,8 @@ export type ServerMessage =
   | { type: 'CONNECTED'; playerId: string }
   // 밴 메시지
   | { type: 'BANNED'; message: string; bannedUntil: string | null }
+  // 중복 로그인 메시지
+  | { type: 'DUPLICATE_LOGIN'; message: string }
   // 방 관련 메시지
   | { type: 'ROOM_CREATED'; roomCode: string; roomId: string }
   | { type: 'ROOM_JOINED'; roomId: string; opponent: string; side: PlayerSide }

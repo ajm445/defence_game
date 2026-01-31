@@ -1140,14 +1140,23 @@ export const useRPGStore = create<RPGStore>()(
 
         // 광전사 버프 확인 (공격속도 증가)
         const berserkerBuff = state.hero.buffs?.find(b => b.type === 'berserker');
-        const attackSpeedMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
+        const buffMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
+
+        // SP 공격속도 업그레이드 보너스 (초 단위)
+        const spAttackSpeedBonus = getStatBonus('attackSpeed', state.hero.statUpgrades?.attackSpeed || 0);
 
         const updatedSkills = state.hero.skills.map((skill) => {
-          // Q스킬(기본 공격)에만 공격속도 버프 적용
+          // Q스킬(기본 공격)에만 공격속도 보너스 적용
           const isQSkill = skill.type.endsWith('_q');
-          const cooldownReduction = isQSkill
-            ? deltaTime * attackSpeedMultiplier
-            : deltaTime;
+          let cooldownReduction = deltaTime;
+
+          if (isQSkill) {
+            // SP 공격속도 보너스를 쿨다운 감소 배율로 변환
+            // 예: 0.5초 보너스 / 1.0초 기본쿨다운 = 0.5 추가 배율 = 1.5x 빠른 회복
+            const spMultiplier = 1 + (spAttackSpeedBonus / skill.cooldown);
+            cooldownReduction = deltaTime * buffMultiplier * spMultiplier;
+          }
+
           return {
             ...skill,
             currentCooldown: Math.max(0, skill.currentCooldown - cooldownReduction),

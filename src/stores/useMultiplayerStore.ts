@@ -82,6 +82,13 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => {
         });
         break;
 
+      case 'DUPLICATE_LOGIN':
+        set({
+          connectionState: 'disconnected',
+          error: message.message,
+        });
+        break;
+
       case 'ROOM_CREATED':
         set({
           connectionState: 'in_room_waiting',

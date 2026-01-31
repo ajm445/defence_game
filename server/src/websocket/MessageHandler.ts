@@ -304,11 +304,17 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
     const existingPlayer = getPlayerByUserId(userId);
     if (existingPlayer && existingPlayer.id !== playerId) {
       console.log(`[Auth] 중복 연결 감지: ${nickname} - 기존 연결 종료 (${existingPlayer.id})`);
+
+      // 기존 플레이어의 userId를 null로 설정하여 close 이벤트에서 onlineUserIds 제거 방지
+      existingPlayer.userId = null;
+
       // 기존 연결에 알림 전송 후 종료
       sendMessage(existingPlayer.ws, {
         type: 'DUPLICATE_LOGIN',
         message: '다른 기기에서 로그인하여 연결이 종료됩니다.',
-      } as any);
+      });
+
+      // 기존 연결 종료 (close 이벤트에서 userId가 null이므로 onlineUserIds 제거 안 됨)
       existingPlayer.ws.close();
     }
   }

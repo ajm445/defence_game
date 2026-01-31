@@ -28,6 +28,7 @@ class WebSocketClient {
   private serverUrl: string;
   private pendingLogin: PendingLoginInfo | null = null;
   private isBanned = false;
+  private isDuplicateLogin = false;
 
   public connectionState: ConnectionState = 'disconnected';
   public playerId: string | null = null;
@@ -44,6 +45,8 @@ class WebSocketClient {
         return;
       }
 
+      // 수동 연결 시 중복 로그인 플래그 리셋 (다른 기기에서 로그아웃 후 재접속 허용)
+      this.isDuplicateLogin = false;
       this.connectionState = 'connecting';
 
       try {
@@ -108,6 +111,12 @@ class WebSocketClient {
       return;
     }
 
+    // 중복 로그인으로 종료된 경우 재연결 시도하지 않음
+    if (this.isDuplicateLogin) {
+      console.log('중복 로그인으로 인해 재연결이 차단되었습니다.');
+      return;
+    }
+
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log('최대 재연결 시도 횟수 초과');
       return;
@@ -133,6 +142,12 @@ class WebSocketClient {
     if (message.type === 'BANNED') {
       this.isBanned = true;
       console.log('계정이 정지되어 재연결이 차단됩니다.');
+    }
+
+    // DUPLICATE_LOGIN 메시지 처리 - 재연결 방지
+    if (message.type === 'DUPLICATE_LOGIN') {
+      this.isDuplicateLogin = true;
+      console.log('다른 기기에서 로그인하여 재연결이 차단됩니다.');
     }
 
     // 등록된 핸들러에 메시지 전달

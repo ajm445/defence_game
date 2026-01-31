@@ -2,6 +2,7 @@ import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, 
 import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, UPGRADE_CONFIG, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
 import { rollMultiTarget } from './passiveSystem';
+import { getStatBonus } from '../../types/auth';
 
 // 스킬 슬롯에서 스킬 타입 가져오기
 export function getSkillTypeForSlot(heroClass: HeroClass, slot: 'Q' | 'W' | 'E'): SkillType {
@@ -40,18 +41,27 @@ export function startSkillCooldown(hero: HeroUnit, skillType: SkillType): HeroUn
 /**
  * 스킬 쿨다운 업데이트
  * - 광전사 버프 활성화 시 Q스킬 쿨다운 30% 빠르게 감소
+ * - SP 공격속도 업그레이드 적용 (Q스킬에만)
  */
 export function updateSkillCooldowns(hero: HeroUnit, deltaTime: number): HeroUnit {
   // 광전사 버프 확인 (공격속도 증가)
   const berserkerBuff = hero.buffs.find(b => b.type === 'berserker');
-  const attackSpeedMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
+  const buffMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
+
+  // SP 공격속도 업그레이드 보너스 (초 단위)
+  const spAttackSpeedBonus = getStatBonus('attackSpeed', hero.statUpgrades?.attackSpeed || 0);
 
   const updatedSkills = hero.skills.map((skill) => {
-    // Q스킬(기본 공격)에만 공격속도 버프 적용
+    // Q스킬(기본 공격)에만 공격속도 보너스 적용
     const isQSkill = skill.type.endsWith('_q');
-    const cooldownReduction = isQSkill
-      ? deltaTime * attackSpeedMultiplier  // 광전사 버프 시 30% 빠르게 감소
-      : deltaTime;
+    let cooldownReduction = deltaTime;
+
+    if (isQSkill) {
+      // SP 공격속도 보너스를 쿨다운 감소 배율로 변환
+      // 예: 0.5초 보너스 / 1.0초 기본쿨다운 = 0.5 추가 배율 = 1.5x 빠른 회복
+      const spMultiplier = 1 + (spAttackSpeedBonus / skill.cooldown);
+      cooldownReduction = deltaTime * buffMultiplier * spMultiplier;
+    }
 
     return {
       ...skill,
