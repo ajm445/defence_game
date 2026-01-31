@@ -1,5 +1,6 @@
 import React, { useEffect, useCallback, useState } from 'react';
 import {
+  useFriendStore,
   useFriends,
   useOnlinePlayers,
   usePendingRequests,
@@ -58,6 +59,8 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
   const handleRespondRequest = useCallback((requestId: string, accept: boolean) => {
     soundManager.play('ui_click');
     wsClient.send({ type: 'RESPOND_FRIEND_REQUEST', requestId, accept });
+    // 응답 후 pendingRequests에서 해당 요청 즉시 제거
+    useFriendStore.getState().removePendingRequest(requestId);
   }, []);
 
   // 친구 요청 취소
@@ -263,17 +266,24 @@ const OnlineList: React.FC<{
       {players.map((player) => (
         <div
           key={player.id}
-          className="flex items-center justify-between px-3 py-2 hover:bg-gray-800/50 transition-colors"
+          className={`flex items-center justify-between px-3 py-2 transition-colors ${
+            player.isMe ? 'bg-neon-cyan/10' : 'hover:bg-gray-800/50'
+          }`}
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="relative flex-shrink-0">
               <span className="text-base">👤</span>
-              <div className="absolute -bottom-0.5 -right-0.5 w-2 h-2 bg-green-400 rounded-full" />
+              <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ${
+                player.isMe ? 'bg-neon-cyan' : 'bg-green-400'
+              }`} />
             </div>
             <div className="min-w-0 flex-1">
-              <p className="text-white text-xs font-medium truncate">
+              <p className={`text-xs font-medium truncate ${player.isMe ? 'text-neon-cyan' : 'text-white'}`}>
                 {player.name}
-                {player.isFriend && (
+                {player.isMe && (
+                  <span className="ml-1 text-neon-cyan/70">(나)</span>
+                )}
+                {player.isFriend && !player.isMe && (
                   <span className="ml-1 text-neon-cyan">★</span>
                 )}
               </p>
@@ -286,7 +296,8 @@ const OnlineList: React.FC<{
             </div>
           </div>
           <div className="flex gap-1 flex-shrink-0">
-            {onInvite && player.isFriend && !player.currentRoom && (
+            {/* 본인에게는 버튼 표시 안 함 */}
+            {!player.isMe && onInvite && player.isFriend && !player.currentRoom && (
               <button
                 onClick={() => onInvite(player.id)}
                 className="p-1 text-green-400 hover:bg-green-500/20 rounded transition-colors cursor-pointer"
@@ -295,7 +306,7 @@ const OnlineList: React.FC<{
                 📩
               </button>
             )}
-            {!player.isFriend && (
+            {!player.isMe && !player.isFriend && (
               <button
                 onClick={() => onSendRequest(player.id)}
                 className="px-1.5 py-0.5 text-xs text-neon-cyan border border-neon-cyan/50 rounded hover:bg-neon-cyan/20 transition-colors cursor-pointer"

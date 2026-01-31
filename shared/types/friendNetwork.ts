@@ -23,6 +23,7 @@ export interface OnlinePlayerInfo {
   playerLevel: number;  // 플레이어 레벨
   isFriend: boolean;    // 친구 여부
   currentRoom?: string; // 현재 접속 중인 방 ID
+  isMe?: boolean;       // 본인 여부
 }
 
 // ============================================

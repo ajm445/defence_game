@@ -50,6 +50,8 @@ export const FriendPanel: React.FC<FriendPanelProps> = ({ onInviteToRoom, curren
   const handleRespondRequest = useCallback((requestId: string, accept: boolean) => {
     soundManager.play('ui_click');
     wsClient.send({ type: 'RESPOND_FRIEND_REQUEST', requestId, accept });
+    // 응답 후 pendingRequests에서 해당 요청 즉시 제거
+    useFriendStore.getState().removePendingRequest(requestId);
   }, []);
 
   // 친구 요청 취소
@@ -296,14 +298,24 @@ const OnlinePlayerList: React.FC<{
       {players.map((player) => (
         <div
           key={player.id}
-          className="flex items-center justify-between px-4 py-3 hover:bg-gray-800/50 transition-colors"
+          className={`flex items-center justify-between px-4 py-3 transition-colors ${
+            player.isMe ? 'bg-neon-cyan/10' : 'hover:bg-gray-800/50'
+          }`}
         >
           <div className="flex items-center gap-3">
-            <span className="text-xl">👤</span>
+            <div className="relative">
+              <span className="text-xl">👤</span>
+              <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ${
+                player.isMe ? 'bg-neon-cyan' : 'bg-green-400'
+              }`} />
+            </div>
             <div>
-              <p className="text-white text-sm font-medium">
+              <p className={`text-sm font-medium ${player.isMe ? 'text-neon-cyan' : 'text-white'}`}>
                 {player.name}
-                {player.isFriend && (
+                {player.isMe && (
+                  <span className="ml-2 text-neon-cyan/70 text-xs">(나)</span>
+                )}
+                {player.isFriend && !player.isMe && (
                   <span className="ml-2 text-neon-cyan text-xs">친구</span>
                 )}
               </p>
@@ -316,7 +328,8 @@ const OnlinePlayerList: React.FC<{
             </div>
           </div>
           <div className="flex gap-1">
-            {onInvite && player.isFriend && !player.currentRoom && (
+            {/* 본인에게는 버튼 표시 안 함 */}
+            {!player.isMe && onInvite && player.isFriend && !player.currentRoom && (
               <button
                 onClick={() => onInvite(player.id)}
                 className="p-1.5 text-green-400 hover:bg-green-500/20 rounded transition-colors cursor-pointer"
@@ -325,7 +338,7 @@ const OnlinePlayerList: React.FC<{
                 📩
               </button>
             )}
-            {!player.isFriend && (
+            {!player.isMe && !player.isFriend && (
               <button
                 onClick={() => onSendRequest(player.id)}
                 className="px-2 py-1 text-xs text-neon-cyan border border-neon-cyan/50 rounded hover:bg-neon-cyan/20 transition-colors cursor-pointer"

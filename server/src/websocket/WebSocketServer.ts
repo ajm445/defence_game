@@ -68,6 +68,7 @@ export function createWebSocketServer(port: number) {
       name: '',
       ws,
       roomId: null,
+      isInGame: false,
     };
 
     players.set(playerId, player);

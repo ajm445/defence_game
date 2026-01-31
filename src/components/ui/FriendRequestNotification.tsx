@@ -4,6 +4,8 @@ import { wsClient } from '../../services/WebSocketClient';
 import { soundManager } from '../../services/SoundManager';
 import type { FriendRequestInfo } from '@shared/types/friendNetwork';
 
+const removePendingRequest = useFriendStore.getState().removePendingRequest;
+
 export const FriendRequestNotification: React.FC = () => {
   const pendingRequests = usePendingRequests();
   const [visibleRequest, setVisibleRequest] = useState<FriendRequestInfo | null>(null);
@@ -39,6 +41,8 @@ export const FriendRequestNotification: React.FC = () => {
       requestId: visibleRequest.id,
       accept,
     });
+    // 응답 후 pendingRequests에서 해당 요청 제거
+    removePendingRequest(visibleRequest.id);
     setVisibleRequest(null);
   }, [visibleRequest]);
 

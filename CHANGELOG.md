@@ -14,12 +14,28 @@
 
 ### Improvements
 - **SP 공격속도 업그레이드 적용**: Q스킬 쿨다운 감소에 SP 공격속도 보너스가 실제로 적용되도록 수정
+- **방 목록 실시간 업데이트**: Push 방식으로 방 생성/참가/퇴장 시 즉시 업데이트
+  - `COOP_ROOM_LIST_UPDATED` 메시지 타입 추가
+  - 폴링 주기 3초 → 10초로 변경 (백업용)
+- **온라인 플레이어 목록 개선**: 본인 표시 추가 및 목록 최상단 정렬
+  - `isMe` 필드 추가
+  - 본인에게는 친구 요청/초대 버튼 숨김
+- **친구 상태 표시 개선**: 게임 진행 중일 때만 `currentRoom` 표시
+  - `isInGame` 필드로 방 입장 vs 실제 게임 중 구분
+- **친구 요청 응답 UX 개선**: 응답 후 목록에서 즉시 제거
 
 ### Technical Changes
 - `WebSocketClient.ts`: `isDuplicateLogin` 플래그 및 처리 로직 추가
 - `useRPGGameLoop.ts`: 클라이언트 사망 알림 로직 추가 (`wasClientDeadRef`)
 - `useRPGStore.ts`: `updateSkillCooldowns`에 SP 공격속도 배율 적용
 - `shared/types/network.ts`: `DUPLICATE_LOGIN` 서버 메시지 타입 추가
+- `shared/types/rpgNetwork.ts`: `COOP_ROOM_LIST_UPDATED` 메시지 타입 추가
+- `shared/types/friendNetwork.ts`: `OnlinePlayerInfo`에 `isMe` 필드 추가
+- `server/src/state/players.ts`: `Player` 인터페이스에 `isInGame` 필드 추가
+- `server/src/room/CoopRoomManager.ts`: 방 목록 변경 시 브로드캐스트 함수 추가
+- `server/src/game/RPGCoopGameRoom.ts`: 게임 상태 변경 시 친구 알림 연동
+- `server/src/friend/FriendManager.ts`: `isInGame` 기반 상태 표시 로직
+- `server/src/friend/FriendRequestHandler.ts`: 양측에 친구 추가 알림 전송
 
 ---
 

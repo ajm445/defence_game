@@ -7,6 +7,7 @@ export interface Player {
   name: string;
   ws: WebSocket;
   roomId: string | null;
+  isInGame: boolean;    // 게임 진행 중 여부 (방에 입장만 해도 false, 게임 시작 후 true)
 }
 
 // 전역 플레이어 맵 (WebSocket ID -> Player)

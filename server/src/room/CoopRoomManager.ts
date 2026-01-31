@@ -22,6 +22,19 @@ interface WaitingCoopRoom {
 const waitingCoopRooms = new Map<string, WaitingCoopRoom>();  // roomId -> WaitingCoopRoom
 const coopRoomCodeMap = new Map<string, string>();            // code -> roomId
 
+// 방 목록 변경 시 모든 대기 중인 클라이언트에게 브로드캐스트
+function broadcastRoomListUpdate(): void {
+  const rooms = getAllWaitingCoopRooms();
+  const message = { type: 'COOP_ROOM_LIST_UPDATED' as const, rooms };
+
+  // 방에 참가하지 않은 모든 온라인 플레이어에게 전송
+  players.forEach((player) => {
+    if (player && player.ws.readyState === 1 && !player.roomId) {  // WebSocket.OPEN = 1
+      sendToPlayer(player.id, message);
+    }
+  });
+}
+
 // 협동 설정 (호스트 기반 통합 시스템 - 1인도 시작 가능)
 const MAX_PLAYERS = 4;
 const MIN_PLAYERS = 1;
@@ -107,6 +120,9 @@ export function createCoopRoom(
     isPrivate: room.isPrivate,
     difficulty: room.difficulty,
   });
+
+  // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림
+  broadcastRoomListUpdate();
 
   return room;
 }
@@ -203,6 +219,9 @@ export function joinCoopRoom(
     difficulty: room.difficulty,
   });
 
+  // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (인원 수 변경)
+  broadcastRoomListUpdate();
+
   return true;
 }
 
@@ -216,6 +235,7 @@ export function leaveCoopRoom(playerId: string): void {
   const room = waitingCoopRooms.get(player.roomId);
   if (!room) {
     player.roomId = null;
+    player.isInGame = false;
     return;
   }
 
@@ -229,6 +249,7 @@ export function leaveCoopRoom(playerId: string): void {
 
   room.players.delete(playerId);
   player.roomId = null;
+  player.isInGame = false;
 
   if (room.hostPlayerId === playerId) {
     // 방장이 나감
@@ -266,6 +287,9 @@ export function leaveCoopRoom(playerId: string): void {
       sendToPlayer(id, { type: 'COOP_PLAYER_LEFT', playerId });
     });
   }
+
+  // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (인원 수 변경 또는 방 삭제)
+  broadcastRoomListUpdate();
 }
 
 // 준비 상태 변경
@@ -374,6 +398,9 @@ export function kickCoopPlayer(hostPlayerId: string, targetPlayerId: string): vo
   room.players.forEach((p, id) => {
     sendToPlayer(id, { type: 'COOP_PLAYER_LEFT', playerId: targetPlayerId });
   });
+
+  // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (인원 수 변경)
+  broadcastRoomListUpdate();
 }
 
 // 방 설정 변경 (호스트 전용)
@@ -418,6 +445,9 @@ export function updateCoopRoomSettings(hostPlayerId: string, isPrivate?: boolean
       difficulty: room.difficulty,
     });
   });
+
+  // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (비밀방/공개방 변경, 난이도 변경)
+  broadcastRoomListUpdate();
 }
 
 // 게임 시작 (호스트 전용)
@@ -470,6 +500,9 @@ export function startCoopGame(hostPlayerId: string): void {
 
   // 대기 방 상태를 'started'로 변경 (방은 유지)
   room.state = 'started';
+
+  // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (게임 시작으로 isInGame 상태 변경)
+  broadcastRoomListUpdate();
 
   // 카운트다운 시작
   gameRoom.startCountdown();
@@ -526,6 +559,8 @@ export function setWaitingRoomState(roomId: string, state: 'waiting' | 'started'
   if (room) {
     room.state = state;
     console.log(`[Coop] 대기 방 상태 변경: ${room.code} → ${state}`);
+    // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림
+    broadcastRoomListUpdate();
   }
 }
 
@@ -536,6 +571,8 @@ export function deleteWaitingRoom(roomId: string): void {
     console.log(`[Coop] 대기 방 삭제: ${room.code}`);
     coopRoomCodeMap.delete(room.code);
     waitingCoopRooms.delete(roomId);
+    // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림
+    broadcastRoomListUpdate();
   }
 }
 
@@ -555,6 +592,8 @@ export function syncWaitingRoomPlayers(roomId: string, playerIds: string[], play
       room.hostPlayerId = newHost.id;
     }
     console.log(`[Coop] 대기 방 플레이어 동기화: ${room.code} (${room.players.size}명)`);
+    // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림
+    broadcastRoomListUpdate();
   }
 }
 
@@ -649,6 +688,9 @@ export function joinCoopRoomById(
     difficulty: room.difficulty,
   });
 
+  // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (인원 수 변경)
+  broadcastRoomListUpdate();
+
   return true;
 }
 
@@ -736,6 +778,9 @@ export function joinCoopRoomByInvite(
     isPrivate: room.isPrivate,
     difficulty: room.difficulty,
   });
+
+  // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (인원 수 변경)
+  broadcastRoomListUpdate();
 
   return true;
 }

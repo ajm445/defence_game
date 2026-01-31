@@ -273,6 +273,7 @@ export type CoopServerMessage =
   | { type: 'COOP_ROOM_CREATED'; roomCode: string; roomId: string; isPrivate?: boolean; difficulty?: string }
   | { type: 'COOP_ROOM_JOINED'; roomId: string; roomCode: string; players: CoopPlayerInfo[]; yourIndex: number; isPrivate?: boolean; difficulty?: string }
   | { type: 'COOP_ROOM_LIST'; rooms: WaitingCoopRoomInfo[] }
+  | { type: 'COOP_ROOM_LIST_UPDATED'; rooms: WaitingCoopRoomInfo[] }  // 방 목록 실시간 업데이트 (Push)
   | { type: 'COOP_PLAYER_JOINED'; player: CoopPlayerInfo }
   | { type: 'COOP_PLAYER_LEFT'; playerId: string }
   | { type: 'COOP_PLAYER_READY'; playerId: string; isReady: boolean }

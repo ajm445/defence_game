@@ -1,6 +1,7 @@
 import { players, sendToPlayer } from '../state/players';
 import { removeCoopRoom } from '../websocket/MessageHandler';
 import { setWaitingRoomState, syncWaitingRoomPlayers, deleteWaitingRoom } from '../room/CoopRoomManager';
+import { friendManager } from '../friend/FriendManager';
 import type { HeroClass, SkillType, UpgradeLevels } from '../../../src/types/rpg';
 import type {
   CoopPlayerInfo,
@@ -68,6 +69,18 @@ export class RPGCoopGameRoom {
     this.gameState = 'playing';
 
     console.log(`[Relay] 게임 시작: Room ${this.id} (${this.playerIds.length}명, 호스트: ${this.hostPlayerId})`);
+
+    // 모든 플레이어의 isInGame 상태를 true로 설정하고 친구들에게 알림
+    this.playerIds.forEach((playerId) => {
+      const player = players.get(playerId);
+      if (player) {
+        player.isInGame = true;
+        // 친구들에게 게임 중 상태 알림
+        if (player.userId) {
+          friendManager.notifyFriendsStatusChange(player.userId, true, player.roomId || undefined);
+        }
+      }
+    });
 
     // 호스트에게 게임 시작 알림 (호스트가 게임 상태를 초기화함)
     // 각 플레이어에게 자신의 인덱스와 호스트 여부 전달
@@ -160,6 +173,18 @@ export class RPGCoopGameRoom {
 
     this.gameState = 'ended';
 
+    // 모든 플레이어의 isInGame 상태를 false로 설정하고 친구들에게 알림
+    this.playerIds.forEach((pid) => {
+      const player = players.get(pid);
+      if (player) {
+        player.isInGame = false;
+        // 친구들에게 게임 종료 상태 알림
+        if (player.userId) {
+          friendManager.notifyFriendsStatusChange(player.userId, true, undefined);
+        }
+      }
+    });
+
     // 모든 플레이어에게 게임 종료 알림 (방은 유지됨)
     this.broadcast({ type: 'COOP_GAME_OVER', result });
 
@@ -193,6 +218,18 @@ export class RPGCoopGameRoom {
     }
 
     this.gameState = 'waiting';
+
+    // 모든 플레이어의 isInGame 상태를 false로 설정하고 친구들에게 알림
+    this.playerIds.forEach((pid) => {
+      const player = players.get(pid);
+      if (player) {
+        player.isInGame = false;
+        // 친구들에게 로비 복귀 상태 알림
+        if (player.userId) {
+          friendManager.notifyFriendsStatusChange(player.userId, true, undefined);
+        }
+      }
+    });
 
     // 플레이어 준비 상태 초기화
     this.playerInfos = this.playerInfos.map(p => ({
@@ -268,6 +305,18 @@ export class RPGCoopGameRoom {
           this.countdownTimer = null;
         }
         this.gameState = 'playing';
+
+        // 모든 플레이어의 isInGame 상태를 true로 설정하고 친구들에게 알림
+        this.playerIds.forEach((playerId) => {
+          const player = players.get(playerId);
+          if (player) {
+            player.isInGame = true;
+            if (player.userId) {
+              friendManager.notifyFriendsStatusChange(player.userId, true, player.roomId || undefined);
+            }
+          }
+        });
+
         this.broadcast({ type: 'COOP_GAME_RESTART' });
         console.log(`[Relay] 게임 재시작: Room ${this.id}`);
       }
@@ -518,6 +567,16 @@ export class RPGCoopGameRoom {
       }
     }
 
+    // 나가는 플레이어의 isInGame 상태를 false로 설정
+    const leavingPlayer = players.get(playerId);
+    if (leavingPlayer) {
+      leavingPlayer.isInGame = false;
+      // 친구들에게 상태 변경 알림
+      if (leavingPlayer.userId) {
+        friendManager.notifyFriendsStatusChange(leavingPlayer.userId, true, undefined);
+      }
+    }
+
     // 플레이어 목록에서 제거
     this.playerIds = this.playerIds.filter(id => id !== playerId);
     this.playerInfos = this.playerInfos.filter(p => p.id !== playerId);
@@ -573,7 +632,7 @@ export class RPGCoopGameRoom {
     });
   }
 
-  private endGame(victory: boolean): void {
+  private endGame(_victory: boolean): void {
     this.gameState = 'ended';
     this.cleanup();
   }
@@ -591,6 +650,11 @@ export class RPGCoopGameRoom {
       const player = players.get(playerId);
       if (player) {
         player.roomId = null;
+        player.isInGame = false;
+        // 친구들에게 오프라인/온라인 상태 알림
+        if (player.userId) {
+          friendManager.notifyFriendsStatusChange(player.userId, true, undefined);
+        }
       }
     });
   }
@@ -636,6 +700,15 @@ export class RPGCoopGameRoom {
     }
 
     // 호스트가 나감
+    const leavingPlayer = players.get(playerId);
+    if (leavingPlayer) {
+      leavingPlayer.isInGame = false;
+      // 친구들에게 상태 변경 알림
+      if (leavingPlayer.userId) {
+        friendManager.notifyFriendsStatusChange(leavingPlayer.userId, true, undefined);
+      }
+    }
+
     const playerIndex = this.playerIds.indexOf(playerId);
     if (playerIndex !== -1) {
       this.playerIds.splice(playerIndex, 1);

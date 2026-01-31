@@ -199,7 +199,8 @@ export class FriendRequestHandler {
             name: fromUserProfile.nickname,
             isOnline: !!fromPlayer,
             playerLevel: fromUserProfile.player_level || 1,
-            currentRoom: fromPlayer?.roomId || undefined,
+            // 게임 진행 중인 경우에만 currentRoom 표시
+            currentRoom: fromPlayer?.isInGame ? fromPlayer.roomId || undefined : undefined,
           };
         }
       }
@@ -225,7 +226,8 @@ export class FriendRequestHandler {
               name: toUserProfile.nickname,
               isOnline: !!responderPlayer,
               playerLevel: toUserProfile.player_level || 1,
-              currentRoom: responderPlayer?.roomId || undefined,
+              // 게임 진행 중인 경우에만 currentRoom 표시
+              currentRoom: responderPlayer?.isInGame ? responderPlayer.roomId || undefined : undefined,
             };
             sendToPlayer(fromPlayer.id, {
               type: 'FRIEND_REQUEST_RESPONDED',
@@ -243,10 +245,20 @@ export class FriendRequestHandler {
         }
       }
 
+      // 응답자(수락한 사람)에게도 친구 추가 알림 (수락된 경우)
+      if (accept && friendInfo) {
+        const responderPlayer = getPlayerByUserId(responderId);
+        if (responderPlayer) {
+          sendToPlayer(responderPlayer.id, {
+            type: 'FRIEND_ADDED',
+            friend: friendInfo,
+          });
+        }
+      }
+
       return {
         success: true,
         message: accept ? '친구 요청을 수락했습니다.' : '친구 요청을 거절했습니다.',
-        request: friendInfo ? undefined : undefined,
       };
     } catch (err) {
       console.error('[FriendRequestHandler] 친구 요청 응답 예외:', err);

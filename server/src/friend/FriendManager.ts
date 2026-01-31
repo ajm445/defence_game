@@ -1,6 +1,6 @@
 import { getSupabaseAdmin } from '../services/supabaseAdmin';
 import { players, onlineUserIds, getPlayerByUserId, sendToPlayer } from '../state/players';
-import type { FriendInfo, OnlinePlayerInfo, FriendRequestInfo, ServerStatusInfo } from '../../../shared/types/friendNetwork';
+import type { FriendInfo, OnlinePlayerInfo, ServerStatusInfo } from '../../../shared/types/friendNetwork';
 
 export class FriendManager {
   private static instance: FriendManager;
@@ -63,7 +63,8 @@ export class FriendManager {
             name: friendProfile.nickname,
             isOnline,
             playerLevel: friendProfile.player_level || 1,
-            currentRoom: onlinePlayer?.roomId || undefined,
+            // 게임 진행 중인 경우에만 currentRoom 표시
+            currentRoom: onlinePlayer?.isInGame ? onlinePlayer.roomId || undefined : undefined,
           });
         }
       }
@@ -85,7 +86,8 @@ export class FriendManager {
             name: friendProfile.nickname,
             isOnline,
             playerLevel: friendProfile.player_level || 1,
-            currentRoom: onlinePlayer?.roomId || undefined,
+            // 게임 진행 중인 경우에만 currentRoom 표시
+            currentRoom: onlinePlayer?.isInGame ? onlinePlayer.roomId || undefined : undefined,
           });
         }
       }
@@ -130,20 +132,26 @@ export class FriendManager {
       const friendIds = await this.getFriendIds(userId);
 
       const onlinePlayers: OnlinePlayerInfo[] = profiles
-        .filter(p => p.id !== userId) // 자신 제외
         .map(p => {
           const player = getPlayerByUserId(p.id);
+          const isMe = p.id === userId;
           return {
             id: p.id,
             name: p.nickname,
             playerLevel: p.player_level || 1,
             isFriend: friendIds.has(p.id),
-            currentRoom: player?.roomId || undefined,
+            // 게임 진행 중인 경우에만 currentRoom 표시
+            currentRoom: player?.isInGame ? player.roomId || undefined : undefined,
+            isMe,
           };
         });
 
-      // 친구 먼저, 그 다음 레벨 순 정렬
+      // 본인 먼저, 그 다음 친구, 그 다음 레벨 순 정렬
       onlinePlayers.sort((a, b) => {
+        // 본인이 최우선
+        if (a.isMe && !b.isMe) return -1;
+        if (!a.isMe && b.isMe) return 1;
+        // 친구가 다음
         if (a.isFriend !== b.isFriend) return a.isFriend ? -1 : 1;
         return b.playerLevel - a.playerLevel;
       });
