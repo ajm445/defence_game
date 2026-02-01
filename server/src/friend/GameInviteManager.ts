@@ -13,7 +13,7 @@ interface StoredInvite extends GameInviteInfo {
 export class GameInviteManager {
   private static instance: GameInviteManager;
   private invites: Map<string, StoredInvite> = new Map();
-  private cleanupTimer: NodeJS.Timer | null = null;
+  private cleanupTimer: ReturnType<typeof setInterval> | null = null;
 
   private constructor() {
     this.startCleanupTimer();
@@ -57,6 +57,11 @@ export class GameInviteManager {
     const toPlayer = getPlayerByUserId(toUserId);
     if (!toPlayer) {
       return { success: false, message: '상대방이 오프라인입니다.' };
+    }
+
+    // WebSocket 연결 상태 확인
+    if (toPlayer.ws.readyState !== 1) { // WebSocket.OPEN = 1
+      return { success: false, message: '상대방 연결이 불안정합니다.' };
     }
 
     // 보낸 사람 정보 조회
@@ -285,6 +290,18 @@ export class GameInviteManager {
    */
   consumeInvite(inviteId: string): void {
     this.invites.delete(inviteId);
+  }
+
+  /**
+   * 서버 종료 시 타이머 정리
+   */
+  cleanup(): void {
+    if (this.cleanupTimer) {
+      clearInterval(this.cleanupTimer);
+      this.cleanupTimer = null;
+      console.log('[GameInviteManager] 정리 타이머 중지');
+    }
+    this.invites.clear();
   }
 }
 

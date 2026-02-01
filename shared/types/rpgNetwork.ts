@@ -298,7 +298,7 @@ export type CoopServerMessage =
   | { type: 'COOP_GAME_STATE_FROM_HOST'; state: SerializedGameState }
   | { type: 'COOP_PLAYER_INPUT'; input: PlayerInput }
   | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
-  | { type: 'COOP_YOU_ARE_NOW_HOST' }
+  | { type: 'COOP_YOU_ARE_NOW_HOST'; gameState?: 'waiting' | 'countdown' | 'playing' | 'ended' }
   | { type: 'COOP_RECONNECT_INFO'; hostPlayerId: string; isHost: boolean; gameState: 'waiting' | 'countdown' | 'playing' | 'ended' }
   // 일시정지
   | { type: 'COOP_GAME_PAUSED' }

@@ -239,8 +239,10 @@ export class FriendManager {
         .eq('user_id', friendId)
         .eq('friend_id', userId);
 
-      if (error1 && error2) {
-        console.error('[FriendManager] 친구 삭제 오류:', error1, error2);
+      // 둘 중 하나라도 실패하면 오류 로그 (데이터 무결성 문제)
+      if (error1 || error2) {
+        console.error('[FriendManager] 친구 삭제 오류:', { error1, error2 });
+        // 부분 실패도 실패로 처리 (한쪽만 삭제되면 데이터 불일치 발생)
         return false;
       }
 
@@ -309,7 +311,8 @@ export class FriendManager {
 
     for (const friendId of friendIds) {
       const friendPlayer = getPlayerByUserId(friendId);
-      if (friendPlayer) {
+      // WebSocket이 열려있는 경우만 전송 (TOCTOU 방지)
+      if (friendPlayer && friendPlayer.ws.readyState === 1) {
         sendToPlayer(friendPlayer.id, {
           type: 'FRIEND_STATUS_CHANGED',
           friendId: userId,

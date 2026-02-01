@@ -1,5 +1,5 @@
 import type { ClientMessage } from '../../../shared/types/network';
-import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOffline, setOnlineStatusCallback, getPlayerByUserId } from '../state/players';
+import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOffline, setOnlineStatusCallback, getPlayerByUserId, getLoggedInUserCount } from '../state/players';
 import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { getSupabaseAdmin } from '../services/supabaseAdmin';
@@ -45,7 +45,8 @@ export function broadcastToAdmins(message: { type: string; [key: string]: unknow
 // 서버 상태 반환
 export function getServerStatus() {
   return {
-    currentOnline: players.size,
+    currentOnline: players.size,           // WebSocket 연결 수
+    loggedInUsers: getLoggedInUserCount(), // 로그인된 사용자 수
     activeGames: gameRooms.size + coopGameRooms.size,
     serverUptime: process.uptime(),
     memoryUsage: process.memoryUsage().heapUsed,
@@ -317,11 +318,13 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
         // 클라이언트가 메시지를 처리할 시간을 주고 연결 종료
         setTimeout(() => {
           player.ws.close();
-        }, 100);
+        }, 500);  // 500ms로 증가 (느린 연결 대응)
         return;
       } else {
         // 기존 연결이 비활성 상태면 정리 후 새 로그인 허용
-        // 기존 플레이어가 방에 있으면 먼저 방에서 제거
+        console.log(`[Auth] 비활성 기존 세션 정리: ${existingPlayer.id}`);
+
+        // 기존 플레이어가 방에 있으면 먼저 방에서 제거 (오프라인 알림 전에 처리)
         if (existingPlayer.roomId) {
           const existingRoomId = existingPlayer.roomId;
 
@@ -336,6 +339,11 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
 
           existingPlayer.roomId = null;
           existingPlayer.isInGame = false;
+        }
+
+        // 온라인 상태 해제 (친구에게 오프라인 알림) - 방 정리 후 호출
+        if (existingPlayer.userId) {
+          registerUserOffline(existingPlayer.userId);
         }
 
         // 기존 플레이어 정리

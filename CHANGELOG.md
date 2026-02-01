@@ -1,5 +1,33 @@
 # Changelog
 
+## [1.19.1] - 2026-02-02
+
+### Bug Fixes
+- **싱글플레이 경험치 버그 수정**: 로비를 통한 싱글플레이에서 킬 경험치가 0이던 버그 수정
+  - 킬 카운팅이 골드 보상 유무와 관계없이 실행되도록 변경
+  - `myHeroId` 비교 시 fallback 추가 (게임 루프와 일관성 유지)
+- **친구 삭제 시 한쪽만 삭제되는 버그 수정**: 양방향 삭제 중 하나만 실패해도 전체 실패로 처리
+  - 기존: 둘 다 실패할 때만 오류 처리 (`error1 && error2`)
+  - 수정: 하나라도 실패하면 오류 처리 (`error1 || error2`)
+- **연결 종료 시 게임 초대 정리**: 플레이어 연결 종료 시 보낸 초대도 함께 정리
+  - `gameInviteManager.cancelUserInvites()` 호출 추가
+- **온라인 상태 알림 안정성 개선**: WebSocket 상태 체크 추가
+  - 연결이 닫히는 중인 경우 알림 전송 스킵
+- **GameInviteManager 메모리 누수 수정**: 서버 종료 시 타이머 정리
+  - `cleanup()` 메소드 추가 및 서버 종료 시 호출
+- **플레이어 재접속 상태 동기화**: `COOP_RECONNECT_INFO` 메시지 처리 추가
+  - 재접속 시 호스트 정보 및 게임 상태 복원
+
+### Technical Changes
+- `src/stores/useRPGStore.ts`: `damageEnemy`, `damageBase` 함수 킬 카운팅 로직 수정
+- `server/src/friend/FriendManager.ts`: 친구 삭제 및 온라인 상태 알림 로직 수정
+- `server/src/friend/GameInviteManager.ts`: `cleanup()` 메소드 추가, 타이머 타입 수정
+- `server/src/websocket/WebSocketServer.ts`: 연결 종료 핸들러에 초대 정리 추가, 서버 종료 시 cleanup 호출
+- `src/hooks/useNetworkSync.ts`: `COOP_RECONNECT_INFO` 핸들러 및 `handleReconnectInfo()` 함수 추가
+- `shared/types/rpgNetwork.ts`, `shared/types/hostBasedNetwork.ts`: `COOP_YOU_ARE_NOW_HOST` 타입에 `gameState` 필드 추가
+
+---
+
 ## [1.19.0] - 2026-02-01
 
 ### Features

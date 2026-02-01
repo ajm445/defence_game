@@ -286,6 +286,13 @@ export function leaveCoopRoom(playerId: string): void {
     room.players.forEach((p, id) => {
       sendToPlayer(id, { type: 'COOP_PLAYER_LEFT', playerId });
     });
+
+    // 방에 아무도 없으면 방 삭제 (비정상적인 경우 대비)
+    if (room.players.size === 0) {
+      console.log(`[Coop] 빈 방 삭제: ${room.code}`);
+      coopRoomCodeMap.delete(room.code);
+      waitingCoopRooms.delete(room.id);
+    }
   }
 
   // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (인원 수 변경 또는 방 삭제)
@@ -385,6 +392,7 @@ export function kickCoopPlayer(hostPlayerId: string, targetPlayerId: string): vo
   room.players.delete(targetPlayerId);
   if (targetPlayer) {
     targetPlayer.roomId = null;
+    targetPlayer.isInGame = false;
   }
 
   // 추방된 플레이어에게 알림

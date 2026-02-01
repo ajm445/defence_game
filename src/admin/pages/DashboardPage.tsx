@@ -114,8 +114,8 @@ export function DashboardPage() {
             color="blue"
           />
           <StatCard
-            title="현재 접속자"
-            value={overview.currentOnline.toLocaleString()}
+            title="로그인 사용자"
+            value={(overview.loggedInUsers ?? overview.currentOnline).toLocaleString()}
             subValue="실시간"
             icon={
               <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">

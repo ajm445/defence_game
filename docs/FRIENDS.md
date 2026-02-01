@@ -190,10 +190,10 @@ class FriendManager {
   // 친구 관계 추가 (양방향)
   async addFriendship(userId1: string, userId2: string): Promise<void>
 
-  // 친구 삭제
+  // 친구 삭제 (양방향 삭제, 하나라도 실패 시 전체 실패)
   async removeFriend(userId: string, friendId: string): Promise<boolean>
 
-  // 친구들에게 상태 변경 알림
+  // 친구들에게 상태 변경 알림 (WebSocket 연결 상태 확인 후 전송)
   async notifyFriendsStatusChange(userId: string, isOnline: boolean, currentRoom?: string): Promise<void>
 }
 ```
@@ -248,6 +248,12 @@ class GameInviteManager {
 ```
 
 **초대 TTL:** 5분 (300,000ms)
+
+**자동 정리:**
+- 플레이어 연결 종료 시 해당 플레이어가 보낸 모든 초대 자동 취소
+- 방 파기 시 해당 방의 모든 초대 자동 취소
+- 1분마다 만료된 초대 자동 정리
+- 서버 종료 시 정리 타이머 cleanup
 
 ---
 

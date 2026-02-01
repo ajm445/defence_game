@@ -539,6 +539,13 @@ export class RPGCoopGameRoom {
 
     // 호스트가 연결 해제되면 새 호스트 선정
     if (playerId === this.hostPlayerId) {
+      // 카운트다운 중이면 타이머 정리
+      if (this.gameState === 'countdown' && this.countdownTimer) {
+        clearInterval(this.countdownTimer);
+        this.countdownTimer = null;
+        console.log(`[Relay] 호스트 연결 해제로 카운트다운 취소`);
+      }
+
       const remainingPlayers = this.playerIds.filter(id => id !== playerId);
 
       if (remainingPlayers.length > 0) {
@@ -551,15 +558,22 @@ export class RPGCoopGameRoom {
 
         console.log(`[Relay] 새 호스트 선정: ${this.hostPlayerId}`);
 
+        // 카운트다운 중이었다면 로비로 복귀
+        if (this.gameState === 'countdown') {
+          this.gameState = 'waiting';
+          this.broadcast({ type: 'COOP_COUNTDOWN_CANCELLED', reason: '호스트 연결 해제' });
+        }
+
         // 모든 플레이어에게 호스트 변경 알림
         this.broadcast({
           type: 'COOP_HOST_CHANGED',
           newHostPlayerId: this.hostPlayerId,
         });
 
-        // 새 호스트에게 호스트 권한 부여 알림
+        // 새 호스트에게 호스트 권한 부여 알림 (현재 게임 상태도 함께 전송)
         sendToPlayer(this.hostPlayerId, {
           type: 'COOP_YOU_ARE_NOW_HOST',
+          gameState: this.gameState,
         });
       } else {
         // 모든 플레이어가 나감
@@ -567,9 +581,10 @@ export class RPGCoopGameRoom {
       }
     }
 
-    // 나가는 플레이어의 isInGame 상태를 false로 설정
+    // 나가는 플레이어의 상태 초기화
     const leavingPlayer = players.get(playerId);
     if (leavingPlayer) {
+      leavingPlayer.roomId = null;    // 방 ID 초기화
       leavingPlayer.isInGame = false;
       // 친구들에게 상태 변경 알림
       if (leavingPlayer.userId) {
@@ -699,9 +714,10 @@ export class RPGCoopGameRoom {
       return;
     }
 
-    // 호스트가 나감
+    // 호스트가 나감 - 상태 초기화
     const leavingPlayer = players.get(playerId);
     if (leavingPlayer) {
+      leavingPlayer.roomId = null;    // 방 ID 초기화
       leavingPlayer.isInGame = false;
       // 친구들에게 상태 변경 알림
       if (leavingPlayer.userId) {

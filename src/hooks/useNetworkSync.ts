@@ -214,6 +214,11 @@ export function useNetworkSync() {
         case 'COOP_GAME_STOPPED':
           handleGameStopped();
           break;
+
+        // 재접속 정보 (재접속 후 상태 복구)
+        case 'COOP_RECONNECT_INFO':
+          handleReconnectInfo(message);
+          break;
       }
     };
 
@@ -307,6 +312,28 @@ function handlePlayerReconnected(playerId: string) {
   console.log(`[NetworkSync] 플레이어 재접속: ${playerId}`);
 
   // 재접속한 플레이어의 상태 복구는 호스트가 다음 상태 브로드캐스트에서 처리
+}
+
+/**
+ * 재접속 정보 처리 (재접속 후 상태 복구)
+ */
+function handleReconnectInfo(message: { hostPlayerId: string; isHost: boolean; gameState: string }) {
+  console.log(`[NetworkSync] 재접속 정보 수신:`, message);
+
+  const state = useRPGStore.getState();
+
+  // 멀티플레이어 상태 업데이트
+  state.setMultiplayerState({
+    hostPlayerId: message.hostPlayerId,
+    isHost: message.isHost,
+    connectionState: message.gameState === 'playing' ? 'in_game' : 'connected',
+  });
+
+  // 호스트가 아닌 경우, 호스트로부터 상태를 받을 때까지 대기
+  // 호스트는 주기적으로 상태를 브로드캐스트하므로 곧 동기화됨
+  if (!message.isHost && message.gameState === 'playing') {
+    console.log('[NetworkSync] 호스트로부터 게임 상태 동기화 대기 중...');
+  }
 }
 
 function handleGameOver(result: any) {

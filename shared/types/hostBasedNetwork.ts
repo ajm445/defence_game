@@ -190,7 +190,7 @@ export type HostBasedServerMessage =
   // 호스트 변경
   | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
   // 새 호스트 권한 부여
-  | { type: 'COOP_YOU_ARE_NOW_HOST' }
+  | { type: 'COOP_YOU_ARE_NOW_HOST'; gameState?: 'waiting' | 'countdown' | 'playing' | 'ended' }
   // 재접속 정보
   | {
       type: 'COOP_RECONNECT_INFO';

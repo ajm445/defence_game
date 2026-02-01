@@ -458,7 +458,9 @@ public transferHostAndLeave(playerId: string): void {
 | `COOP_PLAYER_INPUT` | 다른 플레이어 입력 (호스트만 수신) |
 | `COOP_GAME_OVER` | 게임 종료 |
 | `COOP_HOST_CHANGED` | 호스트 변경 알림 |
-| `COOP_YOU_ARE_NOW_HOST` | 새 호스트 권한 부여 |
+| `COOP_YOU_ARE_NOW_HOST` | 새 호스트 권한 부여 (gameState 포함) |
+| `COOP_RECONNECT_INFO` | 재접속 정보 (hostPlayerId, isHost, gameState) |
+| `COOP_PLAYER_RECONNECTED` | 플레이어 재접속 알림 |
 
 ### 플레이어 입력 구조
 
@@ -546,7 +548,23 @@ interface EnemyBase {
   → COOP_HOST_CHANGED { newHostPlayerId }
 
 새 호스트에게:
-  → COOP_YOU_ARE_NOW_HOST
+  → COOP_YOU_ARE_NOW_HOST { gameState }
+```
+
+### 플레이어 재접속 흐름
+
+```
+플레이어 재접속
+       ↓
+서버: RPGCoopGameRoom.handlePlayerReconnect()
+       ↓
+모든 플레이어에게 알림:
+  → COOP_PLAYER_RECONNECTED { playerId }
+
+재접속한 플레이어에게:
+  → COOP_RECONNECT_INFO { hostPlayerId, isHost, gameState }
+       ↓
+클라이언트: 호스트로부터 다음 상태 브로드캐스트 대기
 ```
 
 ---

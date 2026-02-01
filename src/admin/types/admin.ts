@@ -119,7 +119,8 @@ export interface OverviewStats {
   newPlayersWeek: number;
   totalGames: number;
   gamesToday: number;
-  currentOnline: number;
+  currentOnline: number;    // WebSocket 연결 수
+  loggedInUsers?: number;   // 로그인된 사용자 수
 }
 
 export interface ClassPopularityData {
@@ -175,7 +176,8 @@ export interface BansListResponse {
 
 // Monitoring Types
 export interface ServerStatus {
-  currentOnline: number;
+  currentOnline: number;    // WebSocket 연결 수
+  loggedInUsers: number;    // 로그인된 사용자 수
   activeGames: number;
   serverUptime: number;
   memoryUsage: number;

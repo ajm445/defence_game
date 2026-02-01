@@ -31,6 +31,11 @@ export function getOnlineUserIds(): string[] {
   return Array.from(onlineUserIds);
 }
 
+// 로그인된 사용자 수 반환
+export function getLoggedInUserCount(): number {
+  return onlineUserIds.size;
+}
+
 // 메시지 전송 헬퍼
 export function sendMessage(ws: WebSocket, message: ServerMessage): void {
   if (ws.readyState === WebSocket.OPEN) {

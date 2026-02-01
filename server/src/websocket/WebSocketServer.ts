@@ -6,6 +6,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect, handleAdminDisconnect, broadcastToAdmins, getServerStatus } from './MessageHandler';
 import { handlePlayerDisconnect } from '../room/RoomManager';
 import { players, sendMessage, Player, registerUserOffline } from '../state/players';
+import { gameInviteManager } from '../friend/GameInviteManager';
 import authRouter from '../api/authRouter';
 import profileRouter from '../api/profileRouter';
 import adminRouter from '../api/admin/adminRouter';
@@ -153,6 +154,11 @@ export function createWebSocketServer(port: number) {
       // 협동 대기 방에서 제거
       handleCoopDisconnect(playerId);
 
+      // 게임 초대 정리 (플레이어가 보낸 초대 취소)
+      if (player?.userId) {
+        gameInviteManager.cancelUserInvites(player.userId);
+      }
+
       // 관리자 구독 해제
       handleAdminDisconnect(playerId);
 
@@ -175,6 +181,7 @@ export function createWebSocketServer(port: number) {
   // 서버 종료 함수
   const close = () => {
     clearInterval(adminStatusInterval);
+    gameInviteManager.cleanup(); // 게임 초대 타이머 정리
     wss.clients.forEach((ws) => {
       ws.close();
     });

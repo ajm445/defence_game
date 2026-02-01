@@ -140,7 +140,8 @@ export function MonitoringPage() {
     }
   };
 
-  const currentOnline = serverStatus?.currentOnline ?? overview?.currentOnline ?? 0;
+  const loggedInUsers = serverStatus?.loggedInUsers ?? overview?.currentOnline ?? 0;
+  const wsConnections = serverStatus?.currentOnline ?? overview?.currentOnline ?? 0;
   const activeGames = serverStatus?.activeGames ?? 0;
   const gamesToday = overview?.gamesToday ?? 0;
 
@@ -230,13 +231,13 @@ export function MonitoringPage() {
               </svg>
             </div>
             <div className="flex-1">
-              <p className="text-sm text-slate-400 font-medium">현재 접속자</p>
+              <p className="text-sm text-slate-400 font-medium">로그인 사용자</p>
               <div className="flex items-baseline gap-2 mt-1">
-                <span className="text-3xl font-bold text-white">{currentOnline}</span>
+                <span className="text-3xl font-bold text-white">{loggedInUsers}</span>
                 <span className="text-sm text-slate-500">명</span>
               </div>
             </div>
-            {currentOnline > 0 && (
+            {loggedInUsers > 0 && (
               <div className="flex items-center gap-1">
                 <span className="w-2 h-2 rounded-full bg-green-400 animate-pulse"></span>
                 <span className="text-xs text-green-400">Live</span>
@@ -301,7 +302,7 @@ export function MonitoringPage() {
           </div>
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 overflow-hidden">
           <div className="p-6">
-            <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
+            <div className="grid grid-cols-2 lg:grid-cols-5 gap-4">
               <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
                 <div className="flex items-center gap-2 mb-3">
                   <svg className="w-4 h-4 text-cyan-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -325,9 +326,18 @@ export function MonitoringPage() {
                   <svg className="w-4 h-4 text-green-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4.354a4 4 0 110 5.292M15 21H3v-1a6 6 0 0112 0v1zm0 0h6v-1a6 6 0 00-9-5.197M13 7a4 4 0 11-8 0 4 4 0 018 0z" />
                   </svg>
-                  <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">접속자</span>
+                  <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">로그인 사용자</span>
                 </div>
-                <p className="text-xl font-bold text-white">{serverStatus.currentOnline} <span className="text-sm text-slate-400">명</span></p>
+                <p className="text-xl font-bold text-white">{serverStatus.loggedInUsers ?? 0} <span className="text-sm text-slate-400">명</span></p>
+              </div>
+              <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
+                <div className="flex items-center gap-2 mb-3">
+                  <svg className="w-4 h-4 text-yellow-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8.111 16.404a5.5 5.5 0 017.778 0M12 20h.01m-7.08-7.071c3.904-3.905 10.236-3.905 14.141 0M1.394 9.393c5.857-5.857 15.355-5.857 21.213 0" />
+                  </svg>
+                  <span className="text-xs text-slate-400 font-medium uppercase tracking-wider">WS 연결</span>
+                </div>
+                <p className="text-xl font-bold text-white">{serverStatus.currentOnline} <span className="text-sm text-slate-400">개</span></p>
               </div>
               <div className="bg-slate-900/50 rounded-xl p-4 border border-slate-700/30">
                 <div className="flex items-center gap-2 mb-3">

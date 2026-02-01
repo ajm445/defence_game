@@ -1465,32 +1465,35 @@ export const useRPGStore = create<RPGStore>()(
         return { enemies };
       });
 
-      // 처치 시 골드 획득 및 통계 업데이트
-      if (killed && goldReward > 0) {
+      // 처치 시 통계 업데이트 (골드 보상 유무와 관계없이)
+      if (killed) {
         const state = get();
-        const myHeroId = state.multiplayer.myHeroId;
+        // myHeroId: 멀티플레이어 상태에서 가져오거나, 없으면 hero.id 사용 (게임 루프와 동일)
+        const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
         const isMultiplayer = state.multiplayer.isMultiplayer;
         const isHost = state.multiplayer.isHost;
 
-        // 골드 분배 로직
-        if (isBoss && isMultiplayer && enemyDamagedBy.length > 0) {
-          // 보스 처치: 골드를 관여한 플레이어에게만 균등 분배
-          const contributorCount = enemyDamagedBy.length;
-          const goldPerContributor = Math.floor(goldReward / contributorCount);
+        // 골드 분배 로직 (골드 보상이 있는 경우만)
+        if (goldReward > 0) {
+          if (isBoss && isMultiplayer && enemyDamagedBy.length > 0) {
+            // 보스 처치: 골드를 관여한 플레이어에게만 균등 분배
+            const contributorCount = enemyDamagedBy.length;
+            const goldPerContributor = Math.floor(goldReward / contributorCount);
 
-          for (const heroId of enemyDamagedBy) {
-            if (heroId === myHeroId) {
-              get().addGold(goldPerContributor);
-            } else {
-              state.addGoldToOtherPlayer(heroId, goldPerContributor);
+            for (const heroId of enemyDamagedBy) {
+              if (heroId === myHeroId) {
+                get().addGold(goldPerContributor);
+              } else {
+                state.addGoldToOtherPlayer(heroId, goldPerContributor);
+              }
             }
+          } else if (killerHeroId && isMultiplayer && killerHeroId !== myHeroId) {
+            // 다른 플레이어가 일반 적 처치
+            state.addGoldToOtherPlayer(killerHeroId, goldReward);
+          } else {
+            // 호스트가 처치하거나 싱글플레이어
+            get().addGold(goldReward);
           }
-        } else if (killerHeroId && isMultiplayer && killerHeroId !== myHeroId) {
-          // 다른 플레이어가 일반 적 처치
-          state.addGoldToOtherPlayer(killerHeroId, goldReward);
-        } else {
-          // 호스트가 처치하거나 싱글플레이어
-          get().addGold(goldReward);
         }
 
         // 처치 수 분배 (호스트에서만 처리 - 멀티플레이어 시)
@@ -1617,7 +1620,8 @@ export const useRPGStore = create<RPGStore>()(
       // 기지 파괴 시 골드 분배 (damageEnemy와 동일한 패턴)
       if (destroyed) {
         const state = get();
-        const myHeroId = state.multiplayer.myHeroId;
+        // myHeroId: 멀티플레이어 상태에서 가져오거나, 없으면 hero.id 사용 (게임 루프와 동일)
+        const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
         const isMultiplayer = state.multiplayer.isMultiplayer;
         const baseReward = GOLD_CONFIG.BASE_DESTROY_REWARDS[state.selectedDifficulty];
 

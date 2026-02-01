@@ -1,7 +1,7 @@
 import { Router, Response } from 'express';
 import { getSupabaseAdmin } from '../../services/supabaseAdmin';
 import { requireAdmin, AuthenticatedRequest } from '../../middleware/adminAuth';
-import { players } from '../../state/players';
+import { players, getLoggedInUserCount } from '../../state/players';
 
 const router = Router();
 
@@ -58,7 +58,8 @@ router.get('/overview', requireAdmin, async (_req: AuthenticatedRequest, res: Re
       .gte('played_at', today.toISOString());
 
     // 현재 접속자 수 (WebSocket에서 가져옴)
-    const currentOnline = players.size;
+    const currentOnline = players.size;           // WebSocket 연결 수
+    const loggedInUsers = getLoggedInUserCount(); // 로그인된 사용자 수
 
     res.json({
       totalPlayers: totalPlayers || 0,
@@ -69,6 +70,7 @@ router.get('/overview', requireAdmin, async (_req: AuthenticatedRequest, res: Re
       totalGames: totalGames || 0,
       gamesToday: gamesToday || 0,
       currentOnline,
+      loggedInUsers,
     });
   } catch (err) {
     console.error('Fetch overview stats error:', err);
