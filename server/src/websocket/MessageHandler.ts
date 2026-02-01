@@ -434,6 +434,17 @@ function handleUserLogout(playerId: string, userId: string, nickname: string): v
     player.userId = null;
   }
   console.log(`[Auth] 로그아웃: ${nickname} (userId: ${userId}, playerId: ${playerId})`);
+
+  // 관리자에게 로그아웃 이벤트 브로드캐스트
+  broadcastToAdmins({
+    type: 'ADMIN_PLAYER_ACTIVITY',
+    activity: {
+      type: 'logout',
+      playerId,
+      playerName: nickname,
+      timestamp: new Date().toISOString(),
+    },
+  });
 }
 
 // ============================================

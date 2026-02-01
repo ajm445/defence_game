@@ -182,7 +182,7 @@ export interface ServerStatus {
 }
 
 export interface PlayerActivity {
-  type: 'connect' | 'disconnect' | 'game_start' | 'game_end';
+  type: 'connect' | 'disconnect' | 'logout' | 'game_start' | 'game_end';
   playerId: string;
   playerName?: string;
   timestamp: string;

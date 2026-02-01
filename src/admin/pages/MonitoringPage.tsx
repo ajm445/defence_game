@@ -86,6 +86,14 @@ export function MonitoringPage() {
             </svg>
           </div>
         );
+      case 'logout':
+        return (
+          <div className={`${baseClass} bg-gradient-to-br from-orange-500/20 to-orange-600/20 border border-orange-500/30`}>
+            <svg className="w-5 h-5 text-orange-400" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 16l4-4m0 0l-4-4m4 4H7m6 4v1a3 3 0 01-3 3H6a3 3 0 01-3-3V7a3 3 0 013-3h4a3 3 0 013 3v1" />
+            </svg>
+          </div>
+        );
       case 'game_start':
         return (
           <div className={`${baseClass} bg-gradient-to-br from-blue-500/20 to-blue-600/20 border border-blue-500/30`}>
@@ -120,7 +128,9 @@ export function MonitoringPage() {
       case 'connect':
         return { name, action: '서버에 접속했습니다', color: 'text-green-400' };
       case 'disconnect':
-        return { name, action: '서버에서 나갔습니다', color: 'text-red-400' };
+        return { name, action: '연결이 끊겼습니다', color: 'text-red-400' };
+      case 'logout':
+        return { name, action: '로그아웃했습니다', color: 'text-orange-400' };
       case 'game_start':
         return { name, action: '게임을 시작했습니다', color: 'text-blue-400' };
       case 'game_end':
