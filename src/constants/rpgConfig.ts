@@ -500,8 +500,8 @@ export const CLASS_SKILLS = {
       type: 'knight_w' as SkillType,
       name: '방패 돌진',
       key: 'W',
-      cooldown: 6,
-      description: '전방 돌진하며 경로상 적에게 최대 HP 10% 데미지 + 2초 기절',
+      cooldown: 8,
+      description: '전방 돌진하며 경로상 적에게 최대 HP 10% 데미지 + 2초 기절 (기본공격 적중 시 쿨타임 1초 감소)',
       distance: 150,
       hpDamagePercent: 0.1, // 최대 HP의 10% 데미지
       stunDuration: 2.0,
