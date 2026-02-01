@@ -1,6 +1,6 @@
 import { RPGEnemy, EnemyAIConfig, EnemyBase, EnemyBaseId, RPGDifficulty, DifficultyConfig } from '../../types/rpg';
 import { UnitType } from '../../types/unit';
-import { SPAWN_CONFIG, GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS, RPG_ENEMY_CONFIGS, COOP_CONFIG } from '../../constants/rpgConfig';
+import { SPAWN_CONFIG, GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS, RPG_ENEMY_CONFIGS, COOP_CONFIG, TUTORIAL_SPAWN_CONFIG } from '../../constants/rpgConfig';
 import { generateId } from '../../utils/math';
 
 /**
@@ -229,6 +229,89 @@ export function shouldSpawnEnemy(
   }));
 
   return { shouldSpawn: true, spawns };
+}
+
+/**
+ * 튜토리얼용 스폰 설정 가져오기
+ */
+export function getTutorialSpawnConfig(): {
+  spawnInterval: number;
+  statMultiplier: number;
+  attackMultiplier: number;
+  goldMultiplier: number;
+  maxEnemies: number;
+} {
+  return {
+    spawnInterval: TUTORIAL_SPAWN_CONFIG.BASE_INTERVAL,
+    statMultiplier: TUTORIAL_SPAWN_CONFIG.STAT_MULTIPLIER,
+    attackMultiplier: TUTORIAL_SPAWN_CONFIG.STAT_MULTIPLIER,
+    goldMultiplier: 1.0,
+    maxEnemies: TUTORIAL_SPAWN_CONFIG.MAX_ENEMIES,
+  };
+}
+
+/**
+ * 튜토리얼용 적 스폰 체크
+ * - 느린 스폰 간격
+ * - 최대 적 수 제한
+ * - 약한 적
+ */
+export function shouldSpawnTutorialEnemy(
+  gameTime: number,
+  lastSpawnTime: number,
+  bases: EnemyBase[],
+  currentEnemyCount: number
+): SpawnResult {
+  const config = getTutorialSpawnConfig();
+  const timeSinceLastSpawn = gameTime - lastSpawnTime;
+
+  // 스폰 간격 체크
+  if (timeSinceLastSpawn < config.spawnInterval) {
+    return { shouldSpawn: false, spawns: [] };
+  }
+
+  // 최대 적 수 체크
+  if (currentEnemyCount >= config.maxEnemies) {
+    return { shouldSpawn: false, spawns: [] };
+  }
+
+  // 파괴되지 않은 기지
+  const activeBases = bases.filter(b => !b.destroyed);
+  if (activeBases.length === 0) {
+    return { shouldSpawn: false, spawns: [] };
+  }
+
+  // 튜토리얼은 항상 1마리씩만 스폰
+  const spawns = activeBases.map(base => ({
+    baseId: base.id,
+    count: 1,
+  }));
+
+  return { shouldSpawn: true, spawns };
+}
+
+/**
+ * 튜토리얼용 적 생성 (약한 스탯)
+ */
+export function createTutorialEnemy(
+  base: EnemyBase,
+  _gameTime: number
+): RPGEnemy | null {
+  if (base.destroyed) return null;
+
+  const config = getTutorialSpawnConfig();
+  // 튜토리얼은 melee만 스폰
+  const enemyType: UnitType = 'melee';
+
+  return createNexusEnemy(
+    enemyType,
+    base.id,
+    base.x,
+    base.y,
+    config.statMultiplier,
+    config.attackMultiplier,
+    config.goldMultiplier
+  );
 }
 
 /**

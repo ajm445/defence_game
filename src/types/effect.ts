@@ -20,7 +20,9 @@ export type EffectType =
   | 'boss_summon'
   | 'boss_knockback'
   | 'boss_charge'
-  | 'boss_heal';
+  | 'boss_heal'
+  // 보스 기본 공격 이펙트
+  | 'boss_basic_attack';
 
 export type ParticleShape = 'circle' | 'square' | 'star' | 'emoji' | 'cross';
 

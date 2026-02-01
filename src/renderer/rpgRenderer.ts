@@ -7,6 +7,7 @@ import { drawRPGMinimap, getMinimapConfig } from './drawRPGMinimap';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useAuthStore } from '../stores/useAuthStore';
 import { drawNexus, drawAllEnemyBases, drawNexusLaserBeams } from './drawNexusEntities';
+import { useRPGTutorialStore, TutorialTargetPosition } from '../stores/useRPGTutorialStore';
 
 /**
  * RPG 모드 렌더링
@@ -60,6 +61,12 @@ export function renderRPG(
 
   if (state.enemyBases && state.enemyBases.length > 0) {
     drawAllEnemyBases(ctx, state.enemyBases, camera, scaledWidth, scaledHeight);
+  }
+
+  // 튜토리얼 목표 위치 마커 렌더링
+  const tutorialState = useRPGTutorialStore.getState();
+  if (tutorialState.isActive && tutorialState.targetPosition) {
+    drawTutorialTargetMarker(ctx, tutorialState.targetPosition, camera, state.gameTime);
   }
 
   // 보스 스킬 경고 표시 렌더링
@@ -536,6 +543,75 @@ function drawBossSkillWarning(
   ctx.textBaseline = 'middle';
   ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
   ctx.fillText(config.name, screenX, screenY - warning.radius - 15);
+
+  ctx.restore();
+}
+
+/**
+ * 튜토리얼 목표 위치 마커 렌더링
+ */
+export function drawTutorialTargetMarker(
+  ctx: CanvasRenderingContext2D,
+  target: TutorialTargetPosition,
+  camera: { x: number; y: number },
+  gameTime: number
+) {
+  const screenX = target.x - camera.x;
+  const screenY = target.y - camera.y;
+
+  // 애니메이션 효과
+  const pulse = Math.sin(gameTime * 3) * 0.2 + 0.8;
+  const bounce = Math.sin(gameTime * 2) * 5;
+
+  ctx.save();
+
+  // 외곽 원 (파동 효과)
+  const waveRadius = target.radius + 20 + Math.sin(gameTime * 4) * 10;
+  ctx.beginPath();
+  ctx.arc(screenX, screenY, waveRadius, 0, Math.PI * 2);
+  ctx.strokeStyle = `rgba(0, 255, 100, ${0.3 * pulse})`;
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 메인 원
+  ctx.beginPath();
+  ctx.arc(screenX, screenY, target.radius, 0, Math.PI * 2);
+  const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, target.radius);
+  gradient.addColorStop(0, `rgba(0, 255, 100, ${0.4 * pulse})`);
+  gradient.addColorStop(0.7, `rgba(0, 200, 80, ${0.2 * pulse})`);
+  gradient.addColorStop(1, `rgba(0, 150, 50, ${0.1 * pulse})`);
+  ctx.fillStyle = gradient;
+  ctx.fill();
+
+  // 테두리
+  ctx.strokeStyle = `rgba(0, 255, 100, ${0.8 * pulse})`;
+  ctx.lineWidth = 3;
+  ctx.stroke();
+
+  // 중앙 점
+  ctx.beginPath();
+  ctx.arc(screenX, screenY, 8, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(255, 255, 255, ${pulse})`;
+  ctx.fill();
+
+  // 화살표 (위에서 아래로 pointing)
+  ctx.beginPath();
+  ctx.moveTo(screenX, screenY - target.radius - 30 + bounce);
+  ctx.lineTo(screenX - 10, screenY - target.radius - 45 + bounce);
+  ctx.lineTo(screenX + 10, screenY - target.radius - 45 + bounce);
+  ctx.closePath();
+  ctx.fillStyle = `rgba(0, 255, 100, ${pulse})`;
+  ctx.fill();
+
+  // 라벨
+  ctx.font = 'bold 14px Arial';
+  ctx.textAlign = 'center';
+  ctx.textBaseline = 'bottom';
+  ctx.fillStyle = `rgba(255, 255, 255, 1)`;
+  ctx.strokeStyle = 'rgba(0, 0, 0, 0.8)';
+  ctx.lineWidth = 3;
+  ctx.strokeText(target.label, screenX, screenY - target.radius - 50 + bounce);
+  ctx.fillText(target.label, screenX, screenY - target.radius - 50 + bounce);
 
   ctx.restore();
 }

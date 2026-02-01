@@ -1,5 +1,53 @@
 # Changelog
 
+## [1.19.0] - 2026-02-01
+
+### Features
+- **RPG 튜토리얼 모드 추가**: 처음 플레이하는 유저를 위한 단계별 튜토리얼
+  - RPG 로비 화면에 "튜토리얼" 버튼 추가
+  - 8단계 튜토리얼 진행:
+    1. 환영 - 게임 목표 및 규칙 설명
+    2. 이동 - WASD 조작법 (3개 지점 순회)
+    3. 자동 공격 - 사거리 내 자동 공격 설명
+    4. 일반 스킬 (Shift) - 마우스 방향 스킬 사용
+    5. 궁극기 (R) - 강력한 궁극기 사용
+    6. 업그레이드 - 골드 획득 및 강화 시스템
+    7. 적 기지 파괴 - 기지 공격으로 보스 소환
+    8. 보스 처치 - 보스 격파로 튜토리얼 완료
+  - 튜토리얼 전용 맵 (작은 크기, 적 기지 1개)
+  - 튜토리얼 전용 설정 (약한 적, 느린 스폰, 약한 보스)
+  - 이동 튜토리얼 시 화면에 목표 지점 마커 표시
+  - 튜토리얼 완료 시 레벨/캐릭터 해금 시스템 안내
+
+- **튜토리얼 전용 일시정지 메뉴**: ESC 키로 일시정지
+  - 계속하기, 다시하기, 설정, 나가기 4개 버튼
+  - 인라인 소리 설정 (음량 조절, 음소거)
+
+### Bug Fixes
+- **부활 시 카메라 추적**: 사망 후 부활 시 카메라가 자동으로 영웅을 따라가도록 수정
+  - 기존: 부활 후 Space 키로 수동 고정 필요
+  - 수정: `followHero: true` 자동 설정
+- **튜토리얼 승리 사운드 중복**: 보스 처치 시 승리 사운드가 두 번 재생되던 버그 수정
+
+### New Files
+- `src/components/screens/RPGTutorialScreen.tsx` - 튜토리얼 게임 화면
+- `src/components/ui/RPGTutorialOverlay.tsx` - 튜토리얼 UI 오버레이
+- `src/stores/useRPGTutorialStore.ts` - 튜토리얼 상태 관리
+
+### Technical Changes
+- `src/types/game.ts`: `GameScreen` 타입에 `'rpgTutorial'` 추가
+- `src/App.tsx`: 튜토리얼 화면 라우팅 추가
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: 튜토리얼 버튼 추가
+- `src/constants/rpgConfig.ts`: 튜토리얼 맵/스폰/보스 설정 추가
+- `src/stores/useRPGStore.ts`: `initTutorialGame()`, `isTutorial` 상태 추가
+- `src/hooks/useRPGGameLoop.ts`: 튜토리얼 스폰 로직 분기 처리
+- `src/hooks/useRPGInput.ts`: 튜토리얼 모드 ESC 키 처리
+- `src/game/rpg/nexusSpawnSystem.ts`: 튜토리얼 스폰 함수 추가
+- `src/game/rpg/bossSystem.ts`: 튜토리얼 보스 생성 함수 추가
+- `src/renderer/rpgRenderer.ts`: 튜토리얼 목표 마커 렌더링 추가
+
+---
+
 ## [1.18.3] - 2026-02-01
 
 ### Bug Fixes

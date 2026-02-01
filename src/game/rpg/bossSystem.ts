@@ -1,5 +1,5 @@
 import { RPGEnemy, EnemyBase, EnemyBaseId, EnemyAIConfig, RPGDifficulty, BossSkill, BossSkillType, BossSkillCast, BossSkillWarning, HeroUnit, Buff, DashState } from '../../types/rpg';
-import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS, RPG_ENEMY_CONFIGS, BOSS_SKILL_CONFIGS, DIFFICULTY_BOSS_SKILLS } from '../../constants/rpgConfig';
+import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS, RPG_ENEMY_CONFIGS, BOSS_SKILL_CONFIGS, DIFFICULTY_BOSS_SKILLS, TUTORIAL_BOSS_CONFIG } from '../../constants/rpgConfig';
 import { generateId, distance } from '../../utils/math';
 
 // 보스 설정
@@ -23,17 +23,30 @@ const BOSS_CONFIG = {
 };
 
 /**
- * 보스 2마리 생성 (각 파괴된 기지 위치에서 스폰)
+ * 보스 생성 (각 파괴된 기지 위치에서 스폰)
  * @param playerCount 플레이어 수 (1~4)
  * @param difficulty 난이도 (easy/normal/hard/extreme)
+ * @param isTutorial 튜토리얼 모드 여부 (약한 보스 1마리만)
  */
 export function createBosses(
   destroyedBases: EnemyBase[],
   playerCount: number,
-  difficulty: RPGDifficulty = 'easy'
+  difficulty: RPGDifficulty = 'easy',
+  isTutorial: boolean = false
 ): RPGEnemy[] {
   const bosses: RPGEnemy[] = [];
 
+  // 튜토리얼 모드: 첫 번째 파괴된 기지에서 약한 보스 1마리만 스폰
+  if (isTutorial) {
+    const firstDestroyedBase = destroyedBases.find(b => b.destroyed);
+    if (firstDestroyedBase) {
+      const boss = createTutorialBoss(firstDestroyedBase.id, firstDestroyedBase.x, firstDestroyedBase.y);
+      bosses.push(boss);
+    }
+    return bosses;
+  }
+
+  // 일반 모드: 모든 파괴된 기지에서 보스 스폰
   for (const base of destroyedBases) {
     if (base.destroyed) {
       const boss = createBoss(base.id, base.x, base.y, playerCount, difficulty);
@@ -42,6 +55,63 @@ export function createBosses(
   }
 
   return bosses;
+}
+
+/**
+ * 튜토리얼용 약한 보스 생성
+ */
+function createTutorialBoss(
+  baseId: EnemyBaseId,
+  spawnX: number,
+  spawnY: number
+): RPGEnemy {
+  const baseAIConfig = ENEMY_AI_CONFIGS.boss;
+
+  // 튜토리얼 보스 스탯 (약한 보스)
+  const bossHp = TUTORIAL_BOSS_CONFIG.hp;
+  const bossDamage = TUTORIAL_BOSS_CONFIG.attack;
+
+  // AI 설정
+  const aiConfig: EnemyAIConfig = {
+    detectionRange: baseAIConfig.detectionRange,
+    attackRange: baseAIConfig.attackRange,
+    moveSpeed: baseAIConfig.moveSpeed * 0.8,
+    attackDamage: bossDamage,
+    attackSpeed: baseAIConfig.attackSpeed * 1.2,
+  };
+
+  // RPG용 보스 config 생성
+  const bossConfig = {
+    name: '튜토리얼 보스',
+    cost: {},
+    hp: bossHp,
+    attack: bossDamage,
+    attackSpeed: 2.0,
+    speed: 1.5,
+    range: baseAIConfig.attackRange,
+    type: 'combat' as const,
+  };
+
+  return {
+    id: `boss_tutorial_${generateId()}`,
+    type: 'boss',
+    config: bossConfig,
+    x: spawnX,
+    y: spawnY,
+    hp: bossHp,
+    maxHp: bossHp,
+    state: 'idle',
+    attackCooldown: 0,
+    team: 'enemy',
+    goldReward: 100,
+    targetHero: false,
+    aiConfig,
+    buffs: [],
+    fromBase: baseId,
+    aggroOnHero: false,
+    damagedBy: [],
+    bossSkills: [], // 튜토리얼 보스는 스킬 없음
+  };
 }
 
 /**

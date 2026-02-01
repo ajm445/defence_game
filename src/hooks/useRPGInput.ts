@@ -267,8 +267,14 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
         case 'escape':
           // ESC: 일시정지
           if (!state.gameOver) {
-            useUIStore.getState().setScreen('paused');
-            useRPGStore.getState().setPaused(true);
+            if (state.isTutorial) {
+              // 튜토리얼: 화면 전환 없이 일시정지만
+              useRPGStore.getState().setPaused(!state.paused);
+            } else {
+              // 일반 모드: 일시정지 화면으로 전환
+              useUIStore.getState().setScreen('paused');
+              useRPGStore.getState().setPaused(true);
+            }
           }
           break;
       }

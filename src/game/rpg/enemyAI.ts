@@ -9,6 +9,8 @@ export interface EnemyAIResult {
   nexusDamage?: number;
   isAttacking: boolean;
   isAttackingNexus: boolean;
+  attackerId?: string;      // 공격한 적 ID (보스 공격 이펙트용)
+  attackerType?: string;    // 공격한 적 타입 (boss 등)
 }
 
 // 어그로 지속 시간 (초)
@@ -96,6 +98,10 @@ export function updateEnemyAINexus(
   const isHeroInAttackRange = canTargetHero && distToHero <= aiConfig.attackRange;
   const isHeroInDetectionRange = canTargetHero && distToHero <= aiConfig.detectionRange;
 
+  // 공격자 정보 (보스 공격 이펙트용)
+  let attackerId: string | undefined;
+  let attackerType: string | undefined;
+
   // AI 행동 결정
   // 어그로 또는 탐지 범위 내 플레이어가 있으면 추적/공격
   if (hasAggro || isHeroInDetectionRange) {
@@ -103,6 +109,8 @@ export function updateEnemyAINexus(
       // 공격 범위 내: 공격
       if (updatedEnemy.attackCooldown <= 0) {
         heroDamage = aiConfig.attackDamage;
+        attackerId = enemy.id;
+        attackerType = enemy.type;
         updatedEnemy.attackCooldown = aiConfig.attackSpeed;
         updatedEnemy.state = 'attacking';
         isAttacking = true;
@@ -151,6 +159,8 @@ export function updateEnemyAINexus(
     nexusDamage,
     isAttacking,
     isAttackingNexus,
+    attackerId,
+    attackerType,
   };
 }
 
@@ -280,10 +290,16 @@ export function updateAllEnemiesAINexus(
   nexus: Nexus | null,
   deltaTime: number,
   gameTime: number
-): { updatedEnemies: RPGEnemy[]; totalHeroDamage: number; totalNexusDamage: number } {
+): {
+  updatedEnemies: RPGEnemy[];
+  totalHeroDamage: number;
+  totalNexusDamage: number;
+  attackerInfo?: { attackerId: string; attackerType: string };  // 보스 공격 정보
+} {
   let totalHeroDamage = 0;
   let totalNexusDamage = 0;
   const updatedEnemies: RPGEnemy[] = [];
+  let attackerInfo: { attackerId: string; attackerType: string } | undefined;
 
   for (const enemy of enemies) {
     if (enemy.hp <= 0) {
@@ -296,13 +312,20 @@ export function updateAllEnemiesAINexus(
 
     if (result.heroDamage) {
       totalHeroDamage += result.heroDamage;
+      // 공격자 정보 저장 (보스 공격 이펙트용)
+      if (result.attackerId && result.attackerType) {
+        attackerInfo = {
+          attackerId: result.attackerId,
+          attackerType: result.attackerType,
+        };
+      }
     }
     if (result.nexusDamage) {
       totalNexusDamage += result.nexusDamage;
     }
   }
 
-  return { updatedEnemies, totalHeroDamage, totalNexusDamage };
+  return { updatedEnemies, totalHeroDamage, totalNexusDamage, attackerInfo };
 }
 
 /**
@@ -414,6 +437,7 @@ export function findEnemiesInRadius(
 export interface MultiplayerEnemyAIResult {
   updatedEnemies: RPGEnemy[];
   heroDamages: Map<string, number>;  // heroId -> damage
+  heroAttackers: Map<string, { attackerId: string; attackerType: string }>;  // heroId -> 공격한 적 정보
   totalNexusDamage: number;
 }
 
@@ -445,6 +469,7 @@ export function updateAllEnemiesAINexusMultiplayer(
   gameTime: number
 ): MultiplayerEnemyAIResult {
   const heroDamages = new Map<string, number>();
+  const heroAttackers = new Map<string, { attackerId: string; attackerType: string }>();
   let totalNexusDamage = 0;
   const updatedEnemies: RPGEnemy[] = [];
 
@@ -474,6 +499,13 @@ export function updateAllEnemiesAINexusMultiplayer(
     if (result.heroDamage && result.targetHeroId) {
       const currentDamage = heroDamages.get(result.targetHeroId) || 0;
       heroDamages.set(result.targetHeroId, currentDamage + result.heroDamage);
+      // 공격자 정보 저장 (보스 공격 이펙트용)
+      if (result.attackerId && result.attackerType) {
+        heroAttackers.set(result.targetHeroId, {
+          attackerId: result.attackerId,
+          attackerType: result.attackerType,
+        });
+      }
     }
 
     if (result.nexusDamage) {
@@ -481,7 +513,7 @@ export function updateAllEnemiesAINexusMultiplayer(
     }
   }
 
-  return { updatedEnemies, heroDamages, totalNexusDamage };
+  return { updatedEnemies, heroDamages, heroAttackers, totalNexusDamage };
 }
 
 /**
@@ -492,6 +524,8 @@ interface MultiplayerSingleEnemyResult {
   heroDamage?: number;
   targetHeroId?: string;
   nexusDamage?: number;
+  attackerId?: string;      // 공격한 적 ID
+  attackerType?: string;    // 공격한 적 타입 (boss 등)
 }
 
 function updateEnemyAIMultiplayer(
@@ -579,6 +613,10 @@ function updateEnemyAIMultiplayer(
   const targetHero = aggroHero || heroInDetectionRange;
   const distToTargetHero = targetHero ? distance(enemy.x, enemy.y, targetHero.x, targetHero.y) : Infinity;
 
+  // 공격자 정보 (보스 공격 이펙트용)
+  let attackerId: string | undefined;
+  let attackerType: string | undefined;
+
   // AI 행동 결정
   if (targetHero) {
     // 탐지 범위 내 플레이어 또는 어그로 대상 추적/공격
@@ -587,6 +625,8 @@ function updateEnemyAIMultiplayer(
       if (updatedEnemy.attackCooldown <= 0) {
         heroDamage = aiConfig.attackDamage;
         targetHeroId = targetHero.id;
+        attackerId = enemy.id;
+        attackerType = enemy.type;
         updatedEnemy.attackCooldown = aiConfig.attackSpeed;
         updatedEnemy.state = 'attacking';
       } else {
@@ -632,6 +672,8 @@ function updateEnemyAIMultiplayer(
     heroDamage,
     targetHeroId,
     nexusDamage,
+    attackerId,
+    attackerType,
   };
 }
 

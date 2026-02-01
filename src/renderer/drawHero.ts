@@ -759,6 +759,52 @@ export function drawRPGEnemy(
     ctx.fillText(`${Math.floor(enemy.hp)} / ${enemy.maxHp}`, screenX, screenY + hpBarY - 5);
   }
 
+  // 보스 공격 모션 (attacking 상태)
+  if (isBoss && enemy.state === 'attacking') {
+    ctx.save();
+
+    // 공격 방향 계산 (영웅 방향)
+    const attackAngle = heroPosition
+      ? Math.atan2(heroPosition.y - enemy.y, heroPosition.x - enemy.x)
+      : 0;
+
+    // 공격 스윙 호 (때리는 모션) - 0.3초 주기
+    const swingProgress = (Date.now() % 300) / 300;
+    const arcRadius = 70;
+    const arcStart = attackAngle - Math.PI / 3;
+    const arcEnd = attackAngle + Math.PI / 3;
+
+    // 스윙 궤적 (어두운 빨간색)
+    ctx.strokeStyle = `rgba(255, 50, 0, ${0.8 - swingProgress * 0.6})`;
+    ctx.lineWidth = 8 - swingProgress * 6;
+    ctx.lineCap = 'round';
+
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, arcRadius * (0.5 + swingProgress * 0.5),
+            arcStart + swingProgress * 0.3,
+            arcEnd - swingProgress * 0.3);
+    ctx.stroke();
+
+    // 내부 밝은 스윙 궤적
+    ctx.strokeStyle = `rgba(255, 100, 50, ${0.6 - swingProgress * 0.4})`;
+    ctx.lineWidth = 4 - swingProgress * 3;
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, arcRadius * (0.4 + swingProgress * 0.4),
+            arcStart + swingProgress * 0.4,
+            arcEnd - swingProgress * 0.4);
+    ctx.stroke();
+
+    // 공격 범위 표시 (반투명 부채꼴)
+    ctx.fillStyle = 'rgba(255, 0, 0, 0.15)';
+    ctx.beginPath();
+    ctx.moveTo(screenX, screenY);
+    ctx.arc(screenX, screenY, 80, arcStart, arcEnd);
+    ctx.closePath();
+    ctx.fill();
+
+    ctx.restore();
+  }
+
   // 기절 상태 표시
   const isStunned = enemy.buffs?.some(b => b.type === 'stun' && b.duration > 0);
   if (isStunned) {

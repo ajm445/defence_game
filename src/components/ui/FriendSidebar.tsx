@@ -9,6 +9,7 @@ import {
 } from '../../stores/useFriendStore';
 import { wsClient } from '../../services/WebSocketClient';
 import { soundManager } from '../../services/SoundManager';
+import { useFriendMessages } from '../../hooks/useFriendMessages';
 import type { FriendInfo, OnlinePlayerInfo, FriendRequestInfo } from '@shared/types/friendNetwork';
 
 interface FriendSidebarProps {
@@ -34,19 +35,13 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
   const sentRequests = useSentRequests();
   const pendingCount = usePendingRequestCount();
 
+  // 친구 시스템 실시간 메시지 처리 (FRIEND_STATUS_CHANGED 등)
+  useFriendMessages();
+
   // 컴포넌트 마운트 시 데이터 로드
   useEffect(() => {
     wsClient.send({ type: 'GET_FRIENDS_LIST' });
     wsClient.send({ type: 'GET_ONLINE_PLAYERS' });
-  }, []);
-
-  // 주기적으로 데이터 갱신 (30초마다)
-  useEffect(() => {
-    const interval = setInterval(() => {
-      wsClient.send({ type: 'GET_FRIENDS_LIST' });
-      wsClient.send({ type: 'GET_ONLINE_PLAYERS' });
-    }, 30000);
-    return () => clearInterval(interval);
   }, []);
 
   // 친구 요청 보내기

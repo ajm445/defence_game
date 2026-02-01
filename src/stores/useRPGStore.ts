@@ -2,7 +2,7 @@ import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
 import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning, AdvancedHeroClass, SkillType, DamageNumber, DamageNumberType, BossSkillExecutedEffect } from '../types/rpg';
 import { UnitType } from '../types/unit';
-import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, JOB_ADVANCEMENT_REQUIREMENTS, SECOND_ENHANCEMENT_MULTIPLIER, ADVANCEMENT_OPTIONS } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, JOB_ADVANCEMENT_REQUIREMENTS, SECOND_ENHANCEMENT_MULTIPLIER, ADVANCEMENT_OPTIONS, TUTORIAL_MAP_CONFIG, TUTORIAL_NEXUS_CONFIG, TUTORIAL_ENEMY_BASE_CONFIG } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
 import { createInitialUpgradeLevels, getUpgradeCost, canUpgrade, getGoldReward, calculateAllUpgradeBonuses, UpgradeType } from '../game/rpg/goldSystem';
 import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '../types/auth';
@@ -17,6 +17,9 @@ const BERSERKER_SHARE_RANGE = 300;
 const IRONWALL_SHARE_RANGE = Infinity;
 
 interface RPGState extends RPGGameState {
+  // 튜토리얼 모드 여부
+  isTutorial: boolean;
+
   // 선택된 난이도
   selectedDifficulty: RPGDifficulty;
 
@@ -91,6 +94,7 @@ interface HeroInterpolation {
 interface RPGActions {
   // 게임 초기화
   initGame: (characterLevel?: number, statUpgrades?: CharacterStatUpgrades, difficulty?: RPGDifficulty, advancedClass?: string, tier?: 1 | 2) => void;
+  initTutorialGame: () => void;
   resetGame: () => void;
 
   // 난이도 선택
@@ -315,6 +319,28 @@ const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficu
   return bases;
 };
 
+// 튜토리얼용 넥서스 초기 상태 생성
+const createTutorialNexus = (): Nexus => ({
+  x: TUTORIAL_NEXUS_CONFIG.position.x,
+  y: TUTORIAL_NEXUS_CONFIG.position.y,
+  hp: TUTORIAL_NEXUS_CONFIG.hp,
+  maxHp: TUTORIAL_NEXUS_CONFIG.hp,
+  laserCooldown: 0,
+});
+
+// 튜토리얼용 적 기지 초기 상태 생성 (1개만 - 오른쪽)
+const createTutorialEnemyBases = (): EnemyBase[] => {
+  return [{
+    id: 'right',
+    x: TUTORIAL_ENEMY_BASE_CONFIG.right.x,
+    y: TUTORIAL_ENEMY_BASE_CONFIG.right.y,
+    hp: TUTORIAL_ENEMY_BASE_CONFIG.right.hp,
+    maxHp: TUTORIAL_ENEMY_BASE_CONFIG.right.hp,
+    destroyed: false,
+    attackers: new Set<string>(),
+  }];
+};
+
 const initialState: RPGState = {
   running: false,
   paused: false,
@@ -324,6 +350,7 @@ const initialState: RPGState = {
   hero: null,
   selectedClass: null,
   selectedDifficulty: 'easy',
+  isTutorial: false,
   lastDamageTime: 0,
 
   // 골드 시스템
@@ -642,6 +669,81 @@ export const useRPGStore = create<RPGStore>()(
       soundManager.playBGM('rpg_battle');
     },
 
+    // 튜토리얼용 게임 초기화
+    initTutorialGame: () => {
+      // 튜토리얼은 항상 궁수(archer), easy 난이도 고정
+      const heroClass = 'archer' as HeroClass;
+      const hero = createHeroUnit(heroClass, 1, undefined, undefined, undefined);
+
+      // 튜토리얼 맵 설정에 맞게 영웅 위치 조정 (넥서스 근처)
+      hero.x = TUTORIAL_NEXUS_CONFIG.position.x + 100;
+      hero.y = TUTORIAL_NEXUS_CONFIG.position.y;
+
+      set({
+        ...initialState,
+        running: true,
+        isTutorial: true,
+        selectedClass: heroClass,
+        selectedDifficulty: 'easy',
+        hero,
+        // 튜토리얼 전용 넥서스/기지 사용
+        nexus: createTutorialNexus(),
+        enemyBases: createTutorialEnemyBases(),
+        gamePhase: 'playing',
+        gold: 100, // 튜토리얼 시작 골드 (업그레이드 테스트용)
+        upgradeLevels: createInitialUpgradeLevels(),
+        fiveMinuteRewardClaimed: false,
+        // 이전 게임 데이터 초기화
+        enemies: [],
+        activeSkillEffects: [],
+        basicAttackEffects: [],
+        nexusLaserEffects: [],
+        bossSkillExecutedEffects: [],
+        damageNumbers: [],
+        pendingSkills: [],
+        gameOver: false,
+        victory: false,
+        paused: false,
+        gameTime: 0,
+        goldAccumulator: 0,
+        lastSpawnTime: 0,
+        spawnTimer: 0,
+        // 멀티플레이 상태 비활성화
+        multiplayer: {
+          isMultiplayer: false,
+          isHost: false,
+          roomCode: null,
+          roomId: null,
+          hostPlayerId: null,
+          myPlayerId: null,
+          myHeroId: null,
+          players: [],
+          remoteInputQueue: [],
+          connectionState: 'disconnected',
+          countdown: null,
+        },
+        otherHeroes: new Map(),
+        otherPlayersGold: new Map(),
+        otherPlayersUpgrades: new Map(),
+        otherPlayersGoldAccumulator: new Map(),
+        personalKills: 0,
+        otherPlayersKills: new Map(),
+        otherHeroesInterpolation: new Map(),
+        visibility: {
+          exploredCells: new Set<string>(),
+          visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
+        },
+        camera: {
+          x: hero.x,
+          y: hero.y,
+          zoom: RPG_CONFIG.CAMERA.DEFAULT_ZOOM,
+          followHero: true,
+        },
+      });
+      // BGM 재생
+      soundManager.playBGM('rpg_battle');
+    },
+
     resetGame: () => {
       // BGM 중지
       soundManager.stopBGM();
@@ -651,6 +753,7 @@ export const useRPGStore = create<RPGStore>()(
         // 선택된 직업과 난이도는 유지 (다시 시작할 때 사용)
         selectedClass: state.selectedClass,
         selectedDifficulty: state.selectedDifficulty,
+        isTutorial: false, // 튜토리얼 모드 해제
         nexus: null,
         enemyBases: [],
         gamePhase: 'playing',
@@ -812,11 +915,12 @@ export const useRPGStore = create<RPGStore>()(
             castingUntil: undefined,  // 시전 상태 초기화
             dashState: undefined,     // 돌진 상태 초기화
           },
-          // 부활 시 카메라를 영웅 위치로 자동 고정
+          // 부활 시 카메라를 영웅 위치로 자동 고정 및 추적 활성화
           camera: {
             ...state.camera,
             x: reviveX,
             y: reviveY,
+            followHero: true,
           },
         };
       });
@@ -2769,6 +2873,7 @@ export const useRPGStats = () => useRPGStore((state) => state.stats);
 export const useActiveSkillEffects = () => useRPGStore((state) => state.activeSkillEffects);
 export const useSelectedClass = () => useRPGStore((state) => state.selectedClass);
 export const useSelectedDifficulty = () => useRPGStore((state) => state.selectedDifficulty);
+export const useIsTutorial = () => useRPGStore((state) => state.isTutorial);
 export const useVisibility = () => useRPGStore((state) => state.visibility);
 export const usePendingSkills = () => useRPGStore((state) => state.pendingSkills);
 export const useShowAttackRange = () => useRPGStore((state) => state.showAttackRange);

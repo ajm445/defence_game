@@ -12,6 +12,7 @@ import { GameScreen } from './components/screens/GameScreen';
 import { RPGModeScreen } from './components/screens/RPGModeScreen';
 import { RPGClassSelectScreen } from './components/screens/RPGClassSelectScreen';
 import { RPGCoopLobbyScreen } from './components/screens/RPGCoopLobbyScreen';
+import { RPGTutorialScreen } from './components/screens/RPGTutorialScreen';
 import { LoginScreen } from './components/screens/LoginScreen';
 import { ProfileScreen } from './components/screens/ProfileScreen';
 import { GameOverScreen } from './components/screens/GameOverScreen';
@@ -47,6 +48,7 @@ function App() {
       {currentScreen === 'profile' && <ProfileScreen />}
       {currentScreen === 'rpgClassSelect' && <RPGClassSelectScreen />}
       {currentScreen === 'rpgCoopLobby' && <RPGCoopLobbyScreen />}
+      {currentScreen === 'rpgTutorial' && <RPGTutorialScreen />}
       {currentScreen === 'lobby' && <LobbyScreen />}
       {(currentScreen === 'countdown' || currentScreen === 'game') && gameMode !== 'rpg' && <GameScreen />}
       {(currentScreen === 'game' || currentScreen === 'paused') && gameMode === 'rpg' && <RPGModeScreen />}

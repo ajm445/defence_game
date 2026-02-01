@@ -1331,3 +1331,54 @@ export const ADVANCED_E_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
 
 // 하위 호환성을 위해 기존 이름 유지
 export const ADVANCED_CLASS_SKILLS = ADVANCED_E_SKILLS;
+
+// ============================================
+// 튜토리얼 모드 설정
+// ============================================
+
+// 튜토리얼 맵 설정 (기존 맵의 약 1/2 크기)
+export const TUTORIAL_MAP_CONFIG = {
+  MAP_WIDTH: 1600,      // 기존 3000
+  MAP_HEIGHT: 1200,     // 기존 2000
+  MAP_CENTER_X: 800,
+  MAP_CENTER_Y: 600,
+} as const;
+
+// 튜토리얼 넥서스 (왼쪽 배치)
+export const TUTORIAL_NEXUS_CONFIG = {
+  position: {
+    x: 400,
+    y: 600,
+  },
+  hp: 5000,
+  radius: 80,
+  laser: {
+    range: 200,
+    damage: 15,
+    attackSpeed: 1.2,
+  },
+} as const;
+
+// 튜토리얼 적 기지 (1개만 - 오른쪽)
+export const TUTORIAL_ENEMY_BASE_CONFIG = {
+  right: {
+    x: 1400,
+    y: 600,
+    hp: 1500,  // 기존 3000의 절반
+    radius: 60,
+  },
+} as const;
+
+// 튜토리얼 스폰 설정 (느린 스폰, 약한 적)
+export const TUTORIAL_SPAWN_CONFIG = {
+  BASE_INTERVAL: 5,        // 기존 4초보다 느림
+  STAT_MULTIPLIER: 0.5,    // 적 스탯 50%
+  MAX_ENEMIES: 5,          // 최대 적 수 제한
+} as const;
+
+// 튜토리얼 보스 설정 (약한 보스)
+export const TUTORIAL_BOSS_CONFIG = {
+  hp: 1000,      // 기존 2000의 절반
+  attack: 20,    // 기존 50의 40%
+  noSkills: true, // 스킬 사용 안함
+} as const;

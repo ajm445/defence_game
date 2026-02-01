@@ -326,4 +326,19 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     shape: 'cross',
     spread: Math.PI * 2,
   },
+
+  // 보스 기본 공격 - 어두운 빨간색/검은색 충격파
+  boss_basic_attack: {
+    count: 15,
+    colors: ['#8b0000', '#4a0000', '#ff3300', '#2d0000', '#cc0000'],
+    sizeMin: 6,
+    sizeMax: 14,
+    speedMin: 120,
+    speedMax: 220,
+    lifeMin: 0.25,
+    lifeMax: 0.45,
+    gravity: 50,
+    shape: 'circle',
+    spread: Math.PI / 2,  // 부채꼴 형태로 퍼짐
+  },
 };

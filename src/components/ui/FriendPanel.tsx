@@ -11,6 +11,7 @@ import {
 } from '../../stores/useFriendStore';
 import { wsClient } from '../../services/WebSocketClient';
 import { soundManager } from '../../services/SoundManager';
+import { useFriendMessages } from '../../hooks/useFriendMessages';
 import type { FriendInfo, OnlinePlayerInfo, FriendRequestInfo } from '@shared/types/friendNetwork';
 
 interface FriendPanelProps {
@@ -31,6 +32,9 @@ export const FriendPanel: React.FC<FriendPanelProps> = ({ onInviteToRoom, curren
   const pendingCount = usePendingRequestCount();
 
   const [searchQuery, setSearchQuery] = useState('');
+
+  // 친구 시스템 실시간 메시지 처리 (FRIEND_STATUS_CHANGED 등)
+  useFriendMessages();
 
   // 패널 열릴 때 데이터 로드
   useEffect(() => {

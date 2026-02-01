@@ -970,13 +970,25 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               <span className="text-xs text-gray-500 animate-pulse">갱신 중...</span>
             )}
           </div>
-          <button
-            onClick={() => setShowJoinInput(true)}
-            className="px-3 py-1 text-sm text-neon-purple border border-neon-purple/50 rounded-lg hover:bg-neon-purple/10 transition-all cursor-pointer"
-            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
-          >
-            코드로 참가
-          </button>
+          <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                soundManager.play('ui_click');
+                setScreen('rpgTutorial');
+              }}
+              className="px-3 py-1 text-sm text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/10 transition-all cursor-pointer flex items-center gap-1"
+              style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+            >
+              <span>📖</span> 튜토리얼
+            </button>
+            <button
+              onClick={() => setShowJoinInput(true)}
+              className="px-3 py-1 text-sm text-neon-purple border border-neon-purple/50 rounded-lg hover:bg-neon-purple/10 transition-all cursor-pointer"
+              style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+            >
+              코드로 참가
+            </button>
+          </div>
         </div>
 
         {/* 대기방 그리드 */}

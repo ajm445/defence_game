@@ -21,12 +21,13 @@ import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
 import { SkillType, PendingSkill, SkillEffect, HeroUnit, Buff } from '../types/rpg';
 import { distance } from '../utils/math';
-import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy } from '../game/rpg/nexusSpawnSystem';
+import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy, shouldSpawnTutorialEnemy, createTutorialEnemy } from '../game/rpg/nexusSpawnSystem';
 import { createBosses, areAllBossesDead, hasBosses, updateBossSkills, applyStunToHero } from '../game/rpg/bossSystem';
 import { processNexusLaser, isNexusAlive } from '../game/rpg/nexusLaserSystem';
 import { rollMultiTarget } from '../game/rpg/passiveSystem';
 import { useNetworkSync, shareHostBuffToAllies } from './useNetworkSync';
 import { wsClient } from '../services/WebSocketClient';
+import { useRPGTutorialStore } from '../stores/useRPGTutorialStore';
 
 export function useRPGGameLoop() {
   const lastTimeRef = useRef<number>(0);
@@ -76,7 +77,12 @@ export function useRPGGameLoop() {
       for (const effect of clientBasicAttackEffects) {
         if (!processedEffectIdsRef.current.has(effect.id)) {
           processedEffectIdsRef.current.set(effect.id, clientNow);
-          const effectType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+          // 보스 기본 공격은 별도 이펙트 사용
+          const effectType = effect.type === 'boss'
+            ? 'boss_basic_attack'
+            : effect.type === 'ranged'
+              ? 'attack_ranged'
+              : 'attack_melee';
           effectManager.createEffect(effectType, effect.x, effect.y);
           // 사운드도 함께 재생
           const soundType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
@@ -771,6 +777,12 @@ export function useRPGGameLoop() {
 
           const finalDamage = calculateDamageAfterReduction(rawDamage, targetHero);
 
+          // 공격자 정보 확인 (보스 공격 이펙트용)
+          const attackerInfo = result.heroAttackers.get(heroId);
+          const isBossAttack = attackerInfo?.attackerType === 'boss';
+          const effectType = isBossAttack ? 'boss_basic_attack' : 'attack_melee';
+          const attackEffectType = isBossAttack ? 'boss' : 'melee';
+
           if (heroId === currentHeroState.id) {
             // 호스트 영웅 데미지
             const wasHostDead = currentHeroState.hp <= 0;
@@ -785,16 +797,17 @@ export function useRPGGameLoop() {
               showNotification(`사망! ${RPG_CONFIG.REVIVE.BASE_TIME}초 후 부활합니다.`);
             }
 
-            effectManager.createEffect('attack_melee', currentHeroState.x, currentHeroState.y);
+            effectManager.createEffect(effectType, currentHeroState.x, currentHeroState.y);
             // 피격 데미지 숫자 표시 (적 공격 - 빨간색)
             useRPGStore.getState().addDamageNumber(currentHeroState.x, currentHeroState.y, finalDamage, 'enemy_damage');
             // 피격 이펙트 동기화 (클라이언트에서도 표시)
             useRPGStore.getState().addBasicAttackEffect({
               id: `enemy_attack_${Date.now()}_${heroId}`,
-              type: 'melee',
+              type: attackEffectType,
               x: currentHeroState.x,
               y: currentHeroState.y,
               timestamp: Date.now(),
+              attackerId: attackerInfo?.attackerId,
             });
           } else {
             // 다른 플레이어 영웅 데미지
@@ -815,16 +828,17 @@ export function useRPGGameLoop() {
               } else {
                 useRPGStore.getState().updateOtherHero(heroId, { hp: newHp });
               }
-              effectManager.createEffect('attack_melee', otherHero.x, otherHero.y);
+              effectManager.createEffect(effectType, otherHero.x, otherHero.y);
               // 피격 데미지 숫자 표시 (적 공격 - 빨간색)
               useRPGStore.getState().addDamageNumber(otherHero.x, otherHero.y, finalDamage, 'enemy_damage');
               // 피격 이펙트 동기화 (클라이언트에서도 표시)
               useRPGStore.getState().addBasicAttackEffect({
                 id: `enemy_attack_${Date.now()}_${heroId}`,
-                type: 'melee',
+                type: attackEffectType,
                 x: otherHero.x,
                 y: otherHero.y,
                 timestamp: Date.now(),
+                attackerId: attackerInfo?.attackerId,
               });
             }
           }
@@ -849,7 +863,11 @@ export function useRPGGameLoop() {
         if (result.totalHeroDamage > 0) {
           const finalDamage = calculateDamageAfterReduction(result.totalHeroDamage, currentHeroState);
           useRPGStore.getState().damageHero(finalDamage);
-          effectManager.createEffect('attack_melee', updatedHero.x, updatedHero.y);
+
+          // 보스 공격 여부에 따른 이펙트 타입 결정
+          const isBossAttack = result.attackerInfo?.attackerType === 'boss';
+          const effectType = isBossAttack ? 'boss_basic_attack' : 'attack_melee';
+          effectManager.createEffect(effectType, updatedHero.x, updatedHero.y);
           soundManager.play('attack_melee');
           // 피격 데미지 숫자 표시 (적 공격 - 빨간색)
           useRPGStore.getState().addDamageNumber(updatedHero.x, updatedHero.y, finalDamage, 'enemy_damage');
@@ -1422,19 +1440,31 @@ export function useRPGGameLoop() {
       : 1;
 
     // 게임 단계에 따른 처리
+    const isTutorial = latestState.isTutorial;
     if (latestState.gamePhase === 'playing') {
       // 적 기지에서 동시 스폰 (양쪽에서 여러 마리)
       const enemyBases = latestState.enemyBases;
-      const spawnResult = shouldSpawnEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases, difficulty, playerCount);
 
-      if (spawnResult.shouldSpawn && spawnResult.spawns.length > 0) {
+      // 튜토리얼 모드: "자동 공격" 단계(인덱스 2) 이상일 때만 스폰
+      const tutorialStepIndex = isTutorial ? useRPGTutorialStore.getState().currentStepIndex : 0;
+      const canSpawnInTutorial = !isTutorial || tutorialStepIndex >= 2;
+
+      // 튜토리얼 모드와 일반 모드 분기
+      const spawnResult = isTutorial
+        ? shouldSpawnTutorialEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases, latestState.enemies.length)
+        : shouldSpawnEnemy(latestState.gameTime, latestState.lastSpawnTime, enemyBases, difficulty, playerCount);
+
+      if (canSpawnInTutorial && spawnResult.shouldSpawn && spawnResult.spawns.length > 0) {
         // 각 기지에서 스폰
         for (const spawn of spawnResult.spawns) {
           const base = enemyBases.find(b => b.id === spawn.baseId);
           if (base && !base.destroyed) {
             // 해당 기지에서 count만큼 적 생성
             for (let i = 0; i < spawn.count; i++) {
-              const enemy = createEnemyFromBase(base, latestState.gameTime, difficulty, playerCount);
+              // 튜토리얼 모드는 약한 적, 일반 모드는 난이도에 맞는 적
+              const enemy = isTutorial
+                ? createTutorialEnemy(base, latestState.gameTime)
+                : createEnemyFromBase(base, latestState.gameTime, difficulty, playerCount);
               if (enemy) {
                 useRPGStore.getState().addEnemy(enemy);
               }
@@ -1459,15 +1489,15 @@ export function useRPGGameLoop() {
     } else if (latestState.gamePhase === 'boss_phase') {
       // 보스 단계 진입 시 보스 스폰 (아직 스폰 안됐으면)
       if (!bossesSpawnedRef.current) {
-        showNotification('🔥 모든 기지 파괴! 보스 출현!');
+        showNotification(isTutorial ? '📖 보스 등장!' : '🔥 모든 기지 파괴! 보스 출현!');
         soundManager.play('warning');
         soundManager.play('boss_spawn');
 
         // 플레이어 수 계산 (자신 + 다른 플레이어)
         const playerCount = 1 + latestState.otherHeroes.size;
 
-        // 보스 2마리 스폰 (난이도 전달)
-        const bosses = createBosses(latestState.enemyBases, playerCount, difficulty);
+        // 보스 스폰 (튜토리얼은 약한 보스 1마리만)
+        const bosses = createBosses(latestState.enemyBases, playerCount, difficulty, isTutorial);
         for (const boss of bosses) {
           useRPGStore.getState().addEnemy(boss);
         }
@@ -1499,7 +1529,12 @@ export function useRPGGameLoop() {
     for (const effect of hostBasicAttackEffects) {
       if (!processedEffectIdsRef.current.has(effect.id)) {
         processedEffectIdsRef.current.set(effect.id, hostNow);
-        const effectType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
+        // 보스 기본 공격은 별도 이펙트 사용
+        const effectType = effect.type === 'boss'
+          ? 'boss_basic_attack'
+          : effect.type === 'ranged'
+            ? 'attack_ranged'
+            : 'attack_melee';
         effectManager.createEffect(effectType, effect.x, effect.y);
       }
     }
