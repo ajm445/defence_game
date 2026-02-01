@@ -559,16 +559,14 @@ function executeOtherHeroSkill(
   }
 
   // 적 데미지 적용 - heroId를 전달하여 해당 플레이어에게 골드 지급
-  // 저격수 전직 여부 확인 (크리티컬 표시용)
-  const isCriticalClass = hero.advancedClass === 'sniper';
   for (const damage of result.enemyDamages) {
     const enemy = state.enemies.find((e) => e.id === damage.enemyId);
     const killed = state.damageEnemy(damage.enemyId, damage.damage, heroId);
 
     // 플로팅 데미지 숫자 표시
     if (enemy) {
-      const isCritical = isCriticalClass && damage.damage >= 300;
-      useRPGStore.getState().addDamageNumber(enemy.x, enemy.y, damage.damage, isCritical ? 'critical' : 'damage');
+      // 크리티컬 여부는 스킬 시스템에서 결정된 isCritical 플래그 사용
+      useRPGStore.getState().addDamageNumber(enemy.x, enemy.y, damage.damage, damage.isCritical ? 'critical' : 'damage');
     }
 
     if (killed) {

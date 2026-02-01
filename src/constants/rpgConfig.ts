@@ -872,7 +872,7 @@ export const DIFFICULTY_BOSS_SKILLS: Record<RPGDifficulty, BossSkillType[]> = {
 // 전직 조건
 export const JOB_ADVANCEMENT_REQUIREMENTS = {
   minClassLevel: 15,  // 1차 전직 최소 레벨
-  secondEnhancementLevel: 50,  // 2차 강화 레벨
+  secondEnhancementLevel: 40,  // 2차 강화 레벨
 } as const;
 
 // 기본 직업 → 전직 직업 매핑
@@ -940,7 +940,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
       range: 80,         // 변동 없음
     },
     specialEffects: {
-      lifestealMultiplier: 2.0,  // 피해흡혈 2배
+      lifestealMultiplier: 1.5,  // 피해흡혈 1.5배
     },
   },
   guardian: {

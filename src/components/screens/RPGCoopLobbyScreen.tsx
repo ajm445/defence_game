@@ -23,6 +23,7 @@ import { FriendRequestNotification } from '../ui/FriendRequestNotification';
 import { GameInviteNotification } from '../ui/GameInviteNotification';
 import { ServerStatusBar } from '../ui/ServerStatusBar';
 import { useFriendMessages } from '../../hooks/useFriendMessages';
+import { ClassEncyclopediaModal } from '../ui/ClassEncyclopediaModal';
 
 // 난이도 색상 설정
 const difficultyColors: Record<RPGDifficulty, { bg: string; border: string; text: string; hoverBg: string }> = {
@@ -60,6 +61,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const [selectedModalDifficulty, setSelectedModalDifficulty] = useState<RPGDifficulty | null>(null);
   const [privateRoomToJoin, setPrivateRoomToJoin] = useState<WaitingCoopRoomInfo | null>(null);
   const [privateRoomCode, setPrivateRoomCode] = useState('');
+  // 도감 모달 상태
+  const [showEncyclopedia, setShowEncyclopedia] = useState(false);
   // 현재 방 설정 (로비에서 표시/변경용)
   const [roomIsPrivate, setRoomIsPrivate] = useState(false);
   const [roomDifficulty, setRoomDifficulty] = useState<RPGDifficulty>('easy');
@@ -974,6 +977,16 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             <button
               onClick={() => {
                 soundManager.play('ui_click');
+                setShowEncyclopedia(true);
+              }}
+              className="px-3 py-1 text-sm text-yellow-400 border border-yellow-500/50 rounded-lg hover:bg-yellow-500/10 transition-all cursor-pointer flex items-center gap-1"
+              style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+            >
+              <span>📚</span> 직업 도감
+            </button>
+            <button
+              onClick={() => {
+                soundManager.play('ui_click');
                 setScreen('rpgTutorial');
               }}
               className="px-3 py-1 text-sm text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/10 transition-all cursor-pointer flex items-center gap-1"
@@ -1552,6 +1565,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           </div>
         </div>
       )}
+
+      {/* 직업 도감 모달 */}
+      <ClassEncyclopediaModal
+        isOpen={showEncyclopedia}
+        onClose={() => setShowEncyclopedia(false)}
+        playerLevel={playerLevel}
+      />
     </div>
   );
 };

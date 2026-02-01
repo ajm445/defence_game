@@ -109,8 +109,8 @@ export function getSkillDescription(skill: Skill): string {
 export interface ClassSkillResult {
   hero: HeroUnit;
   effect?: SkillEffect;
-  enemyDamages: { enemyId: string; damage: number }[];
-  baseDamages: { baseId: EnemyBaseId; damage: number }[];  // 기지 데미지
+  enemyDamages: { enemyId: string; damage: number; isCritical?: boolean }[];
+  baseDamages: { baseId: EnemyBaseId; damage: number; isCritical?: boolean }[];  // 기지 데미지
   buff?: Buff;
   pendingSkill?: PendingSkill;
   stunTargets?: string[];
@@ -158,8 +158,18 @@ export function executeQSkill(
     finalDamage = Math.floor(finalDamage * (1 + (berserkerBuff.attackBonus || 0)));
   }
 
-  const enemyDamages: { enemyId: string; damage: number }[] = [];
-  const baseDamages: { baseId: EnemyBaseId; damage: number }[] = [];
+  // 저격수 크리티컬 확률 체크 (기본 공격에 적용)
+  const critChance = hero.advancedClass === 'sniper'
+    ? (ADVANCED_CLASS_CONFIGS.sniper.specialEffects.critChance || 0)
+    : 0;
+  const isCriticalHit = critChance > 0 && Math.random() < critChance;
+  const criticalMultiplier = 2.0; // 크리티컬 데미지 2배
+  if (isCriticalHit) {
+    finalDamage = Math.floor(finalDamage * criticalMultiplier);
+  }
+
+  const enemyDamages: { enemyId: string; damage: number; isCritical?: boolean }[] = [];
+  const baseDamages: { baseId: EnemyBaseId; damage: number; isCritical?: boolean }[] = [];
   const hitTargets: HitTarget[] = []; // 피격 대상 위치 수집
   // 직업별 기본 공격 사거리 사용
   const attackRange = hero.config.range || CLASS_CONFIGS[heroClass].range;
@@ -215,7 +225,7 @@ export function executeQSkill(
       // 범위 공격 (전사, 기사, 마법사): 범위 내 모든 적에게 데미지
       // 마법사: 보스에게만 데미지 보너스 적용
       const actualDamage = enemy.type === 'boss' ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
-      enemyDamages.push({ enemyId: enemy.id, damage: actualDamage });
+      enemyDamages.push({ enemyId: enemy.id, damage: actualDamage, isCritical: isCriticalHit });
       hitTargets.push({ x: enemy.x, y: enemy.y, damage: actualDamage });
     } else {
       // 궁수: 통합 타겟 풀에 추가
@@ -255,10 +265,10 @@ export function executeQSkill(
     for (const t of targets) {
       if (t.type === 'enemy') {
         const actualDamage = t.enemy.type === 'boss' ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
-        enemyDamages.push({ enemyId: t.enemy.id, damage: actualDamage });
+        enemyDamages.push({ enemyId: t.enemy.id, damage: actualDamage, isCritical: isCriticalHit });
         hitTargets.push({ x: t.x, y: t.y, damage: actualDamage });
       } else {
-        baseDamages.push({ baseId: t.base.id, damage: finalDamage });
+        baseDamages.push({ baseId: t.base.id, damage: finalDamage, isCritical: isCriticalHit });
         hitTargets.push({ x: t.x, y: t.y, damage: finalDamage });
       }
     }
@@ -285,7 +295,7 @@ export function executeQSkill(
       // 바라보는 방향 범위 밖이면 스킵 (기지는 더 관대하게)
       if (dot < -0.5) continue;
 
-      baseDamages.push({ baseId: base.id, damage: finalDamage });
+      baseDamages.push({ baseId: base.id, damage: finalDamage, isCritical: isCriticalHit });
       hitTargets.push({ x: base.x, y: base.y, damage: finalDamage });
     }
   }
@@ -319,6 +329,12 @@ export function executeQSkill(
       const baseLifesteal = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
       const growthLifesteal = hero.passiveGrowth?.currentValue || 0;
       passiveTotal = baseLifesteal + growthLifesteal;
+
+      // 버서커 전직 시 피해흡혈 배율 적용
+      if (hero.advancedClass === 'berserker') {
+        const multiplier = ADVANCED_CLASS_CONFIGS.berserker.specialEffects.lifestealMultiplier || 1;
+        passiveTotal *= multiplier;
+      }
     }
 
     // 광전사 버프 피해흡혈 (모든 클래스에 적용)

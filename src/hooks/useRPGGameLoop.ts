@@ -1597,21 +1597,18 @@ export function useRPGGameLoop() {
       }
 
       // 적 데미지 적용
-      // 크리티컬 타입 판정 (저격수 전직 캐릭터의 스킬)
-      const isCriticalClass = result.hero.advancedClass === 'sniper';
       for (const damage of result.enemyDamages) {
         const enemy = state.enemies.find((e) => e.id === damage.enemyId);
         const killed = useRPGStore.getState().damageEnemy(damage.enemyId, damage.damage, killerHeroId);
 
         // 플로팅 데미지 숫자 표시
         if (enemy) {
-          // 저격수의 고데미지 스킬(저격)이나 W스킬은 크리티컬로 표시
-          const isCritical = isCriticalClass && damage.damage >= 300;
+          // 크리티컬 여부는 스킬 시스템에서 결정된 isCritical 플래그 사용
           useRPGStore.getState().addDamageNumber(
             enemy.x,
             enemy.y,
             damage.damage,
-            isCritical ? 'critical' : 'damage'
+            damage.isCritical ? 'critical' : 'damage'
           );
         }
 
@@ -2402,6 +2399,12 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
               const baseLifesteal = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.lifesteal || 0) : 0;
               const growthLifesteal = hero.passiveGrowth?.currentValue || 0;
               passiveTotal = baseLifesteal + growthLifesteal;
+
+              // 버서커 전직 시 피해흡혈 배율 적용
+              if (hero.advancedClass === 'berserker') {
+                const multiplier = ADVANCED_CLASS_CONFIGS.berserker.specialEffects.lifestealMultiplier || 1;
+                passiveTotal *= multiplier;
+              }
             }
 
             // 광전사 버프 피해흡혈 (모든 클래스에 적용)
