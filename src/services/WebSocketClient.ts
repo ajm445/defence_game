@@ -8,6 +8,8 @@ import type { HeroClass, SkillType, AdvancedHeroClass } from '../types/rpg';
 import type { UpgradeType } from '../game/rpg/goldSystem';
 import type { CharacterStatUpgrades } from '../types/auth';
 import type { SerializedGameState, PlayerInput } from '@shared/types/hostBasedNetwork';
+import { useAuthStore } from '../stores/useAuthStore';
+import { useUIStore } from '../stores/useUIStore';
 
 type MessageHandler = (message: ServerMessage) => void;
 
@@ -144,10 +146,15 @@ class WebSocketClient {
       console.log('계정이 정지되어 재연결이 차단됩니다.');
     }
 
-    // DUPLICATE_LOGIN 메시지 처리 - 재연결 방지
+    // DUPLICATE_LOGIN 메시지 처리 - 재연결 방지 및 강제 로그아웃
     if (message.type === 'DUPLICATE_LOGIN') {
       this.isDuplicateLogin = true;
       console.log('다른 기기에서 로그인하여 재연결이 차단됩니다.');
+
+      // 즉시 Supabase 로그아웃 및 로그인 화면으로 이동
+      alert(message.message || '이미 다른 곳에서 로그인되어 있습니다. 기존 세션을 먼저 종료해주세요.');
+      useAuthStore.getState().signOut();
+      useUIStore.getState().setScreen('login');
     }
 
     // 등록된 핸들러에 메시지 전달

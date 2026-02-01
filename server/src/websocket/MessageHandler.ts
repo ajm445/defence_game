@@ -302,10 +302,11 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
   // 중복 연결 처리: 같은 userId로 이미 연결된 플레이어가 있으면 새 로그인 거부
   if (!isGuest && userId) {
     const existingPlayer = getPlayerByUserId(userId);
+
     if (existingPlayer && existingPlayer.id !== playerId) {
       // 기존 연결이 실제로 활성 상태인지 확인
       if (existingPlayer.ws.readyState === 1) { // WebSocket.OPEN = 1
-        console.log(`[Auth] 중복 로그인 시도 거부: ${nickname} - 이미 연결된 세션 있음 (${existingPlayer.id})`);
+        console.log(`[Auth] 중복 로그인 거부: ${nickname} (기존 세션: ${existingPlayer.id})`);
 
         // 새 연결에 중복 로그인 알림 전송 후 종료
         sendMessage(player.ws, {
@@ -313,17 +314,16 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
           message: '이미 다른 곳에서 로그인되어 있습니다. 기존 세션을 먼저 종료해주세요.',
         });
 
-        // 새 연결 종료
-        player.ws.close();
+        // 클라이언트가 메시지를 처리할 시간을 주고 연결 종료
+        setTimeout(() => {
+          player.ws.close();
+        }, 100);
         return;
       } else {
-        // 기존 연결이 비활성 상태면 정리
-        console.log(`[Auth] 기존 연결 비활성 상태, 정리 후 새 로그인 허용: ${existingPlayer.id}`);
-
+        // 기존 연결이 비활성 상태면 정리 후 새 로그인 허용
         // 기존 플레이어가 방에 있으면 먼저 방에서 제거
         if (existingPlayer.roomId) {
           const existingRoomId = existingPlayer.roomId;
-          console.log(`[Auth] 기존 플레이어 방 정리: roomId=${existingRoomId}`);
 
           // 게임 방에서 제거
           const coopRoom = coopGameRooms.get(existingRoomId);
@@ -369,7 +369,7 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
                 bannedUntil: profile.banned_until,
               });
               console.log(`[Auth] 밴된 유저 접속 차단: ${nickname} (해제일: ${formattedDate})`);
-              player.ws.close();
+              setTimeout(() => player.ws.close(), 100);
               return;
             } else {
               // 밴 기간 만료 - 자동 해제
@@ -392,7 +392,7 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
               bannedUntil: null,
             });
             console.log(`[Auth] 영구 밴된 유저 접속 차단: ${nickname}`);
-            player.ws.close();
+            setTimeout(() => player.ws.close(), 100);
             return;
           }
         }

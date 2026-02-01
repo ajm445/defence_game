@@ -405,9 +405,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           break;
         }
 
-        // 중복 로그인 처리
+        // 중복 로그인 처리 - WebSocketClient에서 처리하므로 여기서는 상태만 정리
         case 'DUPLICATE_LOGIN':
-          setError(message.message || '다른 기기에서 로그인하여 연결이 종료됩니다.');
           useRPGStore.getState().setMultiplayerState({
             connectionState: 'disconnected',
             isMultiplayer: false,
@@ -415,6 +414,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             roomId: null,
             players: [],
           });
+          // 로그아웃 및 리다이렉트는 WebSocketClient.ts에서 처리됨
           break;
 
         // 계정 정지 처리

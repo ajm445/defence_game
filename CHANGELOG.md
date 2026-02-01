@@ -28,6 +28,10 @@
   - 기존: 부활 후 Space 키로 수동 고정 필요
   - 수정: `followHero: true` 자동 설정
 - **튜토리얼 승리 사운드 중복**: 보스 처치 시 승리 사운드가 두 번 재생되던 버그 수정
+- **중복 로그인 방지 강화**: 중복 로그인 시 클라이언트 측 강제 로그아웃 처리
+  - 기존: WebSocket 연결만 거부되고 Supabase 세션은 유지
+  - 수정: `DUPLICATE_LOGIN` 수신 시 즉시 Supabase 로그아웃 및 로그인 화면 리다이렉트
+  - 어느 화면에서든 중복 로그인 감지 시 정상 처리
 
 ### New Files
 - `src/components/screens/RPGTutorialScreen.tsx` - 튜토리얼 게임 화면
@@ -37,7 +41,7 @@
 ### Technical Changes
 - `src/types/game.ts`: `GameScreen` 타입에 `'rpgTutorial'` 추가
 - `src/App.tsx`: 튜토리얼 화면 라우팅 추가
-- `src/components/screens/RPGCoopLobbyScreen.tsx`: 튜토리얼 버튼 추가
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: 튜토리얼 버튼 추가, DUPLICATE_LOGIN 핸들러 정리
 - `src/constants/rpgConfig.ts`: 튜토리얼 맵/스폰/보스 설정 추가
 - `src/stores/useRPGStore.ts`: `initTutorialGame()`, `isTutorial` 상태 추가
 - `src/hooks/useRPGGameLoop.ts`: 튜토리얼 스폰 로직 분기 처리
@@ -45,6 +49,8 @@
 - `src/game/rpg/nexusSpawnSystem.ts`: 튜토리얼 스폰 함수 추가
 - `src/game/rpg/bossSystem.ts`: 튜토리얼 보스 생성 함수 추가
 - `src/renderer/rpgRenderer.ts`: 튜토리얼 목표 마커 렌더링 추가
+- `src/services/WebSocketClient.ts`: DUPLICATE_LOGIN 수신 시 강제 로그아웃 및 리다이렉트 처리
+- `server/src/websocket/MessageHandler.ts`: 중복 로그인 디버그 로그 정리
 
 ---
 
