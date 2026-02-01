@@ -38,10 +38,36 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
   // 친구 시스템 실시간 메시지 처리 (FRIEND_STATUS_CHANGED 등)
   useFriendMessages();
 
-  // 컴포넌트 마운트 시 데이터 로드
+  // 컴포넌트 마운트 시 데이터 로드 (연결 상태 확인)
   useEffect(() => {
-    wsClient.send({ type: 'GET_FRIENDS_LIST' });
-    wsClient.send({ type: 'GET_ONLINE_PLAYERS' });
+    const requestFriendsData = () => {
+      if (wsClient.isConnected()) {
+        wsClient.send({ type: 'GET_FRIENDS_LIST' });
+        wsClient.send({ type: 'GET_ONLINE_PLAYERS' });
+        return true;
+      }
+      return false;
+    };
+
+    // 즉시 시도
+    if (!requestFriendsData()) {
+      // 연결이 안 되어 있으면 연결될 때까지 재시도
+      const retryInterval = setInterval(() => {
+        if (requestFriendsData()) {
+          clearInterval(retryInterval);
+        }
+      }, 500);
+
+      // 10초 후 재시도 중단
+      const timeout = setTimeout(() => {
+        clearInterval(retryInterval);
+      }, 10000);
+
+      return () => {
+        clearInterval(retryInterval);
+        clearTimeout(timeout);
+      };
+    }
   }, []);
 
   // 친구 요청 보내기

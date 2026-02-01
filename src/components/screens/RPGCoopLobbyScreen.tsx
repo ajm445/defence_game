@@ -251,6 +251,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           break;
 
         case 'COOP_PLAYER_LEFT':
+        case 'COOP_PLAYER_DISCONNECTED':
+          // 플레이어가 나가거나 연결이 끊어진 경우 목록에서 제거
           const updatedPlayers = useRPGStore.getState().multiplayer.players.filter(
             p => p.id !== message.playerId
           );
