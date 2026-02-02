@@ -83,7 +83,7 @@ export const LobbyChat: React.FC = () => {
       </div>
 
       {/* 메시지 목록 */}
-      <div className="h-36 overflow-y-auto px-3 py-2 space-y-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
+      <div className="h-36 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
         {lobbyChatMessages.length === 0 ? (
           <p className="text-gray-600 text-xs text-center py-4">
             메시지가 없습니다. 채팅을 시작해보세요!
@@ -94,7 +94,7 @@ export const LobbyChat: React.FC = () => {
             return (
               <div
                 key={msg.id}
-                className={`text-sm break-all ${isMe ? 'text-neon-cyan' : 'text-gray-300'}`}
+                className={`text-sm break-all overflow-hidden ${isMe ? 'text-neon-cyan' : 'text-gray-300'}`}
               >
                 <span className="text-gray-500 text-xs mr-2">[{formatTime(msg.timestamp)}]</span>
                 <span className={`font-medium ${isMe ? 'text-neon-cyan' : 'text-white'}`}>
