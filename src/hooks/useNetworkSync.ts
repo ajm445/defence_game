@@ -567,6 +567,14 @@ function executeOtherHeroSkill(
     updatedBuffs = [...updatedBuffs, result.buff];
   }
 
+  // 스킬 사용 후 상태 결정:
+  // - 돌진 중: 'moving'
+  // - 시전 중: 'idle' (시전 중 이동 불가)
+  // - 그 외: 현재 moveDirection 상태에 따라 결정
+  const heroState = updatedHero.dashState ? 'moving' :
+                    updatedHero.castingUntil ? 'idle' :
+                    hero.moveDirection ? 'moving' : 'idle';
+
   state.updateOtherHero(heroId, {
     x: updatedHero.x,
     y: updatedHero.y,
@@ -576,6 +584,8 @@ function executeOtherHeroSkill(
     dashState: updatedHero.dashState,
     castingUntil: updatedHero.castingUntil,  // 시전 상태 (스나이퍼 E 스킬 등)
     facingAngle: Math.atan2(targetY - hero.y, targetX - hero.x),
+    targetPosition: undefined,  // 스킬 사용 후 위치 되돌아감 버그 방지
+    state: heroState,  // 스킬 사용 후 상태 명시적 설정
   });
 
   // 이펙트 추가
@@ -911,7 +921,8 @@ export function sendSkillUse(skillSlot: 'Q' | 'W' | 'E', targetX: number, target
     const hero = state.hero;
     const input: PlayerInput = {
       playerId: state.multiplayer.myPlayerId || '',
-      // moveDirection 생략 = 기존 이동 방향 유지
+      // 현재 이동 방향도 함께 전송 (호스트에서 정확한 상태 유지)
+      moveDirection: hero?.moveDirection || null,
       // 클라이언트 실제 위치 전송 (보스 스킬 데미지 계산용)
       position: hero ? { x: hero.x, y: hero.y } : undefined,
       skillUsed: { skillSlot, targetX, targetY },
