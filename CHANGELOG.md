@@ -16,6 +16,13 @@
   - 로그인 시 모든 온라인 플레이어에게 즉시 브로드캐스트
   - 로그아웃 시 모든 온라인 플레이어에게 즉시 브로드캐스트
   - 5초 폴링은 안전망으로 유지 (누락 복구용)
+- **RTS 모드 유닛 카운트 표시**: 각 유닛 버튼에 현재 보유 유닛 수 뱃지 표시
+  - 싱글플레이: 플레이어 유닛 카운트
+  - 멀티플레이: 내 사이드의 유닛만 카운트
+
+### Bug Fixes
+- **RTS 멀티플레이어 효과음 중복 버그 수정**: 상대방 유닛 소환 시 효과음이 중복 재생되던 버그
+  - 클릭 시 즉시 재생 제거, 서버 UNIT_SPAWNED 이벤트에서만 재생
 
 ### New Files
 - `supabase/migrations/010_create_extreme_rankings.sql` - 랭킹 테이블 스키마
@@ -32,6 +39,8 @@
 - `server/src/websocket/MessageHandler.ts`: 온라인 상태 콜백에서 브로드캐스트 호출
 - `src/stores/useFriendStore.ts`: `addOnlinePlayer()`, `removeOnlinePlayer()` 액션 추가
 - `src/hooks/useFriendMessages.ts`: 새 메시지 타입 핸들러 추가
+- `src/components/ui/UnitButton.tsx`: `count` prop 추가, 유닛 카운트 뱃지 UI
+- `src/components/ui/UnitPanel.tsx`: `unitCounts` 계산 (useMemo), 멀티플레이어 효과음 중복 제거
 
 ### Notes
 - 게스트 사용자는 랭킹에 저장되지 않음 (계정 보유 사용자만 등록 가능)

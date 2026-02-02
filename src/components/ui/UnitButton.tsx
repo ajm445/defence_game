@@ -9,6 +9,7 @@ interface UnitButtonProps {
   resources: Resources;
   onSpawn: () => void;
   cooldown?: number; // 남은 쿨타임 (초)
+  count?: number; // 현재 보유한 유닛 수
 }
 
 const UNIT_CONFIG: Record<UnitType, { icon: string; name: string; color: string }> = {
@@ -52,6 +53,7 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
   resources,
   onSpawn,
   cooldown = 0,
+  count = 0,
 }) => {
   const config = CONFIG.UNITS[type];
   const unitInfo = UNIT_CONFIG[type];
@@ -162,6 +164,13 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
       {/* 호버 효과 */}
       {canSpawn && (
         <div className="absolute inset-0 bg-gradient-to-t from-neon-cyan/10 to-transparent opacity-0 group-hover:opacity-100 transition-opacity duration-200" />
+      )}
+
+      {/* 유닛 카운트 뱃지 */}
+      {count > 0 && (
+        <div className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-neon-cyan text-dark-900 text-xs font-bold rounded-full flex items-center justify-center shadow-lg">
+          {count}
+        </div>
       )}
     </button>
   );
