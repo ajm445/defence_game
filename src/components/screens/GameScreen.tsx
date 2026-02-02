@@ -18,6 +18,7 @@ import { CONFIG } from '../../constants/config';
 import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { soundManager } from '../../services/SoundManager';
 
 export const GameScreen: React.FC = () => {
   // 게임 루프 시작
@@ -37,6 +38,19 @@ export const GameScreen: React.FC = () => {
       setScreen('gameover');
     }
   }, [gameMode, gameResult, stopGame, setScreen]);
+
+  // RTS BGM 재생
+  useEffect(() => {
+    // 튜토리얼이 아닌 경우에만 BGM 재생
+    if (gameMode !== 'tutorial') {
+      soundManager.playBGM('rts_battle');
+    }
+
+    // 컴포넌트 언마운트 시 BGM 정지
+    return () => {
+      soundManager.stopBGM();
+    };
+  }, [gameMode]);
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-dark-900">

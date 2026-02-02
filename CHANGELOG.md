@@ -34,6 +34,9 @@
   - 클릭 시 즉시 재생 제거, 서버 UNIT_SPAWNED 이벤트에서만 재생
 - **RTS 모드 버튼 효과음 추가**: 모든 버튼에 클릭 효과음 적용
   - 난이도 선택, 모드 선택, 로비 화면, 게임 결과 화면 등
+- **RTS 전투 BGM 추가**: RTS 게임 중 배경 음악 재생
+  - 전략적이고 긴장감 있는 마칭 스타일 BGM
+  - 튜토리얼 모드에서는 BGM 없음
 
 ### New Files
 - `supabase/migrations/010_create_extreme_rankings.sql` - 랭킹 테이블 스키마

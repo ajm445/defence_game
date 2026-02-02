@@ -30,7 +30,7 @@ export type SoundType =
   | 'laser_attack';
 
 // BGM 타입
-export type BGMType = 'rpg_battle' | 'rpg_boss' | 'victory' | 'defeat';
+export type BGMType = 'rpg_battle' | 'rpg_boss' | 'rts_battle' | 'victory' | 'defeat';
 
 class SoundManager {
   private static instance: SoundManager;
@@ -177,6 +177,9 @@ class SoundManager {
         break;
       case 'rpg_boss':
         this.playRPGBossBGM();
+        break;
+      case 'rts_battle':
+        this.playRTSBattleBGM();
         break;
     }
   }
@@ -329,6 +332,81 @@ class SoundManager {
     // 0.3초마다 펄스 재생 (더 빠름)
     playPulse();
     this.bgmIntervalId = window.setInterval(playPulse, 300);
+  }
+
+  /**
+   * RTS 전투 BGM - 전략적이고 긴장감 있는 음악
+   */
+  private playRTSBattleBGM(): void {
+    const ctx = this.audioContext!;
+
+    // 베이스 드론 (저음 지속음 - 군사적 느낌)
+    const bassDrone = ctx.createOscillator();
+    bassDrone.type = 'sawtooth';
+    bassDrone.frequency.value = 65.41; // C2
+
+    const bassFilter = ctx.createBiquadFilter();
+    bassFilter.type = 'lowpass';
+    bassFilter.frequency.value = 150;
+
+    const bassGain = ctx.createGain();
+    bassGain.gain.value = 0.1;
+
+    bassDrone.connect(bassFilter);
+    bassFilter.connect(bassGain);
+    bassGain.connect(this.bgmGain!);
+    bassDrone.start();
+    this.bgmOscillators.push(bassDrone);
+    this.bgmGains.push(bassGain);
+
+    // 서브 드론 (5도 위)
+    const subDrone = ctx.createOscillator();
+    subDrone.type = 'sine';
+    subDrone.frequency.value = 98; // G2
+    const subGain = ctx.createGain();
+    subGain.gain.value = 0.06;
+    subDrone.connect(subGain);
+    subGain.connect(this.bgmGain!);
+    subDrone.start();
+    this.bgmOscillators.push(subDrone);
+    this.bgmGains.push(subGain);
+
+    // 리듬 패턴 (마칭 느낌)
+    const rhythmNotes = [130.81, 130.81, 196, 130.81, 164.81, 130.81, 196, 220]; // C3 패턴
+    let rhythmIndex = 0;
+    let beatCount = 0;
+
+    const playRhythm = () => {
+      if (!this.audioContext || this.currentBGM !== 'rts_battle') return;
+
+      const osc = ctx.createOscillator();
+      osc.type = 'square';
+      osc.frequency.value = rhythmNotes[rhythmIndex];
+
+      const rhythmGain = ctx.createGain();
+      // 강박/약박 구분
+      const isStrong = beatCount % 4 === 0;
+      rhythmGain.gain.setValueAtTime(isStrong ? 0.08 : 0.04, ctx.currentTime);
+      rhythmGain.gain.exponentialRampToValueAtTime(0.01, ctx.currentTime + 0.2);
+
+      const filter = ctx.createBiquadFilter();
+      filter.type = 'lowpass';
+      filter.frequency.value = 400;
+
+      osc.connect(filter);
+      filter.connect(rhythmGain);
+      rhythmGain.connect(this.bgmGain!);
+
+      osc.start(ctx.currentTime);
+      osc.stop(ctx.currentTime + 0.2);
+
+      rhythmIndex = (rhythmIndex + 1) % rhythmNotes.length;
+      beatCount++;
+    };
+
+    // 0.4초마다 리듬 재생 (행진 템포)
+    playRhythm();
+    this.bgmIntervalId = window.setInterval(playRhythm, 400);
   }
 
   /**
