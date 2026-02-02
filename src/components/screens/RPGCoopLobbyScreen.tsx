@@ -383,36 +383,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           useRPGStore.getState().initMultiplayerGame(message.players, message.isHost, message.difficulty as RPGDifficulty);
           break;
 
-        // 친구 게임 초대 수락 시 자동 방 참가
-        case 'GAME_INVITE_ACCEPTED': {
-          // 이미 방에 있으면 무시 (호스트가 받은 경우)
-          if (multiplayer.roomCode) {
-            console.log('[Lobby] 이미 방에 있음 - 초대 수락 알림 무시');
-            break;
-          }
-
-          console.log('[Lobby] 게임 초대 수락 - 방 참가:', message.roomCode);
-          const inviteClassProgress = useAuthStore.getState().classProgress;
-          const defaultClass: HeroClass = 'archer';
-          const inviteProgress = inviteClassProgress.find(p => p.className === defaultClass);
-          const inviteCharacterLevel = inviteProgress?.classLevel || 1;
-          const inviteStatUpgrades = inviteProgress?.statUpgrades || createDefaultStatUpgrades();
-          const inviteAdvancedClass = inviteProgress?.advancedClass;
-          const inviteTier = inviteProgress?.tier;
-          const invitePlayerName = profile?.nickname || '플레이어';
-
-          selectClass(defaultClass);
-          joinRoomByInvite(
-            message.roomCode,
-            invitePlayerName,
-            defaultClass,
-            inviteCharacterLevel,
-            inviteStatUpgrades,
-            inviteAdvancedClass,
-            inviteTier
-          );
-          break;
-        }
+        // GAME_INVITE_ACCEPTED는 useFriendMessages에서 전역으로 처리됨
 
         // 중복 로그인 처리 - WebSocketClient에서 처리하므로 여기서는 상태만 정리
         case 'DUPLICATE_LOGIN':

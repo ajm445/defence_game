@@ -1,7 +1,13 @@
 import { useEffect } from 'react';
 import { wsClient } from '../services/WebSocketClient';
 import { useFriendStore } from '../stores/useFriendStore';
+import { useUIStore } from '../stores/useUIStore';
+import { useRPGStore } from '../stores/useRPGStore';
+import { useAuthStore } from '../stores/useAuthStore';
+import { joinRoomByInvite } from './useNetworkSync';
+import { createDefaultStatUpgrades } from '../types/auth';
 import type { FriendServerMessage } from '@shared/types/friendNetwork';
+import type { HeroClass } from '../types/rpg';
 
 /**
  * 친구 시스템 WebSocket 메시지 처리 훅
@@ -98,10 +104,48 @@ export function useFriendMessages() {
           addGameInvite(message.invite);
           break;
 
-        case 'GAME_INVITE_ACCEPTED':
-          // 내 초대가 수락됨 (알림 표시 등)
-          console.log(`[Friend] 게임 초대 수락됨: ${message.roomCode}`);
+        case 'GAME_INVITE_ACCEPTED': {
+          // 게임 초대 수락 후 자동 방 참가
+          const multiplayer = useRPGStore.getState().multiplayer;
+
+          // 이미 방에 있거나 연결 중이면 무시 (중복 핸들러 방지)
+          if (multiplayer.roomCode || multiplayer.connectionState === 'connecting') {
+            console.log('[Friend] 이미 방에 있거나 연결 중 - 초대 수락 알림 무시');
+            break;
+          }
+
+          console.log('[Friend] 게임 초대 수락 - 방 참가:', message.roomCode);
+
+          // RPG 로비 화면으로 이동
+          const currentScreen = useUIStore.getState().currentScreen;
+          if (currentScreen !== 'rpgCoopLobby') {
+            useUIStore.getState().setScreen('rpgCoopLobby');
+          }
+
+          // 플레이어 정보 가져오기
+          const classProgress = useAuthStore.getState().classProgress;
+          const profile = useAuthStore.getState().profile;
+          const defaultClass: HeroClass = 'archer';
+          const progress = classProgress.find(p => p.className === defaultClass);
+          const characterLevel = progress?.classLevel || 1;
+          const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+          const advancedClass = progress?.advancedClass;
+          const tier = progress?.tier;
+          const playerName = profile?.nickname || '플레이어';
+
+          // 직업 선택 및 방 참가
+          useRPGStore.getState().selectClass(defaultClass);
+          joinRoomByInvite(
+            message.roomCode,
+            playerName,
+            defaultClass,
+            characterLevel,
+            statUpgrades,
+            advancedClass,
+            tier
+          );
           break;
+        }
 
         case 'GAME_INVITE_DECLINED':
           // 내 초대가 거절됨
