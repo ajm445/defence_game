@@ -13,6 +13,12 @@ const CHAT_CONFIG = {
   MIN_MESSAGE_INTERVAL: 500,
 };
 
+// 방 자동 파기 설정
+const ROOM_AUTO_DESTROY_CONFIG = {
+  TIMEOUT_MS: 10 * 60 * 1000,  // 10분
+  CHECK_INTERVAL_MS: 60 * 1000,  // 1분마다 체크
+};
+
 // 대기 중인 협동 방 정보
 interface WaitingCoopRoom {
   id: string;
@@ -903,3 +909,75 @@ export function sendLobbyChatMessage(playerId: string, content: string): void {
 
   console.log(`[Coop Chat] ${room.code} - ${playerInfo.name}: ${trimmedContent.substring(0, 30)}${trimmedContent.length > 30 ? '...' : ''}`);
 }
+
+// ============================================
+// 방 자동 파기 시스템
+// ============================================
+
+// 오래된 대기 방 정리 (게임 시작 전 10분 초과 시 자동 파기)
+function cleanupStaleRooms(): void {
+  const now = Date.now();
+  const staleRooms: string[] = [];
+
+  waitingCoopRooms.forEach((room, roomId) => {
+    // 게임이 시작되지 않은 방만 체크 (waiting 또는 countdown 상태)
+    if (room.state !== 'started') {
+      const roomAge = now - room.createdAt;
+      if (roomAge > ROOM_AUTO_DESTROY_CONFIG.TIMEOUT_MS) {
+        staleRooms.push(roomId);
+      }
+    }
+  });
+
+  // 오래된 방 파기
+  staleRooms.forEach((roomId) => {
+    const room = waitingCoopRooms.get(roomId);
+    if (room) {
+      console.log(`[Coop] 방 자동 파기 (10분 타임아웃): ${room.code}`);
+
+      // 방에 있는 모든 플레이어에게 알림 및 방에서 내보내기
+      room.players.forEach((playerInfo, playerId) => {
+        const player = players.get(playerId);
+        if (player) {
+          player.roomId = null;
+          player.isInGame = false;
+        }
+        sendToPlayer(playerId, {
+          type: 'COOP_ROOM_ERROR',
+          message: '방이 10분간 게임을 시작하지 않아 자동으로 파기되었습니다.',
+        });
+      });
+
+      // 방 삭제
+      coopRoomCodeMap.delete(room.code);
+      waitingCoopRooms.delete(roomId);
+    }
+  });
+
+  // 방이 삭제되었으면 목록 업데이트
+  if (staleRooms.length > 0) {
+    broadcastRoomListUpdate();
+  }
+}
+
+// 방 자동 파기 타이머 시작
+let roomCleanupInterval: ReturnType<typeof setInterval> | null = null;
+
+export function startRoomCleanupTimer(): void {
+  if (roomCleanupInterval) {
+    clearInterval(roomCleanupInterval);
+  }
+  roomCleanupInterval = setInterval(cleanupStaleRooms, ROOM_AUTO_DESTROY_CONFIG.CHECK_INTERVAL_MS);
+  console.log('[Coop] 방 자동 파기 타이머 시작 (10분 타임아웃, 1분 간격 체크)');
+}
+
+export function stopRoomCleanupTimer(): void {
+  if (roomCleanupInterval) {
+    clearInterval(roomCleanupInterval);
+    roomCleanupInterval = null;
+    console.log('[Coop] 방 자동 파기 타이머 중지');
+  }
+}
+
+// 서버 시작 시 자동으로 타이머 시작
+startRoomCleanupTimer();
