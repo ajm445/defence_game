@@ -168,7 +168,7 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
 
       {/* 유닛 카운트 뱃지 */}
       {count > 0 && (
-        <div className="absolute -top-1 -right-1 min-w-[20px] h-5 px-1 bg-neon-cyan text-dark-900 text-xs font-bold rounded-full flex items-center justify-center shadow-lg">
+        <div className="absolute top-1 right-1 min-w-[18px] h-[18px] px-1 bg-neon-cyan text-dark-900 text-[10px] font-bold rounded-full flex items-center justify-center shadow-lg">
           {count}
         </div>
       )}
