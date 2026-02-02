@@ -143,6 +143,7 @@ export class FriendManager {
             // 게임 진행 중인 경우에만 currentRoom 표시
             currentRoom: player?.isInGame ? player.roomId || undefined : undefined,
             isMe,
+            gameMode: player?.gameMode || undefined,
           };
         });
 
@@ -346,6 +347,10 @@ export class FriendManager {
       // 접속한 사용자의 친구 목록 한 번만 조회 (성능 최적화)
       const newUserFriendIds = await this.getFriendIds(userId);
 
+      // 접속한 사용자의 게임 모드 조회
+      const newPlayer = getPlayerByUserId(userId);
+      const newPlayerGameMode = newPlayer?.gameMode || undefined;
+
       // 모든 온라인 플레이어에게 브로드캐스트 (본인 제외)
       for (const onlineUserId of onlineUserIds) {
         if (onlineUserId === userId) continue;
@@ -364,6 +369,7 @@ export class FriendManager {
               isFriend,
               currentRoom: undefined,
               isMe: false,
+              gameMode: newPlayerGameMode,
             },
           });
         }

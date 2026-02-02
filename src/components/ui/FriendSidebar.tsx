@@ -319,8 +319,12 @@ const OnlineList: React.FC<{
               </p>
               <p className="text-gray-500 text-xs">
                 Lv.{player.playerLevel}
-                {player.currentRoom && (
+                {player.currentRoom ? (
                   <span className="ml-1 text-yellow-400">게임중</span>
+                ) : player.gameMode && (
+                  <span className={`ml-1 ${player.gameMode === 'rts' ? 'text-neon-cyan' : 'text-neon-purple'}`}>
+                    {player.gameMode === 'rts' ? 'RTS' : 'RPG'}
+                  </span>
                 )}
               </p>
             </div>

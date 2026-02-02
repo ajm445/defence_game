@@ -5,7 +5,7 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useAuthProfile } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 import { ProfileButton } from '../ui/ProfileButton';
-import { ServerStatusBar } from '../ui/ServerStatusBar';
+import { FriendSidebar } from '../ui/FriendSidebar';
 
 export const LobbyScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -360,54 +360,54 @@ export const LobbyScreen: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
-      {/* 왼쪽 상단 프로필 버튼 */}
-      <div className="absolute top-8 left-8 z-20">
-        <ProfileButton />
-      </div>
-
-      {/* 오른쪽 상단 온라인 상태 */}
-      <div className="absolute top-8 right-8 z-20">
-        <ServerStatusBar />
-      </div>
-
+    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex overflow-hidden">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-neon-purple/5 rounded-full blur-3xl animate-pulse-slow" />
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
       </div>
 
-      {/* 메인 컨텐츠 */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in">
-        {/* 타이틀 */}
-        <h1 className="font-game text-3xl md:text-4xl text-neon-purple mb-12">
-          1vs1 대전
-        </h1>
+      {/* 왼쪽 상단 프로필 버튼 */}
+      <div className="absolute top-8 left-8 z-20">
+        <ProfileButton />
+      </div>
 
-        <div style={{ height: '30px' }} />
+      {/* 메인 컨텐츠 영역 */}
+      <div className="flex-1 flex flex-col items-center justify-center">
+        <div className="relative z-10 flex flex-col items-center animate-fade-in">
+          {/* 타이틀 */}
+          <h1 className="font-game text-3xl md:text-4xl text-neon-purple mb-12">
+            1vs1 대전
+          </h1>
 
-        {/* 연결 상태에 따른 UI */}
-        <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-8 min-w-[400px] min-h-[300px] flex flex-col items-center justify-center">
-          {renderContent()}
+          <div style={{ height: '30px' }} />
+
+          {/* 연결 상태에 따른 UI */}
+          <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-8 min-w-[400px] min-h-[300px] flex flex-col items-center justify-center">
+            {renderContent()}
+          </div>
+
+          <div style={{ height: '30px' }} />
+
+          {/* 뒤로 가기 */}
+          <button
+            onClick={handleBack}
+            className="mt-8 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+          >
+            뒤로 가기
+          </button>
         </div>
+      </div>
 
-        <div style={{ height: '30px' }} />
-        
-        {/* 뒤로 가기 */}
-        <button
-          onClick={handleBack}
-          className="mt-8 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
-          style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
-        >
-          뒤로 가기
-        </button>
+      {/* 오른쪽 친구 사이드바 */}
+      <div className="relative z-20 h-full">
+        <FriendSidebar />
       </div>
 
       {/* 코너 장식 */}
       <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-neon-purple/30" />
-      <div className="absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 border-neon-purple/30" />
       <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-neon-purple/30" />
-      <div className="absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 border-neon-purple/30" />
     </div>
   );
 };

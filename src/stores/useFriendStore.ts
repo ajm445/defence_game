@@ -60,6 +60,7 @@ interface FriendState {
   // 온라인 플레이어 실시간 업데이트
   addOnlinePlayer: (player: OnlinePlayerInfo) => void;
   removeOnlinePlayer: (playerId: string) => void;
+  updateOnlinePlayerMode: (playerId: string, gameMode: 'rts' | 'rpg' | null) => void;
 
   // 초기화
   reset: () => void;
@@ -157,6 +158,13 @@ export const useFriendStore = create<FriendState>((set) => ({
   removeOnlinePlayer: (playerId) =>
     set((state) => ({
       onlinePlayers: state.onlinePlayers.filter((p) => p.id !== playerId),
+    })),
+
+  updateOnlinePlayerMode: (playerId, gameMode) =>
+    set((state) => ({
+      onlinePlayers: state.onlinePlayers.map((p) =>
+        p.id === playerId ? { ...p, gameMode } : p
+      ),
     })),
 
   reset: () => set(initialState),

@@ -17,6 +17,8 @@ export interface FriendInfo {
 // 온라인 플레이어 정보
 // ============================================
 
+export type GameMode = 'rts' | 'rpg' | null;
+
 export interface OnlinePlayerInfo {
   id: string;           // player_profiles.id
   name: string;         // 닉네임
@@ -24,6 +26,7 @@ export interface OnlinePlayerInfo {
   isFriend: boolean;    // 친구 여부
   currentRoom?: string; // 현재 접속 중인 방 ID
   isMe?: boolean;       // 본인 여부
+  gameMode?: GameMode;  // 현재 이용 중인 게임 모드
 }
 
 // ============================================
@@ -107,6 +110,7 @@ export type FriendServerMessage =
   // 온라인 플레이어 실시간 업데이트
   | { type: 'ONLINE_PLAYER_JOINED'; player: OnlinePlayerInfo }
   | { type: 'ONLINE_PLAYER_LEFT'; playerId: string }
+  | { type: 'PLAYER_MODE_CHANGED'; playerId: string; gameMode: GameMode }
   // 게임 초대
   | { type: 'GAME_INVITE_RECEIVED'; invite: GameInviteInfo }
   | { type: 'GAME_INVITE_ACCEPTED'; roomId: string; roomCode: string }

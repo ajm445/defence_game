@@ -1,5 +1,5 @@
 import type { ClientMessage } from '../../../shared/types/network';
-import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOffline, setOnlineStatusCallback, getPlayerByUserId, getLoggedInUserCount } from '../state/players';
+import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOffline, setOnlineStatusCallback, getPlayerByUserId, getLoggedInUserCount, setPlayerGameMode, type GameMode } from '../state/players';
 import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { getSupabaseAdmin } from '../services/supabaseAdmin';
@@ -142,6 +142,10 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     case 'USER_LOGOUT':
       handleUserLogout(playerId, (message as any).userId, (message as any).nickname);
+      break;
+
+    case 'CHANGE_GAME_MODE':
+      handleChangeGameMode(playerId, (message as any).gameMode);
       break;
 
     // 협동 모드 메시지
@@ -464,6 +468,45 @@ function handleUserLogout(playerId: string, userId: string, nickname: string): v
       type: 'logout',
       playerId,
       playerName: nickname,
+      timestamp: new Date().toISOString(),
+    },
+  });
+}
+
+function handleChangeGameMode(playerId: string, gameMode: GameMode): void {
+  const player = players.get(playerId);
+  if (!player) return;
+
+  const modeName = gameMode === 'rts' ? 'RTS' : gameMode === 'rpg' ? 'RPG' : '메인';
+  console.log(`[Mode] 모드 변경: ${player.name || playerId} → ${modeName} 모드`);
+
+  // 플레이어의 게임 모드 업데이트
+  setPlayerGameMode(playerId, gameMode);
+
+  // 로그인된 사용자인 경우 다른 온라인 플레이어에게 모드 변경 알림
+  if (player.userId) {
+    for (const onlineUserId of onlineUserIds) {
+      if (onlineUserId === player.userId) continue;
+
+      const targetPlayer = getPlayerByUserId(onlineUserId);
+      if (targetPlayer && targetPlayer.ws.readyState === 1) {
+        sendToPlayer(targetPlayer.id, {
+          type: 'PLAYER_MODE_CHANGED',
+          playerId: player.userId,
+          gameMode: gameMode,
+        });
+      }
+    }
+  }
+
+  // 관리자에게 모드 변경 이벤트 브로드캐스트
+  broadcastToAdmins({
+    type: 'ADMIN_PLAYER_ACTIVITY',
+    activity: {
+      type: 'mode_change',
+      playerId,
+      playerName: player.name || `Player_${playerId.slice(0, 4)}`,
+      gameMode: modeName,
       timestamp: new Date().toISOString(),
     },
   });

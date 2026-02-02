@@ -26,6 +26,7 @@
 |------|------|
 | 친구 목록 | 친구 목록 표시, 온라인/오프라인 상태 확인 |
 | 온라인 플레이어 | 현재 서버에 접속한 플레이어 목록 |
+| 게임 모드 표시 | 온라인 플레이어가 이용 중인 모드 표시 (RTS/RPG) |
 | 친구 요청 | 친구 추가 요청 보내기/받기/수락/거절 |
 | 게임 초대 | 친구에게 방 초대 보내기 |
 | 비밀방 초대 | 친구는 코드 없이 초대 수락으로 비밀방 입장 |
@@ -62,6 +63,19 @@
 | 온라인 플레이어 | 현재 접속 중인 플레이어 수 |
 | 활성 게임 | 진행 중인 게임 수 |
 | 대기방 | 참가 가능한 대기방 수 |
+
+### 게임 모드 표시
+
+온라인 플레이어 목록에서 각 플레이어가 이용 중인 게임 모드가 표시됩니다.
+
+| 상태 | 표시 | 색상 |
+|------|------|------|
+| RTS 모드 | `RTS` | 청록색 (neon-cyan) |
+| RPG 모드 | `RPG` | 보라색 (neon-purple) |
+| 게임 중 | `게임중` | 노란색 |
+| 모드 미선택 | 미표시 | - |
+
+**우선순위**: 게임 중 > 게임 모드 > 미표시
 
 ---
 
@@ -146,6 +160,7 @@ supabase db push
 | `SEND_GAME_INVITE` | `friendId`, `roomId` | 게임 초대 |
 | `RESPOND_GAME_INVITE` | `inviteId`, `accept` | 초대 응답 |
 | `GET_SERVER_STATUS` | - | 서버 상태 요청 |
+| `CHANGE_GAME_MODE` | `gameMode` | 게임 모드 변경 알림 (`'rts'`, `'rpg'`, `null`) |
 
 ### 서버 → 클라이언트
 
@@ -163,6 +178,7 @@ supabase db push
 | `FRIEND_STATUS_CHANGED` | `friendId`, `isOnline`, `currentRoom?` | 친구 상태 변경 (친구 탭) |
 | `ONLINE_PLAYER_JOINED` | `player` | 플레이어 접속 (온라인 탭 실시간) |
 | `ONLINE_PLAYER_LEFT` | `playerId` | 플레이어 접속 해제 (온라인 탭 실시간) |
+| `PLAYER_MODE_CHANGED` | `playerId`, `gameMode` | 플레이어 게임 모드 변경 |
 | `GAME_INVITE_RECEIVED` | `invite` | 게임 초대 수신 |
 | `GAME_INVITE_ACCEPTED` | `roomId`, `roomCode` | 초대 수락됨 (자동 입장용) |
 | `GAME_INVITE_DECLINED` | `inviteId` | 초대 거절됨 |
@@ -292,6 +308,7 @@ interface FriendState {
   // 온라인 플레이어 실시간 업데이트
   addOnlinePlayer(player: OnlinePlayerInfo): void;
   removeOnlinePlayer(playerId: string): void;
+  updateOnlinePlayerMode(playerId: string, gameMode: 'rts' | 'rpg' | null): void;
   // ... 기타 액션
 }
 ```
@@ -334,6 +351,9 @@ function useFriendMessages() {
           break;
         case 'ONLINE_PLAYER_LEFT':
           removeOnlinePlayer(message.playerId);
+          break;
+        case 'PLAYER_MODE_CHANGED':
+          updateOnlinePlayerMode(message.playerId, message.gameMode);
           break;
         // ... 기타 메시지 처리
       }
@@ -421,6 +441,32 @@ function useFriendMessages() {
 
 **안전망**: 클라이언트는 5초마다 폴링하여 누락된 상태를 복구합니다.
 
+### 게임 모드 변경 알림
+
+플레이어가 게임 모드를 선택하면 서버에 알림이 전송됩니다.
+
+```
+1. 사용자 A가 RTS 모드 선택
+   A → Server: CHANGE_GAME_MODE { gameMode: 'rts' }
+   Server: 플레이어 상태 업데이트
+   Server: 로그 출력 "[Mode] 모드 변경: A → RTS 모드"
+   Server → 모든 온라인 플레이어: PLAYER_MODE_CHANGED { playerId: A, gameMode: 'rts' }
+
+2. 사용자 A가 RPG 모드 선택
+   A → Server: CHANGE_GAME_MODE { gameMode: 'rpg' }
+   Server: 플레이어 상태 업데이트
+   Server: 로그 출력 "[Mode] 모드 변경: A → RPG 모드"
+   Server → 모든 온라인 플레이어: PLAYER_MODE_CHANGED { playerId: A, gameMode: 'rpg' }
+
+3. 사용자 A가 메인 메뉴로 복귀
+   A → Server: CHANGE_GAME_MODE { gameMode: null }
+   Server: 플레이어 상태 업데이트
+   Server: 로그 출력 "[Mode] 모드 변경: A → 메인 모드"
+   Server → 모든 온라인 플레이어: PLAYER_MODE_CHANGED { playerId: A, gameMode: null }
+```
+
+**서버 로그 형식**: `[Mode] 모드 변경: {닉네임} → {모드} 모드`
+
 ---
 
 ## 파일 구조
@@ -430,8 +476,9 @@ function useFriendMessages() {
 ```
 shared/types/
 └── friendNetwork.ts    # 친구 시스템 타입 정의
+    ├── GameMode              # 게임 모드 타입 ('rts' | 'rpg' | null)
     ├── FriendInfo
-    ├── OnlinePlayerInfo
+    ├── OnlinePlayerInfo      # gameMode 필드 포함
     ├── FriendRequestInfo
     ├── GameInviteInfo
     ├── ServerStatusInfo
@@ -452,7 +499,7 @@ server/src/
 ├── room/
 │   └── CoopRoomManager.ts       # 초대 입장 함수 추가
 └── state/
-    └── players.ts               # 온라인 상태 콜백 추가
+    └── players.ts               # 온라인 상태 콜백, 게임 모드 관리
 ```
 
 ### 프론트엔드 (`src/`)

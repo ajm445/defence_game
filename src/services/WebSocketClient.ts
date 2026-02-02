@@ -421,6 +421,16 @@ class WebSocketClient {
   public sendLobbyChatMessage(content: string): void {
     this.send({ type: 'LOBBY_CHAT_SEND', content } as any);
   }
+
+  /**
+   * 게임 모드 변경 알림
+   * @param gameMode 'rts' | 'rpg' | null (null은 메인 메뉴)
+   */
+  public notifyModeChange(gameMode: 'rts' | 'rpg' | null): void {
+    if (this.isConnected()) {
+      this.send({ type: 'CHANGE_GAME_MODE', gameMode } as any);
+    }
+  }
 }
 
 // 싱글톤 인스턴스

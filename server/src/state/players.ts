@@ -1,6 +1,8 @@
 import { WebSocket } from 'ws';
 import type { ServerMessage } from '../../../shared/types/network';
 
+export type GameMode = 'rts' | 'rpg' | null;
+
 export interface Player {
   id: string;           // WebSocket 연결 ID
   userId: string | null; // 데이터베이스 사용자 ID (로그인 후 설정)
@@ -8,6 +10,7 @@ export interface Player {
   ws: WebSocket;
   roomId: string | null;
   isInGame: boolean;    // 게임 진행 중 여부 (방에 입장만 해도 false, 게임 시작 후 true)
+  gameMode: GameMode;   // 현재 이용 중인 게임 모드 (RTS/RPG)
 }
 
 // 전역 플레이어 맵 (WebSocket ID -> Player)
@@ -81,4 +84,18 @@ export async function notifyUserRoomChange(userId: string, roomId: string | null
   if (onlineStatusCallback && onlineUserIds.has(userId)) {
     await onlineStatusCallback(userId, true, roomId || undefined);
   }
+}
+
+// 사용자 게임 모드 변경
+export function setPlayerGameMode(playerId: string, gameMode: GameMode): void {
+  const player = players.get(playerId);
+  if (player) {
+    player.gameMode = gameMode;
+  }
+}
+
+// 사용자 ID로 게임 모드 조회
+export function getPlayerGameModeByUserId(userId: string): GameMode {
+  const player = getPlayerByUserId(userId);
+  return player?.gameMode || null;
 }

@@ -2,6 +2,7 @@ import React from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthStatus } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
+import { wsClient } from '../../services/WebSocketClient';
 
 export const GameTypeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -14,6 +15,7 @@ export const GameTypeSelectScreen: React.FC = () => {
     if (authStatus !== 'authenticated') {
       setScreen('login');
     } else {
+      wsClient.notifyModeChange('rts');
       setScreen('modeSelect');
     }
   };
@@ -25,6 +27,7 @@ export const GameTypeSelectScreen: React.FC = () => {
     if (authStatus !== 'authenticated') {
       setScreen('login');
     } else {
+      wsClient.notifyModeChange('rpg');
       // 대기방 목록 화면으로 바로 이동
       setScreen('rpgCoopLobby');
     }
@@ -154,6 +157,7 @@ export const GameTypeSelectScreen: React.FC = () => {
           onClick={() => {
             soundManager.init();
             soundManager.play('ui_click');
+            wsClient.notifyModeChange(null);
             setScreen('menu');
           }}
           className="mt-12 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"

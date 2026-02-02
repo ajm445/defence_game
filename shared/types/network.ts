@@ -31,6 +31,8 @@ export type ClientMessage =
   | { type: 'UPGRADE_BASE' }
   | { type: 'SELL_HERB' }
   | { type: 'COLLECT_RESOURCE'; nodeId: string }
+  // 게임 모드 변경
+  | { type: 'CHANGE_GAME_MODE'; gameMode: 'rts' | 'rpg' | null }
   // 협동 모드 메시지
   | CoopClientMessage
   // 관리자 메시지
@@ -82,9 +84,10 @@ export interface AdminServerStatus {
 }
 
 export interface AdminPlayerActivity {
-  type: 'connect' | 'disconnect' | 'game_start' | 'game_end';
+  type: 'connect' | 'disconnect' | 'game_start' | 'game_end' | 'mode_change' | 'logout';
   playerId: string;
   playerName?: string;
+  gameMode?: string;
   timestamp: string;
   details?: Record<string, unknown>;
 }

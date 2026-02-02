@@ -24,6 +24,7 @@ export function useFriendMessages() {
     removeGameInvite,
     addOnlinePlayer,
     removeOnlinePlayer,
+    updateOnlinePlayerMode,
     setError,
   } = useFriendStore();
 
@@ -88,6 +89,10 @@ export function useFriendMessages() {
           removeOnlinePlayer(message.playerId);
           break;
 
+        case 'PLAYER_MODE_CHANGED':
+          updateOnlinePlayerMode(message.playerId, message.gameMode);
+          break;
+
         // 게임 초대
         case 'GAME_INVITE_RECEIVED':
           addGameInvite(message.invite);
@@ -139,6 +144,7 @@ export function useFriendMessages() {
     removeGameInvite,
     addOnlinePlayer,
     removeOnlinePlayer,
+    updateOnlinePlayerMode,
     setError,
   ]);
 }
