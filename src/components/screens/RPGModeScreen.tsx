@@ -377,12 +377,12 @@ export const RPGModeScreen: React.FC = () => {
                     <h4 className={`font-bold text-sm ${isVip ? 'text-amber-400' : 'text-purple-400'}`}>계정 경험치 획득</h4>
                     {isVip && (
                       <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-500 rounded text-xs text-white font-bold shadow-lg shadow-amber-500/30">
-                        VIP ×1.5
+                        VIP ×2
                       </span>
                     )}
                   </div>
                   {isVip && (
-                    <p className="text-amber-300/80 text-xs mb-3">👑 VIP 보너스 경험치 1.5배 적용!</p>
+                    <p className="text-amber-300/80 text-xs mb-3">👑 VIP 보너스 경험치 2배 적용!</p>
                   )}
                   <div className="space-y-2 text-sm">
                     <div className="flex justify-between items-center">

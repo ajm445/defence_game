@@ -243,6 +243,12 @@ interface RPGActions {
 
   // 다른 플레이어 영웅 보간 업데이트 (클라이언트용)
   updateOtherHeroesInterpolation: () => void;
+
+  // 로비 채팅
+  addLobbyChatMessage: (message: import('@shared/types/rpgNetwork').LobbyChatMessage) => void;
+  setLobbyChatHistory: (messages: import('@shared/types/rpgNetwork').LobbyChatMessage[]) => void;
+  clearLobbyChatMessages: () => void;
+  setLobbyChatError: (error: string | null) => void;
 }
 
 interface RPGStore extends RPGState, RPGActions {}
@@ -415,6 +421,8 @@ const initialState: RPGState = {
     remoteInputQueue: [],
     connectionState: 'disconnected',
     countdown: null,
+    lobbyChatMessages: [],
+    lobbyChatError: null,
   },
   otherHeroes: new Map(),
   otherPlayersGold: new Map(),
@@ -646,6 +654,8 @@ export const useRPGStore = create<RPGStore>()(
           remoteInputQueue: [],
           connectionState: 'disconnected',
           countdown: null,
+          lobbyChatMessages: [],
+          lobbyChatError: null,
         },
         otherHeroes: new Map(),
         otherPlayersGold: new Map(),
@@ -721,6 +731,8 @@ export const useRPGStore = create<RPGStore>()(
           remoteInputQueue: [],
           connectionState: 'disconnected',
           countdown: null,
+          lobbyChatMessages: [],
+          lobbyChatError: null,
         },
         otherHeroes: new Map(),
         otherPlayersGold: new Map(),
@@ -2079,6 +2091,8 @@ export const useRPGStore = create<RPGStore>()(
           remoteInputQueue: [],
           connectionState: 'disconnected',
           countdown: null,
+          lobbyChatMessages: [],
+          lobbyChatError: null,
         },
         otherHeroes: new Map(),
         otherPlayersGold: new Map(),
@@ -2716,6 +2730,46 @@ export const useRPGStore = create<RPGStore>()(
       });
 
       set({ otherHeroes: updatedHeroes });
+    },
+
+    // ============================================
+    // 로비 채팅 액션 구현
+    // ============================================
+
+    addLobbyChatMessage: (message) => {
+      set((state) => ({
+        multiplayer: {
+          ...state.multiplayer,
+          lobbyChatMessages: [...state.multiplayer.lobbyChatMessages, message],
+        },
+      }));
+    },
+
+    setLobbyChatHistory: (messages) => {
+      set((state) => ({
+        multiplayer: {
+          ...state.multiplayer,
+          lobbyChatMessages: messages,
+        },
+      }));
+    },
+
+    clearLobbyChatMessages: () => {
+      set((state) => ({
+        multiplayer: {
+          ...state.multiplayer,
+          lobbyChatMessages: [],
+        },
+      }));
+    },
+
+    setLobbyChatError: (error) => {
+      set((state) => ({
+        multiplayer: {
+          ...state.multiplayer,
+          lobbyChatError: error,
+        },
+      }));
     },
   }))
 );

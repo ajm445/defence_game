@@ -11,6 +11,24 @@ import type { FriendClientMessage, FriendServerMessage } from './friendNetwork';
 export * from './friendNetwork';
 
 // ============================================
+// 로비 채팅 설정
+// ============================================
+
+export interface LobbyChatMessage {
+  id: string;
+  playerId: string;
+  playerName: string;
+  content: string;
+  timestamp: number;
+}
+
+export const LOBBY_CHAT_CONFIG = {
+  MAX_MESSAGE_LENGTH: 200,
+  MAX_HISTORY_SIZE: 50,
+  MIN_MESSAGE_INTERVAL: 500,
+} as const;
+
+// ============================================
 // 협동 모드 설정
 // ============================================
 
@@ -261,6 +279,8 @@ export type CoopClientMessage =
   | { type: 'RESUME_COOP_GAME' }
   // 게임 중단 (호스트 전용)
   | { type: 'STOP_COOP_GAME' }
+  // 로비 채팅
+  | { type: 'LOBBY_CHAT_SEND'; content: string }
   // 친구 시스템 메시지
   | FriendClientMessage;
 
@@ -305,6 +325,10 @@ export type CoopServerMessage =
   | { type: 'COOP_GAME_RESUMED' }
   // 게임 중단 (호스트가 중단)
   | { type: 'COOP_GAME_STOPPED' }
+  // 로비 채팅
+  | { type: 'LOBBY_CHAT_MESSAGE'; message: LobbyChatMessage }
+  | { type: 'LOBBY_CHAT_HISTORY'; messages: LobbyChatMessage[] }
+  | { type: 'LOBBY_CHAT_ERROR'; message: string }
   // 친구 시스템 메시지
   | FriendServerMessage;
 

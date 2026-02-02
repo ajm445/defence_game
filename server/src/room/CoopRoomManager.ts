@@ -3,8 +3,15 @@ import { players, sendToPlayer } from '../state/players';
 import { addCoopRoom } from '../websocket/MessageHandler';
 import { RPGCoopGameRoom } from '../game/RPGCoopGameRoom';
 import type { HeroClass } from '../../../src/types/rpg';
-import type { CoopPlayerInfo, COOP_CONFIG, WaitingCoopRoomInfo } from '../../../shared/types/rpgNetwork';
+import type { CoopPlayerInfo, WaitingCoopRoomInfo, LobbyChatMessage, LOBBY_CHAT_CONFIG } from '../../../shared/types/rpgNetwork';
 import type { CharacterStatUpgrades } from '../../../src/types/auth';
+
+// 로비 채팅 설정 (shared에서 가져온 값과 동일하게 유지)
+const CHAT_CONFIG = {
+  MAX_MESSAGE_LENGTH: 200,
+  MAX_HISTORY_SIZE: 50,
+  MIN_MESSAGE_INTERVAL: 500,
+};
 
 // 대기 중인 협동 방 정보
 interface WaitingCoopRoom {
@@ -16,6 +23,9 @@ interface WaitingCoopRoom {
   state: 'waiting' | 'countdown' | 'started';
   isPrivate: boolean;  // 비밀방 여부
   difficulty: string;  // 난이도 ('easy' | 'normal' | 'hard' | 'extreme')
+  // 로비 채팅
+  chatHistory: LobbyChatMessage[];
+  lastMessageTime: Map<string, number>;  // playerId -> 마지막 메시지 시간
 }
 
 // 대기 중인 협동 방 저장소
@@ -102,6 +112,8 @@ export function createCoopRoom(
     state: 'waiting',
     isPrivate,
     difficulty,
+    chatHistory: [],
+    lastMessageTime: new Map(),
   };
 
   waitingCoopRooms.set(roomId, room);
@@ -218,6 +230,14 @@ export function joinCoopRoom(
     isPrivate: room.isPrivate,
     difficulty: room.difficulty,
   });
+
+  // 채팅 히스토리 전송
+  if (room.chatHistory.length > 0) {
+    sendToPlayer(playerId, {
+      type: 'LOBBY_CHAT_HISTORY',
+      messages: room.chatHistory,
+    });
+  }
 
   // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (인원 수 변경)
   broadcastRoomListUpdate();
@@ -696,6 +716,14 @@ export function joinCoopRoomById(
     difficulty: room.difficulty,
   });
 
+  // 채팅 히스토리 전송
+  if (room.chatHistory.length > 0) {
+    sendToPlayer(playerId, {
+      type: 'LOBBY_CHAT_HISTORY',
+      messages: room.chatHistory,
+    });
+  }
+
   // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (인원 수 변경)
   broadcastRoomListUpdate();
 
@@ -787,8 +815,91 @@ export function joinCoopRoomByInvite(
     difficulty: room.difficulty,
   });
 
+  // 채팅 히스토리 전송
+  if (room.chatHistory.length > 0) {
+    sendToPlayer(playerId, {
+      type: 'LOBBY_CHAT_HISTORY',
+      messages: room.chatHistory,
+    });
+  }
+
   // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림 (인원 수 변경)
   broadcastRoomListUpdate();
 
   return true;
+}
+
+// 로비 채팅 메시지 전송
+export function sendLobbyChatMessage(playerId: string, content: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) {
+    sendToPlayer(playerId, { type: 'LOBBY_CHAT_ERROR', message: '방에 참가하지 않았습니다.' });
+    return;
+  }
+
+  const room = waitingCoopRooms.get(player.roomId);
+  if (!room) {
+    sendToPlayer(playerId, { type: 'LOBBY_CHAT_ERROR', message: '방을 찾을 수 없습니다.' });
+    return;
+  }
+
+  // 게임 시작 후에는 채팅 불가
+  if (room.state === 'started') {
+    sendToPlayer(playerId, { type: 'LOBBY_CHAT_ERROR', message: '게임이 이미 시작되었습니다.' });
+    return;
+  }
+
+  // 빈 메시지 체크
+  const trimmedContent = content.trim();
+  if (trimmedContent.length === 0) {
+    sendToPlayer(playerId, { type: 'LOBBY_CHAT_ERROR', message: '메시지를 입력하세요.' });
+    return;
+  }
+
+  // 메시지 길이 체크
+  if (trimmedContent.length > CHAT_CONFIG.MAX_MESSAGE_LENGTH) {
+    sendToPlayer(playerId, { type: 'LOBBY_CHAT_ERROR', message: `메시지가 너무 깁니다. (최대 ${CHAT_CONFIG.MAX_MESSAGE_LENGTH}자)` });
+    return;
+  }
+
+  // 스팸 방지 - 최소 전송 간격 체크
+  const now = Date.now();
+  const lastTime = room.lastMessageTime.get(playerId) || 0;
+  if (now - lastTime < CHAT_CONFIG.MIN_MESSAGE_INTERVAL) {
+    sendToPlayer(playerId, { type: 'LOBBY_CHAT_ERROR', message: '너무 빠르게 메시지를 보내고 있습니다.' });
+    return;
+  }
+  room.lastMessageTime.set(playerId, now);
+
+  // 플레이어 정보 가져오기
+  const playerInfo = room.players.get(playerId);
+  if (!playerInfo) {
+    sendToPlayer(playerId, { type: 'LOBBY_CHAT_ERROR', message: '플레이어 정보를 찾을 수 없습니다.' });
+    return;
+  }
+
+  // 메시지 생성
+  const message: LobbyChatMessage = {
+    id: uuidv4(),
+    playerId,
+    playerName: playerInfo.name,
+    content: trimmedContent,
+    timestamp: now,
+  };
+
+  // 히스토리에 추가 (최대 크기 유지)
+  room.chatHistory.push(message);
+  if (room.chatHistory.length > CHAT_CONFIG.MAX_HISTORY_SIZE) {
+    room.chatHistory.shift();
+  }
+
+  // 방의 모든 플레이어에게 브로드캐스트
+  room.players.forEach((p, id) => {
+    sendToPlayer(id, {
+      type: 'LOBBY_CHAT_MESSAGE',
+      message,
+    });
+  });
+
+  console.log(`[Coop Chat] ${room.code} - ${playerInfo.name}: ${trimmedContent.substring(0, 30)}${trimmedContent.length > 30 ? '...' : ''}`);
 }

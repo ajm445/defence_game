@@ -9,4 +9,4 @@ ADD COLUMN IF NOT EXISTS role TEXT DEFAULT 'player' CHECK (role IN ('player', 'v
 CREATE INDEX IF NOT EXISTS idx_player_profiles_role ON player_profiles(role);
 
 -- 코멘트 추가
-COMMENT ON COLUMN player_profiles.role IS '플레이어 역할: player(일반), vip(VIP - 경험치 1.5배)';
+COMMENT ON COLUMN player_profiles.role IS '플레이어 역할: player(일반), vip(VIP - 경험치 2배)';

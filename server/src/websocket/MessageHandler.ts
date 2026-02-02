@@ -17,6 +17,7 @@ import {
   handleCoopPlayerDisconnect,
   getAllWaitingCoopRooms,
   getCoopRoomByPlayerId,
+  sendLobbyChatMessage,
 } from '../room/CoopRoomManager';
 import { sendToPlayer } from '../state/players';
 import { GameRoom } from '../game/GameRoom';
@@ -281,6 +282,11 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     case 'GET_SERVER_STATUS':
       handleGetServerStatus(playerId);
+      break;
+
+    // 로비 채팅
+    case 'LOBBY_CHAT_SEND':
+      handleLobbyChatSend(playerId, (message as any).content);
       break;
 
     default:
@@ -1119,4 +1125,12 @@ function handleGetServerStatus(playerId: string): void {
     waitingRooms: waitingRooms.filter(r => !r.isInGame).length,
   };
   sendToPlayer(playerId, { type: 'SERVER_STATUS', status });
+}
+
+// ============================================
+// 로비 채팅 핸들러
+// ============================================
+
+function handleLobbyChatSend(playerId: string, content: string): void {
+  sendLobbyChatMessage(playerId, content);
 }

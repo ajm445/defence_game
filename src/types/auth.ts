@@ -5,7 +5,7 @@ import { DIFFICULTY_CONFIGS } from '../constants/rpgConfig';
 export type PlayerRole = 'player' | 'vip';
 
 // VIP 경험치 보너스 배율
-export const VIP_EXP_MULTIPLIER = 1.5;
+export const VIP_EXP_MULTIPLIER = 2.0;
 
 // 플레이어 프로필
 export interface PlayerProfile {
@@ -112,7 +112,7 @@ export const calculatePlayerExp = (
   // 패배 시 50% 감소
   const defeatPenalty = victory ? 1.0 : 0.5;
 
-  // VIP 보너스: 1.5배
+  // VIP 보너스: 2배
   const vipMultiplier = isVip ? VIP_EXP_MULTIPLIER : 1.0;
 
   return Math.floor(totalExp * modeMultiplier * defeatPenalty * vipMultiplier);
@@ -153,7 +153,7 @@ export const calculateClassExp = (
   // 패배 시 50% 감소
   const defeatPenalty = victory ? 1.0 : 0.5;
 
-  // VIP 보너스: 1.5배
+  // VIP 보너스: 2배
   const vipMultiplier = isVip ? VIP_EXP_MULTIPLIER : 1.0;
 
   return Math.floor(totalExp * defeatPenalty * vipMultiplier);
@@ -171,7 +171,7 @@ export const calculateCoopPlayerExp = (
 ): number => {
   // 웨이브 × 15 + 승리 보너스 75
   const baseExp = waveReached * 15 + (victory ? 75 : 0);
-  // VIP 보너스: 1.5배
+  // VIP 보너스: 2배
   const vipMultiplier = isVip ? VIP_EXP_MULTIPLIER : 1.0;
   return Math.floor(baseExp * vipMultiplier);
 };
@@ -184,7 +184,7 @@ export const calculateCoopClassExp = (
 ): number => {
   // 웨이브 × 5 + 킬 × 2
   const baseExp = waveReached * 5 + kills * 2;
-  // VIP 보너스: 1.5배
+  // VIP 보너스: 2배
   const vipMultiplier = isVip ? VIP_EXP_MULTIPLIER : 1.0;
   return Math.floor(baseExp * vipMultiplier);
 };

@@ -24,6 +24,7 @@ import { GameInviteNotification } from '../ui/GameInviteNotification';
 import { ServerStatusBar } from '../ui/ServerStatusBar';
 import { useFriendMessages } from '../../hooks/useFriendMessages';
 import { ClassEncyclopediaModal } from '../ui/ClassEncyclopediaModal';
+import { LobbyChat } from '../ui/LobbyChat';
 
 // 난이도 색상 설정
 const difficultyColors: Record<RPGDifficulty, { bg: string; border: string; text: string; hoverBg: string }> = {
@@ -433,6 +434,19 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             players: [],
           });
           break;
+
+        // 로비 채팅
+        case 'LOBBY_CHAT_MESSAGE':
+          useRPGStore.getState().addLobbyChatMessage(message.message);
+          break;
+
+        case 'LOBBY_CHAT_HISTORY':
+          useRPGStore.getState().setLobbyChatHistory(message.messages);
+          break;
+
+        case 'LOBBY_CHAT_ERROR':
+          useRPGStore.getState().setLobbyChatError(message.message);
+          break;
       }
     };
 
@@ -503,6 +517,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     if (multiplayer.connectionState === 'in_lobby' || multiplayer.connectionState === 'countdown') {
       // 로비에서 뒤로가기는 방을 나가고 방 목록으로 이동
       leaveMultiplayerRoom();
+      useRPGStore.getState().clearLobbyChatMessages();
       useRPGStore.getState().resetMultiplayerState();
       setShowJoinInput(false);
       setInputRoomCode('');
@@ -518,6 +533,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const handleLeaveRoom = useCallback(() => {
     soundManager.play('ui_click');
     leaveMultiplayerRoom();
+    useRPGStore.getState().clearLobbyChatMessages();
     setShowJoinInput(false);
     setInputRoomCode('');
   }, []);
@@ -699,6 +715,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
     return (
       <div className="flex flex-col items-center gap-4">
+        <div style={{ height: '5px' }} />
         {/* 초대 코드 및 방 설정 */}
         {multiplayer.roomCode && (
           <div className="mb-4 flex items-start gap-6">
@@ -856,6 +873,11 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           </div>
         </div>
 
+        {/* 로비 채팅 */}
+        <div className="w-full max-w-md">
+          <LobbyChat />
+        </div>
+
         {/* 직업 변경 버튼 */}
         {(() => {
           const isMyReady = multiplayer.players.find(p => p.id === wsClient.playerId)?.isReady;
@@ -918,6 +940,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             </button>
           )}
         </div>
+        <div style={{ height: '10px' }} />
       </div>
     );
   };
@@ -1466,7 +1489,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                   );
                 })}
               </div>
-              <div style={{ height: '10px' }} />
+              <div style={{ height: '5px' }} />
             </div>
 
             {/* 버튼들 */}

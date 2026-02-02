@@ -364,7 +364,7 @@ export const processGameResult = async (
 }> => {
   const difficulty = gameData.difficulty || 'easy';
 
-  // VIP 여부 확인 (경험치 1.5배)
+  // VIP 여부 확인 (경험치 2배)
   const isVip = profile.role === 'vip';
 
   // 경험치 계산 (넥서스 디펜스) - 난이도 배율 및 VIP 보너스 적용

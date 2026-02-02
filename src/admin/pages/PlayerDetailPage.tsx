@@ -699,7 +699,7 @@ function EditModal({ player, onClose, onSave }: {
                 <span className="text-2xl">👑</span>
                 <div>
                   <p className="text-white font-medium">VIP 역할</p>
-                  <p className="text-xs text-slate-400">경험치 1.5배 보너스</p>
+                  <p className="text-xs text-slate-400">경험치 2배 보너스</p>
                 </div>
               </div>
               <div className="relative">

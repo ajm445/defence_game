@@ -410,6 +410,17 @@ class WebSocketClient {
   public stopCoopGame(): void {
     this.send({ type: 'STOP_COOP_GAME' } as any);
   }
+
+  // ============================================
+  // 로비 채팅 메서드
+  // ============================================
+
+  /**
+   * 로비 채팅 메시지 전송
+   */
+  public sendLobbyChatMessage(content: string): void {
+    this.send({ type: 'LOBBY_CHAT_SEND', content } as any);
+  }
 }
 
 // 싱글톤 인스턴스

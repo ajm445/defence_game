@@ -3,7 +3,7 @@
 import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, PendingSkill, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, NexusLaserEffect, BossSkillWarning, DamageNumber, BossSkillExecutedEffect } from '../../src/types/rpg';
 import type { UnitType } from '../../src/types/unit';
 import type { CharacterStatUpgrades } from '../../src/types/auth';
-import type { CoopPlayerInfo } from './rpgNetwork';
+import type { CoopPlayerInfo, LobbyChatMessage } from './rpgNetwork';
 
 // ============================================
 // 플레이어 입력 (클라이언트 → 호스트)
@@ -252,6 +252,9 @@ export interface MultiplayerState {
   // 방 설정 (로비 복귀 시 유지)
   roomIsPrivate?: boolean;
   roomDifficulty?: string;
+  // 로비 채팅
+  lobbyChatMessages: LobbyChatMessage[];
+  lobbyChatError: string | null;
 }
 
 // 초기 멀티플레이 상태
@@ -269,6 +272,8 @@ export const initialMultiplayerState: MultiplayerState = {
   countdown: null,
   roomIsPrivate: false,
   roomDifficulty: 'easy',
+  lobbyChatMessages: [],
+  lobbyChatError: null,
 };
 
 // ============================================
