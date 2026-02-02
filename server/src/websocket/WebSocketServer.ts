@@ -10,6 +10,7 @@ import { gameInviteManager } from '../friend/GameInviteManager';
 import authRouter from '../api/authRouter';
 import profileRouter from '../api/profileRouter';
 import adminRouter from '../api/admin/adminRouter';
+import rankingsRouter from '../api/rankingsRouter';
 
 // Re-export for backwards compatibility
 export { players, sendMessage, sendToPlayer } from '../state/players';
@@ -39,6 +40,7 @@ export function createWebSocketServer(port: number) {
   app.use('/api/auth', authRouter);
   app.use('/api/profile', profileRouter);
   app.use('/api/admin', adminRouter);
+  app.use('/api/rankings', rankingsRouter);
 
   // HTTP 서버 생성 (Express 앱 사용)
   const httpServer = createServer(app);

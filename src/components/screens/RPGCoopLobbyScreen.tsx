@@ -24,6 +24,7 @@ import { GameInviteNotification } from '../ui/GameInviteNotification';
 import { ServerStatusBar } from '../ui/ServerStatusBar';
 import { useFriendMessages } from '../../hooks/useFriendMessages';
 import { ClassEncyclopediaModal } from '../ui/ClassEncyclopediaModal';
+import { RankingModal } from '../ui/RankingModal';
 import { LobbyChat } from '../ui/LobbyChat';
 
 // 난이도 색상 설정
@@ -64,6 +65,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const [privateRoomCode, setPrivateRoomCode] = useState('');
   // 도감 모달 상태
   const [showEncyclopedia, setShowEncyclopedia] = useState(false);
+  // 랭킹 모달 상태
+  const [showRanking, setShowRanking] = useState(false);
   // 현재 방 설정 (로비에서 표시/변경용)
   const [roomIsPrivate, setRoomIsPrivate] = useState(false);
   const [roomDifficulty, setRoomDifficulty] = useState<RPGDifficulty>('easy');
@@ -816,7 +819,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         )}
 
         {/* 플레이어 목록 */}
-        <div className="w-full max-w-md bg-gray-800/30 rounded-lg p-4">
+        <div className="w-[20rem] bg-gray-800/30 rounded-lg p-4">
           <p className="text-gray-400 text-sm mb-3">플레이어 ({players.length}/4)</p>
           <div className="space-y-2">
             {players.map((player) => {
@@ -874,7 +877,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         </div>
 
         {/* 로비 채팅 */}
-        <div className="w-full max-w-md">
+        <div className="w-[20rem]">
           <LobbyChat />
         </div>
 
@@ -999,6 +1002,16 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             )}
           </div>
           <div className="flex items-center gap-2">
+            <button
+              onClick={() => {
+                soundManager.play('ui_click');
+                setShowRanking(true);
+              }}
+              className="px-3 py-1 text-sm text-red-400 border border-red-500/50 rounded-lg hover:bg-red-500/10 transition-all cursor-pointer flex items-center gap-1"
+              style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+            >
+              <span>🏆</span> 랭킹
+            </button>
             <button
               onClick={() => {
                 soundManager.play('ui_click');
@@ -1489,7 +1502,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                   );
                 })}
               </div>
-              <div style={{ height: '5px' }} />
+              <div style={{ height: '10px' }} />
             </div>
 
             {/* 버튼들 */}
@@ -1596,6 +1609,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         isOpen={showEncyclopedia}
         onClose={() => setShowEncyclopedia(false)}
         playerLevel={playerLevel}
+      />
+
+      {/* 랭킹 모달 */}
+      <RankingModal
+        isOpen={showRanking}
+        onClose={() => setShowRanking(false)}
       />
     </div>
   );

@@ -22,6 +22,7 @@ import { LevelUpResult, calculatePlayerExp, calculateClassExp, createDefaultStat
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
+import { saveExtremeRanking, RankingPlayer } from '../../services/rankingService';
 
 export const RPGModeScreen: React.FC = () => {
   // 게임 루프 시작
@@ -91,6 +92,43 @@ export const RPGModeScreen: React.FC = () => {
       const rpgState = useRPGStore.getState();
       const killsForExp = rpgState.multiplayer.isMultiplayer ? rpgState.personalKills : result.totalKills;
 
+      // 극한 난이도 승리 시 랭킹 저장 (호스트 또는 싱글플레이)
+      if (result.victory && rpgState.selectedDifficulty === 'extreme') {
+        const isMultiplayer = rpgState.multiplayer.isMultiplayer;
+        const isHost = rpgState.multiplayer.isHost;
+
+        // 싱글플레이 또는 멀티플레이 호스트만 랭킹 저장
+        if (!isMultiplayer || isHost) {
+          let rankingPlayers: RankingPlayer[];
+
+          if (isMultiplayer) {
+            rankingPlayers = rpgState.multiplayer.players.map(p => {
+              const playerClassProgress = useProfileStore.getState().classProgress.find(cp => cp.className === p.heroClass);
+              const advClass = p.advancedClass as AdvancedHeroClass | undefined;
+              return {
+                playerId: p.id,
+                nickname: p.name,
+                heroClass: p.heroClass,
+                advancedClass: advClass,
+                characterLevel: p.characterLevel || playerClassProgress?.classLevel || 1,
+              } as RankingPlayer;
+            });
+          } else {
+            const myClassProgress = classProgressList.find(p => p.className === result.heroClass);
+            rankingPlayers = [{
+              playerId: currentProfile.id,
+              nickname: currentProfile.nickname,
+              heroClass: result.heroClass,
+              advancedClass: myClassProgress?.advancedClass as AdvancedHeroClass | undefined,
+              characterLevel: myClassProgress?.classLevel || 1,
+            }];
+          }
+
+          const playerCount = rankingPlayers.length;
+          saveExtremeRanking(playerCount, result.timePlayed, rankingPlayers);
+        }
+      }
+
       // 경험치 저장 (난이도 배율 적용)
       useProfileStore.getState().handleGameEnd({
         mode: rpgState.multiplayer.isMultiplayer ? 'coop' : 'single',
@@ -123,7 +161,7 @@ export const RPGModeScreen: React.FC = () => {
         }
       });
     }
-  }, [gameOver, result]);  // profile을 의존성에서 제거 - getState()로 직접 가져옴
+  }, [gameOver, result, classProgressList]);  // classProgressList 의존성 추가
 
   // 스킬 사용 핸들러
   const handleUseSkill = useCallback(

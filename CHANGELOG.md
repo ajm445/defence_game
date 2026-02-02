@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.19.4] - 2026-02-02
+
+### Features
+- **극한 난이도 랭킹 시스템**: 극한 난이도 클리어 기록을 저장하고 조회하는 랭킹 시스템
+  - 1인/2인/3인/4인 플레이어 수별 별도 랭킹
+  - 표시 정보: 순위, 클리어 시간, 참여 플레이어 닉네임, 캐릭터 정보(직업, 레벨)
+  - 로비 화면에 🏆 랭킹 버튼 추가 (직업 도감 왼쪽)
+  - 극한 난이도 승리 시 자동 랭킹 저장 (싱글/멀티 호스트)
+  - 상위 20개 기록 표시, 1~3위는 메달 아이콘으로 강조
+
+### New Files
+- `supabase/migrations/010_create_extreme_rankings.sql` - 랭킹 테이블 스키마
+- `server/src/api/rankingsRouter.ts` - 랭킹 API (GET/POST)
+- `src/services/rankingService.ts` - 클라이언트 랭킹 서비스
+- `src/components/ui/RankingModal.tsx` - 랭킹 모달 UI
+
+### Technical Changes
+- `server/src/websocket/WebSocketServer.ts`: rankingsRouter 등록
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: 랭킹 버튼 및 모달 연동
+- `src/components/screens/RPGModeScreen.tsx`: 극한 난이도 승리 시 랭킹 저장 로직
+
+### Notes
+- 게스트 사용자는 랭킹에 저장되지 않음 (계정 보유 사용자만 등록 가능)
+
+---
+
+## [1.19.3] - 2026-02-02
+
+### Features
+- **대기방 자동 파기**: 호스트가 비활성 상태일 때 방 자동 정리
+- **대기방 채팅**: 로비에서 대기 중인 플레이어들끼리 채팅 기능
+
+### Improvements
+- **VIP 경험치 배율 상향**: 1.5배 → 2배로 변경
+
+---
+
+## [1.19.2] - 2026-02-02
+
+### Features
+- **VIP 시스템 추가**: VIP 사용자 경험치 보너스 및 UI 표시
+
+---
+
 ## [1.19.1] - 2026-02-02
 
 ### Bug Fixes
