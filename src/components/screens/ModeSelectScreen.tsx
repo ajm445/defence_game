@@ -3,6 +3,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useTutorialStore } from '../../stores/useTutorialStore';
 import { soundManager } from '../../services/SoundManager';
+import { RTSPlayerLevel } from '../ui/RTSPlayerLevel';
 
 export const ModeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -23,6 +24,9 @@ export const ModeSelectScreen: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
+      {/* 플레이어 레벨 표시 */}
+      <RTSPlayerLevel />
+
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" />

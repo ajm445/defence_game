@@ -13,7 +13,6 @@ import { SelectionInfo } from '../ui/SelectionInfo';
 import { Notification } from '../ui/Notification';
 import { MassSpawnAlert } from '../ui/MassSpawnAlert';
 import { TutorialOverlay } from '../ui/TutorialOverlay';
-import { RTSPlayerLevel } from '../ui/RTSPlayerLevel';
 import { CONFIG } from '../../constants/config';
 import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
@@ -56,9 +55,6 @@ export const GameScreen: React.FC = () => {
     <div className="relative w-full h-screen overflow-hidden bg-dark-900">
       {/* 메인 캔버스 */}
       <GameCanvas />
-
-      {/* 플레이어 레벨 표시 */}
-      <RTSPlayerLevel />
 
       {/* 상단 UI */}
       <ResourceBar />
