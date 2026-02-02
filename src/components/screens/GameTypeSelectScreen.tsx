@@ -123,14 +123,14 @@ export const GameTypeSelectScreen: React.FC = () => {
               <p className="text-gray-300 text-center text-sm mb-4">
                 영웅을 선택하고<br />
                 스킬을 사용하여<br />
-                웨이브를 생존하세요
+                넥서스를 지키고 보스를 처치하세요
               </p>
 
               {/* 서브 모드 목록 */}
               <div className="flex flex-col gap-1 text-xs text-gray-400">
                 <span>• 싱글 / 협동 플레이</span>
                 <span>• 4가지 직업</span>
-                <span>• Q/W/E 스킬</span>
+                <span>• 다양한 전직</span>
               </div>
 
               {/* 하단 태그 */}
