@@ -2,6 +2,7 @@ import React, { useEffect, useState } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useGameStore } from '../../stores/useGameStore';
+import { useAuthProfile } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 
 export const LobbyScreen: React.FC = () => {
@@ -27,7 +28,9 @@ export const LobbyScreen: React.FC = () => {
   const startGame = useGameStore((state) => state.startGame);
   const setCameraPosition = useGameStore((state) => state.setCameraPosition);
   const mySide = useMultiplayerStore((state) => state.mySide);
-  const [inputName, setInputName] = useState(playerName || '');
+  const profile = useAuthProfile();
+  // 로그인한 사용자의 닉네임을 기본값으로 사용
+  const [inputName, setInputName] = useState(profile?.nickname || playerName || '');
   const [isConnecting, setIsConnecting] = useState(false);
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [roomCode, setRoomCode] = useState('');
@@ -53,6 +56,13 @@ export const LobbyScreen: React.FC = () => {
       setScreen('game');
     }
   }, [connectionState, initGame, startGame, setScreen, mySide, setCameraPosition, resetGameUI]);
+
+  // 로그인 프로필이 있으면 닉네임 설정
+  useEffect(() => {
+    if (profile?.nickname && !inputName) {
+      setInputName(profile.nickname);
+    }
+  }, [profile]);
 
   // 에러 발생 시 3초 후 자동 클리어
   useEffect(() => {
@@ -96,6 +106,7 @@ export const LobbyScreen: React.FC = () => {
   };
 
   const handleBack = () => {
+    soundManager.play('ui_click');
     if (connectionState === 'in_room_waiting' || connectionState === 'in_room_ready') {
       leaveRoom();
     } else if (connectionState !== 'disconnected') {
@@ -108,12 +119,14 @@ export const LobbyScreen: React.FC = () => {
   };
 
   const handleLeaveRoom = () => {
+    soundManager.play('ui_click');
     leaveRoom();
     setShowJoinInput(false);
     setRoomCode('');
   };
 
   const copyRoomCode = async () => {
+    soundManager.play('ui_click');
     if (roomInfo?.roomCode) {
       try {
         await navigator.clipboard.writeText(roomInfo.roomCode);
@@ -183,6 +196,7 @@ export const LobbyScreen: React.FC = () => {
             <div className="flex gap-4">
               <button
                 onClick={() => {
+                  soundManager.play('ui_click');
                   setShowJoinInput(false);
                   setRoomCode('');
                   useMultiplayerStore.setState({ error: null });
@@ -227,7 +241,10 @@ export const LobbyScreen: React.FC = () => {
             </button>
 
             <button
-              onClick={() => setShowJoinInput(true)}
+              onClick={() => {
+                soundManager.play('ui_click');
+                setShowJoinInput(true);
+              }}
               className="px-8 py-4 rounded-lg bg-neon-purple/20 border border-neon-purple text-neon-purple hover:bg-neon-purple/30 transition-all text-lg cursor-pointer"
               style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
             >

@@ -10,7 +10,12 @@ export const GameTypeSelectScreen: React.FC = () => {
   const handleRTSMode = () => {
     soundManager.init();
     soundManager.play('ui_click');
-    setScreen('modeSelect');
+    // 인증되지 않은 경우 로그인 화면으로 이동
+    if (authStatus !== 'authenticated') {
+      setScreen('login');
+    } else {
+      setScreen('modeSelect');
+    }
   };
 
   const handleRPGMode = () => {

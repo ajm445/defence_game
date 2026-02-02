@@ -5,7 +5,7 @@ import { AI_DIFFICULTY_CONFIG } from '../../constants/config';
 import { AIDifficulty } from '../../types';
 import { soundManager } from '../../services/SoundManager';
 
-const difficulties: AIDifficulty[] = ['easy', 'normal', 'hard', 'nightmare', 'bosstest'];
+const difficulties: AIDifficulty[] = ['easy', 'normal', 'hard', 'nightmare'];
 
 const difficultyStars: Record<AIDifficulty, string> = {
   easy: '★☆☆☆☆',
@@ -137,7 +137,10 @@ export const DifficultySelectScreen: React.FC = () => {
         
         {/* 뒤로 가기 */}
         <button
-          onClick={() => setScreen('modeSelect')}
+          onClick={() => {
+            soundManager.play('ui_click');
+            setScreen('modeSelect');
+          }}
           className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
           style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
         >

@@ -19,6 +19,7 @@ import {
   getClassProgress,
   getGameHistory,
   processGameResult,
+  processRTSGameResult,
   getPlayerStats,
   upgradeCharacterStat,
   resetCharacterStats,
@@ -84,6 +85,13 @@ interface ProfileActions {
     victory: boolean;
     difficulty?: RPGDifficulty;  // 난이도 (경험치 배율 적용)
   }) => Promise<LevelUpResult | null>;
+
+  // RTS 게임 결과 처리 (플레이어 경험치만)
+  handleRTSGameEnd: (gameData: {
+    victory: boolean;
+    playTime: number;
+    mode: 'tutorial' | 'ai' | 'multiplayer';
+  }) => Promise<{ playerLeveledUp: boolean; newPlayerLevel?: number; playerExpGained: number } | null>;
 
   // 클래스 진행 상황 가져오기
   getClassProgressFor: (className: HeroClass) => ClassProgress | undefined;
@@ -287,6 +295,39 @@ export const useProfileStore = create<ProfileStore>()(
       authState.updateClassProgress(result.newClassProgress);
 
       return result.levelUpResult;
+    },
+
+    // RTS 게임 결과 처리 (플레이어 경험치만)
+    handleRTSGameEnd: async (gameData) => {
+      const authState = useAuthStore.getState();
+      const profile = authState.profile;
+
+      // 게스트인 경우 경험치 저장하지 않음 (null 반환)
+      if (!profile || profile.isGuest) return null;
+
+      const result = await processRTSGameResult(profile.id, profile, gameData);
+
+      // 로컬 상태 업데이트
+      set({
+        lastGameResult: {
+          playerExpGained: result.playerExpGained,
+          classExpGained: 0,
+          levelUpResult: {
+            playerLeveledUp: result.levelUpResult.playerLeveledUp,
+            newPlayerLevel: result.levelUpResult.newPlayerLevel,
+            classLeveledUp: false,  // RTS는 클래스 레벨업 없음
+          },
+        },
+      });
+
+      // 인증 스토어의 프로필 업데이트
+      authState.updateLocalProfile(result.newProfile);
+
+      return {
+        playerLeveledUp: result.levelUpResult.playerLeveledUp,
+        newPlayerLevel: result.levelUpResult.newPlayerLevel,
+        playerExpGained: result.playerExpGained,
+      };
     },
 
     // 특정 클래스 진행 상황 가져오기

@@ -493,6 +493,82 @@ export const processGameResult = async (
   };
 };
 
+// RTS 게임 결과 처리 (플레이어 경험치만 적용)
+export const processRTSGameResult = async (
+  playerId: string,
+  profile: PlayerProfile,
+  gameData: {
+    victory: boolean;
+    playTime: number;  // 초 단위
+    mode: 'tutorial' | 'ai' | 'multiplayer';
+  }
+): Promise<{
+  playerExpGained: number;
+  levelUpResult: { playerLeveledUp: boolean; newPlayerLevel?: number };
+  newProfile: PlayerProfile;
+}> => {
+  // VIP 여부 확인 (경험치 2배)
+  const isVip = profile.role === 'vip';
+
+  // RTS 경험치 계산
+  // 기본 경험치: 승리 100, 패배 30
+  // 플레이 시간 보너스: 분당 5exp (최대 30분까지)
+  // 멀티플레이어 보너스: 1.5배
+  let baseExp = gameData.victory ? 100 : 30;
+  const timeBonus = Math.min(Math.floor(gameData.playTime / 60) * 5, 150); // 최대 150 (30분)
+  const modeMultiplier = gameData.mode === 'multiplayer' ? 1.5 : 1;
+  const vipMultiplier = isVip ? 2 : 1;
+
+  // 튜토리얼은 경험치 없음
+  if (gameData.mode === 'tutorial') {
+    return {
+      playerExpGained: 0,
+      levelUpResult: { playerLeveledUp: false },
+      newProfile: profile,
+    };
+  }
+
+  const playerExpGained = Math.floor((baseExp + timeBonus) * modeMultiplier * vipMultiplier);
+
+  // 플레이어 레벨업 계산
+  let newPlayerLevel = profile.playerLevel;
+  let newPlayerExp = profile.playerExp + playerExpGained;
+  let playerLeveledUp = false;
+
+  while (newPlayerExp >= getRequiredPlayerExp(newPlayerLevel)) {
+    newPlayerExp -= getRequiredPlayerExp(newPlayerLevel);
+    newPlayerLevel++;
+    playerLeveledUp = true;
+  }
+
+  // 새 프로필 데이터
+  const newProfile: PlayerProfile = {
+    ...profile,
+    playerLevel: newPlayerLevel,
+    playerExp: newPlayerExp,
+  };
+
+  // 레벨업 결과
+  const levelUpResult = {
+    playerLeveledUp,
+    newPlayerLevel: playerLeveledUp ? newPlayerLevel : undefined,
+  };
+
+  // 게스트가 아닌 경우 DB에 저장
+  if (!profile.isGuest) {
+    await updatePlayerProfile(playerId, {
+      playerLevel: newPlayerLevel,
+      playerExp: newPlayerExp,
+    });
+  }
+
+  return {
+    playerExpGained,
+    levelUpResult,
+    newProfile,
+  };
+};
+
 // 플레이어 통계 가져오기
 export const getPlayerStats = async (playerId: string): Promise<{
   totalGames: number;

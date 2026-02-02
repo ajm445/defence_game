@@ -117,7 +117,10 @@ export const ModeSelectScreen: React.FC = () => {
         
         {/* 뒤로 가기 */}
         <button
-          onClick={() => setScreen('gameTypeSelect')}
+          onClick={() => {
+            soundManager.play('ui_click');
+            setScreen('gameTypeSelect');
+          }}
           className="mt-12 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
           style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
         >

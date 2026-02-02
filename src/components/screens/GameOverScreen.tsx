@@ -1,8 +1,12 @@
-import React from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTutorialStore } from '../../stores/useTutorialStore';
+import { useAuthStore } from '../../stores/useAuthStore';
+import { useProfileStore } from '../../stores/useProfileStore';
+import { soundManager } from '../../services/SoundManager';
+import { CONFIG } from '../../constants/config';
 
 export const GameOverScreen: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);
@@ -18,6 +22,14 @@ export const GameOverScreen: React.FC = () => {
   const endTutorial = useTutorialStore((state) => state.endTutorial);
 
   const isTutorial = gameMode === 'tutorial';
+
+  // 경험치 저장 상태
+  const expSavedRef = useRef(false);
+  const [expResult, setExpResult] = useState<{
+    playerExpGained: number;
+    playerLeveledUp: boolean;
+    newPlayerLevel?: number;
+  } | null>(null);
 
   // 승리 조건 확인
   let victory = false;
@@ -63,6 +75,7 @@ export const GameOverScreen: React.FC = () => {
   }
 
   const handleBackToMenu = () => {
+    soundManager.play('ui_click');
     if (gameMode === 'multiplayer') {
       resetMultiplayer();
     }
@@ -73,6 +86,7 @@ export const GameOverScreen: React.FC = () => {
   };
 
   const handleRestartGame = () => {
+    soundManager.play('ui_click');
     if (gameMode === 'multiplayer') {
       // 멀티플레이어에서는 로비로 돌아가기
       resetMultiplayer();
@@ -88,6 +102,33 @@ export const GameOverScreen: React.FC = () => {
       setScreen('game');
     }
   };
+
+  // RTS 게임 경험치 저장 (AI 대전에서만)
+  useEffect(() => {
+    const profile = useAuthStore.getState().profile;
+
+    // AI 모드에서만 경험치 저장 (멀티플레이어, 튜토리얼 제외)
+    // 게스트가 아니고 아직 저장하지 않은 경우에만
+    if (gameMode === 'ai' && profile && !profile.isGuest && !expSavedRef.current) {
+      expSavedRef.current = true;
+
+      // 플레이 시간 계산 (CONFIG.GAME_TIME - 남은 시간)
+      const playTime = CONFIG.GAME_TIME - time;
+
+      useProfileStore.getState().handleRTSGameEnd({
+        victory,
+        playTime,
+        mode: 'ai',
+      }).then((result) => {
+        if (result) {
+          setExpResult(result);
+          if (result.playerLeveledUp) {
+            soundManager.play('level_up');
+          }
+        }
+      });
+    }
+  }, [gameMode, victory, time]);
 
   return (
     <div className="fixed inset-0 bg-dark-900/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center animate-fade-in">
@@ -125,10 +166,24 @@ export const GameOverScreen: React.FC = () => {
             {resultMessage || (victory ? '적 본진을 파괴했습니다!' : '본진이 파괴되었습니다...')}
           </p>
         )}
-        
+
+        {/* 경험치 획득 표시 */}
+        {expResult && expResult.playerExpGained > 0 && (
+          <div className="flex flex-col items-center gap-2 mb-6">
+            <div className="flex items-center gap-2 text-yellow-400">
+              <span className="text-2xl">⭐</span>
+              <span className="text-xl font-bold">+{expResult.playerExpGained} EXP</span>
+            </div>
+            {expResult.playerLeveledUp && expResult.newPlayerLevel && (
+              <div className="text-neon-cyan text-lg font-bold animate-pulse">
+                레벨 업! Lv.{expResult.newPlayerLevel}
+              </div>
+            )}
+          </div>
+        )}
 
         <div style={{ height: '30px' }} />
-        
+
         {/* 버튼 */}
         <div className="flex gap-4">
           <button
