@@ -2,6 +2,7 @@ import { v4 as uuidv4 } from 'uuid';
 import { players, sendToPlayer } from '../state/players';
 import { addCoopRoom } from '../websocket/MessageHandler';
 import { RPGCoopGameRoom } from '../game/RPGCoopGameRoom';
+import { gameInviteManager } from '../friend/GameInviteManager';
 import type { HeroClass } from '../../../src/types/rpg';
 import type { CoopPlayerInfo, WaitingCoopRoomInfo, LobbyChatMessage, LOBBY_CHAT_CONFIG } from '../../../shared/types/rpgNetwork';
 import type { CharacterStatUpgrades } from '../../../src/types/auth';
@@ -304,6 +305,7 @@ export function leaveCoopRoom(playerId: string): void {
       }
     } else {
       // 방에 아무도 없으면 방 삭제
+      gameInviteManager.cancelRoomInvites(room.id);
       coopRoomCodeMap.delete(room.code);
       waitingCoopRooms.delete(room.id);
     }
@@ -316,6 +318,7 @@ export function leaveCoopRoom(playerId: string): void {
     // 방에 아무도 없으면 방 삭제 (비정상적인 경우 대비)
     if (room.players.size === 0) {
       console.log(`[Coop] 빈 방 삭제: ${room.code}`);
+      gameInviteManager.cancelRoomInvites(room.id);
       coopRoomCodeMap.delete(room.code);
       waitingCoopRooms.delete(room.id);
     }
@@ -948,7 +951,8 @@ function cleanupStaleRooms(): void {
         });
       });
 
-      // 방 삭제
+      // 방 초대 취소 및 삭제
+      gameInviteManager.cancelRoomInvites(roomId);
       coopRoomCodeMap.delete(room.code);
       waitingCoopRooms.delete(roomId);
     }

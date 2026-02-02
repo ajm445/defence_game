@@ -1,5 +1,7 @@
 import React, { useCallback, useEffect, useState } from 'react';
 import { useReceivedInvites, useFriendStore } from '../../stores/useFriendStore';
+import { useRPGStore } from '../../stores/useRPGStore';
+import { useUIStore } from '../../stores/useUIStore';
 import { wsClient } from '../../services/WebSocketClient';
 import { soundManager } from '../../services/SoundManager';
 import type { GameInviteInfo } from '@shared/types/friendNetwork';
@@ -45,6 +47,28 @@ export const GameInviteNotification: React.FC<GameInviteNotificationProps> = ({ 
   const handleRespond = useCallback((accept: boolean) => {
     if (!visibleInvite) return;
     soundManager.play('ui_click');
+
+    // 수락 시 현재 방 상태 확인
+    if (accept) {
+      const multiplayer = useRPGStore.getState().multiplayer;
+
+      // 초대한 방과 같은 방에 있으면 (호스트가 자신의 방 초대를 받은 경우)
+      if (multiplayer.roomCode === visibleInvite.roomCode) {
+        useUIStore.getState().showNotification('이미 해당 방에 있습니다.');
+        removeGameInvite(visibleInvite.id);
+        setVisibleInvite(null);
+        return;
+      }
+
+      // 다른 방에 있으면 경고
+      if (multiplayer.roomCode) {
+        useUIStore.getState().showNotification('현재 방을 나간 후 다시 초대를 수락해주세요.');
+        removeGameInvite(visibleInvite.id);
+        setVisibleInvite(null);
+        return;
+      }
+    }
+
     wsClient.send({
       type: 'RESPOND_GAME_INVITE',
       inviteId: visibleInvite.id,

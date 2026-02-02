@@ -2,6 +2,7 @@ import { players, sendToPlayer } from '../state/players';
 import { removeCoopRoom } from '../websocket/MessageHandler';
 import { setWaitingRoomState, syncWaitingRoomPlayers, deleteWaitingRoom } from '../room/CoopRoomManager';
 import { friendManager } from '../friend/FriendManager';
+import { gameInviteManager } from '../friend/GameInviteManager';
 import type { HeroClass, SkillType, UpgradeLevels } from '../../../src/types/rpg';
 import type {
   CoopPlayerInfo,
@@ -657,6 +658,9 @@ export class RPGCoopGameRoom {
       clearInterval(this.countdownTimer);
       this.countdownTimer = null;
     }
+
+    // 방에 대한 모든 게임 초대 취소
+    gameInviteManager.cancelRoomInvites(this.id);
 
     // 방 정리 (coopGameRooms + waitingCoopRooms 모두 삭제)
     removeCoopRoom(this.id);

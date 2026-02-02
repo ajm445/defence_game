@@ -106,11 +106,26 @@ export function useFriendMessages() {
 
         case 'GAME_INVITE_ACCEPTED': {
           // 게임 초대 수락 후 자동 방 참가
+          // 이 메시지는 초대를 수락한 본인에게만 처리해야 함
+          // (호스트에게도 전송되지만 호스트는 이미 방에 있으므로 무시)
           const multiplayer = useRPGStore.getState().multiplayer;
 
-          // 이미 방에 있거나 연결 중이면 무시 (중복 핸들러 방지)
-          if (multiplayer.roomCode || multiplayer.connectionState === 'connecting') {
-            console.log('[Friend] 이미 방에 있거나 연결 중 - 초대 수락 알림 무시');
+          // 이미 같은 방에 있으면 무시 (호스트가 받은 경우)
+          if (multiplayer.roomCode === message.roomCode) {
+            console.log('[Friend] 이미 해당 방에 있음 - 초대 수락 알림 무시 (호스트)');
+            break;
+          }
+
+          // 다른 방에 있으면 알림 표시하고 무시
+          if (multiplayer.roomCode) {
+            console.log('[Friend] 다른 방에 이미 참가 중 - 현재 방을 먼저 나가야 합니다');
+            useUIStore.getState().showNotification('현재 방을 나간 후 다시 초대를 수락해주세요.');
+            break;
+          }
+
+          // 연결 중이면 무시 (중복 핸들러 방지)
+          if (multiplayer.connectionState === 'connecting') {
+            console.log('[Friend] 이미 연결 중 - 초대 수락 알림 무시');
             break;
           }
 
