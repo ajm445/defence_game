@@ -1,31 +1,64 @@
-import React, { useEffect } from 'react';
-import { useServerStatus, useFriendStore } from '../../stores/useFriendStore';
+import React, { useEffect, useState } from 'react';
+import { useServerStatus } from '../../stores/useFriendStore';
 import { wsClient } from '../../services/WebSocketClient';
 
 export const ServerStatusBar: React.FC = () => {
   const serverStatus = useServerStatus();
+  const [isConnected, setIsConnected] = useState(wsClient.isConnected());
+  const [isConnecting, setIsConnecting] = useState(false);
 
-  // 주기적으로 서버 상태 갱신
+  // WebSocket 연결 상태 체크 및 자동 연결
   useEffect(() => {
-    // 초기 로드
-    if (wsClient.isConnected()) {
-      wsClient.send({ type: 'GET_SERVER_STATUS' });
-    }
+    const checkAndConnect = async () => {
+      if (wsClient.isConnected()) {
+        setIsConnected(true);
+        wsClient.send({ type: 'GET_SERVER_STATUS' });
+      } else {
+        // 연결되어 있지 않으면 백그라운드에서 연결 시도
+        setIsConnecting(true);
+        try {
+          await wsClient.connect();
+          setIsConnected(true);
+          wsClient.send({ type: 'GET_SERVER_STATUS' });
+        } catch (e) {
+          console.warn('ServerStatusBar: 서버 연결 실패');
+          setIsConnected(false);
+        }
+        setIsConnecting(false);
+      }
+    };
 
-    // 10초마다 갱신
+    checkAndConnect();
+
+    // 10초마다 상태 갱신
     const interval = setInterval(() => {
       if (wsClient.isConnected()) {
+        setIsConnected(true);
         wsClient.send({ type: 'GET_SERVER_STATUS' });
+      } else {
+        setIsConnected(false);
       }
     }, 10000);
 
     return () => clearInterval(interval);
   }, []);
 
-  if (!serverStatus) {
+  // 연결 중
+  if (isConnecting) {
     return (
-      <div className="flex items-center gap-4 px-4 py-2 bg-gray-800/50 rounded-lg text-gray-500 text-sm">
-        <span>서버 상태 불러오는 중...</span>
+      <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 rounded-lg text-gray-500 text-sm">
+        <div className="w-2 h-2 bg-yellow-400 rounded-full animate-pulse" />
+        <span>서버 연결 중...</span>
+      </div>
+    );
+  }
+
+  // 연결 실패
+  if (!isConnected || !serverStatus) {
+    return (
+      <div className="flex items-center gap-2 px-4 py-2 bg-gray-800/50 rounded-lg text-gray-500 text-sm">
+        <div className="w-2 h-2 bg-gray-500 rounded-full" />
+        <span>오프라인</span>
       </div>
     );
   }

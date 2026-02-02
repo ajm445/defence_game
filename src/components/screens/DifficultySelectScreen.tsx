@@ -4,6 +4,8 @@ import { useGameStore } from '../../stores/useGameStore';
 import { AI_DIFFICULTY_CONFIG } from '../../constants/config';
 import { AIDifficulty } from '../../types';
 import { soundManager } from '../../services/SoundManager';
+import { ProfileButton } from '../ui/ProfileButton';
+import { ServerStatusBar } from '../ui/ServerStatusBar';
 
 const difficulties: AIDifficulty[] = ['easy', 'normal', 'hard', 'nightmare'];
 
@@ -44,6 +46,16 @@ export const DifficultySelectScreen: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
+      {/* 왼쪽 상단 프로필 버튼 */}
+      <div className="absolute top-8 left-8 z-20">
+        <ProfileButton />
+      </div>
+
+      {/* 오른쪽 상단 온라인 상태 */}
+      <div className="absolute top-8 right-8 z-20">
+        <ServerStatusBar />
+      </div>
+
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" />

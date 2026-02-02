@@ -6,7 +6,6 @@
 - **RTS 모드 로그인 연동**: RTS 모드도 로그인 필수로 변경
   - RPG 모드와 동일한 계정/게스트 로그인 사용
   - 플레이어 레벨을 RPG 모드와 공유
-  - RTS 모드 선택 화면에 플레이어 레벨 표시 (좌측 상단)
   - AI 대전에서만 플레이어 경험치 획득 (승리 100 + 시간 보너스, 패배 30 + 시간 보너스)
   - VIP 2배 보너스 적용, 튜토리얼/멀티플레이어는 경험치 없음
   - 1vs1 대전에서 로그인 닉네임 자동 사용
@@ -14,6 +13,13 @@
 - **RTS 전투 BGM**: RTS 게임 중 배경 음악 재생
   - 전략적이고 긴장감 있는 마칭 스타일 BGM
   - 튜토리얼 모드에서는 BGM 없음
+- **RTS 모드 프로필 및 온라인 표시**: RPG 모드와 동일한 UI 통합
+  - 프로필 버튼: RPG 모드와 동일한 위치/크기 (좌측 상단)
+  - 온라인 상태 바: 우측 상단에 온라인 플레이어 수, 게임 중, 대기방 표시
+  - 자동 WebSocket 연결로 실시간 온라인 상태 표시
+- **RTS 전용 프로필 화면**: RTS 모드에서 프로필 클릭 시 간소화된 화면 표시
+  - 플레이어 레벨 정보만 표시 (RPG 클래스 진행/통계 숨김)
+  - "플레이어 레벨은 RTS와 RPG 모드에서 공유됩니다" 안내 문구
 
 ### Improvements
 - **RTS 모드 유닛 카운트 표시**: 각 유닛 버튼에 현재 보유 유닛 수 뱃지 표시
@@ -22,26 +28,36 @@
   - 뱃지 위치: 버튼 내부 우상단 (인접 버튼과 겹침 방지)
 - **RTS 모드 버튼 효과음**: 모든 버튼에 클릭 효과음 적용
   - 난이도 선택, 모드 선택, 로비 화면, 게임 결과 화면 등
+- **일시정지 화면 개선**: "메인 메뉴" 버튼을 "로비로 돌아가기"로 변경
+  - AI 대전: 난이도 선택 화면으로 이동
+  - 튜토리얼: RTS 모드 선택 화면으로 이동
+  - RPG: 기존대로 대기방 로비로 이동
 
 ### Bug Fixes
 - **RTS 멀티플레이어 효과음 중복 버그 수정**: 상대방 유닛 소환 시 효과음이 중복 재생되던 버그
   - 클릭 시 즉시 재생 제거, 서버 UNIT_SPAWNED 이벤트에서만 재생
-
-### New Files
-- `src/components/ui/RTSPlayerLevel.tsx` - RTS 플레이어 레벨 표시 컴포넌트
+- **RTS 1vs1 연결 버그 수정**: ServerStatusBar가 먼저 WebSocket 연결 시 CONNECTED 메시지 누락 문제
+  - useMultiplayerStore에서 이미 연결된 경우 상태 수동 설정
 
 ### Technical Changes
 - `src/components/ui/UnitButton.tsx`: `count` prop 추가, 유닛 카운트 뱃지 UI
 - `src/components/ui/UnitPanel.tsx`: `unitCounts` 계산 (useMemo), 멀티플레이어 효과음 중복 제거
+- `src/components/ui/ServerStatusBar.tsx`: 자동 연결, 연결 상태별 UI (연결 중/오프라인/온라인)
 - `src/components/screens/GameTypeSelectScreen.tsx`: RTS 모드 로그인 체크 추가
-- `src/components/screens/ModeSelectScreen.tsx`: RTSPlayerLevel 표시, 버튼 효과음 추가
+- `src/components/screens/ModeSelectScreen.tsx`: ProfileButton + ServerStatusBar 추가
+- `src/components/screens/DifficultySelectScreen.tsx`: ProfileButton + ServerStatusBar 추가, 보스테스트 옵션 제거
+- `src/components/screens/LobbyScreen.tsx`: ProfileButton + ServerStatusBar 추가, 로그인 닉네임 자동 사용
+- `src/components/screens/ProfileScreen.tsx`: RTS/RPG 모드별 다른 컨텐츠 표시
+- `src/components/screens/PauseScreen.tsx`: "로비로 돌아가기" 버튼으로 변경, 모드별 이동 화면 분기
 - `src/components/screens/GameScreen.tsx`: RTS BGM 재생
 - `src/components/screens/GameOverScreen.tsx`: RTS 경험치 저장 및 표시 로직, 버튼 효과음
-- `src/components/screens/DifficultySelectScreen.tsx`: 보스테스트 옵션 제거, 버튼 효과음
-- `src/components/screens/LobbyScreen.tsx`: 로그인 닉네임 자동 사용, 버튼 효과음
 - `src/services/profileService.ts`: `processRTSGameResult()` 함수 추가
 - `src/services/SoundManager.ts`: `rts_battle` BGM 타입 및 재생 로직 추가
 - `src/stores/useProfileStore.ts`: `handleRTSGameEnd()` 액션 추가
+- `src/stores/useMultiplayerStore.ts`: 이미 연결된 WebSocket 상태 처리 추가
+
+### Removed Files
+- `src/components/ui/RTSPlayerLevel.tsx` - ProfileButton으로 대체됨
 
 ---
 

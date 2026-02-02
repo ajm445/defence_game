@@ -118,6 +118,7 @@ const ClassProgressCard: React.FC<{
 export const ProfileScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
   const goBack = useUIStore((state) => state.goBack);
+  const previousScreen = useUIStore((state) => state.previousScreen);
   const signOut = useAuthStore((state) => state.signOut);
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
@@ -127,14 +128,18 @@ export const ProfileScreen: React.FC = () => {
   const loadProfileData = useProfileStore((state) => state.loadProfileData);
   const getPlayerExpProgress = useProfileStore((state) => state.getPlayerExpProgress);
 
+  // RTS 모드에서 접근했는지 확인
+  const rtsScreens = ['modeSelect', 'difficultySelect', 'lobby'];
+  const isFromRTS = previousScreen && rtsScreens.includes(previousScreen);
+
   // 업그레이드 모달 상태
   const [selectedClass, setSelectedClass] = useState<HeroClass | null>(null);
 
   useEffect(() => {
-    if (profile && !isGuest) {
+    if (profile && !isGuest && !isFromRTS) {
       loadProfileData();
     }
-  }, [profile, isGuest, loadProfileData]);
+  }, [profile, isGuest, loadProfileData, isFromRTS]);
 
   const expProgress = getPlayerExpProgress();
 
@@ -201,9 +206,15 @@ export const ProfileScreen: React.FC = () => {
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-4xl px-4 py-8">
         {/* 타이틀 */}
-        <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-6">
-          프로필
+        <h1 className={`font-game text-3xl md:text-4xl mb-6 ${isFromRTS ? 'text-neon-cyan' : 'text-yellow-400'}`}>
+          {isFromRTS ? '프로필' : '프로필'}
         </h1>
+
+        {isFromRTS && (
+          <p className="text-gray-400 text-sm mb-4">
+            플레이어 레벨은 RTS와 RPG 모드에서 공유됩니다
+          </p>
+        )}
 
         <div style={{ height: '15px' }} />
 
@@ -271,77 +282,82 @@ export const ProfileScreen: React.FC = () => {
           )}
         </div>
 
-        <div style={{ height: '15px' }} />
+        {/* RPG 모드에서만 통계 및 클래스 진행 표시 */}
+        {!isFromRTS && (
+          <>
+            <div style={{ height: '15px' }} />
 
-        {/* 통계 섹션 */}
-        {!isGuest && stats && (
-          <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6">
-            <h3 className="text-lg text-white font-bold mb-4">📊 통계</h3>
-            {isLoading ? (
-              <div className="text-center text-gray-400 py-4">로딩 중...</div>
-            ) : (
-              <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
-                <div className="text-center">
-                  <p className="text-2xl text-white font-bold">{stats.totalGames}</p>
-                  <p className="text-gray-400 text-sm">총 게임</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl text-red-400 font-bold">{stats.totalKills}</p>
-                  <p className="text-gray-400 text-sm">처치</p>
-                </div>
-                <div className="text-center">
-                  <p className="text-2xl text-cyan-400 font-bold">
-                    {formatPlayTime(stats.totalPlayTime)}
-                  </p>
-                  <p className="text-gray-400 text-sm">플레이 시간</p>
-                </div>
-                <div className="text-center">
-                  {stats.favoriteClass ? (
-                    <>
-                      <p className="text-2xl">{CLASS_CONFIGS[stats.favoriteClass].emoji}</p>
-                      <p className="text-gray-400 text-sm">선호 직업</p>
-                    </>
-                  ) : (
-                    <>
-                      <p className="text-2xl text-gray-600">-</p>
-                      <p className="text-gray-400 text-sm">선호 직업</p>
-                    </>
-                  )}
-                </div>
+            {/* 통계 섹션 */}
+            {!isGuest && stats && (
+              <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6">
+                <h3 className="text-lg text-white font-bold mb-4">📊 통계</h3>
+                {isLoading ? (
+                  <div className="text-center text-gray-400 py-4">로딩 중...</div>
+                ) : (
+                  <div className="grid grid-cols-2 md:grid-cols-2 gap-4">
+                    <div className="text-center">
+                      <p className="text-2xl text-white font-bold">{stats.totalGames}</p>
+                      <p className="text-gray-400 text-sm">총 게임</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl text-red-400 font-bold">{stats.totalKills}</p>
+                      <p className="text-gray-400 text-sm">처치</p>
+                    </div>
+                    <div className="text-center">
+                      <p className="text-2xl text-cyan-400 font-bold">
+                        {formatPlayTime(stats.totalPlayTime)}
+                      </p>
+                      <p className="text-gray-400 text-sm">플레이 시간</p>
+                    </div>
+                    <div className="text-center">
+                      {stats.favoriteClass ? (
+                        <>
+                          <p className="text-2xl">{CLASS_CONFIGS[stats.favoriteClass].emoji}</p>
+                          <p className="text-gray-400 text-sm">선호 직업</p>
+                        </>
+                      ) : (
+                        <>
+                          <p className="text-2xl text-gray-600">-</p>
+                          <p className="text-gray-400 text-sm">선호 직업</p>
+                        </>
+                      )}
+                    </div>
+                  </div>
+                )}
               </div>
             )}
-          </div>
+
+            <div style={{ height: '15px' }} />
+
+            {/* 클래스 진행 상황 */}
+            <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6"
+            style={{ paddingTop: '5px', paddingBottom: '8px', paddingLeft: '5px', paddingRight: '5px' }}>
+              <h3 className="text-lg text-white font-bold mb-4">🎮 클래스 진행</h3>
+              <div style={{ height: '5px' }} />
+              <div className="grid grid-cols-1 md:grid-cols-2 gap-4"
+              style={{ paddingLeft: '5px', paddingRight: '5px' }}>
+                {heroClasses.map((heroClass) => {
+                  const progressData = getClassProgressData(heroClass);
+                  return (
+                    <ClassProgressCard
+                      key={heroClass}
+                      heroClass={heroClass}
+                      level={progressData.classLevel}
+                      exp={progressData.classExp}
+                      sp={progressData.sp}
+                      playerLevel={profile.playerLevel}
+                      isGuest={isGuest}
+                      advancedClass={progressData.advancedClass}
+                      tier={progressData.tier}
+                      onClick={() => handleOpenModal(heroClass)}
+                    />
+                  );
+                })}
+              </div>
+            </div>
+          </>
         )}
 
-        <div style={{ height: '15px' }} />
-
-        {/* 클래스 진행 상황 */}
-        <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6"
-        style={{ paddingTop: '5px', paddingBottom: '8px', paddingLeft: '5px', paddingRight: '5px' }}>
-          <h3 className="text-lg text-white font-bold mb-4">🎮 클래스 진행</h3>
-          <div style={{ height: '5px' }} />
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4"
-          style={{ paddingLeft: '5px', paddingRight: '5px' }}>
-            {heroClasses.map((heroClass) => {
-              const progressData = getClassProgressData(heroClass);
-              return (
-                <ClassProgressCard
-                  key={heroClass}
-                  heroClass={heroClass}
-                  level={progressData.classLevel}
-                  exp={progressData.classExp}
-                  sp={progressData.sp}
-                  playerLevel={profile.playerLevel}
-                  isGuest={isGuest}
-                  advancedClass={progressData.advancedClass}
-                  tier={progressData.tier}
-                  onClick={() => handleOpenModal(heroClass)}
-                />
-              );
-            })}
-          </div>
-        </div>
-        
         <div style={{ height: '15px' }} />
 
         {/* 뒤로 가기 */}
@@ -355,13 +371,13 @@ export const ProfileScreen: React.FC = () => {
       </div>
 
       {/* 코너 장식 */}
-      <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-yellow-500/30" />
-      <div className="absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 border-yellow-500/30" />
-      <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-yellow-500/30" />
-      <div className="absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 border-yellow-500/30" />
+      <div className={`absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
+      <div className={`absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
+      <div className={`absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
+      <div className={`absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
 
-      {/* 캐릭터 업그레이드 모달 */}
-      {selectedClass && (
+      {/* 캐릭터 업그레이드 모달 (RPG 모드에서만) */}
+      {!isFromRTS && selectedClass && (
         <CharacterUpgradeModal
           heroClass={selectedClass}
           progress={getClassProgressData(selectedClass)}

@@ -4,6 +4,8 @@ import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useAuthProfile } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
+import { ProfileButton } from '../ui/ProfileButton';
+import { ServerStatusBar } from '../ui/ServerStatusBar';
 
 export const LobbyScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -359,6 +361,16 @@ export const LobbyScreen: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
+      {/* 왼쪽 상단 프로필 버튼 */}
+      <div className="absolute top-8 left-8 z-20">
+        <ProfileButton />
+      </div>
+
+      {/* 오른쪽 상단 온라인 상태 */}
+      <div className="absolute top-8 right-8 z-20">
+        <ServerStatusBar />
+      </div>
+
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-neon-purple/5 rounded-full blur-3xl animate-pulse-slow" />

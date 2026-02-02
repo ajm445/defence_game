@@ -128,10 +128,12 @@ export const PauseScreen: React.FC = () => {
       useRPGStore.getState().resetGame();
       setScreen('rpgCoopLobby');
     } else if (isTutorial) {
+      // RTS 튜토리얼 - 모드 선택 화면으로 이동
       endTutorial();
-      setScreen('menu');
+      setScreen('modeSelect');
     } else {
-      setScreen('menu');
+      // RTS AI 대전 - 난이도 선택 화면으로 이동
+      setScreen('difficultySelect');
     }
   };
 
@@ -378,7 +380,7 @@ export const PauseScreen: React.FC = () => {
             </span>
           </button>
 
-          {/* 멀티플레이어에서는 메인 메뉴 버튼 숨김 */}
+          {/* 멀티플레이어에서는 로비 버튼 숨김 */}
           {!(isRPG && isMultiplayer) && (
             <button
               onClick={handleMainMenu}
@@ -388,7 +390,7 @@ export const PauseScreen: React.FC = () => {
               <div className="absolute inset-0 bg-dark-600/50" />
               <div className="absolute inset-0 border border-dark-400 rounded-lg group-hover:border-gray-500 transition-all duration-300" />
               <span className="relative font-korean text-lg text-gray-400 group-hover:text-white transition-colors duration-300">
-                메인 메뉴
+                로비로 돌아가기
               </span>
             </button>
           )}

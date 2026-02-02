@@ -203,6 +203,14 @@ export const useMultiplayerStore = create<MultiplayerState>((set, get) => {
       try {
         await wsClient.connect(playerName);
         wsClient.addMessageHandler(handleMessage);
+
+        // 이미 연결된 경우 (다른 곳에서 먼저 연결됨) 상태 수동 설정
+        if (wsClient.isConnected() && wsClient.playerId) {
+          set({
+            connectionState: 'connected',
+            playerId: wsClient.playerId,
+          });
+        }
       } catch (error) {
         set({
           connectionState: 'disconnected',

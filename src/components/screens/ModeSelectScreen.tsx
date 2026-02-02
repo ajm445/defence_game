@@ -3,7 +3,8 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useTutorialStore } from '../../stores/useTutorialStore';
 import { soundManager } from '../../services/SoundManager';
-import { RTSPlayerLevel } from '../ui/RTSPlayerLevel';
+import { ProfileButton } from '../ui/ProfileButton';
+import { ServerStatusBar } from '../ui/ServerStatusBar';
 
 export const ModeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -24,8 +25,15 @@ export const ModeSelectScreen: React.FC = () => {
 
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
-      {/* 플레이어 레벨 표시 */}
-      <RTSPlayerLevel />
+      {/* 왼쪽 상단 프로필 버튼 */}
+      <div className="absolute top-8 left-8 z-20">
+        <ProfileButton />
+      </div>
+
+      {/* 오른쪽 상단 온라인 상태 */}
+      <div className="absolute top-8 right-8 z-20">
+        <ServerStatusBar />
+      </div>
 
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
