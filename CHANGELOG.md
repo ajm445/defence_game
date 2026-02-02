@@ -1,5 +1,50 @@
 # Changelog
 
+## [1.20.0] - 2026-02-02
+
+### Features
+- **RTS 모드 로그인 연동**: RTS 모드도 로그인 필수로 변경
+  - RPG 모드와 동일한 계정/게스트 로그인 사용
+  - 플레이어 레벨을 RPG 모드와 공유
+  - RTS 모드 선택 화면에 플레이어 레벨 표시 (좌측 상단)
+  - AI 대전에서만 플레이어 경험치 획득 (승리 100 + 시간 보너스, 패배 30 + 시간 보너스)
+  - VIP 2배 보너스 적용, 튜토리얼/멀티플레이어는 경험치 없음
+  - 1vs1 대전에서 로그인 닉네임 자동 사용
+  - 난이도 선택에서 보스테스트 옵션 제거
+- **RTS 전투 BGM**: RTS 게임 중 배경 음악 재생
+  - 전략적이고 긴장감 있는 마칭 스타일 BGM
+  - 튜토리얼 모드에서는 BGM 없음
+
+### Improvements
+- **RTS 모드 유닛 카운트 표시**: 각 유닛 버튼에 현재 보유 유닛 수 뱃지 표시
+  - 싱글플레이: 플레이어 유닛 카운트
+  - 멀티플레이: 내 사이드의 유닛만 카운트
+  - 뱃지 위치: 버튼 내부 우상단 (인접 버튼과 겹침 방지)
+- **RTS 모드 버튼 효과음**: 모든 버튼에 클릭 효과음 적용
+  - 난이도 선택, 모드 선택, 로비 화면, 게임 결과 화면 등
+
+### Bug Fixes
+- **RTS 멀티플레이어 효과음 중복 버그 수정**: 상대방 유닛 소환 시 효과음이 중복 재생되던 버그
+  - 클릭 시 즉시 재생 제거, 서버 UNIT_SPAWNED 이벤트에서만 재생
+
+### New Files
+- `src/components/ui/RTSPlayerLevel.tsx` - RTS 플레이어 레벨 표시 컴포넌트
+
+### Technical Changes
+- `src/components/ui/UnitButton.tsx`: `count` prop 추가, 유닛 카운트 뱃지 UI
+- `src/components/ui/UnitPanel.tsx`: `unitCounts` 계산 (useMemo), 멀티플레이어 효과음 중복 제거
+- `src/components/screens/GameTypeSelectScreen.tsx`: RTS 모드 로그인 체크 추가
+- `src/components/screens/ModeSelectScreen.tsx`: RTSPlayerLevel 표시, 버튼 효과음 추가
+- `src/components/screens/GameScreen.tsx`: RTS BGM 재생
+- `src/components/screens/GameOverScreen.tsx`: RTS 경험치 저장 및 표시 로직, 버튼 효과음
+- `src/components/screens/DifficultySelectScreen.tsx`: 보스테스트 옵션 제거, 버튼 효과음
+- `src/components/screens/LobbyScreen.tsx`: 로그인 닉네임 자동 사용, 버튼 효과음
+- `src/services/profileService.ts`: `processRTSGameResult()` 함수 추가
+- `src/services/SoundManager.ts`: `rts_battle` BGM 타입 및 재생 로직 추가
+- `src/stores/useProfileStore.ts`: `handleRTSGameEnd()` 액션 추가
+
+---
+
 ## [1.19.4] - 2026-02-02
 
 ### Features
@@ -9,14 +54,6 @@
   - 로비 화면에 🏆 랭킹 버튼 추가 (직업 도감 왼쪽)
   - 극한 난이도 승리 시 자동 랭킹 저장 (싱글/멀티 호스트)
   - 상위 20개 기록 표시, 1~3위는 메달 아이콘으로 강조
-- **RTS 모드 로그인 연동**: RTS 모드도 로그인 필수로 변경
-  - RPG 모드와 동일한 계정/게스트 로그인 사용
-  - 플레이어 레벨을 RPG 모드와 공유
-  - RTS 게임 화면에 플레이어 레벨 표시 (좌측 상단)
-  - AI 대전에서만 플레이어 경험치 획득 (승리 100 + 시간 보너스, 패배 30 + 시간 보너스)
-  - VIP 2배 보너스 적용, 튜토리얼/멀티플레이어는 경험치 없음
-  - 1vs1 대전에서 로그인 닉네임 자동 사용
-  - 난이도 선택에서 보스테스트 옵션 제거
 
 ### Improvements
 - **온라인 플레이어 목록 실시간 동기화**: 플레이어 접속/해제 즉시 반영
@@ -24,26 +61,12 @@
   - 로그인 시 모든 온라인 플레이어에게 즉시 브로드캐스트
   - 로그아웃 시 모든 온라인 플레이어에게 즉시 브로드캐스트
   - 5초 폴링은 안전망으로 유지 (누락 복구용)
-- **RTS 모드 유닛 카운트 표시**: 각 유닛 버튼에 현재 보유 유닛 수 뱃지 표시
-  - 싱글플레이: 플레이어 유닛 카운트
-  - 멀티플레이: 내 사이드의 유닛만 카운트
-  - 뱃지 위치: 버튼 내부 우상단 (인접 버튼과 겹침 방지)
-
-### Bug Fixes
-- **RTS 멀티플레이어 효과음 중복 버그 수정**: 상대방 유닛 소환 시 효과음이 중복 재생되던 버그
-  - 클릭 시 즉시 재생 제거, 서버 UNIT_SPAWNED 이벤트에서만 재생
-- **RTS 모드 버튼 효과음 추가**: 모든 버튼에 클릭 효과음 적용
-  - 난이도 선택, 모드 선택, 로비 화면, 게임 결과 화면 등
-- **RTS 전투 BGM 추가**: RTS 게임 중 배경 음악 재생
-  - 전략적이고 긴장감 있는 마칭 스타일 BGM
-  - 튜토리얼 모드에서는 BGM 없음
 
 ### New Files
 - `supabase/migrations/010_create_extreme_rankings.sql` - 랭킹 테이블 스키마
 - `server/src/api/rankingsRouter.ts` - 랭킹 API (GET/POST)
 - `src/services/rankingService.ts` - 클라이언트 랭킹 서비스
 - `src/components/ui/RankingModal.tsx` - 랭킹 모달 UI
-- `src/components/ui/RTSPlayerLevel.tsx` - RTS 플레이어 레벨 표시 컴포넌트
 
 ### Technical Changes
 - `server/src/websocket/WebSocketServer.ts`: rankingsRouter 등록
@@ -54,16 +77,6 @@
 - `server/src/websocket/MessageHandler.ts`: 온라인 상태 콜백에서 브로드캐스트 호출
 - `src/stores/useFriendStore.ts`: `addOnlinePlayer()`, `removeOnlinePlayer()` 액션 추가
 - `src/hooks/useFriendMessages.ts`: 새 메시지 타입 핸들러 추가
-- `src/components/ui/UnitButton.tsx`: `count` prop 추가, 유닛 카운트 뱃지 UI
-- `src/components/ui/UnitPanel.tsx`: `unitCounts` 계산 (useMemo), 멀티플레이어 효과음 중복 제거
-- `src/components/screens/GameTypeSelectScreen.tsx`: RTS 모드 로그인 체크 추가
-- `src/components/screens/GameScreen.tsx`: RTSPlayerLevel 컴포넌트 추가
-- `src/components/screens/GameOverScreen.tsx`: RTS 경험치 저장 및 표시 로직, 버튼 효과음
-- `src/components/screens/DifficultySelectScreen.tsx`: 보스테스트 옵션 제거, 버튼 효과음
-- `src/components/screens/ModeSelectScreen.tsx`: 버튼 효과음 추가
-- `src/components/screens/LobbyScreen.tsx`: 로그인 닉네임 자동 사용, 버튼 효과음
-- `src/services/profileService.ts`: `processRTSGameResult()` 함수 추가
-- `src/stores/useProfileStore.ts`: `handleRTSGameEnd()` 액션 추가
 
 ### Notes
 - 게스트 사용자는 랭킹에 저장되지 않음 (계정 보유 사용자만 등록 가능)
