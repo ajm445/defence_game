@@ -1233,7 +1233,7 @@ export const useRPGStore = create<RPGStore>()(
         return false;
       }
 
-      // 쿨다운 시작 + targetPosition 초기화 (스킬 사용 후 위치 되돌아감 버그 방지)
+      // 쿨다운 시작
       set((state) => {
         if (!state.hero) return state;
         const updatedSkills = state.hero.skills.map((s) => {
@@ -1243,7 +1243,7 @@ export const useRPGStore = create<RPGStore>()(
           return s;
         });
         return {
-          hero: { ...state.hero, skills: updatedSkills, targetPosition: undefined },
+          hero: { ...state.hero, skills: updatedSkills },
         };
       });
 

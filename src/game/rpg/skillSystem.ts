@@ -27,7 +27,6 @@ export function canUseSkill(hero: HeroUnit, skillType: SkillType): boolean {
 
 /**
  * 스킬 쿨다운 시작
- * - 스킬 사용 시 이동 타겟을 초기화하여 위치 되돌아감 버그 방지
  */
 export function startSkillCooldown(hero: HeroUnit, skillType: SkillType): HeroUnit {
   const updatedSkills = hero.skills.map((skill) => {
@@ -36,7 +35,7 @@ export function startSkillCooldown(hero: HeroUnit, skillType: SkillType): HeroUn
     }
     return skill;
   });
-  return { ...hero, skills: updatedSkills, targetPosition: undefined };
+  return { ...hero, skills: updatedSkills };
 }
 
 /**
