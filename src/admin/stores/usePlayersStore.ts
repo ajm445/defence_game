@@ -23,7 +23,7 @@ interface PlayersState {
 
   fetchPlayers: (page?: number) => Promise<void>;
   fetchPlayer: (id: string) => Promise<void>;
-  updatePlayer: (id: string, data: { nickname?: string; playerLevel?: number; playerExp?: number }) => Promise<boolean>;
+  updatePlayer: (id: string, data: { nickname?: string; playerLevel?: number; playerExp?: number; role?: string }) => Promise<boolean>;
   updateClassProgress: (playerId: string, className: string, data: { classLevel?: number; classExp?: number; sp?: number; statUpgrades?: Record<string, number> }) => Promise<boolean>;
   deletePlayer: (id: string) => Promise<boolean>;
   banPlayer: (id: string, reason: string, expiresAt?: string) => Promise<boolean>;

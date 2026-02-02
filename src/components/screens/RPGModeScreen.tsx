@@ -18,7 +18,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import { useProfileStore, useLastGameResult, useClassProgress } from '../../stores/useProfileStore';
 import { SkillType } from '../../types/rpg';
-import { LevelUpResult, calculatePlayerExp, calculateClassExp, createDefaultStatUpgrades } from '../../types/auth';
+import { LevelUpResult, calculatePlayerExp, calculateClassExp, createDefaultStatUpgrades, VIP_EXP_MULTIPLIER } from '../../types/auth';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
@@ -343,39 +343,80 @@ export const RPGModeScreen: React.FC = () => {
             </div>
 
             {/* 계정 경험치 (비게스트만 표시 - 즉시 계산하여 표시) */}
-            {!isGuest && (
-              <div className="mb-6 p-4 bg-purple-500/10 border border-purple-500/30 rounded-lg">
-                <h4 className="text-purple-400 font-bold text-sm mb-2">계정 경험치 획득</h4>
-                <div className="space-y-2 text-sm">
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">플레이어 EXP</span>
-                    <span className="text-yellow-400 font-bold">
-                      +{lastGameResult?.playerExpGained ?? calculatePlayerExp(
-                        result.basesDestroyed,
-                        result.bossesKilled,
-                        isMultiplayer ? personalKills : result.totalKills,
-                        result.timePlayed,
-                        result.victory,
-                        isMultiplayer ? 'coop' : 'single',
-                        selectedDifficulty
-                      )}
-                    </span>
+            {!isGuest && (() => {
+              const isVip = profile?.role === 'vip';
+              // 기본 경험치 (VIP 보너스 미적용)
+              const basePlayerExp = calculatePlayerExp(
+                result.basesDestroyed,
+                result.bossesKilled,
+                isMultiplayer ? personalKills : result.totalKills,
+                result.timePlayed,
+                result.victory,
+                isMultiplayer ? 'coop' : 'single',
+                selectedDifficulty,
+                false  // VIP 보너스 미적용
+              );
+              const baseClassExp = calculateClassExp(
+                result.basesDestroyed,
+                result.bossesKilled,
+                isMultiplayer ? personalKills : result.totalKills,
+                selectedDifficulty,
+                result.victory,
+                false  // VIP 보너스 미적용
+              );
+              // 최종 경험치 (VIP 보너스 적용)
+              const finalPlayerExp = lastGameResult?.playerExpGained ?? (isVip ? Math.floor(basePlayerExp * VIP_EXP_MULTIPLIER) : basePlayerExp);
+              const finalClassExp = lastGameResult?.classExpGained ?? (isVip ? Math.floor(baseClassExp * VIP_EXP_MULTIPLIER) : baseClassExp);
+              // VIP 보너스 경험치
+              const vipBonusPlayerExp = isVip ? finalPlayerExp - basePlayerExp : 0;
+              const vipBonusClassExp = isVip ? finalClassExp - baseClassExp : 0;
+
+              return (
+                <div className={`mb-6 p-4 rounded-lg ${isVip ? 'bg-gradient-to-r from-amber-500/10 to-yellow-500/10 border border-amber-500/30' : 'bg-purple-500/10 border border-purple-500/30'}`}>
+                  <div className="flex items-center justify-between mb-2">
+                    <h4 className={`font-bold text-sm ${isVip ? 'text-amber-400' : 'text-purple-400'}`}>계정 경험치 획득</h4>
+                    {isVip && (
+                      <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-500 rounded text-xs text-white font-bold shadow-lg shadow-amber-500/30">
+                        VIP ×1.5
+                      </span>
+                    )}
                   </div>
-                  <div className="flex justify-between">
-                    <span className="text-gray-400">클래스 EXP ({CLASS_CONFIGS[result.heroClass]?.name || result.heroClass})</span>
-                    <span className="text-cyan-400 font-bold">
-                      +{lastGameResult?.classExpGained ?? calculateClassExp(
-                        result.basesDestroyed,
-                        result.bossesKilled,
-                        isMultiplayer ? personalKills : result.totalKills,
-                        selectedDifficulty,
-                        result.victory
-                      )}
-                    </span>
+                  {isVip && (
+                    <p className="text-amber-300/80 text-xs mb-3">👑 VIP 보너스 경험치 1.5배 적용!</p>
+                  )}
+                  <div className="space-y-2 text-sm">
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">플레이어 EXP</span>
+                      <div className="flex items-center gap-2">
+                        {isVip && (
+                          <span className="text-gray-500 text-xs line-through">{basePlayerExp}</span>
+                        )}
+                        <span className="text-yellow-400 font-bold">
+                          +{finalPlayerExp}
+                        </span>
+                        {isVip && vipBonusPlayerExp > 0 && (
+                          <span className="text-amber-400 text-xs">(+{vipBonusPlayerExp})</span>
+                        )}
+                      </div>
+                    </div>
+                    <div className="flex justify-between items-center">
+                      <span className="text-gray-400">클래스 EXP ({CLASS_CONFIGS[result.heroClass]?.name || result.heroClass})</span>
+                      <div className="flex items-center gap-2">
+                        {isVip && (
+                          <span className="text-gray-500 text-xs line-through">{baseClassExp}</span>
+                        )}
+                        <span className="text-cyan-400 font-bold">
+                          +{finalClassExp}
+                        </span>
+                        {isVip && vipBonusClassExp > 0 && (
+                          <span className="text-amber-400 text-xs">(+{vipBonusClassExp})</span>
+                        )}
+                      </div>
+                    </div>
                   </div>
                 </div>
-              </div>
-            )}
+              );
+            })()}
 
             <div style={{ height: '10px' }} />
 

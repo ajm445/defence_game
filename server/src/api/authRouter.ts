@@ -171,6 +171,7 @@ router.post('/signin', async (req: Request, res: Response) => {
           playerLevel: profile.player_level,
           playerExp: profile.player_exp,
           isGuest: profile.is_guest,
+          role: profile.role ?? 'player',  // VIP 역할 포함
           soundVolume: profile.sound_volume,
           soundMuted: profile.sound_muted,
         },
@@ -212,6 +213,7 @@ router.post('/guest', async (req: Request, res: Response) => {
         playerLevel: 1,
         playerExp: 0,
         isGuest: true,
+        role: 'player',  // 게스트는 항상 일반 플레이어
         soundVolume: 0.5,
         soundMuted: false,
       },
@@ -298,6 +300,7 @@ router.get('/profile/:userId', async (req: Request, res: Response) => {
         playerLevel: profile.player_level,
         playerExp: profile.player_exp,
         isGuest: profile.is_guest,
+        role: profile.role ?? 'player',  // VIP 역할 포함
         soundVolume: profile.sound_volume,
         soundMuted: profile.sound_muted,
         createdAt: profile.created_at,

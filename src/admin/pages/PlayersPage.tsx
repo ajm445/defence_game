@@ -381,6 +381,9 @@ export function PlayersPage() {
                         <div className="min-w-0">
                           <div className="flex items-center gap-2">
                             <p className="text-sm font-semibold text-white truncate">{player.nickname}</p>
+                            {player.role === 'vip' && (
+                              <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded shadow-sm">VIP</span>
+                            )}
                             {player.isOnline && (
                               <span className="px-1.5 py-0.5 text-[10px] font-bold bg-cyan-500/20 text-cyan-400 rounded">ONLINE</span>
                             )}
@@ -469,6 +472,9 @@ export function PlayersPage() {
                       <div className="min-w-0">
                         <div className="flex items-center gap-2">
                           <p className="text-sm font-semibold text-white truncate">{player.nickname}</p>
+                          {player.role === 'vip' && (
+                            <span className="px-1.5 py-0.5 text-[10px] font-bold bg-gradient-to-r from-amber-500 to-yellow-500 text-white rounded shadow-sm">VIP</span>
+                          )}
                           {player.isOnline && (
                             <span className="px-1.5 py-0.5 text-[10px] font-bold bg-cyan-500/20 text-cyan-400 rounded">ON</span>
                           )}

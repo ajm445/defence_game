@@ -142,7 +142,14 @@ export function PlayerDetailPage() {
                 </span>
               </div>
               <div>
-                <h1 className="text-3xl font-bold text-white mb-3">{player.nickname}</h1>
+                <div className="flex items-center gap-3 mb-3">
+                  <h1 className="text-3xl font-bold text-white">{player.nickname}</h1>
+                  {player.role === 'vip' && (
+                    <span className="px-3 py-1 bg-gradient-to-r from-amber-500 to-yellow-500 rounded-lg text-sm text-white font-bold shadow-lg shadow-amber-500/30">
+                      VIP
+                    </span>
+                  )}
+                </div>
                 <div className="flex flex-wrap items-center gap-3">
                   <span className="px-4 py-1.5 rounded-lg bg-blue-500/20 text-blue-400 text-sm font-semibold">
                     Lv.{player.playerLevel}
@@ -618,23 +625,29 @@ function BanModal({ onClose, onBan }: { onClose: () => void; onBan: (reason: str
 
 // 수정 모달
 function EditModal({ player, onClose, onSave }: {
-  player: { nickname: string; playerLevel: number; playerExp: number };
+  player: { nickname: string; playerLevel: number; playerExp: number; role?: string };
   onClose: () => void;
-  onSave: (data: { nickname?: string; playerLevel?: number; playerExp?: number }) => Promise<void>;
+  onSave: (data: { nickname?: string; playerLevel?: number; playerExp?: number; role?: string }) => Promise<void>;
 }) {
   const [nickname, setNickname] = useState(player.nickname);
   const [playerLevel, setPlayerLevel] = useState(player.playerLevel);
   const [playerExp, setPlayerExp] = useState(player.playerExp);
+  const [isVip, setIsVip] = useState(player.role === 'vip');
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setIsSubmitting(true);
 
-    const data: { nickname?: string; playerLevel?: number; playerExp?: number } = {};
+    const data: { nickname?: string; playerLevel?: number; playerExp?: number; role?: string } = {};
     if (nickname !== player.nickname) data.nickname = nickname;
     if (playerLevel !== player.playerLevel) data.playerLevel = playerLevel;
     if (playerExp !== player.playerExp) data.playerExp = playerExp;
+
+    // VIP 역할 변경
+    const newRole = isVip ? 'vip' : 'player';
+    const currentRole = player.role || 'player';
+    if (newRole !== currentRole) data.role = newRole;
 
     await onSave(data);
     setIsSubmitting(false);
@@ -678,6 +691,28 @@ function EditModal({ player, onClose, onSave }: {
               min={0}
               className="w-full px-4 py-3 bg-slate-900/50 border border-slate-600 rounded-xl text-white focus:outline-none focus:ring-2 focus:ring-blue-500"
             />
+          </div>
+          {/* VIP 역할 토글 */}
+          <div className="pt-2">
+            <label className="flex items-center justify-between p-4 bg-slate-900/50 border border-slate-600 rounded-xl cursor-pointer hover:bg-slate-700/50 transition-colors">
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">👑</span>
+                <div>
+                  <p className="text-white font-medium">VIP 역할</p>
+                  <p className="text-xs text-slate-400">경험치 1.5배 보너스</p>
+                </div>
+              </div>
+              <div className="relative">
+                <input
+                  type="checkbox"
+                  checked={isVip}
+                  onChange={(e) => setIsVip(e.target.checked)}
+                  className="sr-only peer"
+                />
+                <div className="w-11 h-6 bg-slate-600 rounded-full peer peer-checked:bg-amber-500 transition-colors"></div>
+                <div className="absolute left-0.5 top-0.5 w-5 h-5 bg-white rounded-full transition-transform peer-checked:translate-x-5"></div>
+              </div>
+            </label>
           </div>
           <div className="flex justify-end gap-3 pt-4">
             <button

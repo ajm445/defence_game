@@ -30,12 +30,15 @@ export interface ClassProgress {
   statUpgrades?: Record<string, number>;
 }
 
+export type PlayerRole = 'player' | 'vip';
+
 export interface PlayerListItem {
   id: string;
   nickname: string;
   playerLevel: number;
   playerExp: number;
   isGuest: boolean;
+  role?: PlayerRole;
   isBanned: boolean;
   bannedUntil: string | null;
   isOnline: boolean;
@@ -85,6 +88,7 @@ export interface PlayerDetail {
     playerLevel: number;
     playerExp: number;
     isGuest: boolean;
+    role?: PlayerRole;
     isBanned: boolean;
     bannedUntil: string | null;
     soundVolume: number;

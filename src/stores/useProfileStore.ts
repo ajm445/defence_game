@@ -254,6 +254,7 @@ export const useProfileStore = create<ProfileStore>()(
           kills: gameData.kills,
           playTime: gameData.playTime,
           victory: gameData.victory,
+          difficulty: gameData.difficulty,  // 난이도 배율 적용
         }
       );
 

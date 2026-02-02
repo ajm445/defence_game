@@ -97,6 +97,7 @@ class AdminApiService {
     nickname?: string;
     playerLevel?: number;
     playerExp?: number;
+    role?: string;
   }): Promise<void> {
     await this.request(`/api/admin/players/${id}`, {
       method: 'PATCH',

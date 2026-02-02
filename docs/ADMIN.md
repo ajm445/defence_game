@@ -134,10 +134,44 @@ onlineUserIds.delete(userId);
 | 닉네임 | `PATCH /api/admin/players/:id` |
 | 플레이어 레벨 | `PATCH /api/admin/players/:id` |
 | 플레이어 경험치 | `PATCH /api/admin/players/:id` |
+| 역할 (VIP) | `PATCH /api/admin/players/:id` |
 | 클래스 레벨 | `PATCH /api/admin/players/:id/class/:className` |
 | 클래스 경험치 | `PATCH /api/admin/players/:id/class/:className` |
 | SP | `PATCH /api/admin/players/:id/class/:className` |
 | 스탯 업그레이드 | `PATCH /api/admin/players/:id/class/:className` |
+
+### VIP 역할 관리 (Super Admin 전용)
+
+플레이어에게 VIP 역할을 부여하여 게임 내 경험치 보너스를 제공합니다.
+
+#### VIP 혜택
+
+| 혜택 | 설명 |
+|------|------|
+| 경험치 1.5배 | 게임 종료 시 플레이어 경험치, 직업 경험치 모두 1.5배 |
+| VIP 뱃지 | 프로필 화면에서 닉네임 옆에 VIP 뱃지 표시 |
+| 보너스 표시 | 게임 결과 화면에서 기본 경험치 대비 보너스 수치 표시 |
+
+#### VIP 부여/취소
+
+플레이어 상세 페이지에서 "수정" 버튼 클릭 후 VIP 체크박스를 통해 관리:
+
+```typescript
+// VIP 부여
+PATCH /api/admin/players/:id
+{ "role": "vip" }
+
+// VIP 취소 (일반 플레이어로 변경)
+PATCH /api/admin/players/:id
+{ "role": "player" }
+```
+
+#### 역할 종류
+
+| 역할 | 설명 |
+|------|------|
+| `player` | 기본 역할 (일반 플레이어) |
+| `vip` | VIP 역할 (경험치 1.5배 보너스) |
 
 ### 밴 시스템 (Super Admin 전용)
 
@@ -290,6 +324,7 @@ WebSocket을 통해 10초마다 자동 업데이트:
 
 | 컬럼 | 타입 | 설명 |
 |------|------|------|
+| role | TEXT | 플레이어 역할 ('player' 또는 'vip', 기본값: 'player') |
 | is_banned | BOOLEAN | 밴 상태 |
 | banned_until | TIMESTAMP | 밴 만료 시간 |
 
@@ -392,7 +427,8 @@ server/src/state/
 
 ```
 supabase/migrations/
-└── 007_create_admin_tables.sql  # 관리자 테이블 생성
+├── 007_create_admin_tables.sql  # 관리자 테이블 생성
+└── 009_add_player_role.sql      # 플레이어 역할(VIP) 컬럼 추가
 ```
 
 ---

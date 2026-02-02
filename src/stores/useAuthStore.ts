@@ -149,6 +149,7 @@ const createLocalGuestProfile = (nickname: string): PlayerProfile => {
     playerLevel: 1,
     playerExp: 0,
     isGuest: true,
+    role: 'player',  // 게스트는 항상 일반 플레이어
     soundVolume: storedSettings?.volume ?? 0.5,
     soundMuted: storedSettings?.muted ?? false,
   };
@@ -591,5 +592,6 @@ export const useAuth = () => useAuthStore((state) => ({
 export const useAuthStatus = () => useAuthStore((state) => state.status);
 export const useAuthProfile = () => useAuthStore((state) => state.profile);
 export const useAuthIsGuest = () => useAuthStore((state) => state.profile?.isGuest ?? true);
+export const useAuthIsVip = () => useAuthStore((state) => state.profile?.role === 'vip');
 export const useAuthIsLoading = () => useAuthStore((state) => state.isLoading);
 export const useAuthError = () => useAuthStore((state) => state.error);

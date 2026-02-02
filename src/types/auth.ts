@@ -1,6 +1,12 @@
 import { HeroClass, RPGDifficulty } from './rpg';
 import { DIFFICULTY_CONFIGS } from '../constants/rpgConfig';
 
+// 플레이어 역할 타입
+export type PlayerRole = 'player' | 'vip';
+
+// VIP 경험치 보너스 배율
+export const VIP_EXP_MULTIPLIER = 1.5;
+
 // 플레이어 프로필
 export interface PlayerProfile {
   id: string;
@@ -8,6 +14,7 @@ export interface PlayerProfile {
   playerLevel: number;
   playerExp: number;
   isGuest: boolean;
+  role?: PlayerRole;  // 플레이어 역할 (기본: 'player', VIP: 'vip')
   // 사운드 설정
   soundVolume?: number;
   soundMuted?: boolean;
@@ -79,7 +86,8 @@ export const calculatePlayerExp = (
   playTimeSeconds: number,
   victory: boolean,
   mode: 'single' | 'coop',
-  difficulty: RPGDifficulty = 'easy'
+  difficulty: RPGDifficulty = 'easy',
+  isVip: boolean = false
 ): number => {
   // 난이도 경험치 배율
   const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
@@ -104,7 +112,10 @@ export const calculatePlayerExp = (
   // 패배 시 50% 감소
   const defeatPenalty = victory ? 1.0 : 0.5;
 
-  return Math.floor(totalExp * modeMultiplier * defeatPenalty);
+  // VIP 보너스: 1.5배
+  const vipMultiplier = isVip ? VIP_EXP_MULTIPLIER : 1.0;
+
+  return Math.floor(totalExp * modeMultiplier * defeatPenalty * vipMultiplier);
 };
 
 // 난이도별 직업 승리 보너스
@@ -121,7 +132,8 @@ export const calculateClassExp = (
   bossesKilled: number,
   kills: number,
   difficulty: RPGDifficulty = 'easy',
-  victory: boolean = true
+  victory: boolean = true,
+  isVip: boolean = false
 ): number => {
   // 난이도 경험치 배율
   const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
@@ -141,7 +153,10 @@ export const calculateClassExp = (
   // 패배 시 50% 감소
   const defeatPenalty = victory ? 1.0 : 0.5;
 
-  return Math.floor(totalExp * defeatPenalty);
+  // VIP 보너스: 1.5배
+  const vipMultiplier = isVip ? VIP_EXP_MULTIPLIER : 1.0;
+
+  return Math.floor(totalExp * defeatPenalty * vipMultiplier);
 };
 
 // ============================================
@@ -151,16 +166,27 @@ export const calculateClassExp = (
 // 협동 모드 플레이어 경험치 계산 (웨이브 기반)
 export const calculateCoopPlayerExp = (
   waveReached: number,
-  victory: boolean
+  victory: boolean,
+  isVip: boolean = false
 ): number => {
   // 웨이브 × 15 + 승리 보너스 75
-  return waveReached * 15 + (victory ? 75 : 0);
+  const baseExp = waveReached * 15 + (victory ? 75 : 0);
+  // VIP 보너스: 1.5배
+  const vipMultiplier = isVip ? VIP_EXP_MULTIPLIER : 1.0;
+  return Math.floor(baseExp * vipMultiplier);
 };
 
 // 협동 모드 직업 경험치 계산 (웨이브 기반)
-export const calculateCoopClassExp = (waveReached: number, kills: number): number => {
+export const calculateCoopClassExp = (
+  waveReached: number,
+  kills: number,
+  isVip: boolean = false
+): number => {
   // 웨이브 × 5 + 킬 × 2
-  return waveReached * 5 + kills * 2;
+  const baseExp = waveReached * 5 + kills * 2;
+  // VIP 보너스: 1.5배
+  const vipMultiplier = isVip ? VIP_EXP_MULTIPLIER : 1.0;
+  return Math.floor(baseExp * vipMultiplier);
 };
 
 // 레벨업 요구 경험치

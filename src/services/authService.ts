@@ -143,6 +143,7 @@ export const signInAsGuest = async (nickname: string): Promise<AuthResult> => {
           playerLevel: 1,
           playerExp: 0,
           isGuest: true,
+          role: 'player',  // 게스트는 항상 일반 플레이어
           soundVolume: 0.5,
           soundMuted: false,
         },
@@ -169,6 +170,7 @@ export const signInAsGuest = async (nickname: string): Promise<AuthResult> => {
         playerLevel: 1,
         playerExp: 0,
         isGuest: true,
+        role: 'player',  // 게스트는 항상 일반 플레이어
         soundVolume: 0.5,
         soundMuted: false,
       },
@@ -290,6 +292,7 @@ export const createPlayerProfile = async (
     playerLevel: 1,
     playerExp: 0,
     isGuest,
+    role: 'player',  // 기본값은 일반 플레이어
     soundVolume: 0.5,
     soundMuted: false,
   };

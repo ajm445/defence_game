@@ -215,7 +215,14 @@ export const ProfileScreen: React.FC = () => {
               {isGuest ? '👤' : '⭐'}
             </div>
             <div className="flex-1">
-              <h2 className="text-2xl text-white font-bold">{profile.nickname}</h2>
+              <div className="flex items-center gap-2">
+                <h2 className="text-2xl text-white font-bold">{profile.nickname}</h2>
+                {profile.role === 'vip' && (
+                  <span className="px-2 py-0.5 bg-gradient-to-r from-amber-500 to-yellow-500 rounded text-xs text-white font-bold shadow-lg shadow-amber-500/30">
+                    VIP
+                  </span>
+                )}
+              </div>
               <div className="flex items-center gap-2">
                 <span className="text-yellow-400 font-bold">Lv.{profile.playerLevel}</span>
                 {isGuest && (

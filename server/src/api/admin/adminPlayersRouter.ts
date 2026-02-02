@@ -79,6 +79,7 @@ router.get('/', requireAdmin, async (req: AuthenticatedRequest, res: Response) =
       playerLevel: player.player_level,
       playerExp: player.player_exp,
       isGuest: player.is_guest,
+      role: player.role ?? 'player',  // VIP 역할 포함
       isBanned: player.is_banned,
       bannedUntil: player.banned_until,
       isOnline: onlineUserIds.has(player.id),
@@ -179,6 +180,7 @@ router.get('/:id', requireAdmin, async (req: AuthenticatedRequest, res: Response
         playerLevel: player.player_level,
         playerExp: player.player_exp,
         isGuest: player.is_guest,
+        role: player.role ?? 'player',  // VIP 역할 포함
         isBanned: player.is_banned,
         bannedUntil: player.banned_until,
         soundVolume: player.sound_volume,
@@ -227,7 +229,7 @@ router.get('/:id', requireAdmin, async (req: AuthenticatedRequest, res: Response
 // PATCH /api/admin/players/:id - 플레이어 정보 수정 (Super Admin만)
 router.patch('/:id', requireAdmin, requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
-  const { nickname, playerLevel, playerExp } = req.body;
+  const { nickname, playerLevel, playerExp, role } = req.body;
 
   const supabase = getSupabaseAdmin();
   if (!supabase || !req.admin) {
@@ -239,6 +241,13 @@ router.patch('/:id', requireAdmin, requireSuperAdmin, async (req: AuthenticatedR
     if (nickname !== undefined) updates.nickname = nickname;
     if (playerLevel !== undefined) updates.player_level = playerLevel;
     if (playerExp !== undefined) updates.player_exp = playerExp;
+    // VIP 역할 변경 (player 또는 vip만 허용)
+    if (role !== undefined) {
+      if (role !== 'player' && role !== 'vip') {
+        return res.status(400).json({ error: '유효하지 않은 역할입니다. player 또는 vip만 허용됩니다.' });
+      }
+      updates.role = role;
+    }
 
     if (Object.keys(updates).length === 0) {
       return res.status(400).json({ error: '수정할 내용이 없습니다.' });
@@ -272,6 +281,7 @@ router.patch('/:id', requireAdmin, requireSuperAdmin, async (req: AuthenticatedR
         nickname: player.nickname,
         playerLevel: player.player_level,
         playerExp: player.player_exp,
+        role: player.role ?? 'player',
       },
     });
   } catch (err) {
