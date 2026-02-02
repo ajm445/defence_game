@@ -54,9 +54,17 @@ export function getServerStatus() {
   };
 }
 
-// 친구 온라인 상태 알림 콜백 등록
-setOnlineStatusCallback((userId, isOnline, currentRoom) => {
-  friendManager.notifyFriendsStatusChange(userId, isOnline, currentRoom);
+// 친구 온라인 상태 알림 콜백 등록 (async로 처리하여 친구 알림 완료를 보장)
+setOnlineStatusCallback(async (userId, isOnline, currentRoom) => {
+  // 친구에게 상태 변경 알림
+  await friendManager.notifyFriendsStatusChange(userId, isOnline, currentRoom);
+
+  // 모든 온라인 플레이어에게 실시간 알림
+  if (isOnline) {
+    await friendManager.broadcastPlayerJoined(userId);
+  } else {
+    await friendManager.broadcastPlayerLeft(userId);
+  }
 });
 
 export function getRoom(roomId: string): GameRoom | undefined {

@@ -10,6 +10,13 @@
   - 극한 난이도 승리 시 자동 랭킹 저장 (싱글/멀티 호스트)
   - 상위 20개 기록 표시, 1~3위는 메달 아이콘으로 강조
 
+### Improvements
+- **온라인 플레이어 목록 실시간 동기화**: 플레이어 접속/해제 즉시 반영
+  - 새 메시지 타입 추가: `ONLINE_PLAYER_JOINED`, `ONLINE_PLAYER_LEFT`
+  - 로그인 시 모든 온라인 플레이어에게 즉시 브로드캐스트
+  - 로그아웃 시 모든 온라인 플레이어에게 즉시 브로드캐스트
+  - 5초 폴링은 안전망으로 유지 (누락 복구용)
+
 ### New Files
 - `supabase/migrations/010_create_extreme_rankings.sql` - 랭킹 테이블 스키마
 - `server/src/api/rankingsRouter.ts` - 랭킹 API (GET/POST)
@@ -20,6 +27,11 @@
 - `server/src/websocket/WebSocketServer.ts`: rankingsRouter 등록
 - `src/components/screens/RPGCoopLobbyScreen.tsx`: 랭킹 버튼 및 모달 연동
 - `src/components/screens/RPGModeScreen.tsx`: 극한 난이도 승리 시 랭킹 저장 로직
+- `shared/types/friendNetwork.ts`: 온라인 플레이어 실시간 메시지 타입 추가
+- `server/src/friend/FriendManager.ts`: `broadcastPlayerJoined()`, `broadcastPlayerLeft()` 메서드 추가
+- `server/src/websocket/MessageHandler.ts`: 온라인 상태 콜백에서 브로드캐스트 호출
+- `src/stores/useFriendStore.ts`: `addOnlinePlayer()`, `removeOnlinePlayer()` 액션 추가
+- `src/hooks/useFriendMessages.ts`: 새 메시지 타입 핸들러 추가
 
 ### Notes
 - 게스트 사용자는 랭킹에 저장되지 않음 (계정 보유 사용자만 등록 가능)

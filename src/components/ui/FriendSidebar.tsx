@@ -38,7 +38,7 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
   // 친구 시스템 실시간 메시지 처리 (FRIEND_STATUS_CHANGED 등)
   useFriendMessages();
 
-  // 컴포넌트 마운트 시 데이터 로드 (연결 상태 확인)
+  // 컴포넌트 마운트 시 데이터 로드 및 주기적 갱신
   useEffect(() => {
     const requestFriendsData = () => {
       if (wsClient.isConnected()) {
@@ -68,6 +68,15 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
         clearTimeout(timeout);
       };
     }
+
+    // 5초마다 주기적으로 갱신 (온라인 상태 동기화 안전망)
+    const refreshInterval = setInterval(() => {
+      requestFriendsData();
+    }, 5000);
+
+    return () => {
+      clearInterval(refreshInterval);
+    };
   }, []);
 
   // 친구 요청 보내기

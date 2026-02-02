@@ -22,6 +22,8 @@ export function useFriendMessages() {
     removeSentRequest,
     addGameInvite,
     removeGameInvite,
+    addOnlinePlayer,
+    removeOnlinePlayer,
     setError,
   } = useFriendStore();
 
@@ -77,6 +79,15 @@ export function useFriendMessages() {
           addFriend(message.friend);
           break;
 
+        // 온라인 플레이어 실시간 업데이트
+        case 'ONLINE_PLAYER_JOINED':
+          addOnlinePlayer(message.player);
+          break;
+
+        case 'ONLINE_PLAYER_LEFT':
+          removeOnlinePlayer(message.playerId);
+          break;
+
         // 게임 초대
         case 'GAME_INVITE_RECEIVED':
           addGameInvite(message.invite);
@@ -126,6 +137,8 @@ export function useFriendMessages() {
     removeSentRequest,
     addGameInvite,
     removeGameInvite,
+    addOnlinePlayer,
+    removeOnlinePlayer,
     setError,
   ]);
 }

@@ -160,7 +160,9 @@ supabase db push
 | `FRIEND_REQUEST_CANCELLED` | `requestId` | 요청 취소 알림 |
 | `FRIEND_ADDED` | `friend` | 친구 추가됨 |
 | `FRIEND_REMOVED` | `friendId` | 친구 삭제됨 |
-| `FRIEND_STATUS_CHANGED` | `friendId`, `isOnline`, `currentRoom?` | 친구 상태 변경 |
+| `FRIEND_STATUS_CHANGED` | `friendId`, `isOnline`, `currentRoom?` | 친구 상태 변경 (친구 탭) |
+| `ONLINE_PLAYER_JOINED` | `player` | 플레이어 접속 (온라인 탭 실시간) |
+| `ONLINE_PLAYER_LEFT` | `playerId` | 플레이어 접속 해제 (온라인 탭 실시간) |
 | `GAME_INVITE_RECEIVED` | `invite` | 게임 초대 수신 |
 | `GAME_INVITE_ACCEPTED` | `roomId`, `roomCode` | 초대 수락됨 (자동 입장용) |
 | `GAME_INVITE_DECLINED` | `inviteId` | 초대 거절됨 |
@@ -193,8 +195,14 @@ class FriendManager {
   // 친구 삭제 (양방향 삭제, 하나라도 실패 시 전체 실패)
   async removeFriend(userId: string, friendId: string): Promise<boolean>
 
-  // 친구들에게 상태 변경 알림 (WebSocket 연결 상태 확인 후 전송)
+  // 친구들에게 상태 변경 알림 (친구 탭용)
   async notifyFriendsStatusChange(userId: string, isOnline: boolean, currentRoom?: string): Promise<void>
+
+  // 모든 온라인 플레이어에게 접속 알림 (온라인 탭 실시간 업데이트)
+  async broadcastPlayerJoined(userId: string): Promise<void>
+
+  // 모든 온라인 플레이어에게 접속 해제 알림 (온라인 탭 실시간 업데이트)
+  async broadcastPlayerLeft(userId: string): Promise<void>
 }
 ```
 
@@ -280,6 +288,10 @@ interface FriendState {
   addFriend(friend: FriendInfo): void;
   removeFriend(friendId: string): void;
   updateFriendStatus(friendId: string, isOnline: boolean, currentRoom?: string): void;
+
+  // 온라인 플레이어 실시간 업데이트
+  addOnlinePlayer(player: OnlinePlayerInfo): void;
+  removeOnlinePlayer(playerId: string): void;
   // ... 기타 액션
 }
 ```
@@ -315,6 +327,13 @@ function useFriendMessages() {
           break;
         case 'FRIEND_REQUEST_RECEIVED':
           addPendingRequest(message.request);
+          break;
+        // 온라인 플레이어 실시간 업데이트
+        case 'ONLINE_PLAYER_JOINED':
+          addOnlinePlayer(message.player);
+          break;
+        case 'ONLINE_PLAYER_LEFT':
+          removeOnlinePlayer(message.playerId);
           break;
         // ... 기타 메시지 처리
       }
@@ -377,19 +396,30 @@ function useFriendMessages() {
 
 ### 온라인 상태 변경 알림
 
+온라인 상태 변경은 두 가지 채널로 실시간 알림됩니다:
+
+1. **친구 탭**: `FRIEND_STATUS_CHANGED` - 친구에게만 전송
+2. **온라인 탭**: `ONLINE_PLAYER_JOINED/LEFT` - 모든 온라인 플레이어에게 전송
+
 ```
 1. 사용자 A 로그인
    Server: registerUserOnline(A)
-   Server: A의 친구들에게 FRIEND_STATUS_CHANGED { isOnline: true }
+   Server: 콜백 실행
+     → A의 친구들에게 FRIEND_STATUS_CHANGED { isOnline: true }
+     → 모든 온라인 플레이어에게 ONLINE_PLAYER_JOINED { player: A정보 }
 
 2. 사용자 A 로그아웃/연결 해제
    Server: registerUserOffline(A)
-   Server: A의 친구들에게 FRIEND_STATUS_CHANGED { isOnline: false }
+   Server: 콜백 실행
+     → A의 친구들에게 FRIEND_STATUS_CHANGED { isOnline: false }
+     → 모든 온라인 플레이어에게 ONLINE_PLAYER_LEFT { playerId: A }
 
 3. 사용자 A 방 입장/퇴장
    Server: notifyUserRoomChange(A, roomCode)
    Server: A의 친구들에게 FRIEND_STATUS_CHANGED { currentRoom }
 ```
+
+**안전망**: 클라이언트는 5초마다 폴링하여 누락된 상태를 복구합니다.
 
 ---
 
@@ -468,6 +498,7 @@ supabase/migrations/
 | 설정 | 값 | 설명 |
 |------|-----|------|
 | 클라이언트 폴링 | 10초 | ServerStatusBar 갱신 주기 |
+| 온라인 목록 폴링 | 5초 | FriendSidebar 안전망 (실시간 메시지 누락 복구용) |
 
 ### 에러 메시지
 

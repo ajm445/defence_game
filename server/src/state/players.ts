@@ -52,7 +52,8 @@ export function sendToPlayer(playerId: string, message: ServerMessage): void {
 }
 
 // 온라인 상태 변경 콜백 (FriendManager에서 등록)
-type OnlineStatusCallback = (userId: string, isOnline: boolean, currentRoom?: string) => void;
+// Promise를 반환할 수 있도록 타입 확장
+type OnlineStatusCallback = (userId: string, isOnline: boolean, currentRoom?: string) => void | Promise<void>;
 let onlineStatusCallback: OnlineStatusCallback | null = null;
 
 export function setOnlineStatusCallback(callback: OnlineStatusCallback): void {
@@ -60,24 +61,24 @@ export function setOnlineStatusCallback(callback: OnlineStatusCallback): void {
 }
 
 // 사용자 온라인 등록 (로그인 시)
-export function registerUserOnline(userId: string): void {
+export async function registerUserOnline(userId: string): Promise<void> {
   onlineUserIds.add(userId);
   if (onlineStatusCallback) {
-    onlineStatusCallback(userId, true, undefined);
+    await onlineStatusCallback(userId, true, undefined);
   }
 }
 
 // 사용자 오프라인 등록 (로그아웃/연결 해제 시)
-export function registerUserOffline(userId: string): void {
+export async function registerUserOffline(userId: string): Promise<void> {
   onlineUserIds.delete(userId);
   if (onlineStatusCallback) {
-    onlineStatusCallback(userId, false, undefined);
+    await onlineStatusCallback(userId, false, undefined);
   }
 }
 
 // 사용자 방 상태 변경 알림 (방 입장/퇴장 시)
-export function notifyUserRoomChange(userId: string, roomId: string | null): void {
+export async function notifyUserRoomChange(userId: string, roomId: string | null): Promise<void> {
   if (onlineStatusCallback && onlineUserIds.has(userId)) {
-    onlineStatusCallback(userId, true, roomId || undefined);
+    await onlineStatusCallback(userId, true, roomId || undefined);
   }
 }

@@ -322,6 +322,78 @@ export class FriendManager {
       }
     }
   }
+
+  /**
+   * 모든 온라인 플레이어에게 사용자 접속 알림
+   */
+  async broadcastPlayerJoined(userId: string): Promise<void> {
+    const supabase = getSupabaseAdmin();
+    if (!supabase) return;
+
+    try {
+      // 접속한 사용자 프로필 조회
+      const { data: profile, error } = await supabase
+        .from('player_profiles')
+        .select('id, nickname, player_level')
+        .eq('id', userId)
+        .single();
+
+      if (error || !profile) {
+        console.error('[FriendManager] 프로필 조회 오류:', error);
+        return;
+      }
+
+      // 접속한 사용자의 친구 목록 한 번만 조회 (성능 최적화)
+      const newUserFriendIds = await this.getFriendIds(userId);
+
+      // 모든 온라인 플레이어에게 브로드캐스트 (본인 제외)
+      for (const onlineUserId of onlineUserIds) {
+        if (onlineUserId === userId) continue;
+
+        const player = getPlayerByUserId(onlineUserId);
+        if (player && player.ws.readyState === 1) {
+          // 친구 여부는 미리 조회한 Set으로 확인 (DB 쿼리 없음)
+          const isFriend = newUserFriendIds.has(onlineUserId);
+
+          sendToPlayer(player.id, {
+            type: 'ONLINE_PLAYER_JOINED',
+            player: {
+              id: profile.id,
+              name: profile.nickname,
+              playerLevel: profile.player_level || 1,
+              isFriend,
+              currentRoom: undefined,
+              isMe: false,
+            },
+          });
+        }
+      }
+
+      console.log(`[FriendManager] 플레이어 접속 브로드캐스트: ${profile.nickname}`);
+    } catch (err) {
+      console.error('[FriendManager] 플레이어 접속 브로드캐스트 예외:', err);
+    }
+  }
+
+  /**
+   * 모든 온라인 플레이어에게 사용자 접속 해제 알림
+   */
+  async broadcastPlayerLeft(userId: string): Promise<void> {
+    // 모든 온라인 플레이어에게 브로드캐스트 (본인 제외)
+    for (const onlineUserId of onlineUserIds) {
+      if (onlineUserId === userId) continue;
+
+      const player = getPlayerByUserId(onlineUserId);
+      if (player && player.ws.readyState === 1) {
+        sendToPlayer(player.id, {
+          type: 'ONLINE_PLAYER_LEFT',
+          playerId: userId,
+        });
+      }
+    }
+
+    console.log(`[FriendManager] 플레이어 접속 해제 브로드캐스트: ${userId}`);
+  }
 }
 
 export const friendManager = FriendManager.getInstance();

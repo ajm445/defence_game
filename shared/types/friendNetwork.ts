@@ -104,6 +104,9 @@ export type FriendServerMessage =
   | { type: 'FRIEND_STATUS_CHANGED'; friendId: string; isOnline: boolean; currentRoom?: string }
   | { type: 'FRIEND_REMOVED'; friendId: string }
   | { type: 'FRIEND_ADDED'; friend: FriendInfo }
+  // 온라인 플레이어 실시간 업데이트
+  | { type: 'ONLINE_PLAYER_JOINED'; player: OnlinePlayerInfo }
+  | { type: 'ONLINE_PLAYER_LEFT'; playerId: string }
   // 게임 초대
   | { type: 'GAME_INVITE_RECEIVED'; invite: GameInviteInfo }
   | { type: 'GAME_INVITE_ACCEPTED'; roomId: string; roomCode: string }

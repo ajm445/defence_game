@@ -57,6 +57,10 @@ interface FriendState {
   // 게임 초대 제거
   removeGameInvite: (inviteId: string) => void;
 
+  // 온라인 플레이어 실시간 업데이트
+  addOnlinePlayer: (player: OnlinePlayerInfo) => void;
+  removeOnlinePlayer: (playerId: string) => void;
+
   // 초기화
   reset: () => void;
 }
@@ -131,6 +135,28 @@ export const useFriendStore = create<FriendState>((set) => ({
   removeGameInvite: (inviteId) =>
     set((state) => ({
       receivedInvites: state.receivedInvites.filter((i) => i.id !== inviteId),
+    })),
+
+  addOnlinePlayer: (player) =>
+    set((state) => {
+      // 이미 존재하면 추가하지 않음
+      if (state.onlinePlayers.some((p) => p.id === player.id)) {
+        return state;
+      }
+      const newPlayers = [...state.onlinePlayers, player];
+      // 본인 먼저, 친구 다음, 레벨 순 정렬
+      newPlayers.sort((a, b) => {
+        if (a.isMe && !b.isMe) return -1;
+        if (!a.isMe && b.isMe) return 1;
+        if (a.isFriend !== b.isFriend) return a.isFriend ? -1 : 1;
+        return b.playerLevel - a.playerLevel;
+      });
+      return { onlinePlayers: newPlayers };
+    }),
+
+  removeOnlinePlayer: (playerId) =>
+    set((state) => ({
+      onlinePlayers: state.onlinePlayers.filter((p) => p.id !== playerId),
     })),
 
   reset: () => set(initialState),
