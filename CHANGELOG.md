@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.20.10] - 2026-02-04
+
+### Bug Fixes
+- **클라이언트 자동 공격 미작동 버그 수정**: 클라이언트 영웅의 기본 공격(Q 스킬)이 자동으로 실행되지 않던 버그 해결
+  - 클라이언트 블록에 자동 공격 로직 추가 (적/기지 감지 및 스킬 요청 전송)
+  - 로컬에서 사운드 및 이펙트 즉시 재생 (시각적 피드백)
+  - `sendSkillUse('Q', ...)` 호출로 호스트에게 스킬 요청 전송
+- **돌진 스킬 후 원위치 복귀 버그 수정 (개선)**: 돌진 완료 직후 서버의 이전 위치로 보정되는 버그 해결
+  - 돌진 완료 시 위치를 서버에 즉시 전송 (`sendMoveDirection(null)`)
+  - `applySerializedState`에서 "돌진 방금 완료" 상태 감지 추가
+  - 서버가 아직 돌진 중이라고 생각할 때 로컬 위치 유지
+
+### Technical Changes
+- `src/hooks/useRPGGameLoop.ts`:
+  - `sendSkillUse` import 추가
+  - 클라이언트 자동 공격 로직 추가 (적/기지 사거리 체크, 스킬 요청, 로컬 이펙트)
+  - 돌진 완료 시 `sendMoveDirection(null)` 호출로 위치 즉시 전송
+- `src/stores/useRPGStore.ts`:
+  - `applySerializedState`: `dashJustCompleted` 상태 감지 추가
+  - 돌진 방금 완료 시 로컬 위치 유지 (서버 위치로 보정 안 함)
+
+---
+
 ## [1.20.9] - 2026-02-04
 
 ### Bug Fixes

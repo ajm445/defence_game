@@ -2496,6 +2496,10 @@ export const useRPGStore = create<RPGStore>()(
             // 클라이언트가 돌진을 시작하면 로컬 애니메이션을 끝까지 사용
             // 서버 dashState는 무시 (서버와 좌표가 다를 수 있어 제자리 돌아감 발생)
             const localIsDashing = localHero.dashState !== undefined && localHero.dashState.progress < 1;
+            // 서버가 아직 돌진 중이라고 생각하는 경우 (로컬은 이미 완료)
+            const serverStillDashing = hero.dashState !== undefined;
+            // 로컬 돌진 방금 완료: 로컬은 끝났지만 서버는 아직 돌진 중
+            const dashJustCompleted = !localIsDashing && serverStillDashing;
             // 로컬 돌진 중이면 로컬 유지, 로컬이 돌진 안하면 undefined (서버 dashState 무시)
             // 서버 dashState를 적용하지 않는 이유: 서버의 startX/startY가 다를 수 있어 텔레포트 발생
             const mergedDashState = localIsDashing ? localHero.dashState : undefined;
@@ -2510,6 +2514,11 @@ export const useRPGStore = create<RPGStore>()(
               const easedProgress = 1 - (1 - dash.progress) * (1 - dash.progress);
               dashSyncX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
               dashSyncY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
+            } else if (dashJustCompleted) {
+              // 돌진 방금 완료: 로컬 위치 유지 (서버가 따라잡을 때까지)
+              // 서버 위치로 보정하면 원래 자리로 텔레포트됨
+              dashSyncX = localHero.x;
+              dashSyncY = localHero.y;
             }
             // 서버 dashState는 사용하지 않음 (로컬 완료 후 서버 위치로 점프 방지)
 

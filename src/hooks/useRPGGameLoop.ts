@@ -25,7 +25,7 @@ import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy, shouldSpawnTutor
 import { createBosses, areAllBossesDead, hasBosses, updateBossSkills, applyStunToHero } from '../game/rpg/bossSystem';
 import { processNexusLaser, isNexusAlive } from '../game/rpg/nexusLaserSystem';
 import { rollMultiTarget } from '../game/rpg/passiveSystem';
-import { useNetworkSync, shareHostBuffToAllies, sendMoveDirection } from './useNetworkSync';
+import { useNetworkSync, shareHostBuffToAllies, sendMoveDirection, sendSkillUse } from './useNetworkSync';
 import { wsClient } from '../services/WebSocketClient';
 import { useRPGTutorialStore } from '../stores/useRPGTutorialStore';
 
@@ -199,6 +199,8 @@ export function useRPGGameLoop() {
             dashState: undefined,
             state: 'idle',
           });
+          // 돌진 완료 직후 위치를 서버에 즉시 전송 (위치 동기화 오차 최소화)
+          sendMoveDirection(null);  // null로 전송하면 현재 위치만 전송됨
         } else {
           // 돌진 중 - easeOutQuad 이징 적용
           const easedProgress = 1 - (1 - newProgress) * (1 - newProgress);
@@ -418,6 +420,73 @@ export function useRPGGameLoop() {
         const skillType = pendingSkillRef.current;
         pendingSkillRef.current = null;
         handleClientSkillExecution(skillType, clientCurrentGameTime);
+      }
+
+      // 클라이언트: 자동 공격 (Q 스킬) 처리
+      // 적이 사거리 내에 있고 Q 스킬이 준비되면 호스트에게 요청 전송
+      const clientHeroForAttack = useRPGStore.getState().hero;
+      if (clientHeroForAttack && clientHeroForAttack.hp > 0 && !isClientDashing && !isClientCasting && !isClientStunned) {
+        const clientHeroClass = clientHeroForAttack.heroClass;
+        const clientQSkillType = CLASS_SKILLS[clientHeroClass].q.type;
+        const clientQSkill = clientHeroForAttack.skills.find(s => s.type === clientQSkillType);
+
+        if (clientQSkill && clientQSkill.currentCooldown <= 0) {
+          const clientAttackRange = clientHeroForAttack.config.range || 80;
+          const clientEnemies = useRPGStore.getState().enemies;
+          const clientNearestEnemy = findNearestEnemy(clientHeroForAttack, clientEnemies);
+
+          let clientAttackedTarget = false;
+
+          // 적 공격
+          if (clientNearestEnemy) {
+            const clientDist = distance(clientHeroForAttack.x, clientHeroForAttack.y, clientNearestEnemy.x, clientNearestEnemy.y);
+            if (clientDist <= clientAttackRange) {
+              // 호스트에게 Q 스킬 요청 전송
+              sendSkillUse('Q', clientNearestEnemy.x, clientNearestEnemy.y);
+              // 로컬에서 쿨다운 시작 (즉각적인 피드백)
+              useRPGStore.getState().useSkill(clientQSkillType);
+              clientAttackedTarget = true;
+
+              // 사운드 재생 (로컬)
+              if (clientHeroClass === 'archer' || clientHeroClass === 'mage') {
+                soundManager.play('attack_ranged');
+              } else {
+                soundManager.play('attack_melee');
+              }
+
+              // 로컬 이펙트 생성 (즉각적인 시각 피드백)
+              const effectType = (clientHeroClass === 'archer' || clientHeroClass === 'mage') ? 'attack_ranged' : 'attack_melee';
+              effectManager.createEffect(effectType, clientNearestEnemy.x, clientNearestEnemy.y);
+            }
+          }
+
+          // 적이 없으면 기지(넥서스) 공격
+          if (!clientAttackedTarget) {
+            const clientEnemyBases = useRPGStore.getState().enemyBases;
+            const clientNearestBase = findNearestEnemyBase(clientHeroForAttack, clientEnemyBases);
+
+            if (clientNearestBase) {
+              const clientBaseDist = distance(clientHeroForAttack.x, clientHeroForAttack.y, clientNearestBase.x, clientNearestBase.y);
+              const clientBaseAttackRange = clientAttackRange + 50;  // 기지 반경 고려
+              if (clientBaseDist <= clientBaseAttackRange) {
+                // 호스트에게 Q 스킬 요청 전송
+                sendSkillUse('Q', clientNearestBase.x, clientNearestBase.y);
+                // 로컬에서 쿨다운 시작 (즉각적인 피드백)
+                useRPGStore.getState().useSkill(clientQSkillType);
+
+                // 사운드 재생 (로컬)
+                if (clientHeroClass === 'archer' || clientHeroClass === 'mage') {
+                  soundManager.play('attack_ranged');
+                } else {
+                  soundManager.play('attack_melee');
+                }
+
+                // 로컬 이펙트 생성 (즉각적인 시각 피드백)
+                effectManager.createEffect('attack_melee', clientNearestBase.x, clientNearestBase.y);
+              }
+            }
+          }
+        }
       }
 
       // 클라이언트: 스킬 이펙트 만료 체크 (로컬 이펙트 정리)
