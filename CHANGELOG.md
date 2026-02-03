@@ -1,5 +1,32 @@
 # Changelog
 
+## [1.20.6] - 2026-02-03
+
+### Bug Fixes
+- **클라이언트 스킬 이펙트 위치 버그 수정**: 스킬 이펙트가 사용 시점 위치에 고정되는 버그 해결
+  - 모든 스킬 이펙트에 `heroId` 필드 추가 (SkillEffect 인터페이스)
+  - 클라이언트에서 자신의 이펙트와 다른 플레이어 이펙트를 분리하여 병합
+  - 자신의 이펙트는 로컬 상태 유지, 다른 플레이어 이펙트는 서버에서 수신
+- **클라이언트 돌진 스킬 텔레포트 버그 수정**: 돌진 후 원래 위치로 순간이동하는 버그 해결
+  - 로컬 dashState 우선 처리 (클라이언트 예측)
+  - 서버 dashState가 로컬 dashState를 덮어쓰지 않도록 수정
+
+### Technical Changes
+- `src/types/rpg.ts`:
+  - `SkillEffect` 인터페이스에 `heroId?: string` 필드 추가
+- `src/hooks/useRPGGameLoop.ts`:
+  - `processSkillResult`: 이펙트에 heroId 추가
+  - 클라이언트 스킬 핸들러 (Q/W/E): 이펙트에 heroId 추가
+  - 다른 영웅 공격 이펙트 (3개소): heroId 추가
+  - pendingSkill 이펙트 (14개소): casterId를 heroId로 사용
+- `src/hooks/useNetworkSync.ts`:
+  - 호스트의 클라이언트 스킬 처리 시 이펙트에 heroId 추가
+- `src/stores/useRPGStore.ts`:
+  - `applySerializedState`: activeSkillEffects 병합 로직 구현
+  - 자신의 이펙트는 로컬 유지, 다른 플레이어 이펙트만 서버에서 수신
+
+---
+
 ## [1.20.5] - 2026-02-03
 
 ### Bug Fixes

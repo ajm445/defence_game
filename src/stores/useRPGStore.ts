@@ -2447,45 +2447,54 @@ export const useRPGStore = create<RPGStore>()(
             let syncX = localHero.x;
             let syncY = localHero.y;
 
-            // 이동 중인지 확인 (이동 중이면 로컬 위치 우선)
+            // 이동/돌진/시전 중인지 확인 (활성 상태면 로컬 위치 우선)
             const isMoving = localHero.moveDirection !== undefined &&
               (localHero.moveDirection.x !== 0 || localHero.moveDirection.y !== 0);
+            const isLocalDashing = localHero.dashState !== undefined && localHero.dashState.progress < 1;
+            const isLocalCasting = localHero.castingUntil !== undefined &&
+              serializedState.gameTime < localHero.castingUntil;
+            // 활성 상태: 이동, 돌진, 시전 중 하나라도 해당되면 위치 보정 최소화
+            const isActiveState = isMoving || isLocalDashing || isLocalCasting;
 
             if (posErrorX > criticalPosError || posErrorY > criticalPosError) {
-              // 큰 오차 (250px 이상): 즉시 서버 위치로 동기화 (이동 중이든 아니든)
-              syncX = hero.x;
-              syncY = hero.y;
-            } else if (!isMoving && (posErrorX > mediumPosError || posErrorY > mediumPosError)) {
-              // 중간 오차 (150-250px) + 이동 중 아님: 빠른 lerp 보정
+              // 큰 오차 (250px 이상): 즉시 서버 위치로 동기화
+              // 단, 돌진 중이면 스킵 (돌진은 별도 처리)
+              if (!isLocalDashing) {
+                syncX = hero.x;
+                syncY = hero.y;
+              }
+            } else if (!isActiveState && (posErrorX > mediumPosError || posErrorY > mediumPosError)) {
+              // 중간 오차 (150-250px) + 비활성 상태: 빠른 lerp 보정
               syncX = localHero.x * 0.7 + hero.x * 0.3;
               syncY = localHero.y * 0.7 + hero.y * 0.3;
-            } else if (!isMoving && (posErrorX > maxPosError || posErrorY > maxPosError)) {
-              // 작은 오차 (80-150px) + 이동 중 아님: 느린 lerp 보정
+            } else if (!isActiveState && (posErrorX > maxPosError || posErrorY > maxPosError)) {
+              // 작은 오차 (80-150px) + 비활성 상태: 느린 lerp 보정
               syncX = localHero.x * 0.9 + hero.x * 0.1;
               syncY = localHero.y * 0.9 + hero.y * 0.1;
             }
-            // 이동 중이면 250px 미만 오차는 무시 (부드러운 움직임 유지)
+            // 활성 상태면 로컬 위치 유지 (부드러운 움직임/애니메이션)
 
-            // 돌진 상태 병합: 서버 dashState 우선, 없으면 로컬 dashState 유지
-            // 클라이언트가 스킬 사용 후 아직 서버에서 처리되기 전인 경우 로컬 돌진 유지
+            // 돌진 상태 병합: 로컬 dashState 우선 (클라이언트 예측 유지)
+            // 클라이언트가 돌진 시작하면 로컬 애니메이션을 끝까지 사용 (제자리 돌아감 방지)
             const localIsDashing = localHero.dashState !== undefined && localHero.dashState.progress < 1;
             const serverIsDashing = hero.dashState !== undefined;
-            const mergedDashState = serverIsDashing ? hero.dashState : (localIsDashing ? localHero.dashState : undefined);
+            // 로컬 돌진 중이면 로컬 유지, 아니면 서버 dashState 사용
+            const mergedDashState = localIsDashing ? localHero.dashState : (serverIsDashing ? hero.dashState : undefined);
             const isDashing = mergedDashState !== undefined;
 
-            // 돌진 중일 때는 서버/로컬 돌진 위치 우선 적용
+            // 돌진 중일 때는 로컬 돌진 위치 우선 적용 (부드러운 애니메이션)
             let dashSyncX = syncX;
             let dashSyncY = syncY;
-            if (serverIsDashing) {
-              // 서버에서 돌진 중이면 서버 위치 사용
-              dashSyncX = hero.x;
-              dashSyncY = hero.y;
-            } else if (localIsDashing && localHero.dashState) {
-              // 로컬에서만 돌진 중이면 로컬 돌진 위치 계산 (서버에서 아직 처리 안됨)
+            if (localIsDashing && localHero.dashState) {
+              // 로컬 돌진 중이면 로컬 돌진 위치 계산 (클라이언트 예측)
               const dash = localHero.dashState;
               const easedProgress = 1 - (1 - dash.progress) * (1 - dash.progress);
               dashSyncX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
               dashSyncY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
+            } else if (serverIsDashing) {
+              // 서버에서만 돌진 중이면 서버 위치 사용
+              dashSyncX = hero.x;
+              dashSyncY = hero.y;
             }
 
             // 클라이언트 피격 감지: HP가 감소했을 때 lastDamageTime 업데이트 (피격 화면 효과용)
@@ -2692,7 +2701,31 @@ export const useRPGStore = create<RPGStore>()(
         })),
         gold: myGold,  // 내 골드 적용
         upgradeLevels: myUpgrades,  // 내 업그레이드 적용
-        activeSkillEffects: serializedState.activeSkillEffects,
+        // activeSkillEffects: 클라이언트의 로컬 이펙트 유지 + 다른 영웅 이펙트 병합
+        // 서버 이펙트 중 내 영웅 것은 제외 (로컬이 더 정확함)
+        activeSkillEffects: (() => {
+          const localEffects = currentState.activeSkillEffects;
+          const serverEffects = serializedState.activeSkillEffects || [];
+
+          // 서버 이펙트 중 내 영웅의 것 제외 (heroId로 판별)
+          const otherHeroEffects = serverEffects.filter(e =>
+            e.heroId !== myHeroId
+          );
+
+          // 로컬 이펙트 + 다른 영웅 이펙트 (중복 방지: heroId + type + startTime으로 판별)
+          const merged = [...localEffects];
+          for (const serverEffect of otherHeroEffects) {
+            const isDuplicate = merged.some(local =>
+              local.heroId === serverEffect.heroId &&
+              local.type === serverEffect.type &&
+              Math.abs(local.startTime - serverEffect.startTime) < 0.1
+            );
+            if (!isDuplicate) {
+              merged.push(serverEffect);
+            }
+          }
+          return merged;
+        })(),
         basicAttackEffects: serializedState.basicAttackEffects || [],
         nexusLaserEffects: serializedState.nexusLaserEffects || [],
         bossSkillExecutedEffects: serializedState.bossSkillExecutedEffects || [],

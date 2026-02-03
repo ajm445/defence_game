@@ -419,6 +419,7 @@ export interface SkillEffect {
   heroClass?: HeroClass;   // 발동한 영웅 직업 (이펙트 스타일 결정용)
   advancedClass?: AdvancedHeroClass; // 전직 직업 (이펙트 색상 차별화용)
   targetId?: string;      // 타겟 적 ID (실시간 위치 추적용, 저격 등)
+  heroId?: string;        // 발동한 영웅 ID (멀티플레이 이펙트 병합용)
 }
 
 // 기본 공격 이펙트 (네트워크 동기화용)

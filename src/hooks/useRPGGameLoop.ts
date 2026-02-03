@@ -319,6 +319,7 @@ export function useRPGGameLoop() {
                   damage: skill.damage,
                   duration: 0.5,
                   startTime: clientCurrentGameTime,
+                  heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
                 };
                 useRPGStore.getState().addSkillEffect(explosionEffect);
                 soundManager.play('attack_melee');
@@ -334,6 +335,7 @@ export function useRPGGameLoop() {
                   damage: skill.damage,
                   duration: 2.0,  // 운석 낙하 이펙트 시간
                   startTime: clientCurrentGameTime,
+                  heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
                 };
                 useRPGStore.getState().addSkillEffect(meteorEffect);
                 soundManager.play('attack_melee');
@@ -349,6 +351,7 @@ export function useRPGGameLoop() {
                   damage: skill.damage,
                   duration: 1.0,
                   startTime: clientCurrentGameTime,
+                  heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
                 };
                 useRPGStore.getState().addSkillEffect(burnEffect);
                 soundManager.play('attack_melee');
@@ -364,6 +367,7 @@ export function useRPGGameLoop() {
                   damage: skill.damage,
                   duration: 1.0,
                   startTime: clientCurrentGameTime,
+                  heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
                 };
                 useRPGStore.getState().addSkillEffect(darkBladeEffect);
                 soundManager.play('attack_melee');
@@ -378,6 +382,7 @@ export function useRPGGameLoop() {
                   radius: skill.radius,
                   duration: 1.0,
                   startTime: clientCurrentGameTime,
+                  heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
                 };
                 useRPGStore.getState().addSkillEffect(springEffect);
                 soundManager.play('hero_revive');
@@ -392,6 +397,7 @@ export function useRPGGameLoop() {
                   damage: skill.damage,
                   duration: 0.5,
                   startTime: clientCurrentGameTime,
+                  heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
                 };
                 useRPGStore.getState().addSkillEffect(snipeEffect);
                 soundManager.play('attack_ranged');
@@ -1287,6 +1293,7 @@ export function useRPGGameLoop() {
                 damage: skill.damage,
                 duration: 0.5,
                 startTime: currentGameTime,
+                heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
               };
               useRPGStore.getState().addSkillEffect(snipeEffect);
               soundManager.play('attack_ranged');
@@ -1365,6 +1372,7 @@ export function useRPGGameLoop() {
               damage: skill.damage,
               duration: 0.5,
               startTime: currentGameTime,
+              heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
             };
             useRPGStore.getState().addSkillEffect(explosionEffect);
             soundManager.play('attack_melee');
@@ -1377,6 +1385,7 @@ export function useRPGGameLoop() {
               damage: skill.damage,
               duration: 2.0,  // 운석 낙하 이펙트 시간 늘림
               startTime: currentGameTime,
+              heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
             };
             useRPGStore.getState().addSkillEffect(meteorEffect);
             soundManager.play('attack_melee');
@@ -1388,6 +1397,7 @@ export function useRPGGameLoop() {
               radius: skill.radius,
               duration: 1.0,
               startTime: currentGameTime,
+              heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
             };
             useRPGStore.getState().addSkillEffect(springEffect);
             soundManager.play('hero_revive');
@@ -1400,6 +1410,7 @@ export function useRPGGameLoop() {
               damage: skill.damage,
               duration: 1.0,
               startTime: currentGameTime,
+              heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
             };
             useRPGStore.getState().addSkillEffect(darkBladeEffect);
             soundManager.play('attack_melee');
@@ -1412,6 +1423,7 @@ export function useRPGGameLoop() {
               damage: skill.damage,
               duration: 1.0,
               startTime: currentGameTime,
+              heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
             };
             useRPGStore.getState().addSkillEffect(burnEffect);
             soundManager.play('attack_melee');
@@ -1485,6 +1497,7 @@ export function useRPGGameLoop() {
           damage: skill.damage,
           duration: 0.5,
           startTime: currentGameTime,
+          heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
         };
         useRPGStore.getState().addSkillEffect(meteorEffect);
       }
@@ -1655,9 +1668,11 @@ export function useRPGGameLoop() {
     (result: ReturnType<typeof executeQSkill>, state: ReturnType<typeof useRPGStore.getState>, killerHeroId?: string) => {
       // 상태 업데이트
       if (result.effect) {
+        // heroId 추가 (멀티플레이 이펙트 병합용)
+        const effectWithHeroId = { ...result.effect, heroId: result.hero.id };
         useRPGStore.setState((s) => ({
           hero: result.hero,
-          activeSkillEffects: [...s.activeSkillEffects, result.effect!],
+          activeSkillEffects: [...s.activeSkillEffects, effectWithHeroId],
         }));
       } else {
         useRPGStore.setState({ hero: result.hero });
@@ -1874,6 +1889,7 @@ export function useRPGGameLoop() {
 
         // 이펙트 추가 (렌더링용)
         const attackRange = state.hero.config.range || 80;
+        const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
         const effect: SkillEffect = {
           type: skillType,
           position: { x: state.hero.x, y: state.hero.y },
@@ -1883,6 +1899,7 @@ export function useRPGGameLoop() {
           startTime: gameTime,
           heroClass,
           advancedClass,
+          heroId: myHeroId,  // 멀티플레이 이펙트 병합용
         };
         useRPGStore.setState((s) => ({
           activeSkillEffects: [...s.activeSkillEffects, effect],
@@ -1904,6 +1921,7 @@ export function useRPGGameLoop() {
         }
 
         // 버프 스킬 이펙트
+        const myHeroIdForE = state.multiplayer.myHeroId || state.hero?.id;
         const effect: SkillEffect = {
           type: skillType,
           position: { x: state.hero.x, y: state.hero.y },
@@ -1913,6 +1931,7 @@ export function useRPGGameLoop() {
           startTime: gameTime,
           heroClass,
           advancedClass,
+          heroId: myHeroIdForE,  // 멀티플레이 이펙트 병합용
         };
 
         // 범위 스킬인 경우 타겟 위치에 이펙트
@@ -2386,6 +2405,7 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           hitTargets,
           heroClass: heroClass,
           advancedClass: hero.advancedClass,  // 전직 색상 적용
+          heroId: heroId,  // 멀티플레이 이펙트 병합용
         });
 
         // Q 스킬 쿨다운 리셋
@@ -2581,6 +2601,7 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             hitTargets,
             heroClass: heroClass,
             advancedClass: hero.advancedClass,  // 전직 색상 적용
+            heroId: heroId,  // 멀티플레이 이펙트 병합용
           });
 
           // Q 스킬 쿨다운 리셋
@@ -2695,6 +2716,7 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             hitTargets: [{ x: nearestBase.x, y: nearestBase.y, damage: baseTotalDamage }],
             heroClass: heroClass,
             advancedClass: hero.advancedClass,  // 전직 색상 적용
+            heroId: heroId,  // 멀티플레이 이펙트 병합용
           });
 
           if (heroClass === 'archer' || heroClass === 'mage') {

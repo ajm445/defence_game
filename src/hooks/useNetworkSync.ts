@@ -655,10 +655,11 @@ function executeOtherHeroSkill(
     facingAngle: Math.atan2(targetY - hero.y, targetX - hero.x),
   });
 
-  // 이펙트 추가
+  // 이펙트 추가 (heroId 포함)
   if (result.effect) {
+    const effectWithHeroId = { ...result.effect, heroId };
     useRPGStore.setState((s) => ({
-      activeSkillEffects: [...s.activeSkillEffects, result.effect!],
+      activeSkillEffects: [...s.activeSkillEffects, effectWithHeroId],
     }));
   }
 
