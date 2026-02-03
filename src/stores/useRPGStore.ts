@@ -2701,30 +2701,27 @@ export const useRPGStore = create<RPGStore>()(
         })),
         gold: myGold,  // 내 골드 적용
         upgradeLevels: myUpgrades,  // 내 업그레이드 적용
-        // activeSkillEffects: 클라이언트의 로컬 이펙트 유지 + 다른 영웅 이펙트 병합
-        // 서버 이펙트 중 내 영웅 것은 제외 (로컬이 더 정확함)
+        // activeSkillEffects: 클라이언트의 로컬 이펙트(내 영웅) + 서버 이펙트(다른 영웅)
+        // 내 영웅 이펙트: 로컬 유지 (클라이언트 예측이 더 정확함)
+        // 다른 영웅 이펙트: 서버 것만 사용 (호스트가 권위, 만료 시 자동 제거)
         activeSkillEffects: (() => {
           const localEffects = currentState.activeSkillEffects;
           const serverEffects = serializedState.activeSkillEffects || [];
 
-          // 서버 이펙트 중 내 영웅의 것 제외 (heroId로 판별)
-          const otherHeroEffects = serverEffects.filter(e =>
-            e.heroId !== myHeroId
-          );
+          // 내 영웅의 로컬 이펙트만 유지 (클라이언트 예측)
+          // myHeroId가 null/undefined인 경우 로컬 이펙트 모두 유지 (게임 시작 전)
+          const myLocalEffects = myHeroId
+            ? localEffects.filter(e => e.heroId === myHeroId)
+            : localEffects;
 
-          // 로컬 이펙트 + 다른 영웅 이펙트 (중복 방지: heroId + type + startTime으로 판별)
-          const merged = [...localEffects];
-          for (const serverEffect of otherHeroEffects) {
-            const isDuplicate = merged.some(local =>
-              local.heroId === serverEffect.heroId &&
-              local.type === serverEffect.type &&
-              Math.abs(local.startTime - serverEffect.startTime) < 0.1
-            );
-            if (!isDuplicate) {
-              merged.push(serverEffect);
-            }
-          }
-          return merged;
+          // 다른 영웅의 이펙트는 서버 것만 사용 (호스트가 권위)
+          // heroId가 undefined인 서버 이펙트도 포함 (pendingSkill 등)
+          const otherEffectsFromServer = myHeroId
+            ? serverEffects.filter(e => e.heroId !== myHeroId)
+            : [];
+
+          // 병합: 내 로컬 이펙트 + 서버의 다른 이펙트
+          return [...myLocalEffects, ...otherEffectsFromServer];
         })(),
         basicAttackEffects: serializedState.basicAttackEffects || [],
         nexusLaserEffects: serializedState.nexusLaserEffects || [],

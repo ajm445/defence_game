@@ -245,7 +245,7 @@ export function useNetworkSync() {
 
         // 방 파기됨
         case 'COOP_ROOM_DESTROYED':
-          handleRoomDestroyed(message.reason);
+          handleRoomDestroyed(message.message || message.reason);
           break;
 
         // 카운트다운
@@ -476,11 +476,14 @@ function handleGameRestart() {
   useUIStore.getState().setScreen('game');
 }
 
-function handleRoomDestroyed(reason: string) {
-  console.log('[NetworkSync] 방 파기됨:', reason);
+function handleRoomDestroyed(message: string) {
+  console.log('[NetworkSync] 방 파기됨:', message);
 
   // 알림 표시
-  useUIStore.getState().showNotification(reason || '방이 파기되었습니다.');
+  useUIStore.getState().showNotification(message || '방이 파기되었습니다.');
+
+  // 로비 채팅 정리
+  useRPGStore.getState().clearLobbyChatMessages();
 
   // 멀티플레이어 상태 초기화
   useRPGStore.getState().resetMultiplayerState();

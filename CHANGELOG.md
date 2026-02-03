@@ -1,5 +1,40 @@
 # Changelog
 
+## [1.20.8] - 2026-02-04
+
+### Bug Fixes
+- **방 자동 파기 시 플레이어 로비 이동 버그 수정**: 10분 타임아웃으로 방이 파기될 때 플레이어가 로비로 돌아가지 않던 버그 해결
+  - 새로운 메시지 타입 `COOP_ROOM_DESTROYED` 추가 (기존 `COOP_ROOM_ERROR`와 분리)
+  - 방 파기 시 플레이어 상태 초기화 및 로비 화면으로 자동 이동
+  - 로비 채팅 기록 정리
+
+### Technical Changes
+- `server/src/room/CoopRoomManager.ts`:
+  - 방 자동 파기 시 `COOP_ROOM_DESTROYED` 메시지 전송 (기존: `COOP_ROOM_ERROR`)
+- `src/hooks/useNetworkSync.ts`:
+  - `handleRoomDestroyed`: 로비 채팅 정리 추가
+  - `COOP_ROOM_DESTROYED` 핸들러: `message` 필드 우선 사용
+- `src/components/screens/RPGCoopLobbyScreen.tsx`:
+  - `COOP_ROOM_DESTROYED` 핸들러 추가 (상태 초기화)
+
+---
+
+## [1.20.7] - 2026-02-04
+
+### Bug Fixes
+- **클라이언트 스킬 이펙트 잔상 버그 수정**: 이펙트가 화면에 계속 남아있는 버그 해결
+  - 병합 로직 수정: 다른 영웅 이펙트는 서버 것만 사용 (이전: 로컬에 누적)
+  - 내 영웅 이펙트만 로컬 유지, 다른 영웅 이펙트는 호스트가 권위
+  - 서버에서 만료된 이펙트가 클라이언트에서 자동 제거됨
+
+### Technical Changes
+- `src/stores/useRPGStore.ts`:
+  - `applySerializedState`: activeSkillEffects 병합 로직 개선
+  - 기존: `[...localEffects, ...newServerEffects]` (누적 문제)
+  - 개선: `[...myLocalEffects, ...otherEffectsFromServer]` (서버 권위)
+
+---
+
 ## [1.20.6] - 2026-02-03
 
 ### Bug Fixes

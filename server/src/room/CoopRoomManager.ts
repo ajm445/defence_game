@@ -945,8 +945,10 @@ function cleanupStaleRooms(): void {
           player.roomId = null;
           player.isInGame = false;
         }
+        // COOP_ROOM_DESTROYED: 플레이어를 로비로 돌려보내는 메시지
         sendToPlayer(playerId, {
-          type: 'COOP_ROOM_ERROR',
+          type: 'COOP_ROOM_DESTROYED',
+          reason: 'timeout',
           message: '방이 10분간 게임을 시작하지 않아 자동으로 파기되었습니다.',
         });
       });

@@ -289,6 +289,15 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           setError(message.message);
           break;
 
+        // 방 파기 (타임아웃 등): 플레이어를 방 목록으로 돌려보냄
+        case 'COOP_ROOM_DESTROYED':
+          setError(message.message);
+          useRPGStore.getState().clearLobbyChatMessages();
+          useRPGStore.getState().resetMultiplayerState();
+          setShowJoinInput(false);
+          setInputRoomCode('');
+          break;
+
         case 'COOP_ROOM_SETTINGS_CHANGED':
           setRoomIsPrivate(message.isPrivate);
           setRoomDifficulty(message.difficulty as RPGDifficulty);
