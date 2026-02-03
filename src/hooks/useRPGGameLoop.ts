@@ -420,6 +420,22 @@ export function useRPGGameLoop() {
         handleClientSkillExecution(skillType, clientCurrentGameTime);
       }
 
+      // 클라이언트: 스킬 이펙트 만료 체크 (로컬 이펙트 정리)
+      const clientActiveEffects = useRPGStore.getState().activeSkillEffects;
+      const clientGameTime = useRPGStore.getState().gameTime;
+      const clientExpiredEffects: number[] = [];
+
+      clientActiveEffects.forEach((effect, index) => {
+        if (clientGameTime - effect.startTime >= effect.duration) {
+          clientExpiredEffects.push(index);
+        }
+      });
+
+      // 만료된 이펙트 제거 (역순으로)
+      for (let i = clientExpiredEffects.length - 1; i >= 0; i--) {
+        useRPGStore.getState().removeSkillEffect(clientExpiredEffects[i]);
+      }
+
       animationIdRef.current = requestAnimationFrame(tick);
       return;
     }

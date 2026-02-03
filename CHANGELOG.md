@@ -1,5 +1,35 @@
 # Changelog
 
+## [1.20.9] - 2026-02-04
+
+### Bug Fixes
+- **클라이언트 스킬 이펙트 만료 버그 수정**: 스킬 이펙트가 화면에 계속 남아있는 버그 해결
+  - 클라이언트 블록의 early return 전에 이펙트 만료 체크 로직 추가
+  - 기존: 클라이언트가 라인 440에서 반환하여 만료 체크에 도달하지 못함
+- **이동기 스킬 원위치 복귀 버그 수정**: 돌진 스킬 사용 후 원래 위치로 텔레포트하는 버그 해결
+  - 로컬 영웅의 dashState는 서버 상태를 적용하지 않도록 수정
+  - 클라이언트 예측 완전 우선 (서버 dashState 무시)
+- **클라이언트 기본공격 이펙트 미표시 버그 수정**: 클라이언트 영웅의 기본공격 이펙트가 보이지 않던 버그 해결
+  - `executeOtherHeroSkill`에서 Q 스킬 실행 시 `basicAttackEffect` 생성 추가
+  - 호스트가 클라이언트 영웅의 기본공격 처리 시 이펙트 동기화
+- **메모리 누수 버그 수정**: 플레이어 연결 해제 시 관련 데이터가 정리되지 않던 버그 해결
+  - `removeOtherHero`: `otherHeroesInterpolation`, `otherPlayersGold`, `otherPlayersUpgrades` 함께 정리
+  - `clearOtherHeroes`: 위와 동일하게 모든 관련 데이터 정리
+  - `resetMultiplayerState`: `otherHeroesInterpolation` 초기화 추가
+
+### Technical Changes
+- `src/hooks/useRPGGameLoop.ts`:
+  - 클라이언트 블록에 이펙트 만료 체크 추가 (라인 423-437, early return 전)
+- `src/hooks/useNetworkSync.ts`:
+  - `executeOtherHeroSkill`: Q 스킬 실행 시 `addBasicAttackEffect` 호출 추가
+- `src/stores/useRPGStore.ts`:
+  - `applySerializedState`: dashState 병합 로직 수정 (서버 dashState 무시)
+  - `removeOtherHero`: 관련 Map 데이터 함께 삭제 (메모리 누수 방지)
+  - `clearOtherHeroes`: 관련 Map 데이터 함께 초기화
+  - `resetMultiplayerState`: `otherHeroesInterpolation` 초기화 추가
+
+---
+
 ## [1.20.8] - 2026-02-04
 
 ### Bug Fixes

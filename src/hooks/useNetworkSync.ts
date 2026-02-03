@@ -666,6 +666,18 @@ function executeOtherHeroSkill(
     }));
   }
 
+  // Q 스킬(기본 공격)인 경우 basicAttackEffect 추가 (클라이언트 영웅 공격 이펙트 동기화)
+  if (skillSlot === 'Q') {
+    const isRanged = hero.heroClass === 'archer' || hero.heroClass === 'mage';
+    useRPGStore.getState().addBasicAttackEffect({
+      id: `other_hero_attack_${Date.now()}_${heroId}`,
+      type: isRanged ? 'ranged' : 'melee',
+      x: targetX,
+      y: targetY,
+      timestamp: Date.now(),
+    });
+  }
+
   // 적 데미지 적용 - heroId를 전달하여 해당 플레이어에게 골드 지급
   for (const damage of result.enemyDamages) {
     const enemy = state.enemies.find((e) => e.id === damage.enemyId);

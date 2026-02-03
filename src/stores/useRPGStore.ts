@@ -2097,6 +2097,7 @@ export const useRPGStore = create<RPGStore>()(
           lobbyChatError: null,
         },
         otherHeroes: new Map(),
+        otherHeroesInterpolation: new Map(),  // 보간 데이터도 초기화 (메모리 누수 방지)
         otherPlayersGold: new Map(),
         otherPlayersUpgrades: new Map(),
         otherPlayersGoldAccumulator: new Map(),
@@ -2204,12 +2205,29 @@ export const useRPGStore = create<RPGStore>()(
       set((state) => {
         const newOtherHeroes = new Map(state.otherHeroes);
         newOtherHeroes.delete(heroId);
-        return { otherHeroes: newOtherHeroes };
+        // 관련 데이터도 함께 정리 (메모리 누수 방지)
+        const newOtherHeroesInterpolation = new Map(state.otherHeroesInterpolation);
+        newOtherHeroesInterpolation.delete(heroId);
+        const newOtherPlayersGold = new Map(state.otherPlayersGold);
+        newOtherPlayersGold.delete(heroId);
+        const newOtherPlayersUpgrades = new Map(state.otherPlayersUpgrades);
+        newOtherPlayersUpgrades.delete(heroId);
+        return {
+          otherHeroes: newOtherHeroes,
+          otherHeroesInterpolation: newOtherHeroesInterpolation,
+          otherPlayersGold: newOtherPlayersGold,
+          otherPlayersUpgrades: newOtherPlayersUpgrades,
+        };
       });
     },
 
     clearOtherHeroes: () => {
-      set({ otherHeroes: new Map() });
+      set({
+        otherHeroes: new Map(),
+        otherHeroesInterpolation: new Map(),
+        otherPlayersGold: new Map(),
+        otherPlayersUpgrades: new Map(),
+      });
     },
 
     // 다른 플레이어 골드 추가
@@ -2474,12 +2492,13 @@ export const useRPGStore = create<RPGStore>()(
             }
             // 활성 상태면 로컬 위치 유지 (부드러운 움직임/애니메이션)
 
-            // 돌진 상태 병합: 로컬 dashState 우선 (클라이언트 예측 유지)
-            // 클라이언트가 돌진 시작하면 로컬 애니메이션을 끝까지 사용 (제자리 돌아감 방지)
+            // 돌진 상태 병합: 로컬 dashState만 사용 (클라이언트 예측 완전 우선)
+            // 클라이언트가 돌진을 시작하면 로컬 애니메이션을 끝까지 사용
+            // 서버 dashState는 무시 (서버와 좌표가 다를 수 있어 제자리 돌아감 발생)
             const localIsDashing = localHero.dashState !== undefined && localHero.dashState.progress < 1;
-            const serverIsDashing = hero.dashState !== undefined;
-            // 로컬 돌진 중이면 로컬 유지, 아니면 서버 dashState 사용
-            const mergedDashState = localIsDashing ? localHero.dashState : (serverIsDashing ? hero.dashState : undefined);
+            // 로컬 돌진 중이면 로컬 유지, 로컬이 돌진 안하면 undefined (서버 dashState 무시)
+            // 서버 dashState를 적용하지 않는 이유: 서버의 startX/startY가 다를 수 있어 텔레포트 발생
+            const mergedDashState = localIsDashing ? localHero.dashState : undefined;
             const isDashing = mergedDashState !== undefined;
 
             // 돌진 중일 때는 로컬 돌진 위치 우선 적용 (부드러운 애니메이션)
@@ -2491,11 +2510,8 @@ export const useRPGStore = create<RPGStore>()(
               const easedProgress = 1 - (1 - dash.progress) * (1 - dash.progress);
               dashSyncX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
               dashSyncY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
-            } else if (serverIsDashing) {
-              // 서버에서만 돌진 중이면 서버 위치 사용
-              dashSyncX = hero.x;
-              dashSyncY = hero.y;
             }
+            // 서버 dashState는 사용하지 않음 (로컬 완료 후 서버 위치로 점프 방지)
 
             // 클라이언트 피격 감지: HP가 감소했을 때 lastDamageTime 업데이트 (피격 화면 효과용)
             // 무적 상태일 때는 피격 이펙트 표시하지 않음 (서버 버프로 체크)
