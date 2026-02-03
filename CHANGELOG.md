@@ -1,5 +1,29 @@
 # Changelog
 
+## [1.20.5] - 2026-02-03
+
+### Bug Fixes
+- **클라이언트 기본공격 색상 이펙트 미적용 수정**: 다른 영웅의 스킬 이펙트에 `advancedClass` 누락
+  - `useRPGGameLoop.ts`의 `addSkillEffect` 호출 3개소에 `advancedClass: hero.advancedClass` 추가
+  - 전직 직업별 고유 색상이 클라이언트에서도 정상 표시
+- **클라이언트 이동 버벅임 수정**: 이동 중 위치 보정으로 인한 끊김 현상 해결
+  - 이동 중일 때 150-250px 오차에서도 lerp 보정 적용하지 않음
+  - 250px 이상 오차만 즉시 스냅 (이동 중이든 아니든)
+
+### Improvements
+- **클라이언트 위치 전송 빈도 증가**: 200ms → 50ms (서버 브로드캐스트와 동일)
+  - 호스트-클라이언트 간 위치 드리프트 감소
+  - 더 정확한 위치 동기화
+
+### Technical Changes
+- `src/hooks/useRPGGameLoop.ts`:
+  - 다른 영웅 스킬 이펙트에 `advancedClass` 추가 (3개소)
+  - `POSITION_SEND_INTERVAL`: 200ms → 50ms
+- `src/stores/useRPGStore.ts`:
+  - 위치 보정 로직 변경: 이동 중 250px 미만 오차 무시
+
+---
+
 ## [1.20.4] - 2026-02-03
 
 ### Bug Fixes

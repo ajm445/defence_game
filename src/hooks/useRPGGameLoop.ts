@@ -44,7 +44,7 @@ export function useRPGGameLoop() {
   const wasClientDeadRef = useRef<boolean>(false);
   // 클라이언트: 마지막 위치 전송 시간 (주기적 위치 동기화용)
   const lastPositionSendTimeRef = useRef<number>(0);
-  const POSITION_SEND_INTERVAL = 200; // 200ms마다 위치 전송
+  const POSITION_SEND_INTERVAL = 50; // 50ms마다 위치 전송 (서버 브로드캐스트와 동일)
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -2385,6 +2385,7 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           startTime: _gameTime,
           hitTargets,
           heroClass: heroClass,
+          advancedClass: hero.advancedClass,  // 전직 색상 적용
         });
 
         // Q 스킬 쿨다운 리셋
@@ -2579,6 +2580,7 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             startTime: _gameTime,
             hitTargets,
             heroClass: heroClass,
+            advancedClass: hero.advancedClass,  // 전직 색상 적용
           });
 
           // Q 스킬 쿨다운 리셋
@@ -2692,6 +2694,7 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             startTime: _gameTime,
             hitTargets: [{ x: nearestBase.x, y: nearestBase.y, damage: baseTotalDamage }],
             heroClass: heroClass,
+            advancedClass: hero.advancedClass,  // 전직 색상 적용
           });
 
           if (heroClass === 'archer' || heroClass === 'mage') {

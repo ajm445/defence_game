@@ -2452,19 +2452,19 @@ export const useRPGStore = create<RPGStore>()(
               (localHero.moveDirection.x !== 0 || localHero.moveDirection.y !== 0);
 
             if (posErrorX > criticalPosError || posErrorY > criticalPosError) {
-              // 큰 오차 (250px 이상): 즉시 서버 위치로 동기화
+              // 큰 오차 (250px 이상): 즉시 서버 위치로 동기화 (이동 중이든 아니든)
               syncX = hero.x;
               syncY = hero.y;
-            } else if (posErrorX > mediumPosError || posErrorY > mediumPosError) {
-              // 중간 오차 (150-250px): lerp 보정 (이동 중이든 아니든)
-              syncX = localHero.x * 0.8 + hero.x * 0.2;
-              syncY = localHero.y * 0.8 + hero.y * 0.2;
+            } else if (!isMoving && (posErrorX > mediumPosError || posErrorY > mediumPosError)) {
+              // 중간 오차 (150-250px) + 이동 중 아님: 빠른 lerp 보정
+              syncX = localHero.x * 0.7 + hero.x * 0.3;
+              syncY = localHero.y * 0.7 + hero.y * 0.3;
             } else if (!isMoving && (posErrorX > maxPosError || posErrorY > maxPosError)) {
               // 작은 오차 (80-150px) + 이동 중 아님: 느린 lerp 보정
               syncX = localHero.x * 0.9 + hero.x * 0.1;
               syncY = localHero.y * 0.9 + hero.y * 0.1;
             }
-            // 이동 중이고 오차가 80px 미만이면 로컬 위치 유지 (부드러운 움직임)
+            // 이동 중이면 250px 미만 오차는 무시 (부드러운 움직임 유지)
 
             // 돌진 상태 병합: 서버 dashState 우선, 없으면 로컬 dashState 유지
             // 클라이언트가 스킬 사용 후 아직 서버에서 처리되기 전인 경우 로컬 돌진 유지
