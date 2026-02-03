@@ -1,5 +1,67 @@
 # Changelog
 
+## [1.20.4] - 2026-02-03
+
+### Bug Fixes
+- **버프 duration 체크 누락 수정**: 만료된 버프(duration ≤ 0)가 여전히 효과를 적용하던 버그 수정
+  - `swiftness` 이동속도 버프: 3개소 (heroUnit.ts, useRPGGameLoop.ts x2)
+  - `berserker` 공격력/공격속도 버프: 4개소 (skillSystem.ts x2, useRPGGameLoop.ts x2, useRPGStore.ts)
+  - `stun` 상태 체크: 1개소 (heroUnit.ts)
+  - 총 8개 위치에서 `&& b.duration > 0` 조건 추가
+- **다른 플레이어 이동 예측 속도 버그 수정**: 보간 완료 후 예측 이동이 60배 느리게 계산되던 버그
+  - `updateOtherHeroesInterpolation`에서 `* 60` 승수 누락 수정
+  - 다른 플레이어가 멈추거나 지연되어 보이는 현상 해결
+- **맵 경계 일관성 수정**: 다른 플레이어 보간에서 경계 마진이 0px이던 것을 30px로 수정
+  - `Math.max(0, ...)` → `Math.max(30, Math.min(MAP_WIDTH - 30, ...))` 로 변경
+- **속도 폴백 일관성 수정**: `heroUnit.ts`에서 speed 폴백 누락 수정
+  - `config.speed || baseSpeed` → `config.speed || baseSpeed || 200`
+- **스턴 상태 이동 제한 수정**: 호스트 영웅이 스턴 중에도 이동할 수 있던 버그
+  - `heroUnit.ts`에 스턴 상태 체크 추가 (`isStunned`)
+- **스킬 사용 중복 검증 추가**: 시전/돌진/스턴 중 스킬 사용 방지
+  - 호스트/클라이언트 양쪽에 방어적 체크 추가
+  - `useNetworkSync.ts`에서 다른 영웅 스킬 실행 전 상태 검증
+
+### Improvements
+- **클라이언트 돌진 애니메이션 로컬 처리**: 서버 응답 대기 중에도 부드러운 돌진 애니메이션
+  - 클라이언트에서 dashState 로컬 업데이트 후 서버 상태와 병합
+- **위치 동기화 개선**: 오차 크기에 따른 단계별 보정
+  - 80px 미만: 이동 중이면 로컬 위치 유지 (부드러운 움직임)
+  - 80-150px: 느린 lerp 보정 (10%)
+  - 150-250px: 빠른 lerp 보정 (20%)
+  - 250px 이상: 즉시 서버 위치로 스냅
+- **부활 시 버프 초기화**: 기존 버프(스턴 포함) 모두 제거 후 무적 버프만 추가
+  - 사망 전 CC 상태가 부활 후에도 유지되던 문제 해결
+- **스킬 타겟 좌표 보정**: 클라이언트-호스트 위치 차이만큼 스킬 타겟 좌표 조정
+  - 이동 중 스킬 사용 시 의도한 위치에 스킬 발동
+- **스킬 쿨다운 병합 개선**: 로컬과 서버 중 더 높은 쿨다운 값 사용
+  - 스킬 사용 직후 쿨다운이 리셋되어 보이는 현상 방지
+- **시전 상태 병합 개선**: 로컬과 서버 중 더 높은 castingUntil 값 사용
+- **무적/돌진 중 CC 면역**: 무적 버프나 돌진 중에는 스턴/넉백 적용 안 함
+- **다른 영웅 이동 시 신속 버프 적용**: 호스트에서 다른 영웅 이동 계산 시 swiftness 버프 적용
+- **클라이언트 주기적 위치 전송**: 200ms마다 호스트에 위치 동기화
+
+### Technical Changes
+- `src/game/rpg/heroUnit.ts`: 스턴 체크 추가, 속도 폴백 수정, swiftness duration 체크
+- `src/game/rpg/skillSystem.ts`: berserker duration 체크 2개소
+- `src/hooks/useRPGGameLoop.ts`:
+  - 클라이언트 돌진 로컬 애니메이션 추가
+  - swiftness/berserker/stun duration 체크 4개소
+  - 스킬 사용 전 상태 검증 추가
+  - 무적/돌진 중 CC 면역 처리
+  - 다른 영웅 이동 시 swiftness 버프 적용
+- `src/hooks/useNetworkSync.ts`:
+  - 위치 보정 로직 개선 (오차별 lerp/snap)
+  - 스킬 타겟 좌표 보정 추가
+  - 다른 영웅 스킬 실행 전 상태 검증
+- `src/stores/useRPGStore.ts`:
+  - 위치 동기화 임계값 조정 (50→80, 150→250)
+  - 돌진 상태 병합 로직 개선
+  - 스킬 쿨다운/시전 상태 병합 개선
+  - 부활 시 버프 초기화
+  - 다른 플레이어 이동 예측 * 60 수정
+
+---
+
 ## [1.20.0] - 2026-02-02
 
 ### Features

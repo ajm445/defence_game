@@ -25,7 +25,7 @@ import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy, shouldSpawnTutor
 import { createBosses, areAllBossesDead, hasBosses, updateBossSkills, applyStunToHero } from '../game/rpg/bossSystem';
 import { processNexusLaser, isNexusAlive } from '../game/rpg/nexusLaserSystem';
 import { rollMultiTarget } from '../game/rpg/passiveSystem';
-import { useNetworkSync, shareHostBuffToAllies } from './useNetworkSync';
+import { useNetworkSync, shareHostBuffToAllies, sendMoveDirection } from './useNetworkSync';
 import { wsClient } from '../services/WebSocketClient';
 import { useRPGTutorialStore } from '../stores/useRPGTutorialStore';
 
@@ -42,6 +42,9 @@ export function useRPGGameLoop() {
   const accumulatedAuraHealRef = useRef<Map<string, number>>(new Map());
   // 클라이언트: 이전 프레임 사망 상태 추적 (사망 알림 중복 방지)
   const wasClientDeadRef = useRef<boolean>(false);
+  // 클라이언트: 마지막 위치 전송 시간 (주기적 위치 동기화용)
+  const lastPositionSendTimeRef = useRef<number>(0);
+  const POSITION_SEND_INTERVAL = 200; // 200ms마다 위치 전송
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -181,11 +184,52 @@ export function useRPGGameLoop() {
       const isClientDashing = clientHero?.dashState && clientHero.dashState.progress < 1;
       const clientGameTimeNow = useRPGStore.getState().gameTime;
       const isClientCasting = clientHero?.castingUntil && clientGameTimeNow < clientHero.castingUntil;
+      const isClientStunned = clientHero?.buffs?.some(b => b.type === 'stun' && b.duration > 0);
 
-      if (clientHero && clientHero.moveDirection && !isClientDashing && !isClientCasting) {
+      // 클라이언트 돌진 애니메이션 로컬 업데이트 (서버 응답 대기 중에도 부드러운 애니메이션)
+      if (isClientDashing && clientHero?.dashState) {
+        const dash = clientHero.dashState;
+        const newProgress = dash.progress + deltaTime / dash.duration;
+
+        if (newProgress >= 1) {
+          // 돌진 완료
+          useRPGStore.getState().updateHeroState({
+            x: dash.targetX,
+            y: dash.targetY,
+            dashState: undefined,
+            state: 'idle',
+          });
+        } else {
+          // 돌진 중 - easeOutQuad 이징 적용
+          const easedProgress = 1 - (1 - newProgress) * (1 - newProgress);
+          const newX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
+          const newY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
+          useRPGStore.getState().updateHeroState({
+            x: newX,
+            y: newY,
+            dashState: { ...dash, progress: newProgress },
+            state: 'moving',
+          });
+        }
+
+        // 돌진 중 카메라 추적
+        const dashUpdatedHero = useRPGStore.getState().hero;
+        if (useRPGStore.getState().camera.followHero && dashUpdatedHero) {
+          useRPGStore.getState().setCamera(dashUpdatedHero.x, dashUpdatedHero.y);
+        }
+      }
+
+      if (clientHero && clientHero.moveDirection && !isClientDashing && !isClientCasting && !isClientStunned) {
         const dir = clientHero.moveDirection;
         if (dir.x !== 0 || dir.y !== 0) {
-          const speed = clientHero.config.speed || clientHero.baseSpeed || 200;
+          let speed = clientHero.config.speed || clientHero.baseSpeed || 200;
+
+          // 이동속도 버프 적용 (swiftness) - duration > 0인 경우만 유효
+          const swiftnessBuff = clientHero.buffs?.find(b => b.type === 'swiftness' && b.duration > 0);
+          if (swiftnessBuff?.moveSpeedBonus) {
+            speed *= (1 + swiftnessBuff.moveSpeedBonus);
+          }
+
           const moveDistance = speed * deltaTime * 60;
 
           // 방향 정규화
@@ -201,6 +245,14 @@ export function useRPGGameLoop() {
           const clampedY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, newY));
 
           useRPGStore.getState().updateHeroPosition(clampedX, clampedY);
+
+          // 주기적으로 위치 전송 (호스트와 동기화)
+          const now = performance.now();
+          if (now - lastPositionSendTimeRef.current >= POSITION_SEND_INTERVAL) {
+            lastPositionSendTimeRef.current = now;
+            // 현재 이동 방향과 함께 위치 전송
+            sendMoveDirection(dir);
+          }
         }
       }
 
@@ -413,11 +465,12 @@ export function useRPGGameLoop() {
     }
 
     // 자동 공격: 적이 사거리 내에 있고 Q 스킬이 준비되면 자동 발동 (호스트가 살아있을 때만)
-    // 단, 돌진 중이거나 시전 중일 때는 공격 불가
+    // 단, 돌진 중이거나 시전 중이거나 스턴 상태일 때는 공격 불가
     const heroForAutoAttack = useRPGStore.getState().hero;
     const autoAttackGameTime = useRPGStore.getState().gameTime;
     const isHeroCasting = heroForAutoAttack?.castingUntil && autoAttackGameTime < heroForAutoAttack.castingUntil;
-    if (!isHostDead && heroForAutoAttack && !heroForAutoAttack.dashState && !isHeroCasting) {
+    const isHeroStunned = heroForAutoAttack?.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+    if (!isHostDead && heroForAutoAttack && !heroForAutoAttack.dashState && !isHeroCasting && !isHeroStunned) {
       const heroClass = heroForAutoAttack.heroClass;
       const qSkillType = CLASS_SKILLS[heroClass].q.type;
       const qSkill = heroForAutoAttack.skills.find(s => s.type === qSkillType);
@@ -483,8 +536,8 @@ export function useRPGGameLoop() {
 
               // 마법사 보스 데미지 보너스는 기지에 적용되지 않음 (보스에게만 적용)
 
-              // 광전사 버프 공격력 보너스 적용
-              const hostBerserkerBuff = heroForAutoAttack.buffs?.find(b => b.type === 'berserker');
+              // 광전사 버프 공격력 보너스 적용 - duration > 0인 경우만 유효
+              const hostBerserkerBuff = heroForAutoAttack.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
               if (hostBerserkerBuff?.attackBonus) {
                 totalAttack = Math.floor(totalAttack * (1 + hostBerserkerBuff.attackBonus));
               }
@@ -1084,6 +1137,13 @@ export function useRPGGameLoop() {
           if (!targetHero) return;
           if (targetHero.hp <= 0) return;  // 사망한 영웅에게 스턴 적용 안 함
 
+          // 무적 상태 영웅에게 스턴 적용 안 함 (부활 무적, 돌진 무적 등)
+          const isInvincible = targetHero.buffs?.some(b => b.type === 'invincible' && b.duration > 0);
+          if (isInvincible) return;
+
+          // 돌진 중인 영웅에게 스턴 적용 안 함 (unstoppable 상태)
+          if (targetHero.dashState) return;
+
           if (heroId === stunHero?.id) {
             const stunnedHero = applyStunToHero(targetHero, stunDuration, state.gameTime);
             useRPGStore.getState().updateHeroState(stunnedHero);
@@ -1113,6 +1173,13 @@ export function useRPGGameLoop() {
 
           // 사망한 영웅에게 넉백 적용 안 함
           if (!targetHero || targetHero.hp <= 0) return;
+
+          // 무적 상태 영웅에게 넉백 적용 안 함 (부활 무적, 돌진 무적 등)
+          const isInvincible = targetHero.buffs?.some(b => b.type === 'invincible' && b.duration > 0);
+          if (isInvincible) return;
+
+          // 돌진 중인 영웅에게 넉백 적용 안 함 (unstoppable 상태)
+          if (targetHero.dashState) return;
 
           if (heroId === kbHero?.id) {
             useRPGStore.getState().updateHeroState({ x: newPos.x, y: newPos.y });
@@ -1740,6 +1807,16 @@ export function useRPGGameLoop() {
       if (!state.hero) return;
       if (state.hero.hp <= 0) return;
 
+      // 방어적 체크: 시전 중이면 스킬 실행 불가 (타이밍 문제 방지)
+      if (state.hero.castingUntil && gameTime < state.hero.castingUntil) return;
+
+      // 방어적 체크: 돌진 중이면 스킬 실행 불가
+      if (state.hero.dashState) return;
+
+      // 방어적 체크: 스턴 상태면 스킬 실행 불가
+      const isStunned = state.hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+      if (isStunned) return;
+
       const heroClass = state.hero.heroClass;
       const targetX = state.mousePosition.x;
       const targetY = state.mousePosition.y;
@@ -1817,6 +1894,15 @@ export function useRPGGameLoop() {
       if (skillType === classSkills.e.type || skillType === heroESkillType) {
         const advancedClass = state.hero.advancedClass;
 
+        // 스나이퍼 E 스킬: 시전 상태 설정 (3초간 이동/공격 불가)
+        // 호스트와 동일하게 castingUntil 설정하여 위치 동기화 유지
+        if (advancedClass === 'sniper' && skillType === 'snipe') {
+          const chargeTime = 3.0;  // 저격 시전 시간
+          useRPGStore.getState().updateHeroState({
+            castingUntil: gameTime + chargeTime,
+          });
+        }
+
         // 버프 스킬 이펙트
         const effect: SkillEffect = {
           type: skillType,
@@ -1861,6 +1947,16 @@ export function useRPGGameLoop() {
       const state = useRPGStore.getState();
       if (!state.hero) return;
       if (state.hero.hp <= 0) return;  // 사망한 영웅은 스킬 사용 불가
+
+      // 방어적 체크: 시전 중이면 스킬 실행 불가 (타이밍 문제 방지)
+      if (state.hero.castingUntil && gameTime < state.hero.castingUntil) return;
+
+      // 방어적 체크: 돌진 중이면 스킬 실행 불가
+      if (state.hero.dashState) return;
+
+      // 방어적 체크: 스턴 상태면 스킬 실행 불가
+      const isStunned = state.hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+      if (isStunned) return;
 
       const heroClass = state.hero.heroClass;
       // 마우스 위치를 스킬 타겟으로 사용 (바라보는 방향으로 공격)
@@ -1938,6 +2034,22 @@ export function useRPGGameLoop() {
     const state = useRPGStore.getState();
     if (!state.hero) return false;
     if (state.hero.hp <= 0) return false;  // 사망한 영웅은 스킬 사용 불가
+
+    // 시전 중이면 스킬 사용 불가 (스나이퍼 E 스킬 등)
+    if (state.hero.castingUntil && state.gameTime < state.hero.castingUntil) {
+      return false;
+    }
+
+    // 돌진 중이면 스킬 사용 불가
+    if (state.hero.dashState) {
+      return false;
+    }
+
+    // 스턴 상태면 스킬 사용 불가
+    const isStunned = state.hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+    if (isStunned) {
+      return false;
+    }
 
     const skill = state.hero.skills.find((s) => s.type === skillType);
     if (!skill || skill.currentCooldown > 0) {
@@ -2032,7 +2144,7 @@ function updateOtherHeroesRevive(gameTime: number) {
           startTime: gameTime,
         };
 
-        // 영웅 부활 처리
+        // 영웅 부활 처리 (모든 버프 초기화 - 스턴 등 CC 버프 포함)
         state.updateOtherHero(heroId, {
           hp: hero.maxHp * RPG_CONFIG.REVIVE.REVIVE_HP_PERCENT,
           x: nexusX + offsetX,
@@ -2040,7 +2152,7 @@ function updateOtherHeroesRevive(gameTime: number) {
           deathTime: undefined,
           moveDirection: undefined,
           state: 'idle',
-          buffs: [...(hero.buffs || []), invincibleBuff],
+          buffs: [invincibleBuff],  // 기존 버프 제거, 무적만 추가
           castingUntil: undefined,
           dashState: undefined,
         });
@@ -2053,12 +2165,19 @@ function updateOtherHeroesRevive(gameTime: number) {
 
 function updateOtherHeroesMovement(deltaTime: number) {
   const state = useRPGStore.getState();
+  const gameTime = state.gameTime;
 
   state.otherHeroes.forEach((hero, heroId) => {
     // 사망 상태면 이동 스킵
     if (hero.hp <= 0) return;
 
-    // 돌진 중인 경우 - 일반 이동보다 우선
+    // 시전 상태 체크 - 시전 중에는 이동 불가 (클라이언트와 동일한 로직)
+    const isCasting = hero.castingUntil && gameTime < hero.castingUntil;
+
+    // 스턴 상태 체크 - 스턴 중에는 이동 불가
+    const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+
+    // 돌진 중인 경우 - 일반 이동보다 우선 (시전 상태와 무관하게 돌진은 진행)
     if (hero.dashState) {
       const dash = hero.dashState;
       const newProgress = dash.progress + deltaTime / dash.duration;
@@ -2086,10 +2205,19 @@ function updateOtherHeroesMovement(deltaTime: number) {
       return; // 돌진 중이면 일반 이동 처리 안함
     }
 
+    // 시전 중이거나 스턴 상태면 이동 불가
+    if (isCasting || isStunned) return;
+
     if (!hero.moveDirection) return;
 
     const { x: dirX, y: dirY } = hero.moveDirection;
-    const speed = hero.config.speed || hero.baseSpeed || 200;
+    let speed = hero.config.speed || hero.baseSpeed || 200;
+
+    // 이동속도 버프 적용 (swiftness) - duration > 0인 경우만 유효
+    const swiftnessBuff = hero.buffs?.find(b => b.type === 'swiftness' && b.duration > 0);
+    if (swiftnessBuff?.moveSpeedBonus) {
+      speed *= (1 + swiftnessBuff.moveSpeedBonus);
+    }
 
     // 방향 정규화
     const length = Math.sqrt(dirX * dirX + dirY * dirY);
@@ -2128,9 +2256,15 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
     if (hero.hp <= 0) return;
     // 돌진 중이면 스킵
     if (hero.dashState) return;
+    // 시전 중이면 스킵 (스나이퍼 E 스킬 등)
+    const isCasting = hero.castingUntil && _gameTime < hero.castingUntil;
+    if (isCasting) return;
+    // 스턴 상태면 스킵
+    const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+    if (isStunned) return;
 
-    // 광전사 버프 확인 (공격속도 증가)
-    const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker');
+    // 광전사 버프 확인 (공격속도 증가) - duration > 0인 경우만 유효
+    const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
     const attackSpeedMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
 
     // 스킬 쿨다운 업데이트 (광전사 버프 공격속도 적용)

@@ -44,8 +44,8 @@ export function startSkillCooldown(hero: HeroUnit, skillType: SkillType): HeroUn
  * - SP 공격속도 업그레이드 적용 (Q스킬에만)
  */
 export function updateSkillCooldowns(hero: HeroUnit, deltaTime: number): HeroUnit {
-  // 광전사 버프 확인 (공격속도 증가)
-  const berserkerBuff = hero.buffs.find(b => b.type === 'berserker');
+  // 광전사 버프 확인 (공격속도 증가) - duration > 0인 경우만 유효
+  const berserkerBuff = hero.buffs.find(b => b.type === 'berserker' && b.duration > 0);
   const buffMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
 
   // SP 공격속도 업그레이드 보너스 (초 단위)
@@ -151,9 +151,9 @@ export function executeQSkill(
     bossDamageMultiplier = 1 + baseBossDamageBonus + growthBossDamageBonus;
   }
 
-  // 버프 적용된 공격력 계산
+  // 버프 적용된 공격력 계산 - duration > 0인 경우만 유효
   let finalDamage = damage;
-  const berserkerBuff = hero.buffs.find(b => b.type === 'berserker');
+  const berserkerBuff = hero.buffs.find(b => b.type === 'berserker' && b.duration > 0);
   if (berserkerBuff) {
     finalDamage = Math.floor(finalDamage * (1 + (berserkerBuff.attackBonus || 0)));
   }

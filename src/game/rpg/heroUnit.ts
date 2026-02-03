@@ -24,6 +24,9 @@ export function updateHeroUnit(
   // 시전 상태 체크 (gameTime이 제공된 경우)
   const isCasting = gameTime !== undefined && updatedHero.castingUntil && gameTime < updatedHero.castingUntil;
 
+  // 스턴 상태 체크 (버프에서 확인)
+  const isStunned = updatedHero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+
   // 사망 상태면 이동/공격 불가 - 위치 고정
   if (updatedHero.hp <= 0) {
     return {
@@ -45,10 +48,10 @@ export function updateHeroUnit(
   }
 
   const config = updatedHero.config;
-  let speed = config.speed || updatedHero.baseSpeed;
+  let speed = config.speed || updatedHero.baseSpeed || 200;
 
-  // 이동속도 버프 적용 (swiftness)
-  const swiftnessBuff = updatedHero.buffs?.find(b => b.type === 'swiftness' && b.moveSpeedBonus);
+  // 이동속도 버프 적용 (swiftness) - duration > 0인 경우만 유효
+  const swiftnessBuff = updatedHero.buffs?.find(b => b.type === 'swiftness' && b.duration > 0 && b.moveSpeedBonus);
   if (swiftnessBuff?.moveSpeedBonus) {
     speed *= (1 + swiftnessBuff.moveSpeedBonus);
   }
@@ -79,8 +82,8 @@ export function updateHeroUnit(
       updatedHero.state = 'moving';
     }
   }
-  // WASD 방향 이동 (새로운 방식) - 시전 중에는 이동 불가
-  else if (!isCasting && updatedHero.moveDirection && (updatedHero.moveDirection.x !== 0 || updatedHero.moveDirection.y !== 0)) {
+  // WASD 방향 이동 (새로운 방식) - 시전 중이거나 스턴 상태에는 이동 불가
+  else if (!isCasting && !isStunned && updatedHero.moveDirection && (updatedHero.moveDirection.x !== 0 || updatedHero.moveDirection.y !== 0)) {
     const dir = updatedHero.moveDirection;
     const moveDistance = speed * deltaTime * 60;
 

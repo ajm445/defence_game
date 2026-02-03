@@ -914,6 +914,8 @@ export const useRPGStore = create<RPGStore>()(
           startTime: state.gameTime,
         };
 
+        // 부활 시 모든 버프 초기화 (스턴 등 CC 버프 포함 - 새로 시작)
+        // 무적 버프만 추가
         return {
           hero: {
             ...state.hero,
@@ -923,7 +925,7 @@ export const useRPGStore = create<RPGStore>()(
             deathTime: undefined,
             moveDirection: undefined,
             state: 'idle',
-            buffs: [...(state.hero.buffs || []), invincibleBuff],
+            buffs: [invincibleBuff],  // 기존 버프 제거, 무적만 추가
             castingUntil: undefined,  // 시전 상태 초기화
             dashState: undefined,     // 돌진 상태 초기화
           },
@@ -1254,8 +1256,8 @@ export const useRPGStore = create<RPGStore>()(
       set((state) => {
         if (!state.hero) return state;
 
-        // 광전사 버프 확인 (공격속도 증가)
-        const berserkerBuff = state.hero.buffs?.find(b => b.type === 'berserker');
+        // 광전사 버프 확인 (공격속도 증가) - duration > 0인 경우만 유효
+        const berserkerBuff = state.hero.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
         const buffMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
 
         // SP 공격속도 업그레이드 보너스 (초 단위)
@@ -2438,8 +2440,9 @@ export const useRPGStore = create<RPGStore>()(
             // 위치 오차 계산 및 보정
             const posErrorX = Math.abs(hero.x - localHero.x);
             const posErrorY = Math.abs(hero.y - localHero.y);
-            const maxPosError = 50;
-            const criticalPosError = 150;  // 큰 오차는 즉시 보정
+            const maxPosError = 80;           // 작은 오차 허용 (80px)
+            const mediumPosError = 150;       // 중간 오차: lerp 보정
+            const criticalPosError = 250;     // 큰 오차: 즉시 보정
 
             let syncX = localHero.x;
             let syncY = localHero.y;
@@ -2449,20 +2452,41 @@ export const useRPGStore = create<RPGStore>()(
               (localHero.moveDirection.x !== 0 || localHero.moveDirection.y !== 0);
 
             if (posErrorX > criticalPosError || posErrorY > criticalPosError) {
-              // 큰 오차 (150px 이상): 즉시 서버 위치로 동기화
+              // 큰 오차 (250px 이상): 즉시 서버 위치로 동기화
               syncX = hero.x;
               syncY = hero.y;
+            } else if (posErrorX > mediumPosError || posErrorY > mediumPosError) {
+              // 중간 오차 (150-250px): lerp 보정 (이동 중이든 아니든)
+              syncX = localHero.x * 0.8 + hero.x * 0.2;
+              syncY = localHero.y * 0.8 + hero.y * 0.2;
             } else if (!isMoving && (posErrorX > maxPosError || posErrorY > maxPosError)) {
-              // 중간 오차 (50-150px) + 이동 중 아님: 빠른 lerp 보정
-              syncX = localHero.x * 0.7 + hero.x * 0.3;
-              syncY = localHero.y * 0.7 + hero.y * 0.3;
+              // 작은 오차 (80-150px) + 이동 중 아님: 느린 lerp 보정
+              syncX = localHero.x * 0.9 + hero.x * 0.1;
+              syncY = localHero.y * 0.9 + hero.y * 0.1;
             }
-            // 이동 중이고 오차가 50px 미만이면 로컬 위치 유지 (부드러운 움직임)
+            // 이동 중이고 오차가 80px 미만이면 로컬 위치 유지 (부드러운 움직임)
 
-            // 돌진 중일 때는 서버 위치/상태를 우선 적용 (돌진은 호스트에서 처리)
-            const isDashing = hero.dashState !== undefined;
-            const dashSyncX = isDashing ? hero.x : syncX;
-            const dashSyncY = isDashing ? hero.y : syncY;
+            // 돌진 상태 병합: 서버 dashState 우선, 없으면 로컬 dashState 유지
+            // 클라이언트가 스킬 사용 후 아직 서버에서 처리되기 전인 경우 로컬 돌진 유지
+            const localIsDashing = localHero.dashState !== undefined && localHero.dashState.progress < 1;
+            const serverIsDashing = hero.dashState !== undefined;
+            const mergedDashState = serverIsDashing ? hero.dashState : (localIsDashing ? localHero.dashState : undefined);
+            const isDashing = mergedDashState !== undefined;
+
+            // 돌진 중일 때는 서버/로컬 돌진 위치 우선 적용
+            let dashSyncX = syncX;
+            let dashSyncY = syncY;
+            if (serverIsDashing) {
+              // 서버에서 돌진 중이면 서버 위치 사용
+              dashSyncX = hero.x;
+              dashSyncY = hero.y;
+            } else if (localIsDashing && localHero.dashState) {
+              // 로컬에서만 돌진 중이면 로컬 돌진 위치 계산 (서버에서 아직 처리 안됨)
+              const dash = localHero.dashState;
+              const easedProgress = 1 - (1 - dash.progress) * (1 - dash.progress);
+              dashSyncX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
+              dashSyncY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
+            }
 
             // 클라이언트 피격 감지: HP가 감소했을 때 lastDamageTime 업데이트 (피격 화면 효과용)
             // 무적 상태일 때는 피격 이펙트 표시하지 않음 (서버 버프로 체크)
@@ -2482,16 +2506,29 @@ export const useRPGStore = create<RPGStore>()(
               newCamera = { ...currentState.camera, x: hero.x, y: hero.y };
             }
 
+            // 스킬 쿨다운 병합: 로컬과 서버 중 더 높은 쿨다운 사용
+            // 이렇게 하면 스킬 방금 사용된 경우(높은 쿨다운)를 올바르게 반영
+            const mergedSkills = hero.skills.map((serverSkill, index) => {
+              const localSkill = localHero.skills[index];
+              if (!localSkill) return serverSkill;
+
+              // 더 높은 쿨다운 값 사용 (스킬 방금 사용 시 리셋된 쿨다운 반영)
+              const mergedCooldown = Math.max(serverSkill.currentCooldown, localSkill.currentCooldown);
+              return { ...serverSkill, currentCooldown: mergedCooldown };
+            });
+
             myHero = {
               ...localHero,
               // 서버에서만 동기화해야 하는 상태 (데미지, 힐, 스킬 쿨다운, 사망 시간, 업그레이드된 스탯)
               hp: hero.hp,
               maxHp: hero.maxHp,
-              skills: hero.skills,
+              skills: mergedSkills,
               buffs: hero.buffs,
               deathTime: hero.deathTime,  // 사망 시간 동기화 (부활 타이머용)
-              dashState: hero.dashState,  // 돌진 상태 동기화 (스킬 이동용)
-              castingUntil: hero.castingUntil,  // 시전 상태 동기화 (스턴 시 시전 취소)
+              dashState: mergedDashState,  // 돌진 상태 동기화 (서버 우선, 없으면 로컬 유지)
+              // 시전 상태 병합: 더 높은 값(더 나중까지 시전) 사용
+              // 서버에서 스턴으로 취소된 경우 서버 값 적용, 로컬에서만 시전 중이면 로컬 값 유지
+              castingUntil: Math.max(hero.castingUntil || 0, localHero.castingUntil || 0) || undefined,
               // 전직 정보 동기화 (부활 시 전직 상태 유지)
               advancedClass: hero.advancedClass,
               tier: hero.tier,
@@ -2701,15 +2738,16 @@ export const useRPGStore = create<RPGStore>()(
           if (t >= 1 && isMoving) {
             // 보간 완료 후 이동 중이면 예측 이동
             const extraTime = (timeSinceUpdate - interpolationDuration) / 1000;
-            const predictedMoveX = interp.moveDirectionX * interp.moveSpeed * extraTime;
-            const predictedMoveY = interp.moveDirectionY * interp.moveSpeed * extraTime;
+            // speed는 60fps 기준이므로 * 60 필요 (다른 이동 계산과 일치)
+            const predictedMoveX = interp.moveDirectionX * interp.moveSpeed * extraTime * 60;
+            const predictedMoveY = interp.moveDirectionY * interp.moveSpeed * extraTime * 60;
 
             x = interp.targetX + predictedMoveX;
             y = interp.targetY + predictedMoveY;
 
-            // 맵 경계 제한
-            x = Math.max(0, Math.min(RPG_CONFIG.MAP_WIDTH, x));
-            y = Math.max(0, Math.min(RPG_CONFIG.MAP_HEIGHT, y));
+            // 맵 경계 제한 (30px 마진 - 다른 경계 처리와 일치)
+            x = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, x));
+            y = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, y));
           } else {
             // 보간 중: 이징 함수 적용
             x = interp.prevX + (interp.targetX - interp.prevX) * easedT;

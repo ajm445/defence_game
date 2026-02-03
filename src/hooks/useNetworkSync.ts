@@ -72,33 +72,91 @@ export function useNetworkSync() {
       return;
     }
 
-    // 이동 방향 및 위치 업데이트 (사망한 영웅은 이동 불가)
+    // 이동 방향 업데이트 (사망한 영웅은 이동 불가)
+    // 위치는 updateOtherHeroesMovement에서 moveDirection으로 계산 (호스트 권위)
+    // 단, 클라이언트 위치와 호스트 계산 위치의 오차가 크면 보정
     if (input.moveDirection !== undefined && hero.hp > 0) {
+      // 돌진/시전/스턴 중이면 moveDirection만 업데이트 (state는 유지)
+      const isDashing = hero.dashState !== undefined;
+      const isCasting = hero.castingUntil && state.gameTime < hero.castingUntil;
+      const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+
       const updateData: Record<string, any> = {
         moveDirection: input.moveDirection || undefined,
-        state: input.moveDirection ? 'moving' : 'idle',
       };
 
-      // 클라이언트가 보낸 실제 위치가 있으면 업데이트 (보스 스킬 데미지 정확도 향상)
+      // 돌진/시전/스턴 중이 아닐 때만 state 업데이트
+      if (!isDashing && !isCasting && !isStunned) {
+        updateData.state = input.moveDirection ? 'moving' : 'idle';
+      }
+
+      // 클라이언트가 보낸 위치로 위치 보정 (오차에 따라 lerp 또는 즉시)
       if (input.position) {
-        updateData.x = input.position.x;
-        updateData.y = input.position.y;
+        const posErrorX = Math.abs(hero.x - input.position.x);
+        const posErrorY = Math.abs(hero.y - input.position.y);
+        const MEDIUM_ERROR = 80;     // 80px 이상: lerp 보정
+        const CRITICAL_ERROR = 200;  // 200px 이상: 즉시 보정
+
+        if (posErrorX > CRITICAL_ERROR || posErrorY > CRITICAL_ERROR) {
+          // 큰 오차: 클라이언트 위치로 즉시 동기화
+          updateData.x = input.position.x;
+          updateData.y = input.position.y;
+        } else if (posErrorX > MEDIUM_ERROR || posErrorY > MEDIUM_ERROR) {
+          // 중간 오차: lerp로 부드럽게 보정 (순간이동 방지)
+          updateData.x = hero.x * 0.7 + input.position.x * 0.3;
+          updateData.y = hero.y * 0.7 + input.position.y * 0.3;
+        }
       }
 
       state.updateOtherHero(heroId, updateData);
     }
 
+    // 위치만 업데이트 (스킬/업그레이드 시 이동 방향 없이 위치 동기화)
+    // 오차에 따라 lerp 또는 즉시 보정
+    if (input.moveDirection === undefined && input.position && hero.hp > 0) {
+      const posErrorX = Math.abs(hero.x - input.position.x);
+      const posErrorY = Math.abs(hero.y - input.position.y);
+      const MEDIUM_ERROR = 80;
+      const CRITICAL_ERROR = 200;
+
+      if (posErrorX > CRITICAL_ERROR || posErrorY > CRITICAL_ERROR) {
+        // 큰 오차: 즉시 보정
+        state.updateOtherHero(heroId, {
+          x: input.position.x,
+          y: input.position.y,
+        });
+      } else if (posErrorX > MEDIUM_ERROR || posErrorY > MEDIUM_ERROR) {
+        // 중간 오차: lerp로 보정
+        state.updateOtherHero(heroId, {
+          x: hero.x * 0.7 + input.position.x * 0.3,
+          y: hero.y * 0.7 + input.position.y * 0.3,
+        });
+      }
+    }
+
     // 스킬 사용
     if (input.skillUsed) {
       // 스킬 사용 시 위치 업데이트 제거 (이동 중 위치 되돌아감 버그 방지)
-      // 보스 스킬 데미지 계산에는 input.position 사용 (hero 위치와 별개)
+      // 대신 클라이언트 위치를 전달하여 타겟 좌표 보정에 사용
+
+      // 클라이언트가 보낸 위치와 호스트가 관리하는 위치의 차이 계산
+      // 타겟 좌표를 이 차이만큼 보정하여 클라이언트 의도대로 스킬 발동
+      let adjustedTargetX = input.skillUsed.targetX;
+      let adjustedTargetY = input.skillUsed.targetY;
+
+      if (input.position) {
+        const offsetX = hero.x - input.position.x;
+        const offsetY = hero.y - input.position.y;
+        adjustedTargetX += offsetX;
+        adjustedTargetY += offsetY;
+      }
 
       executeOtherHeroSkill(
         heroId,
         hero,
         input.skillUsed.skillSlot,
-        input.skillUsed.targetX,
-        input.skillUsed.targetY
+        adjustedTargetX,
+        adjustedTargetY
       );
     }
 
@@ -491,6 +549,25 @@ function executeOtherHeroSkill(
   // 사망한 영웅은 스킬 사용 불가
   if (hero.hp <= 0) {
     console.log(`[NetworkSync] 사망한 영웅은 스킬 사용 불가: ${heroId}`);
+    return;
+  }
+
+  // 시전 중이면 스킬 사용 불가 (스나이퍼 E 스킬 등)
+  if (hero.castingUntil && state.gameTime < hero.castingUntil) {
+    console.log(`[NetworkSync] 시전 중인 영웅은 스킬 사용 불가: ${heroId}`);
+    return;
+  }
+
+  // 돌진 중이면 스킬 사용 불가
+  if (hero.dashState) {
+    console.log(`[NetworkSync] 돌진 중인 영웅은 스킬 사용 불가: ${heroId}`);
+    return;
+  }
+
+  // 스턴 상태면 스킬 사용 불가
+  const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+  if (isStunned) {
+    console.log(`[NetworkSync] 스턴된 영웅은 스킬 사용 불가: ${heroId}`);
     return;
   }
 
