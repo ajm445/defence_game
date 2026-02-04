@@ -17,6 +17,7 @@ const CHAT_CONFIG = {
 // 방 자동 파기 설정
 const ROOM_AUTO_DESTROY_CONFIG = {
   TIMEOUT_MS: 10 * 60 * 1000,  // 10분
+  WARNING_MS: 9 * 60 * 1000,   // 9분 (파기 1분 전 경고)
   CHECK_INTERVAL_MS: 60 * 1000,  // 1분마다 체크
 };
 
@@ -33,6 +34,8 @@ interface WaitingCoopRoom {
   // 로비 채팅
   chatHistory: LobbyChatMessage[];
   lastMessageTime: Map<string, number>;  // playerId -> 마지막 메시지 시간
+  // 타임아웃 경고 전송 여부
+  timeoutWarningNotified?: boolean;
 }
 
 // 대기 중인 협동 방 저장소
@@ -921,6 +924,7 @@ export function sendLobbyChatMessage(playerId: string, content: string): void {
 function cleanupStaleRooms(): void {
   const now = Date.now();
   const staleRooms: string[] = [];
+  const warningRooms: string[] = [];
 
   waitingCoopRooms.forEach((room, roomId) => {
     // 게임이 시작되지 않은 방만 체크 (waiting 또는 countdown 상태)
@@ -928,7 +932,28 @@ function cleanupStaleRooms(): void {
       const roomAge = now - room.createdAt;
       if (roomAge > ROOM_AUTO_DESTROY_CONFIG.TIMEOUT_MS) {
         staleRooms.push(roomId);
+      } else if (roomAge > ROOM_AUTO_DESTROY_CONFIG.WARNING_MS && !room.timeoutWarningNotified) {
+        // 9분 경과, 아직 경고 안 보낸 방
+        warningRooms.push(roomId);
       }
+    }
+  });
+
+  // 1분 전 경고 전송
+  warningRooms.forEach((roomId) => {
+    const room = waitingCoopRooms.get(roomId);
+    if (room) {
+      console.log(`[Coop] 방 타임아웃 경고 (1분 남음): ${room.code}`);
+      room.timeoutWarningNotified = true;
+
+      // 방에 있는 모든 플레이어에게 경고
+      room.players.forEach((playerInfo, playerId) => {
+        sendToPlayer(playerId, {
+          type: 'COOP_ROOM_TIMEOUT_WARNING',
+          message: '1분 후 게임을 시작하지 않으면 방이 자동으로 파기됩니다.',
+          remainingSeconds: 60,
+        });
+      });
     }
   });
 

@@ -302,6 +302,7 @@ export type CoopServerMessage =
   | { type: 'COOP_ROOM_SETTINGS_CHANGED'; isPrivate: boolean; difficulty: string }  // 방 설정 변경 알림
   | { type: 'COOP_ROOM_ERROR'; message: string }
   | { type: 'COOP_ROOM_DESTROYED'; reason: string; message: string }  // 방 파기 (타임아웃 등)
+  | { type: 'COOP_ROOM_TIMEOUT_WARNING'; message: string; remainingSeconds: number }  // 방 파기 1분 전 경고
   // 게임 시작 (레거시)
   | { type: 'COOP_GAME_COUNTDOWN'; seconds: number }
   | { type: 'COOP_GAME_START'; state: RPGCoopGameState; yourHeroId: string }

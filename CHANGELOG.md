@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.20.19] - 2026-02-04
+
+### Features
+- **RPG 방 타임아웃 경고**: 방 생성 후 9분 경과 시 1분 전 경고 메시지 표시
+  - 노란색 배너로 "1분 후 게임을 시작하지 않으면 방이 자동으로 파기됩니다" 안내
+  - 게임 시작 또는 방 파기 시 경고 자동 해제
+
+### Technical Changes
+- `server/src/room/CoopRoomManager.ts`:
+  - `WARNING_MS` 설정 추가 (9분)
+  - `timeoutWarningNotified` 플래그로 중복 경고 방지
+  - `COOP_ROOM_TIMEOUT_WARNING` 메시지 전송 로직 추가
+- `shared/types/rpgNetwork.ts`:
+  - `COOP_ROOM_TIMEOUT_WARNING` 메시지 타입 추가
+- `src/components/screens/RPGCoopLobbyScreen.tsx`:
+  - 타임아웃 경고 상태 및 UI 추가 (pulse 애니메이션)
+
+---
+
 ## [1.20.18] - 2026-02-04
 
 ### Features

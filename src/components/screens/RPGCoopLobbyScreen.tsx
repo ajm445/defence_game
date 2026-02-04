@@ -73,6 +73,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   // 현재 방 설정 (로비에서 표시/변경용)
   const [roomIsPrivate, setRoomIsPrivate] = useState(false);
   const [roomDifficulty, setRoomDifficulty] = useState<RPGDifficulty>('easy');
+  // 방 타임아웃 경고
+  const [timeoutWarning, setTimeoutWarning] = useState<string | null>(null);
 
   // 친구 시스템 메시지 핸들러
   useFriendMessages();
@@ -300,9 +302,15 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           setError(message.message);
           break;
 
+        // 방 타임아웃 경고 (1분 전)
+        case 'COOP_ROOM_TIMEOUT_WARNING':
+          setTimeoutWarning(message.message);
+          break;
+
         // 방 파기 (타임아웃 등): 플레이어를 방 목록으로 돌려보냄
         case 'COOP_ROOM_DESTROYED':
           setError(message.message);
+          setTimeoutWarning(null);
           useRPGStore.getState().clearLobbyChatMessages();
           useRPGStore.getState().resetMultiplayerState();
           setShowJoinInput(false);
@@ -334,6 +342,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           break;
 
         case 'COOP_GAME_COUNTDOWN':
+          setTimeoutWarning(null);  // 게임 시작하면 타임아웃 경고 제거
           useRPGStore.getState().setMultiplayerState({
             connectionState: 'countdown',
             countdown: message.seconds,
@@ -901,6 +910,15 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             </button>
           );
         })()}
+
+        {/* 타임아웃 경고 */}
+        {timeoutWarning && (
+          <div className="w-full p-3 rounded-lg bg-yellow-500/20 border border-yellow-500 animate-pulse">
+            <p className="text-yellow-400 text-sm text-center font-medium">
+              ⚠️ {timeoutWarning}
+            </p>
+          </div>
+        )}
 
         {error && <p className="text-red-400 text-sm">{error}</p>}
 
