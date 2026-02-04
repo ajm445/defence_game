@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.20.20] - 2026-02-05
+
+### Bug Fixes
+- **RPG 멀티플레이 클라이언트 이동 끊김 개선**: 위치 보정 로직 부드럽게 조정
+  - 보간율 50% → 15%로 감소 (급격한 위치 점프 방지)
+  - 작은 오차 임계값 20px → 10px로 조정 (더 정밀한 위치 유지)
+
+### Technical Changes
+- `src/stores/useRPGStore.ts`:
+  - `applySerializedState`: 위치 보간율을 0.5에서 0.15로 감소
+  - 슬라이딩 방지 임계값을 20px에서 10px로 감소
+
+---
+
 ## [1.20.19] - 2026-02-04
 
 ### Features

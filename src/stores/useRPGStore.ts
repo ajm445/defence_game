@@ -2477,14 +2477,14 @@ export const useRPGStore = create<RPGStore>()(
               // 이동/돌진 중: 로컬 위치 유지 (입력 반응성 우선)
               syncX = localHero.x;
               syncY = localHero.y;
-            } else if (posError < 20) {
-              // 작은 오차 (20px 미만): 로컬 위치 유지 (슬라이딩 방지)
+            } else if (posError < 10) {
+              // 작은 오차 (10px 미만): 로컬 위치 유지 (슬라이딩 방지)
               syncX = localHero.x;
               syncY = localHero.y;
             } else {
-              // 중간 오차: 호스트 위치로 빠르게 보간 (50%씩)
-              syncX = localHero.x + (hero.x - localHero.x) * 0.5;
-              syncY = localHero.y + (hero.y - localHero.y) * 0.5;
+              // 중간 오차: 호스트 위치로 부드럽게 보간 (15%씩 - 끊김 방지)
+              syncX = localHero.x + (hero.x - localHero.x) * 0.15;
+              syncY = localHero.y + (hero.y - localHero.y) * 0.15;
             }
 
             // 돌진 상태: 로컬 돌진 중이면 로컬 유지, 아니면 호스트 것 사용
