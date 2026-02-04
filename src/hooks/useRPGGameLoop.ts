@@ -173,51 +173,39 @@ export function useRPGGameLoop() {
       }
 
       // ==========================================
-      // 클라이언트 로컬 이동 예측 (부드러운 움직임)
-      // - 입력에 따라 즉시 이동 (반응성)
-      // - 호스트 위치는 applySerializedState에서 보정
+      // 클라이언트: 클라이언트 예측 + 서버 보정 아키텍처
+      // - 이동은 클라이언트에서 즉시 예측 (빠른 반응)
+      // - 호스트 위치와 차이나면 applySerializedState에서 부드럽게 보정
+      // - 돌진 중에는 예측 중지 (호스트 100% 사용)
       // ==========================================
-      const isClientDashing = clientHero?.dashState && clientHero.dashState.progress < 1;
-      const isClientCasting = clientHero?.castingUntil && useRPGStore.getState().gameTime < clientHero.castingUntil;
-      const isClientStunned = clientHero?.buffs?.some(b => b.type === 'stun' && b.duration > 0);
 
-      // 돌진 애니메이션 (로컬)
-      if (isClientDashing && clientHero?.dashState) {
-        const dash = clientHero.dashState;
-        const newProgress = Math.min(1, dash.progress + deltaTime / dash.duration);
-        const easedProgress = 1 - (1 - newProgress) * (1 - newProgress);  // easeOutQuad
+      // 클라이언트 로컬 이동 예측 (즉각적인 반응)
+      // clientHero는 이미 위에서 선언됨 (사망 체크용)
+      if (clientHero) {
+        const isDashing = clientHero.dashState !== undefined;
+        const isCasting = clientHero.castingUntil && useRPGStore.getState().gameTime < clientHero.castingUntil;
+        const isStunned = clientHero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
 
-        const newX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
-        const newY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
+        // 돌진/시전/스턴 중에는 로컬 예측 중지 (호스트 위치만 사용)
+        if (!isDashing && !isCasting && !isStunned && clientHero.moveDirection) {
+          const moveDir = clientHero.moveDirection;
+          const moveSpeed = clientHero.config?.speed || 200;
 
-        useRPGStore.getState().updateHeroState({
-          x: newX,
-          y: newY,
-          dashState: newProgress >= 1 ? undefined : { ...dash, progress: newProgress },
-          state: newProgress >= 1 ? 'idle' : 'moving',
-        });
-      }
-      // 일반 이동 (로컬 예측)
-      else if (clientHero?.moveDirection && !isClientCasting && !isClientStunned) {
-        const dir = clientHero.moveDirection;
-        if (dir.x !== 0 || dir.y !== 0) {
-          // 속도 계산
-          let speed = clientHero.config.speed || clientHero.baseSpeed || 200;
-          const swiftnessBuff = clientHero.buffs?.find(b => b.type === 'swiftness' && b.duration > 0);
-          if (swiftnessBuff?.moveSpeedBonus) {
-            speed *= (1 + swiftnessBuff.moveSpeedBonus);
-          }
+          // 로컬 위치 예측
+          let newX = clientHero.x + moveDir.x * moveSpeed * deltaTime;
+          let newY = clientHero.y + moveDir.y * moveSpeed * deltaTime;
 
-          // 이동 거리 계산
-          const dirLength = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
-          const moveX = (dir.x / dirLength) * speed * deltaTime * 60;
-          const moveY = (dir.y / dirLength) * speed * deltaTime * 60;
+          // 맵 경계 제한
+          newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, newX));
+          newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, newY));
 
-          // 맵 범위 내로 제한
-          const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, clientHero.x + moveX));
-          const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, clientHero.y + moveY));
-
-          useRPGStore.getState().updateHeroPosition(newX, newY);
+          // 로컬 위치 업데이트 (즉각 반응)
+          useRPGStore.getState().updateHeroState({
+            x: newX,
+            y: newY,
+            state: 'moving',
+            facingRight: moveDir.x >= 0,
+          });
         }
       }
 
@@ -1816,29 +1804,22 @@ export function useRPGGameLoop() {
         const isBackflip = advancedClass === 'sniper';  // 후방 도약
 
         if (isDashSkill || isBackflip) {
-          const dashDistance = isDashSkill ? 150 : 150;  // 기본 돌진 거리
-          const dashDuration = 0.25;
-
-          // 후방 도약은 반대 방향
-          const moveDir = isBackflip ? -1 : 1;
-          const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, state.hero.x + dirX * dashDistance * moveDir));
-          const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, state.hero.y + dirY * dashDistance * moveDir));
-
-          // 돌진 상태 설정 (로컬 애니메이션용)
+          // 클라이언트: 돌진 상태는 호스트에서 동기화받음 (로컬 설정 제거)
+          // 방향만 로컬에서 업데이트 (즉각적인 시각 피드백)
           useRPGStore.getState().updateHeroState({
-            dashState: {
-              startX: state.hero.x,
-              startY: state.hero.y,
-              targetX: newX,
-              targetY: newY,
-              progress: 0,
-              duration: dashDuration,
-              dirX: dirX * moveDir,
-              dirY: dirY * moveDir,
-            },
             facingRight: dirX >= 0,
             facingAngle: Math.atan2(dirY, dirX),
           });
+
+          // 돌진 사운드 재생
+          soundManager.play('attack_melee');
+        } else {
+          // 돌진이 아닌 W 스킬 사운드 (궁수, 마법사 등)
+          if (heroClass === 'archer' || heroClass === 'mage') {
+            soundManager.play('attack_ranged');
+          } else {
+            soundManager.play('attack_melee');
+          }
         }
 
         // 이펙트 추가 (렌더링용)
@@ -1872,6 +1853,14 @@ export function useRPGGameLoop() {
           useRPGStore.getState().updateHeroState({
             castingUntil: gameTime + chargeTime,
           });
+        }
+
+        // E 스킬 사운드 재생
+        if (heroClass === 'archer' || heroClass === 'mage' ||
+            advancedClass === 'archmage' || advancedClass === 'sniper') {
+          soundManager.play('attack_ranged');
+        } else {
+          soundManager.play('attack_melee');
         }
 
         // 버프 스킬 이펙트

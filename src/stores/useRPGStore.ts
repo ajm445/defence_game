@@ -10,6 +10,7 @@ import type { MultiplayerState, PlayerInput, SerializedGameState, SerializedHero
 import type { CoopPlayerInfo } from '../../shared/types/rpgNetwork';
 import { wsClient } from '../services/WebSocketClient';
 import { soundManager } from '../services/SoundManager';
+import { useUIStore } from './useUIStore';
 import { distance } from '../utils/math';
 
 // 버프 공유 범위 상수 (useNetworkSync.ts와 동일)
@@ -2451,44 +2452,45 @@ export const useRPGStore = create<RPGStore>()(
       serializedState.heroes.forEach((serializedHero) => {
         const hero = deserializeHeroFromNetwork(serializedHero);
         if (serializedHero.id === myHeroId) {
-          // 내 영웅: 로컬 이동 예측 + 호스트 위치 보정 (단순화)
+          // 내 영웅: 클라이언트 예측 + 서버 보정
           if (currentState.hero) {
             const localHero = currentState.hero;
 
-            // 위치 오차 계산
-            const posError = Math.max(
-              Math.abs(hero.x - localHero.x),
-              Math.abs(hero.y - localHero.y)
-            );
+            // 위치 차이 계산
+            const dx = hero.x - localHero.x;
+            const dy = hero.y - localHero.y;
+            const positionDiff = Math.sqrt(dx * dx + dy * dy);
 
-            // 이동 중인지 확인
-            const isMoving = localHero.moveDirection !== undefined &&
-              (localHero.moveDirection.x !== 0 || localHero.moveDirection.y !== 0);
-            const isLocalDashing = localHero.dashState !== undefined && localHero.dashState.progress < 1;
+            // 돌진/시전/스턴 중에는 호스트 위치 100% 사용
+            const isDashing = hero.dashState !== undefined;
+            const isCasting = hero.castingUntil && currentState.gameTime < hero.castingUntil;
+            const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+            const forceHostPosition = isDashing || isCasting || isStunned;
 
             let syncX: number;
             let syncY: number;
 
-            if (posError > 200) {
-              // 큰 오차: 즉시 보정 (돌진 중이면 제외)
-              syncX = isLocalDashing ? localHero.x : hero.x;
-              syncY = isLocalDashing ? localHero.y : hero.y;
-            } else if (isMoving || isLocalDashing) {
-              // 이동/돌진 중: 로컬 위치 유지 (입력 반응성 우선)
+            if (forceHostPosition) {
+              // 돌진/시전/스턴 중: 호스트 위치 100% 사용
+              syncX = hero.x;
+              syncY = hero.y;
+            } else if (positionDiff < 30) {
+              // 작은 차이 (< 30px): 로컬 위치 유지 (자연스러운 오차)
               syncX = localHero.x;
               syncY = localHero.y;
-            } else if (posError < 10) {
-              // 작은 오차 (10px 미만): 로컬 위치 유지 (슬라이딩 방지)
-              syncX = localHero.x;
-              syncY = localHero.y;
+            } else if (positionDiff < 150) {
+              // 중간 차이 (30-150px): 부드럽게 보정 (50% 블렌드)
+              const blendFactor = 0.5;
+              syncX = localHero.x + dx * blendFactor;
+              syncY = localHero.y + dy * blendFactor;
             } else {
-              // 중간 오차: 호스트 위치로 부드럽게 보간 (15%씩 - 끊김 방지)
-              syncX = localHero.x + (hero.x - localHero.x) * 0.15;
-              syncY = localHero.y + (hero.y - localHero.y) * 0.15;
+              // 큰 차이 (> 150px): 호스트 위치로 즉시 스냅 (텔레포트/사망 등)
+              syncX = hero.x;
+              syncY = hero.y;
             }
 
-            // 돌진 상태: 로컬 돌진 중이면 로컬 유지, 아니면 호스트 것 사용
-            const mergedDashState = isLocalDashing ? localHero.dashState : hero.dashState;
+            // 돌진 상태는 호스트에서 받은 것 100% 사용
+            const mergedDashState = hero.dashState;
 
             // 클라이언트 피격 감지: HP가 감소했을 때 lastDamageTime 업데이트 (피격 화면 효과용)
             // 무적 상태일 때는 피격 이펙트 표시하지 않음 (서버 버프로 체크)
@@ -2673,6 +2675,20 @@ export const useRPGStore = create<RPGStore>()(
 
       // myHero가 null이면 (서버에서 내 영웅을 보내지 않은 경우) 기존 로컬 영웅 유지
       const heroToSet = myHero !== null ? myHero : currentState.hero;
+
+      // 클라이언트 기지 파괴 감지: 기존 상태와 비교하여 새로 파괴된 기지 확인
+      const previousBases = currentState.enemyBases;
+      const newBases = serializedState.enemyBases;
+      for (const newBase of newBases) {
+        const prevBase = previousBases.find(b => b.id === newBase.id);
+        // 이전에 파괴되지 않았고, 새로 파괴된 경우
+        if (prevBase && !prevBase.destroyed && newBase.destroyed) {
+          // 기지 파괴 사운드 및 알림
+          soundManager.play('victory');
+          const showNotification = useUIStore.getState().showNotification;
+          showNotification('적 기지 파괴!');
+        }
+      }
 
       set({
         gameTime: serializedState.gameTime,
