@@ -343,7 +343,20 @@ function handleReconnectInfo(message: { hostPlayerId: string; isHost: boolean; g
 function handleGameOver(result: any) {
   console.log('[NetworkSync] 게임 종료:', result);
 
+  // 호스트에서 받은 stats 적용 (최종 보스 처치 수 등)
+  if (result?.stats) {
+    useRPGStore.setState({ stats: result.stats });
+  }
+
   useRPGStore.getState().setGameOver(result?.victory || false);
+
+  // 게임 종료 사운드 재생
+  if (result?.victory) {
+    soundManager.play('victory');
+  } else {
+    soundManager.play('defeat');
+  }
+
   // 멀티플레이어 상태를 post_game으로 변경 (방은 유지)
   useRPGStore.getState().setMultiplayerState({ connectionState: 'post_game' });
 }

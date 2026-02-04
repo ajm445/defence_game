@@ -2467,6 +2467,9 @@ export const useRPGStore = create<RPGStore>()(
             const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
             const forceHostPosition = isDashing || isCasting || isStunned;
 
+            // 이동 중인지 확인
+            const isMoving = localHero.moveDirection !== undefined && localHero.moveDirection !== null;
+
             let syncX: number;
             let syncY: number;
 
@@ -2474,19 +2477,33 @@ export const useRPGStore = create<RPGStore>()(
               // 돌진/시전/스턴 중: 호스트 위치 100% 사용
               syncX = hero.x;
               syncY = hero.y;
-            } else if (positionDiff < 30) {
-              // 작은 차이 (< 30px): 로컬 위치 유지 (자연스러운 오차)
-              syncX = localHero.x;
-              syncY = localHero.y;
-            } else if (positionDiff < 150) {
-              // 중간 차이 (30-150px): 부드럽게 보정 (50% 블렌드)
-              const blendFactor = 0.5;
-              syncX = localHero.x + dx * blendFactor;
-              syncY = localHero.y + dy * blendFactor;
+            } else if (isMoving) {
+              // 이동 중: 로컬 예측 신뢰, 큰 오차만 스냅
+              if (positionDiff > 200) {
+                // 매우 큰 차이 (> 200px): 스냅 (텔레포트/사망 등)
+                syncX = hero.x;
+                syncY = hero.y;
+              } else {
+                // 이동 중에는 로컬 위치 유지 (부드러운 움직임)
+                syncX = localHero.x;
+                syncY = localHero.y;
+              }
             } else {
-              // 큰 차이 (> 150px): 호스트 위치로 즉시 스냅 (텔레포트/사망 등)
-              syncX = hero.x;
-              syncY = hero.y;
+              // 정지 상태: 호스트 위치로 부드럽게 수렴
+              if (positionDiff < 10) {
+                // 아주 작은 차이: 무시
+                syncX = localHero.x;
+                syncY = localHero.y;
+              } else if (positionDiff < 100) {
+                // 중간 차이: 부드럽게 보정 (30% 블렌드)
+                const blendFactor = 0.3;
+                syncX = localHero.x + dx * blendFactor;
+                syncY = localHero.y + dy * blendFactor;
+              } else {
+                // 큰 차이: 호스트 위치로 스냅
+                syncX = hero.x;
+                syncY = hero.y;
+              }
             }
 
             // 돌진 상태는 호스트에서 받은 것 100% 사용
