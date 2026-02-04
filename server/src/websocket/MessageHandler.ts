@@ -461,9 +461,6 @@ function handleUserLogout(playerId: string, userId: string, nickname: string): v
   }
 
   const player = players.get(playerId);
-  if (player) {
-    player.userId = null;
-  }
   console.log(`[Auth] 로그아웃: ${nickname} (userId: ${userId}, playerId: ${playerId})`);
 
   // 관리자에게 로그아웃 이벤트 브로드캐스트
@@ -476,6 +473,13 @@ function handleUserLogout(playerId: string, userId: string, nickname: string): v
       timestamp: new Date().toISOString(),
     },
   });
+
+  // WebSocket 연결 종료 (close 이벤트에서 방 정리 등 처리됨)
+  // userId를 먼저 null로 설정하여 close 핸들러에서 중복 로그아웃 처리 방지
+  if (player) {
+    player.userId = null;
+    player.ws.close();
+  }
 }
 
 function handleChangeGameMode(playerId: string, gameMode: GameMode): void {

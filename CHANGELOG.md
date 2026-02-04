@@ -1,5 +1,19 @@
 # Changelog
 
+## [1.20.16] - 2026-02-04
+
+### Bug Fixes
+- **로그아웃 시 연결 즉시 종료**: 로그아웃 시 WebSocket 연결도 함께 종료되어 접속자 수가 즉시 감소
+  - 기존: 로그아웃 후에도 브라우저 종료 시까지 연결 유지
+  - 변경: 로그아웃 시 `ws.close()` 호출로 즉시 연결 종료
+
+### Technical Changes
+- `server/src/websocket/MessageHandler.ts`:
+  - `handleUserLogout`: 로그아웃 처리 후 WebSocket 연결 종료 추가
+  - `player.userId = null` 설정으로 close 핸들러에서 중복 로그아웃 처리 방지
+
+---
+
 ## [1.20.15] - 2026-02-04
 
 ### Bug Fixes
