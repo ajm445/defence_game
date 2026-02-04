@@ -18,6 +18,7 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { soundManager } from '../../services/SoundManager';
+import { wsClient } from '../../services/WebSocketClient';
 
 export const GameScreen: React.FC = () => {
   // 게임 루프 시작
@@ -49,6 +50,21 @@ export const GameScreen: React.FC = () => {
     return () => {
       soundManager.stopBGM();
     };
+  }, [gameMode]);
+
+  // RTS AI 대전 시 게임 중 상태 알림 (싱글플레이어)
+  useEffect(() => {
+    if (gameMode === 'ai' && wsClient.isConnected()) {
+      // 게임 시작 시 서버에 알림
+      wsClient.send({ type: 'SET_IN_GAME', isInGame: true });
+
+      // 게임 종료 시 서버에 알림
+      return () => {
+        if (wsClient.isConnected()) {
+          wsClient.send({ type: 'SET_IN_GAME', isInGame: false });
+        }
+      };
+    }
   }, [gameMode]);
 
   return (

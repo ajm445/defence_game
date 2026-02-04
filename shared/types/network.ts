@@ -33,6 +33,8 @@ export type ClientMessage =
   | { type: 'COLLECT_RESOURCE'; nodeId: string }
   // 게임 모드 변경
   | { type: 'CHANGE_GAME_MODE'; gameMode: 'rts' | 'rpg' | null }
+  // 게임 중 상태 변경 (RTS AI 대전 등 싱글플레이어 게임용)
+  | { type: 'SET_IN_GAME'; isInGame: boolean }
   // 협동 모드 메시지
   | CoopClientMessage
   // 관리자 메시지

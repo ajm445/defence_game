@@ -1,5 +1,48 @@
 # Changelog
 
+## [1.20.12] - 2026-02-04
+
+### Bug Fixes
+- **온라인 상태 즉시 반영 안 되는 버그 수정**: 로그인 시 친구 목록에 온라인 상태가 간헐적으로 반영되지 않던 버그 해결
+  - `registerUserOnline` 호출 시 `await` 추가로 브로드캐스트 완료 보장
+- **친구 삭제 UI 즉시 반영**: 친구 삭제 시 서버 응답을 기다리지 않고 UI가 즉시 업데이트되도록 개선
+  - 낙관적 업데이트(Optimistic Update) 패턴 적용
+- **친구 요청 중복 키 오류 수정**: 이전에 친구였다가 삭제 후 다시 요청 시 발생하던 오류 해결
+  - `maybeSingle()` 사용으로 기존 요청 확인
+  - `accepted`/`rejected` 상태의 기존 요청 삭제 후 새로 생성
+- **친구 재추가 후 초대 미수신 버그 수정**: 친구 삭제 후 다시 친구가 된 경우 게임 초대가 전달되지 않던 버그 해결
+  - 위 중복 키 오류 수정으로 함께 해결
+
+### Improvements
+- **게임 초대 팝업 위치 변경**: 화면 중앙 상단에서 우측 상단으로 이동
+  - 게임 플레이 중 시야 방해 최소화
+- **같은 방 유저 초대 버튼 비활성화**: 이미 같은 방에 있는 플레이어에게는 초대 버튼이 비활성화
+  - 불필요한 초대 요청 방지
+- **RTS AI 대전 게임중 상태 표시**: RTS 모드에서 AI 대전 시 친구 목록에 "게임중" 상태 표시
+  - `SET_IN_GAME` 메시지 타입 추가
+  - 게임 시작/종료 시 서버에 상태 알림
+
+### Technical Changes
+- `server/src/websocket/MessageHandler.ts`:
+  - `registerUserOnline` 호출에 `await` 추가
+  - `handleSetInGame` 핸들러 추가
+- `server/src/friend/FriendRequestHandler.ts`:
+  - `maybeSingle()` 사용으로 중복 요청 확인 로직 개선
+  - 기존 완료된 요청 삭제 후 재생성 로직 추가
+- `src/components/ui/FriendSidebar.tsx`:
+  - 친구 삭제 낙관적 업데이트 적용
+  - `currentRoomId` prop 추가
+- `src/components/ui/FriendPanel.tsx`:
+  - 같은 방 유저 초대 버튼 비활성화 로직 추가
+- `src/components/ui/GameInviteNotification.tsx`:
+  - 팝업 위치 `top-4 right-70`으로 변경
+- `src/components/screens/GameScreen.tsx`:
+  - RTS AI 대전 시 `SET_IN_GAME` 메시지 전송 useEffect 추가
+- `shared/types/network.ts`:
+  - `SET_IN_GAME` 클라이언트 메시지 타입 추가
+
+---
+
 ## [1.20.11] - 2026-02-04
 
 ### Bug Fixes

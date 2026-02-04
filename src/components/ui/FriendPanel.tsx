@@ -68,6 +68,8 @@ export const FriendPanel: React.FC<FriendPanelProps> = ({ onInviteToRoom, curren
   const handleRemoveFriend = useCallback((friendId: string) => {
     soundManager.play('ui_click');
     if (confirm('정말 친구를 삭제하시겠습니까?')) {
+      // 낙관적 업데이트: UI 즉시 반영
+      useFriendStore.getState().removeFriend(friendId);
       wsClient.send({ type: 'REMOVE_FRIEND', friendId });
     }
   }, []);
@@ -194,6 +196,7 @@ export const FriendPanel: React.FC<FriendPanelProps> = ({ onInviteToRoom, curren
             friends={filteredFriends}
             onRemove={handleRemoveFriend}
             onInvite={currentRoomId ? handleInviteToGame : undefined}
+            currentRoomId={currentRoomId}
           />
         )}
         {activeTab === 'online' && (
@@ -201,6 +204,7 @@ export const FriendPanel: React.FC<FriendPanelProps> = ({ onInviteToRoom, curren
             players={filteredOnlinePlayers}
             onSendRequest={handleSendFriendRequest}
             onInvite={currentRoomId ? handleInviteToGame : undefined}
+            currentRoomId={currentRoomId}
           />
         )}
         {activeTab === 'requests' && (
@@ -221,7 +225,8 @@ const FriendList: React.FC<{
   friends: FriendInfo[];
   onRemove: (friendId: string) => void;
   onInvite?: (friendId: string) => void;
-}> = ({ friends, onRemove, onInvite }) => {
+  currentRoomId?: string;
+}> = ({ friends, onRemove, onInvite, currentRoomId }) => {
   if (friends.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
@@ -259,7 +264,8 @@ const FriendList: React.FC<{
             </div>
           </div>
           <div className="flex gap-1">
-            {onInvite && friend.isOnline && !friend.currentRoom && (
+            {/* 같은 방에 있는 사람에게는 초대 버튼 표시 안 함 */}
+            {onInvite && friend.isOnline && friend.currentRoom !== currentRoomId && (
               <button
                 onClick={() => onInvite(friend.id)}
                 className="p-1.5 text-green-400 hover:bg-green-500/20 rounded transition-colors cursor-pointer"
@@ -287,7 +293,8 @@ const OnlinePlayerList: React.FC<{
   players: OnlinePlayerInfo[];
   onSendRequest: (targetUserId: string) => void;
   onInvite?: (friendId: string) => void;
-}> = ({ players, onSendRequest, onInvite }) => {
+  currentRoomId?: string;
+}> = ({ players, onSendRequest, onInvite, currentRoomId }) => {
   if (players.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
@@ -332,8 +339,8 @@ const OnlinePlayerList: React.FC<{
             </div>
           </div>
           <div className="flex gap-1">
-            {/* 본인에게는 버튼 표시 안 함 */}
-            {!player.isMe && onInvite && player.isFriend && !player.currentRoom && (
+            {/* 본인 또는 같은 방에 있는 사람에게는 초대 버튼 표시 안 함 */}
+            {!player.isMe && onInvite && player.isFriend && player.currentRoom !== currentRoomId && (
               <button
                 onClick={() => onInvite(player.id)}
                 className="p-1.5 text-green-400 hover:bg-green-500/20 rounded transition-colors cursor-pointer"

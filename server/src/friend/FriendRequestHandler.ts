@@ -34,22 +34,35 @@ export class FriendRequestHandler {
         return { success: false, message: '이미 친구입니다.' };
       }
 
-      // 이미 보낸 요청이 있는지 확인
+      // 이미 보낸 요청이 있는지 확인 (maybeSingle로 결과 없어도 오류 안 남)
       const { data: existingRequest } = await supabase
         .from('friend_requests')
         .select('id, status')
         .eq('from_user_id', fromUserId)
         .eq('to_user_id', toUserId)
-        .single();
+        .maybeSingle();
 
       if (existingRequest) {
         if (existingRequest.status === 'pending') {
           return { success: false, message: '이미 친구 요청을 보냈습니다.' };
         }
-        // 거절된 요청이 있으면 삭제하고 새로 생성
-        if (existingRequest.status === 'rejected') {
-          await supabase.from('friend_requests').delete().eq('id', existingRequest.id);
-        }
+        // accepted 또는 rejected 상태의 기존 요청이 있으면 삭제하고 새로 생성
+        // (친구였다가 삭제한 경우 accepted 상태가 남아있을 수 있음)
+        await supabase.from('friend_requests').delete().eq('id', existingRequest.id);
+      }
+
+      // 역방향 요청도 확인 (상대방 -> 나)
+      const { data: reverseOldRequest } = await supabase
+        .from('friend_requests')
+        .select('id, status')
+        .eq('from_user_id', toUserId)
+        .eq('to_user_id', fromUserId)
+        .neq('status', 'pending')  // pending이 아닌 것만
+        .maybeSingle();
+
+      if (reverseOldRequest) {
+        // 오래된 역방향 요청도 삭제 (친구였다가 삭제한 경우)
+        await supabase.from('friend_requests').delete().eq('id', reverseOldRequest.id);
       }
 
       // 상대방이 나에게 보낸 요청이 있는지 확인

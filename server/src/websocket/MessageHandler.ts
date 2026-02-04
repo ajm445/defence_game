@@ -148,6 +148,10 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleChangeGameMode(playerId, (message as any).gameMode);
       break;
 
+    case 'SET_IN_GAME':
+      handleSetInGame(playerId, (message as any).isInGame);
+      break;
+
     // 협동 모드 메시지
     case 'CREATE_COOP_ROOM':
       handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades, (message as any).isPrivate, (message as any).difficulty, (message as any).advancedClass, (message as any).tier);
@@ -433,8 +437,9 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
   player.userId = isGuest ? null : userId;
 
   // 온라인 사용자 목록에 추가 (게스트가 아닌 경우)
+  // await로 호출하여 브로드캐스트 완료를 보장
   if (!isGuest && userId) {
-    registerUserOnline(userId);
+    await registerUserOnline(userId);
   }
 
   // 관리자에게 로그인 이벤트 브로드캐스트
@@ -510,6 +515,24 @@ function handleChangeGameMode(playerId: string, gameMode: GameMode): void {
       timestamp: new Date().toISOString(),
     },
   });
+}
+
+async function handleSetInGame(playerId: string, isInGame: boolean): Promise<void> {
+  const player = players.get(playerId);
+  if (!player) return;
+
+  const status = isInGame ? '게임 시작' : '게임 종료';
+  console.log(`[InGame] ${player.name || playerId}: ${status}`);
+
+  // 플레이어의 isInGame 상태 업데이트
+  player.isInGame = isInGame;
+
+  // 로그인된 사용자인 경우 친구들에게 상태 알림
+  if (player.userId) {
+    // currentRoom은 isInGame이 true일 때만 의미 있음
+    const currentRoom = isInGame ? player.roomId || undefined : undefined;
+    await friendManager.notifyFriendsStatusChange(player.userId, true, currentRoom);
+  }
 }
 
 // ============================================
