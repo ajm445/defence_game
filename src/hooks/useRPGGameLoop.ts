@@ -707,7 +707,7 @@ export function useRPGGameLoop() {
         const dist = distance(healer.x, healer.y, ally.x, ally.y);
         if (dist > auraRadius) continue;
 
-        // 힐량 계산 (최대 HP의 2% * deltaTime)
+        // 힐량 계산 (최대 HP의 4% * deltaTime)
         const healAmount = ally.maxHp * healPerSecond * deltaTime;
         const actualHeal = Math.min(ally.maxHp - ally.hp, healAmount);
         const newHp = ally.hp + actualHeal;

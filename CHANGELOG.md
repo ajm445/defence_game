@@ -1,5 +1,25 @@
 # Changelog
 
+## [1.20.13] - 2026-02-04
+
+### Balance Changes
+- **힐러 특수 효과 (힐 오로라) 상향**: 주변 150px 내 아군 초당 최대 HP 2% → **4%** 회복
+- **힐러 R 스킬 (생명의 샘) 변경**: 15초간 5% → **10초간 10%** 회복 (총 회복량 75% → 100%)
+
+### Bug Fixes
+- **멀티플레이 2차 강화 미적용 버그 수정**: 방 생성/참가 시 전직 및 2차 강화 정보가 전달되지 않던 버그 해결
+  - `RPGClassSelectScreen.tsx`에서 `advancedClass`, `tier` 파라미터 추가
+
+### Technical Changes
+- `src/constants/rpgConfig.ts`:
+  - 힐러 `healAura.healPerSecond`: 0.02 → 0.04
+  - 힐러 E 스킬 `duration`: 15 → 10, `healPercent`: 0.05 → 0.10
+- `src/game/rpg/skillSystem.ts`: 생명의 샘 기본값 업데이트
+- `src/hooks/useRPGGameLoop.ts`: 힐 오로라 주석 업데이트
+- `src/components/screens/RPGClassSelectScreen.tsx`: 방 생성/참가 시 전직 정보 전달
+
+---
+
 ## [1.20.12] - 2026-02-04
 
 ### Bug Fixes

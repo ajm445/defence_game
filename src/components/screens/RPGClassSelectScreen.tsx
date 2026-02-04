@@ -205,9 +205,11 @@ export const RPGClassSelectScreen: React.FC = () => {
       const progress = classProgress.find(p => p.className === selectedClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+      const advancedClass = progress?.advancedClass;
+      const tier = progress?.tier;
 
-      // 방 생성
-      createMultiplayerRoom(playerName, selectedClass, characterLevel, statUpgrades);
+      // 방 생성 (전직/2차 강화 정보 포함)
+      createMultiplayerRoom(playerName, selectedClass, characterLevel, statUpgrades, false, 'easy', advancedClass, tier);
 
       // 로비로 이동
       setScreen('rpgCoopLobby');
@@ -245,9 +247,11 @@ export const RPGClassSelectScreen: React.FC = () => {
       const progress = classProgress.find(p => p.className === selectedClass);
       const characterLevel = progress?.classLevel || 1;
       const statUpgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+      const advancedClass = progress?.advancedClass;
+      const tier = progress?.tier;
 
-      // 방 참가
-      joinMultiplayerRoom(inputRoomCode.trim().toUpperCase(), playerName, selectedClass, characterLevel, statUpgrades);
+      // 방 참가 (전직/2차 강화 정보 포함)
+      joinMultiplayerRoom(inputRoomCode.trim().toUpperCase(), playerName, selectedClass, characterLevel, statUpgrades, advancedClass, tier);
 
       // 로비로 이동
       setScreen('rpgCoopLobby');

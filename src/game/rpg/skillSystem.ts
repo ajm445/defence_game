@@ -1823,10 +1823,10 @@ function executeAdvancedESkill(
       break;
 
     case 'healer':
-      // 생명의 샘 - 15초간 아군 전체 초당 5% 힐
+      // 생명의 샘 - 10초간 아군 전체 초당 10% 힐
       {
-        const duration = skillConfig.duration || 15;
-        const healPerTick = skillConfig.healPercent || 0.05;
+        const duration = skillConfig.duration || 10;
+        const healPerTick = skillConfig.healPercent || 0.10;
         const radius = skillConfig.radius || 500;
 
         // 지속 힐은 pendingSkill로 처리

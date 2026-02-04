@@ -1082,7 +1082,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
       healAlly: true,    // 아군 힐 가능
       healAura: {
         radius: 150,     // 오로라 범위 (px)
-        healPerSecond: 0.02,  // 초당 최대 HP의 2% 회복
+        healPerSecond: 0.04,  // 초당 최대 HP의 4% 회복
       },
     },
   },
@@ -1315,16 +1315,16 @@ export const ADVANCED_E_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     radius: 100,  // 각 운석 범위
     meteorCount: 10,
   },
-  // 힐러: 생명의 샘 - 15초간 아군 전체 초당 5% 힐
+  // 힐러: 생명의 샘 - 10초간 아군 전체 초당 10% 힐
   healer: {
     type: 'spring_of_life',
     name: '생명의 샘',
     nameEn: 'Spring of Life',
     key: 'E',
     cooldown: 45,
-    description: '15초간 아군 전체 초당 최대 HP의 5% 회복',
-    duration: 15,
-    healPercent: 0.05,  // 초당 5%
+    description: '10초간 아군 전체 초당 최대 HP의 10% 회복',
+    duration: 10,
+    healPercent: 0.10,  // 초당 10%
     radius: 500,
   },
 };
