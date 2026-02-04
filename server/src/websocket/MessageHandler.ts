@@ -845,13 +845,17 @@ export function handleCoopDisconnect(playerId: string): void {
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
 
-  const coopRoom = coopGameRooms.get(player.roomId);
+  // roomId를 미리 저장 (게임 방 처리 중 player.roomId가 null이 될 수 있음)
+  const roomId = player.roomId;
+
+  // 대기 방 처리를 먼저 수행 (player.roomId가 null이 되기 전에)
+  handleCoopPlayerDisconnect(playerId);
+
+  // 협동 게임 방 처리 (게임 중인 경우)
+  const coopRoom = coopGameRooms.get(roomId);
   if (coopRoom) {
     coopRoom.handlePlayerDisconnect(playerId);
   }
-
-  // 대기 방 처리
-  handleCoopPlayerDisconnect(playerId);
 }
 
 // ============================================

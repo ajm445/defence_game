@@ -163,7 +163,7 @@ export function leaveRoom(playerId: string): void {
 
   const room = waitingRooms.get(player.roomId);
   if (!room) {
-    player.roomId = null;
+    // PvP 대기 방이 아닌 경우 roomId를 클리어하지 않음 (Coop 방일 수 있음)
     return;
   }
 

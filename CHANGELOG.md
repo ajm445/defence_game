@@ -1,5 +1,31 @@
 # Changelog
 
+## [1.20.15] - 2026-02-04
+
+### Bug Fixes
+- **브라우저 종료 시 처리 개선**: 로그인 후 방에 있는 상태에서 브라우저를 종료해도 정상적으로 처리되도록 개선
+  - 방 삭제/호스트 이전이 정상 작동
+  - 자동 로그아웃 이벤트가 관리자 로그에 기록됨
+  - 대기 방 처리 순서 수정으로 roomId가 null이 되기 전에 처리
+
+### Improvements
+- **RPG 방 목록 페이지네이션**: 5개 이상의 방이 있을 때 이전/다음 버튼으로 탐색 가능
+
+### Technical Changes
+- `server/src/websocket/WebSocketServer.ts`:
+  - `ws.on('close')` 핸들러를 async로 변경
+  - `registerUserOffline`에 `await` 추가로 처리 완료 보장
+  - 로그인된 사용자의 브라우저 종료 시 로그아웃 이벤트 브로드캐스트
+  - `roomId`를 미리 저장하여 방 처리 중 null 참조 방지
+- `server/src/websocket/MessageHandler.ts`:
+  - `handleCoopDisconnect`: 대기 방 처리를 게임 방 처리보다 먼저 수행
+- `server/src/room/RoomManager.ts`:
+  - `leaveRoom`: PvP 대기 방이 아닌 경우 roomId를 클리어하지 않도록 수정 (Coop 방 처리 가능하도록)
+- `src/components/screens/RPGCoopLobbyScreen.tsx`:
+  - 방 목록 페이지네이션 추가 (페이지당 5개)
+
+---
+
 ## [1.20.14] - 2026-02-04
 
 ### Bug Fixes

@@ -336,7 +336,7 @@ export const LoginScreen: React.FC = () => {
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-md p-5">
               <p className="text-yellow-300 text-sm text-center leading-relaxed">
                 ⚠️ 게스트 모드에서는 진행 상황이 저장되지 않으며,<br />
-                <span className="font-bold">궁수만</span> 사용할 수 있습니다.
+                RPG 모드에서 <span className="font-bold">궁수만</span> 사용할 수 있습니다.
               </p>
             </div>
 

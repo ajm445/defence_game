@@ -116,15 +116,17 @@ export function createWebSocketServer(port: number) {
     });
 
     // 연결 종료
-    ws.on('close', () => {
+    ws.on('close', async () => {
       console.log(`플레이어 연결 해제: ${playerId}`);
 
       const player = players.get(playerId);
       const playerName = player?.name || `Player_${playerId.slice(0, 4)}`;
+      const userId = player?.userId;
+      const roomId = player?.roomId; // roomId를 미리 저장 (방 처리 중 null이 될 수 있음)
 
       // 온라인 사용자 목록에서 제거 및 친구들에게 오프라인 알림
-      if (player?.userId) {
-        registerUserOffline(player.userId);
+      if (userId) {
+        await registerUserOffline(userId);
       }
 
       // 관리자에게 접속 종료 이벤트 브로드캐스트
@@ -137,15 +139,30 @@ export function createWebSocketServer(port: number) {
           timestamp: new Date().toISOString(),
         },
       });
-      if (player && player.roomId) {
+
+      // 로그인된 사용자라면 로그아웃 이벤트도 브로드캐스트 (브라우저 종료 시 자동 로그아웃)
+      if (userId) {
+        console.log(`[Auth] 연결 종료로 인한 자동 로그아웃: ${playerName} (userId: ${userId})`);
+        broadcastToAdmins({
+          type: 'ADMIN_PLAYER_ACTIVITY',
+          activity: {
+            type: 'logout',
+            playerId,
+            playerName,
+            timestamp: new Date().toISOString(),
+          },
+        });
+      }
+
+      if (roomId) {
         // PvP 게임 방에서 플레이어 제거 처리
-        const room = getRoom(player.roomId);
+        const room = getRoom(roomId);
         if (room) {
           room.handlePlayerDisconnect(playerId);
         }
 
         // 협동 게임 방에서 플레이어 제거 처리
-        const coopRoom = getCoopRoom(player.roomId);
+        const coopRoom = getCoopRoom(roomId);
         if (coopRoom) {
           coopRoom.handlePlayerDisconnect(playerId);
         }
@@ -154,12 +171,12 @@ export function createWebSocketServer(port: number) {
       // 대기 방에서 제거 (PvP)
       handlePlayerDisconnect(playerId);
 
-      // 협동 대기 방에서 제거
+      // 협동 대기 방에서 제거 (roomId를 미리 저장했으므로 player.roomId가 null이어도 처리됨)
       handleCoopDisconnect(playerId);
 
       // 게임 초대 정리 (플레이어가 보낸 초대 취소)
-      if (player?.userId) {
-        gameInviteManager.cancelUserInvites(player.userId);
+      if (userId) {
+        gameInviteManager.cancelUserInvites(userId);
       }
 
       // 관리자 구독 해제

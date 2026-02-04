@@ -63,6 +63,9 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const [selectedModalDifficulty, setSelectedModalDifficulty] = useState<RPGDifficulty | null>(null);
   const [privateRoomToJoin, setPrivateRoomToJoin] = useState<WaitingCoopRoomInfo | null>(null);
   const [privateRoomCode, setPrivateRoomCode] = useState('');
+  // 방 목록 페이지네이션
+  const [roomListPage, setRoomListPage] = useState(0);
+  const ROOMS_PER_PAGE = 5;
   // 도감 모달 상태
   const [showEncyclopedia, setShowEncyclopedia] = useState(false);
   // 랭킹 모달 상태
@@ -150,6 +153,14 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     // 서버에 최신 정보 전송 (전직 정보 포함)
     wsClient.changeCoopClass(selectedClass, characterLevel, statUpgrades, advancedClass as any, tier);
   }, [classProgress, multiplayer.connectionState, selectedClass]);
+
+  // 방 목록 변경 시 페이지 유효성 체크
+  useEffect(() => {
+    const maxPage = Math.max(0, Math.ceil(roomList.length / ROOMS_PER_PAGE) - 1);
+    if (roomListPage > maxPage) {
+      setRoomListPage(maxPage);
+    }
+  }, [roomList.length, roomListPage]);
 
   // 방 목록 자동 갱신 (로비에 있지 않을 때만)
   useEffect(() => {
@@ -1039,8 +1050,10 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             </span>
           </button>
 
-          {/* 대기 중인 방 카드들 */}
-          {roomList.map((room) => {
+          {/* 대기 중인 방 카드들 (현재 페이지) */}
+          {roomList
+            .slice(roomListPage * ROOMS_PER_PAGE, (roomListPage + 1) * ROOMS_PER_PAGE)
+            .map((room) => {
             const baseConfig = CLASS_CONFIGS[room.hostHeroClass];
             const advConfig = room.hostAdvancedClass
               ? ADVANCED_CLASS_CONFIGS[room.hostAdvancedClass as AdvancedHeroClass]
@@ -1125,18 +1138,51 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             );
           })}
 
-          {/* 빈 슬롯들 (최소 5개 슬롯 보장) */}
-          {Array.from({ length: Math.max(0, 5 - roomList.length) }).map((_, i) => (
-            <div
-              key={`empty-${i}`}
-              className="flex flex-col items-center justify-center p-6 h-[150px] border border-gray-700/30 border-dashed rounded-xl"
-            >
-              <span className="text-gray-600 text-sm">
-                {i === 0 && roomList.length === 0 && !isLoadingRooms ? '대기 중인 방 없음' : ''}
-              </span>
-            </div>
-          ))}
+          {/* 빈 슬롯들 (현재 페이지 기준, 최소 5개 슬롯 보장) */}
+          {(() => {
+            const currentPageRooms = roomList.slice(roomListPage * ROOMS_PER_PAGE, (roomListPage + 1) * ROOMS_PER_PAGE);
+            const emptySlots = Math.max(0, ROOMS_PER_PAGE - currentPageRooms.length);
+            return Array.from({ length: emptySlots }).map((_, i) => (
+              <div
+                key={`empty-${i}`}
+                className="flex flex-col items-center justify-center p-6 h-[150px] border border-gray-700/30 border-dashed rounded-xl"
+              >
+                <span className="text-gray-600 text-sm">
+                  {i === 0 && roomList.length === 0 && !isLoadingRooms ? '대기 중인 방 없음' : ''}
+                </span>
+              </div>
+            ));
+          })()}
         </div>
+
+        {/* 페이지네이션 (방이 5개 초과일 때만 표시) */}
+        {roomList.length > ROOMS_PER_PAGE && (
+          <div className="flex items-center justify-center gap-4 mt-4">
+            <button
+              onClick={() => {
+                soundManager.play('ui_click');
+                setRoomListPage(prev => Math.max(0, prev - 1));
+              }}
+              disabled={roomListPage === 0}
+              className="px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white font-bold hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              ◀ 이전
+            </button>
+            <span className="text-gray-400 text-sm font-bold">
+              {roomListPage + 1} / {Math.ceil(roomList.length / ROOMS_PER_PAGE)}
+            </span>
+            <button
+              onClick={() => {
+                soundManager.play('ui_click');
+                setRoomListPage(prev => Math.min(Math.ceil(roomList.length / ROOMS_PER_PAGE) - 1, prev + 1));
+              }}
+              disabled={roomListPage >= Math.ceil(roomList.length / ROOMS_PER_PAGE) - 1}
+              className="px-4 py-2 bg-gray-800 border border-gray-600 rounded-lg text-white font-bold hover:bg-gray-700 disabled:opacity-40 disabled:cursor-not-allowed transition-all cursor-pointer"
+            >
+              다음 ▶
+            </button>
+          </div>
+        )}
 
         {/* 안내 텍스트 */}
         <p className="text-gray-500 text-xs text-center">
