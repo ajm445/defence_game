@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.20.14] - 2026-02-04
+
+### Bug Fixes
+- **보스 스킬 중복 시전 버그 수정**: 보스가 돌진 스킬 실행 후 이동 중에 다른 스킬을 시전하던 버그 해결
+  - `dashState` 활성화 중에는 새 스킬 선택 방지
+  - 기존: 기절/시전 중만 체크 → 변경: 돌진 이동 중도 체크
+
+### Technical Changes
+- `src/game/rpg/bossSystem.ts`:
+  - `updateBossSkills`: 돌진 중(`dashState.progress < 1`) 스킬 사용 불가 조건 추가
+
+---
+
 ## [1.20.13] - 2026-02-04
 
 ### Balance Changes

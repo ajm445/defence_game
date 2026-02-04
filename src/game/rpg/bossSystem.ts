@@ -300,6 +300,11 @@ export function updateBossSkills(
     return result;
   }
 
+  // 보스가 돌진 중이면 스킬 사용 불가
+  if (boss.dashState && boss.dashState.progress < 1) {
+    return result;
+  }
+
   // 살아있는 영웅만 대상
   const aliveHeroes = heroes.filter(h => h.hp > 0);
   if (aliveHeroes.length === 0) {
