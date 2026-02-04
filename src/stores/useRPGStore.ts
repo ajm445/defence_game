@@ -1335,11 +1335,11 @@ export const useRPGStore = create<RPGStore>()(
       }));
     },
 
-    // 오래된 기본 공격 이펙트 정리 (300ms 이후)
+    // 오래된 기본 공격 이펙트 정리 (500ms 이후 - 네트워크 지연 고려)
     cleanBasicAttackEffects: () => {
       const now = Date.now();
       set((state) => ({
-        basicAttackEffects: state.basicAttackEffects.filter(e => now - e.timestamp < 300),
+        basicAttackEffects: state.basicAttackEffects.filter(e => now - e.timestamp < 500),
       }));
     },
 
@@ -2451,76 +2451,44 @@ export const useRPGStore = create<RPGStore>()(
       serializedState.heroes.forEach((serializedHero) => {
         const hero = deserializeHeroFromNetwork(serializedHero);
         if (serializedHero.id === myHeroId) {
-          // 내 영웅: 로컬 상태 우선 유지, HP/스킬 쿨다운만 서버에서 동기화
+          // 내 영웅: 로컬 이동 예측 + 호스트 위치 보정 (단순화)
           if (currentState.hero) {
             const localHero = currentState.hero;
 
-            // 위치 오차 계산 및 보정
-            const posErrorX = Math.abs(hero.x - localHero.x);
-            const posErrorY = Math.abs(hero.y - localHero.y);
-            const maxPosError = 80;           // 작은 오차 허용 (80px)
-            const mediumPosError = 150;       // 중간 오차: lerp 보정
-            const criticalPosError = 250;     // 큰 오차: 즉시 보정
+            // 위치 오차 계산
+            const posError = Math.max(
+              Math.abs(hero.x - localHero.x),
+              Math.abs(hero.y - localHero.y)
+            );
 
-            let syncX = localHero.x;
-            let syncY = localHero.y;
-
-            // 이동/돌진/시전 중인지 확인 (활성 상태면 로컬 위치 우선)
+            // 이동 중인지 확인
             const isMoving = localHero.moveDirection !== undefined &&
               (localHero.moveDirection.x !== 0 || localHero.moveDirection.y !== 0);
             const isLocalDashing = localHero.dashState !== undefined && localHero.dashState.progress < 1;
-            const isLocalCasting = localHero.castingUntil !== undefined &&
-              serializedState.gameTime < localHero.castingUntil;
-            // 활성 상태: 이동, 돌진, 시전 중 하나라도 해당되면 위치 보정 최소화
-            const isActiveState = isMoving || isLocalDashing || isLocalCasting;
 
-            if (posErrorX > criticalPosError || posErrorY > criticalPosError) {
-              // 큰 오차 (250px 이상): 즉시 서버 위치로 동기화
-              // 단, 돌진 중이면 스킵 (돌진은 별도 처리)
-              if (!isLocalDashing) {
-                syncX = hero.x;
-                syncY = hero.y;
-              }
-            } else if (!isActiveState && (posErrorX > mediumPosError || posErrorY > mediumPosError)) {
-              // 중간 오차 (150-250px) + 비활성 상태: 빠른 lerp 보정
-              syncX = localHero.x * 0.7 + hero.x * 0.3;
-              syncY = localHero.y * 0.7 + hero.y * 0.3;
-            } else if (!isActiveState && (posErrorX > maxPosError || posErrorY > maxPosError)) {
-              // 작은 오차 (80-150px) + 비활성 상태: 느린 lerp 보정
-              syncX = localHero.x * 0.9 + hero.x * 0.1;
-              syncY = localHero.y * 0.9 + hero.y * 0.1;
+            let syncX: number;
+            let syncY: number;
+
+            if (posError > 200) {
+              // 큰 오차: 즉시 보정 (돌진 중이면 제외)
+              syncX = isLocalDashing ? localHero.x : hero.x;
+              syncY = isLocalDashing ? localHero.y : hero.y;
+            } else if (isMoving || isLocalDashing) {
+              // 이동/돌진 중: 로컬 위치 유지 (입력 반응성 우선)
+              syncX = localHero.x;
+              syncY = localHero.y;
+            } else if (posError < 20) {
+              // 작은 오차 (20px 미만): 로컬 위치 유지 (슬라이딩 방지)
+              syncX = localHero.x;
+              syncY = localHero.y;
+            } else {
+              // 중간 오차: 호스트 위치로 빠르게 보간 (50%씩)
+              syncX = localHero.x + (hero.x - localHero.x) * 0.5;
+              syncY = localHero.y + (hero.y - localHero.y) * 0.5;
             }
-            // 활성 상태면 로컬 위치 유지 (부드러운 움직임/애니메이션)
 
-            // 돌진 상태 병합: 로컬 dashState만 사용 (클라이언트 예측 완전 우선)
-            // 클라이언트가 돌진을 시작하면 로컬 애니메이션을 끝까지 사용
-            // 서버 dashState는 무시 (서버와 좌표가 다를 수 있어 제자리 돌아감 발생)
-            const localIsDashing = localHero.dashState !== undefined && localHero.dashState.progress < 1;
-            // 서버가 아직 돌진 중이라고 생각하는 경우 (로컬은 이미 완료)
-            const serverStillDashing = hero.dashState !== undefined;
-            // 로컬 돌진 방금 완료: 로컬은 끝났지만 서버는 아직 돌진 중
-            const dashJustCompleted = !localIsDashing && serverStillDashing;
-            // 로컬 돌진 중이면 로컬 유지, 로컬이 돌진 안하면 undefined (서버 dashState 무시)
-            // 서버 dashState를 적용하지 않는 이유: 서버의 startX/startY가 다를 수 있어 텔레포트 발생
-            const mergedDashState = localIsDashing ? localHero.dashState : undefined;
-            const isDashing = mergedDashState !== undefined;
-
-            // 돌진 중일 때는 로컬 돌진 위치 우선 적용 (부드러운 애니메이션)
-            let dashSyncX = syncX;
-            let dashSyncY = syncY;
-            if (localIsDashing && localHero.dashState) {
-              // 로컬 돌진 중이면 로컬 돌진 위치 계산 (클라이언트 예측)
-              const dash = localHero.dashState;
-              const easedProgress = 1 - (1 - dash.progress) * (1 - dash.progress);
-              dashSyncX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
-              dashSyncY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
-            } else if (dashJustCompleted) {
-              // 돌진 방금 완료: 로컬 위치 유지 (서버가 따라잡을 때까지)
-              // 서버 위치로 보정하면 원래 자리로 텔레포트됨
-              dashSyncX = localHero.x;
-              dashSyncY = localHero.y;
-            }
-            // 서버 dashState는 사용하지 않음 (로컬 완료 후 서버 위치로 점프 방지)
+            // 돌진 상태: 로컬 돌진 중이면 로컬 유지, 아니면 호스트 것 사용
+            const mergedDashState = isLocalDashing ? localHero.dashState : hero.dashState;
 
             // 클라이언트 피격 감지: HP가 감소했을 때 lastDamageTime 업데이트 (피격 화면 효과용)
             // 무적 상태일 때는 피격 이펙트 표시하지 않음 (서버 버프로 체크)
@@ -2553,16 +2521,14 @@ export const useRPGStore = create<RPGStore>()(
 
             myHero = {
               ...localHero,
-              // 서버에서만 동기화해야 하는 상태 (데미지, 힐, 스킬 쿨다운, 사망 시간, 업그레이드된 스탯)
+              // 호스트에서 동기화받는 모든 상태
               hp: hero.hp,
               maxHp: hero.maxHp,
               skills: mergedSkills,
               buffs: hero.buffs,
               deathTime: hero.deathTime,  // 사망 시간 동기화 (부활 타이머용)
-              dashState: mergedDashState,  // 돌진 상태 동기화 (서버 우선, 없으면 로컬 유지)
-              // 시전 상태 병합: 더 높은 값(더 나중까지 시전) 사용
-              // 서버에서 스턴으로 취소된 경우 서버 값 적용, 로컬에서만 시전 중이면 로컬 값 유지
-              castingUntil: Math.max(hero.castingUntil || 0, localHero.castingUntil || 0) || undefined,
+              dashState: mergedDashState,  // 돌진 상태도 호스트에서 받은 것 사용
+              castingUntil: hero.castingUntil,  // 시전 상태도 호스트에서 받은 것 사용
               // 전직 정보 동기화 (부활 시 전직 상태 유지)
               advancedClass: hero.advancedClass,
               tier: hero.tier,
@@ -2579,15 +2545,16 @@ export const useRPGStore = create<RPGStore>()(
               baseAttack: hero.baseAttack,
               baseSpeed: hero.baseSpeed,
               baseAttackSpeed: hero.baseAttackSpeed,
-              // 위치 보정 적용 (돌진 중이면 서버 위치 우선)
-              x: dashSyncX,
-              y: dashSyncY,
-              // 돌진 중이면 상태도 동기화
-              state: isDashing ? hero.state : localHero.state,
-              // 나머지는 모두 로컬 유지 (이동, 상태 등)
+              // 호스트 위치 보간 적용
+              x: syncX,
+              y: syncY,
+              // 이동 방향과 상태는 로컬 유지 (입력의 즉각적인 반응)
+              // 호스트에서 동기화받지 않음 - 클라이언트 입력이 우선
+              state: localHero.moveDirection ? 'moving' : 'idle',
+              moveDirection: localHero.moveDirection,
             };
           } else {
-            // 첫 생성 시에만 서버 위치 사용
+            // 첫 생성 시 서버 상태 사용
             myHero = hero;
           }
           // 내 골드, 업그레이드, 처치 수 추출
@@ -2726,28 +2693,10 @@ export const useRPGStore = create<RPGStore>()(
         })),
         gold: myGold,  // 내 골드 적용
         upgradeLevels: myUpgrades,  // 내 업그레이드 적용
-        // activeSkillEffects: 클라이언트의 로컬 이펙트(내 영웅) + 서버 이펙트(다른 영웅)
-        // 내 영웅 이펙트: 로컬 유지 (클라이언트 예측이 더 정확함)
-        // 다른 영웅 이펙트: 서버 것만 사용 (호스트가 권위, 만료 시 자동 제거)
-        activeSkillEffects: (() => {
-          const localEffects = currentState.activeSkillEffects;
-          const serverEffects = serializedState.activeSkillEffects || [];
-
-          // 내 영웅의 로컬 이펙트만 유지 (클라이언트 예측)
-          // myHeroId가 null/undefined인 경우 로컬 이펙트 모두 유지 (게임 시작 전)
-          const myLocalEffects = myHeroId
-            ? localEffects.filter(e => e.heroId === myHeroId)
-            : localEffects;
-
-          // 다른 영웅의 이펙트는 서버 것만 사용 (호스트가 권위)
-          // heroId가 undefined인 서버 이펙트도 포함 (pendingSkill 등)
-          const otherEffectsFromServer = myHeroId
-            ? serverEffects.filter(e => e.heroId !== myHeroId)
-            : [];
-
-          // 병합: 내 로컬 이펙트 + 서버의 다른 이펙트
-          return [...myLocalEffects, ...otherEffectsFromServer];
-        })(),
+        // activeSkillEffects: 서버 이펙트 사용 (호스트가 권위)
+        // 클라이언트에서 자동 공격 제거 후, 모든 공격 이펙트는 호스트에서 생성됨
+        // 따라서 서버 이펙트를 그대로 사용 (내 영웅 이펙트 포함)
+        activeSkillEffects: serializedState.activeSkillEffects || [],
         basicAttackEffects: serializedState.basicAttackEffects || [],
         nexusLaserEffects: serializedState.nexusLaserEffects || [],
         bossSkillExecutedEffects: serializedState.bossSkillExecutedEffects || [],
@@ -2932,6 +2881,7 @@ function serializeHeroToNetwork(hero: HeroUnit, gold: number, upgradeLevels: Upg
       E: hero.skills[2]?.currentCooldown || 0,
     },
     moveDirection: hero.moveDirection || null,
+    state: hero.state,
     characterLevel: hero.characterLevel,
     dashState: hero.dashState,
     statUpgrades: hero.statUpgrades,
@@ -2994,7 +2944,7 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
     y: serialized.y,
     hp: serialized.hp,
     maxHp: serialized.maxHp,
-    state: serialized.moveDirection ? 'moving' : 'idle',
+    state: serialized.state || (serialized.moveDirection ? 'moving' : 'idle'),
     attackCooldown: 0,
     team: 'player',
     skills,

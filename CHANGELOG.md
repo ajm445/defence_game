@@ -1,5 +1,54 @@
 # Changelog
 
+## [1.20.11] - 2026-02-04
+
+### Bug Fixes
+- **클라이언트 이동 지속 버그 수정**: 창 포커스를 잃을 때 키 상태가 유지되어 캐릭터가 멈추지 않던 버그 해결
+  - `blur` 이벤트 핸들러 추가: 창 포커스 잃을 때 WASD 키 상태 초기화
+  - `visibilitychange` 이벤트 핸들러 추가: 탭 전환 시 키 상태 초기화
+  - 이동 중이었다면 `setMoveDirection(undefined)` 호출로 네트워크 동기화
+- **클라이언트 슬라이딩 현상 수정**: 이동 멈출 때 캐릭터가 미끄러지는 현상 해결
+  - 20px 미만 오차: 로컬 위치 유지 (미세 슬라이딩 방지)
+  - 중간 오차(20-200px): 50%씩 빠른 보간으로 수렴
+
+### Improvements
+- **클라이언트 로직 단순화**: 호스트 권위적 아키텍처 강화
+  - 클라이언트 자동 공격 제거 (호스트에서만 처리)
+  - 불필요한 클라이언트 HP 재생/버프 로직 제거
+  - 위치 동기화 로직 단순화 (복잡한 lerp 보정 제거)
+- **위치 동기화 개선**: 상황별 최적화된 동기화 전략
+  - 이동/돌진 중: 로컬 위치 100% 유지 (입력 반응성 우선)
+  - 정지 상태: 호스트 위치로 빠르게 수렴
+  - 200px 이상 오차: 즉시 호스트 위치로 스냅
+
+### Technical Changes
+- `src/hooks/useRPGInput.ts`:
+  - `handleBlur`: 창 포커스 잃을 때 키 상태 초기화
+  - `handleVisibilityChange`: 문서 가시성 변경 시 키 상태 초기화
+- `src/hooks/useRPGGameLoop.ts`:
+  - 클라이언트 자동 공격 로직 제거 (205줄 감소)
+  - 클라이언트 HP 재생, 버프 업데이트 로직 제거
+  - 이동/돌진 예측 로직 유지 (부드러운 움직임)
+- `src/hooks/useNetworkSync.ts`:
+  - `handleRemoteInput` 단순화: lerp 위치 보정 제거 (70줄 감소)
+  - 호스트가 moveDirection으로 직접 위치 계산
+- `src/stores/useRPGStore.ts`:
+  - `applySerializedState` 단순화: 복잡한 위치 병합 로직 제거 (148줄 감소)
+  - 슬라이딩 방지를 위한 20px 임계값 추가
+  - `activeSkillEffects` 서버 상태 직접 사용 (필터링 제거)
+- `shared/types/hostBasedNetwork.ts`:
+  - `SerializedHero`에 `state` 필드 추가 (영웅 상태 동기화)
+
+### Code Statistics
+- 총 변경: -210줄 (단순화로 인한 코드 감소)
+  - `useRPGGameLoop.ts`: -205줄
+  - `useNetworkSync.ts`: -70줄
+  - `useRPGStore.ts`: -148줄
+  - `useRPGInput.ts`: +23줄
+  - `hostBasedNetwork.ts`: +2줄
+
+---
+
 ## [1.20.10] - 2026-02-04
 
 ### Bug Fixes

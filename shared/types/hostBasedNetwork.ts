@@ -59,6 +59,8 @@ export interface SerializedHero {
     E: number;
   };
   moveDirection: { x: number; y: number } | null;
+  // 영웅 상태 (idle, moving, attacking 등)
+  state: 'idle' | 'moving' | 'attacking' | 'gathering' | 'healing' | 'casting';
   // 캐릭터 레벨 (업그레이드 최대 레벨 결정)
   characterLevel: number;
   // 대시 상태 (선택)

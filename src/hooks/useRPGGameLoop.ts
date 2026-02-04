@@ -42,9 +42,6 @@ export function useRPGGameLoop() {
   const accumulatedAuraHealRef = useRef<Map<string, number>>(new Map());
   // 클라이언트: 이전 프레임 사망 상태 추적 (사망 알림 중복 방지)
   const wasClientDeadRef = useRef<boolean>(false);
-  // 클라이언트: 마지막 위치 전송 시간 (주기적 위치 동기화용)
-  const lastPositionSendTimeRef = useRef<number>(0);
-  const POSITION_SEND_INTERVAL = 50; // 50ms마다 위치 전송 (서버 브로드캐스트와 동일)
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -165,12 +162,8 @@ export function useRPGGameLoop() {
       }
       wasClientDeadRef.current = !!isClientDead;
 
-      // 사망 체크: HP가 0 이하면 이동 불가 및 사망 상태 처리
+      // 사망 체크: HP가 0 이하면 카메라 추적만 (관전 모드)
       if (isClientDead) {
-        // 이동 방향 초기화 (사망 시 이동 중지)
-        if (clientHero.moveDirection) {
-          useRPGStore.getState().setMoveDirection(undefined);
-        }
         // 카메라는 계속 따라가도록 (관전 모드)
         if (useRPGStore.getState().camera.followHero) {
           useRPGStore.getState().setCamera(clientHero.x, clientHero.y);
@@ -179,123 +172,63 @@ export function useRPGGameLoop() {
         return;
       }
 
-      // 클라이언트도 자신의 영웅 이동을 로컬에서 처리 (부드러운 움직임)
-      // 단, 돌진 중이거나 시전 중일 때는 이동 불가
+      // ==========================================
+      // 클라이언트 로컬 이동 예측 (부드러운 움직임)
+      // - 입력에 따라 즉시 이동 (반응성)
+      // - 호스트 위치는 applySerializedState에서 보정
+      // ==========================================
       const isClientDashing = clientHero?.dashState && clientHero.dashState.progress < 1;
-      const clientGameTimeNow = useRPGStore.getState().gameTime;
-      const isClientCasting = clientHero?.castingUntil && clientGameTimeNow < clientHero.castingUntil;
+      const isClientCasting = clientHero?.castingUntil && useRPGStore.getState().gameTime < clientHero.castingUntil;
       const isClientStunned = clientHero?.buffs?.some(b => b.type === 'stun' && b.duration > 0);
 
-      // 클라이언트 돌진 애니메이션 로컬 업데이트 (서버 응답 대기 중에도 부드러운 애니메이션)
+      // 돌진 애니메이션 (로컬)
       if (isClientDashing && clientHero?.dashState) {
         const dash = clientHero.dashState;
-        const newProgress = dash.progress + deltaTime / dash.duration;
+        const newProgress = Math.min(1, dash.progress + deltaTime / dash.duration);
+        const easedProgress = 1 - (1 - newProgress) * (1 - newProgress);  // easeOutQuad
 
-        if (newProgress >= 1) {
-          // 돌진 완료
-          useRPGStore.getState().updateHeroState({
-            x: dash.targetX,
-            y: dash.targetY,
-            dashState: undefined,
-            state: 'idle',
-          });
-          // 돌진 완료 직후 위치를 서버에 즉시 전송 (위치 동기화 오차 최소화)
-          sendMoveDirection(null);  // null로 전송하면 현재 위치만 전송됨
-        } else {
-          // 돌진 중 - easeOutQuad 이징 적용
-          const easedProgress = 1 - (1 - newProgress) * (1 - newProgress);
-          const newX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
-          const newY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
-          useRPGStore.getState().updateHeroState({
-            x: newX,
-            y: newY,
-            dashState: { ...dash, progress: newProgress },
-            state: 'moving',
-          });
-        }
+        const newX = dash.startX + (dash.targetX - dash.startX) * easedProgress;
+        const newY = dash.startY + (dash.targetY - dash.startY) * easedProgress;
 
-        // 돌진 중 카메라 추적
-        const dashUpdatedHero = useRPGStore.getState().hero;
-        if (useRPGStore.getState().camera.followHero && dashUpdatedHero) {
-          useRPGStore.getState().setCamera(dashUpdatedHero.x, dashUpdatedHero.y);
-        }
+        useRPGStore.getState().updateHeroState({
+          x: newX,
+          y: newY,
+          dashState: newProgress >= 1 ? undefined : { ...dash, progress: newProgress },
+          state: newProgress >= 1 ? 'idle' : 'moving',
+        });
       }
-
-      if (clientHero && clientHero.moveDirection && !isClientDashing && !isClientCasting && !isClientStunned) {
+      // 일반 이동 (로컬 예측)
+      else if (clientHero?.moveDirection && !isClientCasting && !isClientStunned) {
         const dir = clientHero.moveDirection;
         if (dir.x !== 0 || dir.y !== 0) {
+          // 속도 계산
           let speed = clientHero.config.speed || clientHero.baseSpeed || 200;
-
-          // 이동속도 버프 적용 (swiftness) - duration > 0인 경우만 유효
           const swiftnessBuff = clientHero.buffs?.find(b => b.type === 'swiftness' && b.duration > 0);
           if (swiftnessBuff?.moveSpeedBonus) {
             speed *= (1 + swiftnessBuff.moveSpeedBonus);
           }
 
-          const moveDistance = speed * deltaTime * 60;
-
-          // 방향 정규화
+          // 이동 거리 계산
           const dirLength = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
-          const normalizedX = dir.x / dirLength;
-          const normalizedY = dir.y / dirLength;
+          const moveX = (dir.x / dirLength) * speed * deltaTime * 60;
+          const moveY = (dir.y / dirLength) * speed * deltaTime * 60;
 
-          const newX = clientHero.x + normalizedX * moveDistance;
-          const newY = clientHero.y + normalizedY * moveDistance;
+          // 맵 범위 내로 제한
+          const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, clientHero.x + moveX));
+          const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, clientHero.y + moveY));
 
-          // 맵 범위 제한 (30px 마진)
-          const clampedX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, newX));
-          const clampedY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, newY));
-
-          useRPGStore.getState().updateHeroPosition(clampedX, clampedY);
-
-          // 주기적으로 위치 전송 (호스트와 동기화)
-          const now = performance.now();
-          if (now - lastPositionSendTimeRef.current >= POSITION_SEND_INTERVAL) {
-            lastPositionSendTimeRef.current = now;
-            // 현재 이동 방향과 함께 위치 전송
-            sendMoveDirection(dir);
-          }
+          useRPGStore.getState().updateHeroPosition(newX, newY);
         }
       }
 
-      // 카메라가 내 영웅을 따라가도록 설정
-      const updatedHero = useRPGStore.getState().hero;
-      if (useRPGStore.getState().camera.followHero && updatedHero) {
-        useRPGStore.getState().setCamera(updatedHero.x, updatedHero.y);
+      // 카메라 추적
+      const heroForCamera = useRPGStore.getState().hero;
+      if (heroForCamera && useRPGStore.getState().camera.followHero) {
+        useRPGStore.getState().setCamera(heroForCamera.x, heroForCamera.y);
       }
-
-      // 클라이언트도 버프 지속시간 업데이트 (모든 영웅)
-      useRPGStore.getState().updateBuffs(deltaTime);
 
       // 클라이언트도 스킬 쿨다운 로컬 업데이트 (즉각적인 UI 피드백)
       useRPGStore.getState().updateSkillCooldowns(deltaTime);
-
-      // 클라이언트도 HP 재생 로컬 처리 (기사 패시브, SP hpRegen)
-      const clientHeroForRegen = useRPGStore.getState().hero;
-      if (clientHeroForRegen && clientHeroForRegen.hp > 0 && clientHeroForRegen.hp < clientHeroForRegen.maxHp) {
-        const clientHeroClass = clientHeroForRegen.heroClass;
-        let clientTotalRegen = 0;
-
-        // 기사 패시브 HP 재생 (캐릭터 레벨 5 이상 시 활성화)
-        if (clientHeroClass === 'knight') {
-          const classConfig = CLASS_CONFIGS[clientHeroClass];
-          const baseRegen = clientHeroForRegen.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.hpRegen || 0) : 0;
-          const growthRegen = clientHeroForRegen.passiveGrowth?.currentValue || 0;
-          clientTotalRegen += baseRegen + growthRegen;
-        }
-
-        // SP hpRegen 업그레이드 보너스 (전사, 기사만)
-        if ((clientHeroClass === 'warrior' || clientHeroClass === 'knight') && clientHeroForRegen.statUpgrades) {
-          const hpRegenBonus = getStatBonus('hpRegen', clientHeroForRegen.statUpgrades.hpRegen);
-          clientTotalRegen += hpRegenBonus;
-        }
-
-        if (clientTotalRegen > 0) {
-          const regenAmount = clientTotalRegen * deltaTime;
-          const newHp = Math.min(clientHeroForRegen.maxHp, clientHeroForRegen.hp + regenAmount);
-          useRPGStore.getState().updateHeroState({ hp: newHp });
-        }
-      }
 
       // 다른 플레이어 영웅 위치 보간 업데이트 (부드러운 움직임)
       useRPGStore.getState().updateOtherHeroesInterpolation();
@@ -414,7 +347,7 @@ export function useRPGGameLoop() {
         }
       }
 
-      // 클라이언트: 보류된 W/E 스킬 로컬 실행 (이펙트, 돌진 상태 등)
+      // 클라이언트: 보류된 W/E 스킬 로컬 실행 (이펙트만)
       // 데미지는 호스트에서 처리하고 동기화됨
       if (pendingSkillRef.current) {
         const skillType = pendingSkillRef.current;
@@ -422,80 +355,16 @@ export function useRPGGameLoop() {
         handleClientSkillExecution(skillType, clientCurrentGameTime);
       }
 
-      // 클라이언트: 자동 공격 (Q 스킬) 처리
-      // 적이 사거리 내에 있고 Q 스킬이 준비되면 호스트에게 요청 전송
-      const clientHeroForAttack = useRPGStore.getState().hero;
-      if (clientHeroForAttack && clientHeroForAttack.hp > 0 && !isClientDashing && !isClientCasting && !isClientStunned) {
-        const clientHeroClass = clientHeroForAttack.heroClass;
-        const clientQSkillType = CLASS_SKILLS[clientHeroClass].q.type;
-        const clientQSkill = clientHeroForAttack.skills.find(s => s.type === clientQSkillType);
-
-        if (clientQSkill && clientQSkill.currentCooldown <= 0) {
-          const clientAttackRange = clientHeroForAttack.config.range || 80;
-          const clientEnemies = useRPGStore.getState().enemies;
-          const clientNearestEnemy = findNearestEnemy(clientHeroForAttack, clientEnemies);
-
-          let clientAttackedTarget = false;
-
-          // 적 공격
-          if (clientNearestEnemy) {
-            const clientDist = distance(clientHeroForAttack.x, clientHeroForAttack.y, clientNearestEnemy.x, clientNearestEnemy.y);
-            if (clientDist <= clientAttackRange) {
-              // 호스트에게 Q 스킬 요청 전송
-              sendSkillUse('Q', clientNearestEnemy.x, clientNearestEnemy.y);
-              // 로컬에서 쿨다운 시작 (즉각적인 피드백)
-              useRPGStore.getState().useSkill(clientQSkillType);
-              clientAttackedTarget = true;
-
-              // 사운드 재생 (로컬)
-              if (clientHeroClass === 'archer' || clientHeroClass === 'mage') {
-                soundManager.play('attack_ranged');
-              } else {
-                soundManager.play('attack_melee');
-              }
-
-              // 로컬 이펙트 생성 (즉각적인 시각 피드백)
-              const effectType = (clientHeroClass === 'archer' || clientHeroClass === 'mage') ? 'attack_ranged' : 'attack_melee';
-              effectManager.createEffect(effectType, clientNearestEnemy.x, clientNearestEnemy.y);
-            }
-          }
-
-          // 적이 없으면 기지(넥서스) 공격
-          if (!clientAttackedTarget) {
-            const clientEnemyBases = useRPGStore.getState().enemyBases;
-            const clientNearestBase = findNearestEnemyBase(clientHeroForAttack, clientEnemyBases);
-
-            if (clientNearestBase) {
-              const clientBaseDist = distance(clientHeroForAttack.x, clientHeroForAttack.y, clientNearestBase.x, clientNearestBase.y);
-              const clientBaseAttackRange = clientAttackRange + 50;  // 기지 반경 고려
-              if (clientBaseDist <= clientBaseAttackRange) {
-                // 호스트에게 Q 스킬 요청 전송
-                sendSkillUse('Q', clientNearestBase.x, clientNearestBase.y);
-                // 로컬에서 쿨다운 시작 (즉각적인 피드백)
-                useRPGStore.getState().useSkill(clientQSkillType);
-
-                // 사운드 재생 (로컬)
-                if (clientHeroClass === 'archer' || clientHeroClass === 'mage') {
-                  soundManager.play('attack_ranged');
-                } else {
-                  soundManager.play('attack_melee');
-                }
-
-                // 로컬 이펙트 생성 (즉각적인 시각 피드백)
-                effectManager.createEffect('attack_melee', clientNearestBase.x, clientNearestBase.y);
-              }
-            }
-          }
-        }
-      }
+      // 클라이언트: 자동 공격은 호스트에서만 처리
+      // 클라이언트는 호스트로부터 공격 이펙트/사운드만 동기화받음 (위의 basicAttackEffects 처리)
 
       // 클라이언트: 스킬 이펙트 만료 체크 (로컬 이펙트 정리)
       const clientActiveEffects = useRPGStore.getState().activeSkillEffects;
-      const clientGameTime = useRPGStore.getState().gameTime;
+      const clientGameTimeForEffects = useRPGStore.getState().gameTime;
       const clientExpiredEffects: number[] = [];
 
       clientActiveEffects.forEach((effect, index) => {
-        if (clientGameTime - effect.startTime >= effect.duration) {
+        if (clientGameTimeForEffects - effect.startTime >= effect.duration) {
           clientExpiredEffects.push(index);
         }
       });

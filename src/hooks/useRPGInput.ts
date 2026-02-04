@@ -296,11 +296,34 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
       }
     };
 
+    // 창 포커스를 잃을 때 키 상태 초기화 (keyup 이벤트 누락 방지)
+    const handleBlur = () => {
+      const wasMoving = keyState.w || keyState.a || keyState.s || keyState.d;
+      keyState.w = false;
+      keyState.a = false;
+      keyState.s = false;
+      keyState.d = false;
+      if (wasMoving) {
+        updateMoveDirection();
+      }
+    };
+
+    // 문서 가시성 변경 시 키 상태 초기화 (탭 전환 등)
+    const handleVisibilityChange = () => {
+      if (document.hidden) {
+        handleBlur();
+      }
+    };
+
     window.addEventListener('keydown', handleKeyDown);
     window.addEventListener('keyup', handleKeyUp);
+    window.addEventListener('blur', handleBlur);
+    document.addEventListener('visibilitychange', handleVisibilityChange);
     return () => {
       window.removeEventListener('keydown', handleKeyDown);
       window.removeEventListener('keyup', handleKeyUp);
+      window.removeEventListener('blur', handleBlur);
+      document.removeEventListener('visibilitychange', handleVisibilityChange);
       // 클린업 시 키 상태 초기화
       keyState.w = false;
       keyState.a = false;
