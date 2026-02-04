@@ -20,12 +20,30 @@ export type TutorialConditionType =
   | 'sold_herb' // 약초 판매함
   | 'enemy_destroyed'; // 적 본진 파괴
 
+// 하이라이트 대상 타입
+export type HighlightTarget =
+  | 'unit-melee'
+  | 'unit-ranged'
+  | 'unit-knight'
+  | 'unit-mage'
+  | 'unit-woodcutter'
+  | 'unit-miner'
+  | 'unit-gatherer'
+  | 'unit-goldminer'
+  | 'unit-healer'
+  | 'action-wall'
+  | 'action-upgrade'
+  | 'action-sell-herb'
+  | 'resource-bar'
+  | null;
+
 export interface TutorialStep {
   id: string;
   title: string;
   description: string;
-  highlight?: string; // 하이라이트할 UI 요소 ID
+  highlight?: HighlightTarget; // 하이라이트할 UI 요소
   conditionType: TutorialConditionType; // 완료 조건 타입
+  conditionHint?: string; // 조건 힌트 (선택적)
 }
 
 interface TutorialState {
@@ -49,146 +67,163 @@ interface TutorialActions {
   setHerbSold: (sold: boolean) => void;
 }
 
-// 튜토리얼 단계 정의 - 모든 유닛과 액션 포함
+// 튜토리얼 단계 정의 - 상세한 전략 설명 포함
 export const TUTORIAL_STEPS: TutorialStep[] = [
   // === 기본 설명 ===
   {
     id: 'welcome',
-    title: '게임에 오신 것을 환영합니다!',
-    description: '이 게임의 목표는 적의 본진을 파괴하고 내 본진을 지키는 것입니다.\n\n왼쪽이 내 본진, 오른쪽이 적 본진입니다.',
+    title: '🎮 막아라! 무너트려라!',
+    description: '이 게임은 직접 싸우는 것이 아닌, 아군 유닛을 소환하여 적 본진을 파괴하는 전략 게임입니다!\n\n• 왼쪽: 내 본진 (파란색)\n• 오른쪽: 적 본진 (빨간색)\n\n유닛을 잘 조합하여 적을 물리치세요!',
     conditionType: 'none',
   },
   {
     id: 'camera',
-    title: '카메라 조작',
-    description: '• 오른쪽 마우스 드래그: 화면이동\n• Space: 본진으로 이동\n• 마우스 휠: 줌인/줌아웃',
+    title: '📷 카메라 조작',
+    description: '넓은 전장을 살펴보세요!\n\n• 마우스 우클릭 드래그: 화면 이동\n• Space 키: 내 본진으로 즉시 이동\n• 마우스 휠: 확대/축소',
     conditionType: 'none',
   },
   {
     id: 'resources_intro',
-    title: '자원 소개',
-    description: '게임에는 5가지 자원이 있습니다:\n\n💰 골드: 유닛 고용, 업그레이드\n🪵 나무: 벽 건설, 업그레이드\n🪨 돌: 벽 건설, 업그레이드\n🌿 약초: 판매하여 골드 획득\n💎 수정: 특수 유닛(마법사) 고용',
+    title: '💎 자원 시스템',
+    description: '유닛을 소환하려면 자원이 필요합니다.\n\n💰 골드: 기본 자원, 모든 유닛에 필요\n🪵 나무: 궁수, 기사, 벽 건설에 필요\n🪨 돌: 기사, 벽 건설에 필요\n🌿 약초: 힐러 고용, 판매하여 골드 획득\n💎 수정: 마법사 고용 (맵 중앙에서 획득)\n\n자원 수집 유닛을 활용하세요!',
+    highlight: 'resource-bar',
     conditionType: 'none',
   },
 
   // === 전투 유닛 ===
   {
     id: 'spawn_melee',
-    title: '전투 유닛 - 검병 ⚔️',
-    description: '검병을 소환하세요!\n\n• 비용: 💰50\n• HP 100, 공격력 15\n• 근접 공격 유닛입니다.',
+    title: '⚔️ 검병 - 기본 전투 유닛',
+    description: '검병은 가장 기본적인 전투 유닛입니다.\n\n📊 스펙:\n• 체력 100 / 공격력 15\n• 비용: 💰50\n• 근접 공격\n\n💡 전략 팁:\n저렴하고 빠르게 소환됩니다. 초반 러시나 물량 싸움에 유용해요!\n\n👆 아래 검병 버튼을 클릭하세요!',
     highlight: 'unit-melee',
     conditionType: 'has_melee',
+    conditionHint: '검병 버튼을 클릭하여 소환하세요',
   },
   {
     id: 'spawn_ranged',
-    title: '전투 유닛 - 궁수 🏹',
-    description: '궁수를 소환하세요!\n\n• 비용: 💰80 + 🪵10\n• HP 50, 공격력 25\n• 원거리 공격 유닛입니다.',
+    title: '🏹 궁수 - 원거리 딜러',
+    description: '궁수는 멀리서 적을 공격합니다.\n\n📊 스펙:\n• 체력 50 / 공격력 25\n• 비용: 💰80 + 🪵10\n• 사거리 150\n\n💡 전략 팁:\n체력은 낮지만 공격력이 높습니다. 검병이나 기사 뒤에서 딜을 넣으세요!\n\n👆 궁수 버튼을 클릭하세요!',
     highlight: 'unit-ranged',
     conditionType: 'has_ranged',
+    conditionHint: '궁수 버튼을 클릭하여 소환하세요',
   },
   {
     id: 'spawn_knight',
-    title: '전투 유닛 - 기사 🛡️',
-    description: '기사를 소환하세요!\n\n• 비용: 💰120 + 🪵20 + 🪨30\n• HP 300, 공격력 10\n• 탱커 역할을 합니다.',
+    title: '🛡️ 기사 - 탱커',
+    description: '기사는 팀의 방패 역할을 합니다.\n\n📊 스펙:\n• 체력 300 / 공격력 10\n• 비용: 💰120 + 🪵20 + 🪨30\n• 느린 이동속도\n\n💡 전략 팁:\n높은 체력으로 적의 공격을 버텨줍니다. 궁수와 함께 운용하면 효과적!\n\n👆 기사 버튼을 클릭하세요!',
     highlight: 'unit-knight',
     conditionType: 'has_knight',
+    conditionHint: '기사 버튼을 클릭하여 소환하세요',
   },
 
   // === 자원 수집 유닛 ===
   {
     id: 'spawn_woodcutter',
-    title: '자원 유닛 - 나무꾼 🪓',
-    description: '나무꾼을 소환하세요!\n\n• 비용: 💰30\n• 나무를 채집합니다\n• 나무는 벽 건설과 업그레이드에 필요합니다.',
+    title: '🪓 나무꾼 - 나무 수집',
+    description: '나무꾼은 나무를 채집합니다.\n\n📊 스펙:\n• 체력 60 / 공격력 5\n• 비용: 💰30\n• 나무 🪵 채집\n\n💡 전략 팁:\n나무는 궁수, 기사, 마법사를 위해 필수! 초반에 1~2명 배치하세요.\n\n👆 나무꾼 버튼을 클릭하세요!',
     highlight: 'unit-woodcutter',
     conditionType: 'has_woodcutter',
+    conditionHint: '나무꾼 버튼을 클릭하여 소환하세요',
   },
   {
     id: 'wait_wood',
-    title: '나무 수집 대기',
-    description: '나무꾼이 나무를 채집하고 있습니다.\n\n나무 10개가 모일 때까지 기다리세요.\n(상단 자원바에서 확인)',
+    title: '🪵 나무 수집 대기',
+    description: '나무꾼이 나무를 채집하고 있습니다!\n\n나무는 맵 곳곳에 있는 나무에서 수집됩니다. 나무꾼이 자동으로 가장 가까운 나무로 이동하여 채집합니다.\n\n⏳ 상단 자원 바에서 나무 🪵가 10개 이상 모일 때까지 기다려주세요.',
     conditionType: 'has_wood',
+    conditionHint: '나무 10개 수집 대기 중...',
   },
   {
     id: 'spawn_miner',
-    title: '자원 유닛 - 광부 ⛏️',
-    description: '광부를 소환하세요!\n\n• 비용: 💰40 + 🪵5\n• 돌을 채집합니다\n• 돌은 벽 건설과 업그레이드에 필요합니다.',
+    title: '⛏️ 광부 - 돌 수집',
+    description: '광부는 돌을 채집합니다.\n\n📊 스펙:\n• 체력 70 / 공격력 6\n• 비용: 💰40 + 🪵5\n• 돌 🪨 채집\n\n💡 전략 팁:\n돌은 기사와 벽 건설에 필요합니다. 안정적인 돌 수급을 위해 배치하세요.\n\n👆 광부 버튼을 클릭하세요!',
     highlight: 'unit-miner',
     conditionType: 'has_miner',
+    conditionHint: '광부 버튼을 클릭하여 소환하세요',
   },
   {
     id: 'wait_stone',
-    title: '돌 수집 대기',
-    description: '광부가 돌을 채집하고 있습니다.\n\n돌 10개가 모일 때까지 기다리세요.',
+    title: '🪨 돌 수집 대기',
+    description: '광부가 돌을 채집하고 있습니다!\n\n돌은 맵에 있는 바위에서 수집됩니다.\n\n⏳ 상단 자원 바에서 돌 🪨이 10개 이상 모일 때까지 기다려주세요.',
     conditionType: 'has_stone',
+    conditionHint: '돌 10개 수집 대기 중...',
   },
   {
     id: 'spawn_gatherer',
-    title: '자원 유닛 - 채집꾼 🧺',
-    description: '채집꾼을 소환하세요!\n\n• 비용: 💰50\n• 약초를 채집합니다\n• 약초는 판매하여 골드를 얻을 수 있습니다.',
+    title: '🧺 채집꾼 - 약초 수집',
+    description: '채집꾼은 약초를 채집합니다.\n\n📊 스펙:\n• 체력 50 / 공격력 3\n• 비용: 💰50\n• 약초 🌿 채집\n\n💡 전략 팁:\n약초는 힐러를 고용하거나, 판매하여 골드를 얻을 수 있어요!\n\n👆 채집꾼 버튼을 클릭하세요!',
     highlight: 'unit-gatherer',
     conditionType: 'has_gatherer',
+    conditionHint: '채집꾼 버튼을 클릭하여 소환하세요',
   },
   {
     id: 'wait_herb',
-    title: '약초 수집 대기',
-    description: '채집꾼이 약초를 채집하고 있습니다.\n\n약초 5개가 모일 때까지 기다리세요.',
+    title: '🌿 약초 수집 대기',
+    description: '채집꾼이 약초를 채집하고 있습니다!\n\n약초는 맵 곳곳의 풀에서 수집됩니다.\n\n⏳ 상단 자원 바에서 약초 🌿가 5개 이상 모일 때까지 기다려주세요.',
     conditionType: 'has_herb',
+    conditionHint: '약초 5개 수집 대기 중...',
   },
   {
     id: 'spawn_goldminer',
-    title: '자원 유닛 - 금광부 💰',
-    description: '금광부를 소환하세요!\n\n• 비용: 💰100 + 🪵20\n• 금광에서 골드를 채굴합니다\n• 골드 수입을 늘릴 수 있습니다.',
+    title: '💰 금광부 - 골드 채굴',
+    description: '금광부는 금광에서 골드를 채굴합니다.\n\n📊 스펙:\n• 체력 70 / 공격력 4\n• 비용: 💰100 + 🪵20\n• 골드 💰 채굴\n\n💡 전략 팁:\n맵 중앙의 금광에서 추가 골드를 얻을 수 있어요. 경제력 강화에 필수!\n\n👆 금광부 버튼을 클릭하세요!',
     highlight: 'unit-goldminer',
     conditionType: 'has_goldminer',
+    conditionHint: '금광부 버튼을 클릭하여 소환하세요',
   },
 
   // === 지원 유닛 ===
   {
     id: 'spawn_healer',
-    title: '지원 유닛 - 힐러 💚',
-    description: '힐러를 소환하세요!\n\n• 비용: 💰70 + 🌿15\n• 범위 내 아군 유닛 치료 (5HP/초)\n• 전투 지속력을 높여줍니다.',
+    title: '💚 힐러 - 아군 치료',
+    description: '힐러는 주변 아군 유닛을 치료합니다.\n\n📊 스펙:\n• 체력 60 / 회복량 5HP/초\n• 비용: 💰70 + 🌿15\n• 치료 범위 130\n\n💡 전략 팁:\n탱커인 기사와 함께 운용하면 전투 지속력이 크게 올라갑니다!\n\n👆 힐러 버튼을 클릭하세요!',
     highlight: 'unit-healer',
     conditionType: 'has_healer',
+    conditionHint: '힐러 버튼을 클릭하여 소환하세요',
   },
 
   // === 액션 ===
   {
     id: 'build_wall',
-    title: '액션 - 벽 건설 🧱',
-    description: '벽 건설 버튼(Q)을 클릭한 후 맵에서 위치를 클릭하세요!\n\n• 비용: 🪵40 + 🪨20\n• HP 150, 적의 진행을 막아줍니다\n• 30초 후 사라집니다.',
-    highlight: 'wall-button',
+    title: '🧱 벽 건설 - 방어 시설',
+    description: '벽을 건설하여 적의 진격을 막으세요!\n\n📊 스펙:\n• 체력 150\n• 비용: 🪵40 + 🪨20\n• 지속시간: 30초\n\n💡 전략 팁:\n적의 돌진을 막거나, 자원 유닛을 보호하는 데 사용하세요.\n\n👆 벽 버튼(Q)을 클릭한 후, 맵에서 건설 위치를 클릭하세요!',
+    highlight: 'action-wall',
     conditionType: 'has_wall',
+    conditionHint: '벽 버튼 클릭 → 맵에서 위치 클릭',
   },
   {
     id: 'sell_herb',
-    title: '액션 - 약초 판매 💵',
-    description: '약초 판매 버튼(E)을 클릭하세요!\n\n• 🌿30 → 💰70\n• 골드가 부족할 때 유용합니다.',
-    highlight: 'sell-herb-button',
+    title: '💵 약초 판매 - 긴급 골드',
+    description: '약초를 판매하여 골드를 얻으세요!\n\n📊 교환 비율:\n• 🌿30 → 💰70\n\n💡 전략 팁:\n골드가 급하게 필요할 때 약초를 판매하세요. 힐러가 필요 없다면 약초는 판매용으로!\n\n👆 약초 판매 버튼(E)을 클릭하세요!',
+    highlight: 'action-sell-herb',
     conditionType: 'sold_herb',
+    conditionHint: '약초 판매 버튼을 클릭하세요',
   },
   {
     id: 'upgrade_base',
-    title: '액션 - 기지 업그레이드 🏰',
-    description: '기지 업그레이드 버튼(W)을 클릭하세요!\n\n• 1레벨: 💰150\n• 2레벨+: 💰 + 🪵 + 🪨\n• HP +200, 골드 수입 +1/초\n• 최대 5단계',
-    highlight: 'upgrade-button',
+    title: '🏰 본진 강화 - 영구 버프',
+    description: '본진을 업그레이드하여 강화하세요!\n\n📊 효과:\n• 본진 HP +200\n• 골드 수입 +1/초\n• 최대 5단계까지 강화 가능\n\n💡 전략 팁:\n장기전에서 유리합니다. 자원이 여유로우면 업그레이드!\n\n👆 본진 강화 버튼(W)을 클릭하세요!',
+    highlight: 'action-upgrade',
     conditionType: 'has_upgrade',
+    conditionHint: '본진 강화 버튼을 클릭하세요',
   },
 
   // === 마법사 ===
   {
     id: 'spawn_mage',
-    title: '특수 유닛 - 마법사 🔮',
-    description: '마법사를 소환하세요!\n\n• 비용: 💰150 + 🪵50 + 💎10\n• HP 40, 공격력 50 (범위 공격)\n• 수정은 맵 중앙에서 획득 가능',
+    title: '🔮 마법사 - 광역 딜러',
+    description: '마법사는 강력한 범위 공격을 합니다!\n\n📊 스펙:\n• 체력 40 / 공격력 50 (범위)\n• 비용: 💰150 + 🪵50 + 💎10\n• 사거리 200\n\n💡 전략 팁:\n수정💎은 맵 중앙에서 획득 가능합니다. 몰려오는 적을 한 번에 처리!\n\n👆 마법사 버튼을 클릭하세요!',
     highlight: 'unit-mage',
     conditionType: 'has_mage',
+    conditionHint: '마법사 버튼을 클릭하여 소환하세요',
   },
 
   // === 최종 전투 ===
   {
     id: 'combat',
-    title: '최종 목표 - 적 본진 파괴!',
-    description: '이제 배운 모든 것을 활용하여 적 본진을 파괴하세요!\n\n• 전투 유닛으로 공격\n• 자원 유닛으로 경제력 확보\n• 힐러로 유닛 유지\n• 벽으로 방어\n\n행운을 빕니다!',
+    title: '⚔️ 최종 목표: 적 본진 파괴!',
+    description: '축하합니다! 모든 유닛과 기능을 배웠습니다.\n\n🎯 전략 가이드:\n1. 자원 유닛으로 경제력 확보\n2. 전투 유닛 조합 (탱커 + 딜러)\n3. 힐러로 유닛 유지\n4. 벽으로 방어선 구축\n5. 본진 강화로 지속 성장\n\n이제 적 본진을 파괴하여 승리하세요! 💪',
     conditionType: 'enemy_destroyed',
+    conditionHint: '적 본진을 파괴하세요!',
   },
 ];
 

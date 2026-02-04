@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.20.17] - 2026-02-04
+
+### Improvements
+- **RTS 튜토리얼 대폭 개선**: 스포트라이트 방식으로 사용자 경험 향상
+  - 화면 어둡게 처리 + 하이라이트 효과로 클릭 유도
+  - 유닛별 상세 설명 추가 (스펙, 전략 팁)
+  - 클릭 유도 화살표 애니메이션
+  - 조건 힌트 표시
+  - 패널 위치 자동 조정 (하이라이트 요소 기준)
+
+### Technical Changes
+- `src/stores/useTutorialStore.ts`:
+  - `HighlightTarget` 타입 추가
+  - 각 단계에 `conditionHint` 필드 추가
+  - 유닛 설명 전략 팁 포함하여 상세화
+- `src/components/ui/TutorialOverlay.tsx`:
+  - SVG 마스크 기반 스포트라이트 효과 구현
+  - `data-tutorial-id` 속성으로 하이라이트 대상 찾기
+  - 하이라이트 테두리 및 화살표 애니메이션
+  - 동적 패널 위치 계산
+- `src/components/ui/UnitButton.tsx`:
+  - `tutorialId` prop 추가
+- `src/components/ui/UnitPanel.tsx`:
+  - 각 유닛 버튼에 `tutorialId` 전달
+- `src/components/ui/ActionPanel.tsx`:
+  - 액션 버튼에 `tutorialId` 추가
+- `src/components/ui/ResourceBar.tsx`:
+  - 자원 바에 `data-tutorial-id` 추가
+
+---
+
 ## [1.20.16] - 2026-02-04
 
 ### Bug Fixes

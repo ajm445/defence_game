@@ -10,6 +10,7 @@ interface UnitButtonProps {
   onSpawn: () => void;
   cooldown?: number; // 남은 쿨타임 (초)
   count?: number; // 현재 보유한 유닛 수
+  tutorialId?: string; // 튜토리얼 하이라이트용 ID
 }
 
 const UNIT_CONFIG: Record<UnitType, { icon: string; name: string; color: string }> = {
@@ -54,6 +55,7 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
   onSpawn,
   cooldown = 0,
   count = 0,
+  tutorialId,
 }) => {
   const config = CONFIG.UNITS[type];
   const unitInfo = UNIT_CONFIG[type];
@@ -89,6 +91,7 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
     <button
       onClick={onSpawn}
       disabled={!canSpawn}
+      data-tutorial-id={tutorialId}
       className={`
         group relative w-20 h-24 rounded-xl overflow-hidden
         transition-all duration-200

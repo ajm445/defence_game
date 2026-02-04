@@ -22,6 +22,7 @@ interface ActionButtonProps {
   onClick: () => void;
   disabled: boolean;
   active?: boolean;
+  tutorialId?: string;
 }
 
 const ActionButton: React.FC<ActionButtonProps> = ({
@@ -32,10 +33,12 @@ const ActionButton: React.FC<ActionButtonProps> = ({
   onClick,
   disabled,
   active = false,
+  tutorialId,
 }) => (
   <button
     onClick={onClick}
     disabled={disabled && !active}
+    data-tutorial-id={tutorialId}
     className={`
       group relative p-2 rounded-lg flex flex-col items-center gap-1
       transition-all duration-200 min-w-[60px]
@@ -195,6 +198,7 @@ export const ActionPanel: React.FC = () => {
           onClick={handleBuildWall}
           disabled={!canBuildWall}
           active={placementMode === 'wall'}
+          tutorialId="action-wall"
         />
 
         <ActionButton
@@ -204,6 +208,7 @@ export const ActionPanel: React.FC = () => {
           costs={isMaxLevel ? [] : getUpgradeCosts()}
           onClick={handleUpgradeBase}
           disabled={!canUpgrade}
+          tutorialId="action-upgrade"
         />
 
         <ActionButton
@@ -215,6 +220,7 @@ export const ActionPanel: React.FC = () => {
           ]}
           onClick={handleSellHerb}
           disabled={!canSellHerb}
+          tutorialId="action-sell-herb"
         />
       </div>
     </div>

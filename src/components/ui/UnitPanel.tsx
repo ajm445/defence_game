@@ -88,6 +88,7 @@ export const UnitPanel: React.FC = () => {
               onSpawn={() => handleSpawn(type)}
               cooldown={cooldowns[type] || 0}
               count={unitCounts[type] || 0}
+              tutorialId={`unit-${type}`}
             />
           ))}
         </div>
@@ -108,6 +109,7 @@ export const UnitPanel: React.FC = () => {
               onSpawn={() => handleSpawn(type)}
               cooldown={cooldowns[type] || 0}
               count={unitCounts[type] || 0}
+              tutorialId={`unit-${type}`}
             />
           ))}
         </div>
