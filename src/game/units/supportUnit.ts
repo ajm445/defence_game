@@ -81,7 +81,7 @@ export function updateSupportUnit(
     }
   }
 
-  if (nearestNode && minDist > 30) {
+  if (nearestNode && minDist > 50) {
     // 자원으로 이동
     const angle = Math.atan2(nearestNode.y - unit.y, nearestNode.x - unit.x);
     updatedUnit.x += Math.cos(angle) * config.speed;

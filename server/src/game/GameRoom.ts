@@ -150,7 +150,7 @@ const CONFIG = {
   // 자원 재생성 시간 (초)
   RESOURCE_RESPAWN: {
     tree: 40,
-    rock: 90,
+    rock: 60,
     herb: 30,
     crystal: 180,
     goldmine: 40,
@@ -517,8 +517,17 @@ export class GameRoom {
           }
 
           const resources = unit.side === 'left' ? this.leftResources : this.rightResources;
-          const resourceKey = config.resource as keyof Resources;
+
+          // 채집꾼이 크리스탈 노드를 채집하면 크리스탈 획득
+          const resourceKey = (config.resource === 'herb' && targetNode.type === 'crystal')
+            ? 'crystal'
+            : config.resource as keyof Resources;
           resources[resourceKey] += gathered;
+
+          // 약초 채집 시 0.1% 확률로 크리스탈 추가 획득
+          if (config.resource === 'herb' && targetNode.type === 'herb' && Math.random() < 0.001) {
+            resources.crystal += 1;
+          }
 
           // 채집 이펙트 이벤트 (0.3초 쿨타임)
           const effectCooldown = 0.3;
@@ -1130,8 +1139,9 @@ export class GameRoom {
     const targetType = nodeTypeMap[resourceType];
     if (!targetType) return null;
 
+    // 채집꾼(herb)은 크리스탈 노드도 채집 가능
     const validNodes = this.resourceNodes.filter(
-      n => n.type === targetType && n.amount > 0
+      n => (n.type === targetType || (resourceType === 'herb' && n.type === 'crystal')) && n.amount > 0
     );
 
     if (validNodes.length === 0) return null;
