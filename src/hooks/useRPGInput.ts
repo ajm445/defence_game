@@ -151,9 +151,9 @@ function updateMoveDirection() {
   const direction = calculateMoveDirection();
   useRPGStore.getState().setMoveDirection(direction);
 
-  // 멀티플레이 모드에서 네트워크 전송
-  const { isMultiplayer, isHost } = useRPGStore.getState().multiplayer;
-  if (isMultiplayer && !isHost) {
+  // 서버 권위 모델: 모든 클라이언트가 서버로 입력 전송 (호스트 포함)
+  const { isMultiplayer } = useRPGStore.getState().multiplayer;
+  if (isMultiplayer) {
     sendMoveDirection(direction || null);
   }
 }
@@ -222,13 +222,14 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
           {
             const wSkill = skills.find(s => s.key === 'W');
             if (wSkill && wSkill.currentCooldown <= 0) {
-              if (requestSkill?.(wSkill.type)) {
+              const { isMultiplayer } = state.multiplayer;
+              if (isMultiplayer) {
+                // 서버 권위 모델: 서버로 스킬 요청 전송 (모든 클라이언트)
+                sendSkillUse('W', state.mousePosition.x, state.mousePosition.y);
                 soundManager.play('attack_melee');
-                // 멀티플레이 모드에서 네트워크 전송
-                const { isMultiplayer, isHost } = state.multiplayer;
-                if (isMultiplayer && !isHost) {
-                  sendSkillUse('W', state.mousePosition.x, state.mousePosition.y);
-                }
+              } else if (requestSkill?.(wSkill.type)) {
+                // 싱글플레이: 로컬에서 스킬 실행
+                soundManager.play('attack_melee');
               }
             }
           }
@@ -239,16 +240,21 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
           {
             const eSkill = skills.find(s => s.key === 'E');
             if (eSkill && eSkill.currentCooldown <= 0) {
-              if (requestSkill?.(eSkill.type)) {
+              const { isMultiplayer } = state.multiplayer;
+              if (isMultiplayer) {
+                // 서버 권위 모델: 서버로 스킬 요청 전송 (모든 클라이언트)
+                sendSkillUse('E', state.mousePosition.x, state.mousePosition.y);
                 if (heroClass === 'knight' || heroClass === 'warrior') {
                   soundManager.play('heal');
                 } else {
                   soundManager.play('attack_ranged');
                 }
-                // 멀티플레이 모드에서 네트워크 전송
-                const { isMultiplayer, isHost } = state.multiplayer;
-                if (isMultiplayer && !isHost) {
-                  sendSkillUse('E', state.mousePosition.x, state.mousePosition.y);
+              } else if (requestSkill?.(eSkill.type)) {
+                // 싱글플레이: 로컬에서 스킬 실행
+                if (heroClass === 'knight' || heroClass === 'warrior') {
+                  soundManager.play('heal');
+                } else {
+                  soundManager.play('attack_ranged');
                 }
               }
             }

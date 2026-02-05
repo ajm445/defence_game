@@ -3,7 +3,7 @@ import { createServer } from 'http';
 import express from 'express';
 import cors from 'cors';
 import { v4 as uuidv4 } from 'uuid';
-import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect, handleAdminDisconnect, broadcastToAdmins, getServerStatus } from './MessageHandler';
+import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect, handleAdminDisconnect, broadcastToAdmins, getServerStatus, cleanupAllRooms } from './MessageHandler';
 import { handlePlayerDisconnect } from '../room/RoomManager';
 import { players, sendMessage, Player, registerUserOffline } from '../state/players';
 import { gameInviteManager } from '../friend/GameInviteManager';
@@ -48,10 +48,48 @@ export function createWebSocketServer(port: number) {
   // WebSocket 서버를 HTTP 서버에 연결
   const wss = new WebSocketServer({ server: httpServer });
 
-  // HTTP 서버 시작
-  httpServer.listen(port, () => {
-    console.log(`서버 시작: http://localhost:${port} (WebSocket + REST API 지원)`);
+  // WebSocket 서버 에러 핸들러 (HTTP 서버 에러 전파 방지)
+  wss.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      console.log(`[WebSocket] 포트 ${port}이 사용 중입니다.`);
+      // httpServer 에러 핸들러에서 처리하므로 여기서는 무시
+    } else {
+      console.error('[WebSocket] 서버 에러:', err);
+    }
   });
+
+  // HTTP 서버 시작 (포트 충돌 시 재시도)
+  let retryCount = 0;
+  const MAX_RETRIES = 3;
+
+  const startServer = () => {
+    httpServer.listen(port, () => {
+      console.log(`서버 시작: http://localhost:${port} (WebSocket + REST API 지원)`);
+      retryCount = 0; // 성공 시 재시도 횟수 초기화
+    });
+  };
+
+  httpServer.on('error', (err: NodeJS.ErrnoException) => {
+    if (err.code === 'EADDRINUSE') {
+      retryCount++;
+      if (retryCount <= MAX_RETRIES) {
+        console.log(`포트 ${port}이 사용 중입니다. ${retryCount}/${MAX_RETRIES} 재시도 (2초 후)...`);
+        setTimeout(() => {
+          httpServer.close();
+          startServer();
+        }, 2000);
+      } else {
+        console.error(`포트 ${port}을 ${MAX_RETRIES}번 시도했으나 실패했습니다. 서버를 종료합니다.`);
+        console.error(`다음 명령어로 포트를 사용 중인 프로세스를 종료하세요:`);
+        console.error(`  Windows: netstat -ano | findstr :${port} 후 taskkill /PID <PID> /F`);
+        process.exit(1);
+      }
+    } else {
+      throw err;
+    }
+  });
+
+  startServer();
 
   // 관리자에게 주기적으로 서버 상태 전송 (10초마다)
   const adminStatusInterval = setInterval(() => {
@@ -200,14 +238,16 @@ export function createWebSocketServer(port: number) {
 
   // 서버 종료 함수
   const close = () => {
+    console.log('서버 종료 시작...');
     clearInterval(adminStatusInterval);
+    cleanupAllRooms(); // 모든 게임 방 및 게임 엔진 정리 (setInterval 정리)
     gameInviteManager.cleanup(); // 게임 초대 타이머 정리
     wss.clients.forEach((ws) => {
       ws.close();
     });
     wss.close();
     httpServer.close();
-    console.log('서버 종료됨');
+    console.log('서버 종료 완료');
   };
 
   return { wss, httpServer, close };

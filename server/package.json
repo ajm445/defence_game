@@ -1,6 +1,6 @@
 {
   "name": "defence-game-server",
-  "version": "1.20.20",
+  "version": "1.21.0",
   "type": "module",
   "engines": {
     "node": ">=18.0.0"

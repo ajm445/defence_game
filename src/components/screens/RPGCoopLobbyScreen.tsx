@@ -349,6 +349,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           });
           break;
 
+        // COOP_GAME_START는 useNetworkSync에서 처리 (중복 방지)
+
         // 재시작 카운트다운 (로비 복귀 후 재시작 시)
         case 'COOP_RESTART_COUNTDOWN':
           console.log('[Lobby] 게임 재시작 카운트다운');

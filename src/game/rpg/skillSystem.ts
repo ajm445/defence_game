@@ -53,7 +53,7 @@ export function updateSkillCooldowns(hero: HeroUnit, deltaTime: number): HeroUni
 
   const updatedSkills = hero.skills.map((skill) => {
     // Q스킬(기본 공격)에만 공격속도 보너스 적용
-    const isQSkill = skill.type.endsWith('_q');
+    const isQSkill = skill.key === 'Q';
     let cooldownReduction = deltaTime;
 
     if (isQSkill) {

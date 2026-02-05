@@ -4,7 +4,7 @@
 
 **RTS 모드**와 **RPG 모드**를 모두 즐길 수 있는 종합 전략 게임입니다.
 
-**Version: 1.20.20**
+**Version: 1.21.0**
 
 ---
 
@@ -398,7 +398,28 @@ defence_game/
 
 ## 버전 히스토리
 
-### V1.20.20 (현재)
+### V1.21.0 (현재)
+- **RPG 서버 권위 모델 스킬 시스템 완성**
+  - 8개 전직 클래스 W/E 스킬 서버 구현 (berserker, guardian, sniper, ranger, paladin, darkKnight, archmage, healer)
+  - 스킬 슬롯 `key` 필드 도입 (`type` 접미사 대신 `key: 'Q' | 'W' | 'E'` 사용)
+- **버프 시스템 확장**
+  - `damageTaken` 속성 추가 (받는 피해 증가 디버프, 광란 스킬 등)
+  - `moveSpeedBonus` 속성 추가 (이동속도 버프)
+  - 버프 효과 적용 위치 정리 (damageReduction, lifesteal 등)
+- **서버 모듈 분리**: 게임 로직을 기능별 모듈로 분리
+  - rpgServerHeroSystem.ts (영웅 이동, 버프, 쿨다운)
+  - rpgServerSkillSystem.ts (Q/W/E 스킬, 전직 스킬)
+  - rpgServerEnemySystem.ts (적 AI, 스폰, 데미지)
+  - rpgServerBossSystem.ts (보스 스킬 패턴)
+  - rpgServerGameSystems.ts (넥서스, 골드, 업그레이드, 직렬화)
+- **보스 즉시 스폰**: 양쪽 기지 파괴 시 보스가 다음 프레임이 아닌 즉시 스폰
+- **버그 수정**
+  - ES6 모듈 안티패턴 수정 (`require` → `import`)
+  - 이동 방향 0 나누기 방지
+  - sniper E 스킬 사거리 제한 해제 (무제한 사거리)
+  - darkKnight E 스킬 즉시 300% 데미지로 변경
+
+### V1.20.20
 - **RPG 멀티플레이 클라이언트 예측 + 서버 보정 아키텍처**: 즉각적인 이동 반응 + 부드러운 위치 보정
   - 이동 중: 로컬 위치 100% 신뢰 (200px 초과 시만 스냅)
   - 정지 시: 호스트 위치로 부드럽게 수렴

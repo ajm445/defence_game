@@ -25,7 +25,7 @@ import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy, shouldSpawnTutor
 import { createBosses, areAllBossesDead, hasBosses, updateBossSkills, applyStunToHero } from '../game/rpg/bossSystem';
 import { processNexusLaser, isNexusAlive } from '../game/rpg/nexusLaserSystem';
 import { rollMultiTarget } from '../game/rpg/passiveSystem';
-import { useNetworkSync, shareHostBuffToAllies, sendMoveDirection, sendSkillUse } from './useNetworkSync';
+import { sendMoveDirection, sendSkillUse, shareHostBuffToAllies } from './useNetworkSync';
 import { wsClient } from '../services/WebSocketClient';
 import { useRPGTutorialStore } from '../stores/useRPGTutorialStore';
 
@@ -47,8 +47,8 @@ export function useRPGGameLoop() {
   const paused = useRPGStore((state) => state.paused);
   const gameOver = useRPGStore((state) => state.gameOver);
 
-  // 네트워크 동기화 훅 (멀티플레이용)
-  const { broadcastGameState, processRemoteInputs } = useNetworkSync();
+  // 서버 권위 모델: 클라이언트는 게임 로직을 실행하지 않음
+  // useNetworkSync의 broadcastGameState, processRemoteInputs는 deprecated
 
   const tick = useCallback((timestamp: number) => {
     const state = useRPGStore.getState();
@@ -62,12 +62,13 @@ export function useRPGGameLoop() {
     lastTimeRef.current = timestamp;
 
     // ============================================
-    // 멀티플레이어: 클라이언트는 게임 로직 스킵
-    // 호스트만 게임 로직 실행, 클라이언트는 상태를 받아서 렌더링만
+    // 서버 권위 모델: 모든 멀티플레이어 클라이언트는 게임 로직 스킵
+    // 서버가 게임 로직 실행, 클라이언트는 상태를 받아서 렌더링만
     // ============================================
     const { isMultiplayer, isHost } = state.multiplayer;
 
-    if (isMultiplayer && !isHost) {
+    if (isMultiplayer) {
+      // 서버 권위 모델: 모든 클라이언트가 동일하게 동작 (isHost 무시)
       // 클라이언트: 이펙트 업데이트 + 로컬 영웅 이동 예측
       effectManager.update(deltaTime);
 
@@ -191,9 +192,9 @@ export function useRPGGameLoop() {
           const moveDir = clientHero.moveDirection;
           const moveSpeed = clientHero.config?.speed || 200;
 
-          // 로컬 위치 예측
-          let newX = clientHero.x + moveDir.x * moveSpeed * deltaTime;
-          let newY = clientHero.y + moveDir.y * moveSpeed * deltaTime;
+          // 로컬 위치 예측 (deltaTime * 60으로 프레임 독립적 이동)
+          let newX = clientHero.x + moveDir.x * moveSpeed * deltaTime * 60;
+          let newY = clientHero.y + moveDir.y * moveSpeed * deltaTime * 60;
 
           // 맵 경계 제한
           newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, newX));
@@ -366,19 +367,9 @@ export function useRPGGameLoop() {
       return;
     }
 
-    // 멀티플레이어 호스트: 원격 입력 처리
-    if (isMultiplayer && isHost) {
-      processRemoteInputs();
-
-      // 다른 플레이어 영웅 부활 체크
-      updateOtherHeroesRevive(state.gameTime);
-
-      // 다른 플레이어 영웅 이동 업데이트
-      updateOtherHeroesMovement(deltaTime);
-
-      // 다른 플레이어 영웅 자동 공격 처리
-      updateOtherHeroesAutoAttack(deltaTime, state.enemies, state.gameTime);
-    }
+    // ============================================
+    // 싱글플레이어: 클라이언트가 게임 로직 실행
+    // ============================================
 
     // 게임 시간 업데이트
     useRPGStore.getState().updateGameTime(deltaTime);
@@ -1504,29 +1495,31 @@ export function useRPGGameLoop() {
         soundManager.play('victory');
       }
 
-      // 두 기지 모두 파괴되면 보스 단계로 (보스 스폰은 boss_phase에서 처리)
+      // 두 기지 모두 파괴되면 보스 단계로 + 즉시 보스 스폰
       const allBasesDestroyed = enemyBases.every(b => b.destroyed);
       if (allBasesDestroyed) {
         useRPGStore.getState().setGamePhase('boss_phase');
+
+        // 즉시 보스 스폰 (기존에는 다음 프레임에서 스폰하여 지연 발생)
+        if (!bossesSpawnedRef.current) {
+          showNotification(isTutorial ? '📖 보스 등장!' : '🔥 모든 기지 파괴! 보스 출현!');
+          soundManager.play('warning');
+          soundManager.play('boss_spawn');
+
+          // 플레이어 수 계산 (자신 + 다른 플레이어)
+          const bossPlayerCount = 1 + latestState.otherHeroes.size;
+
+          // 보스 스폰 (튜토리얼은 약한 보스 1마리만)
+          const bosses = createBosses(latestState.enemyBases, bossPlayerCount, difficulty, isTutorial);
+          for (const boss of bosses) {
+            useRPGStore.getState().addEnemy(boss);
+          }
+          bossesSpawnedRef.current = true;
+        }
       }
     } else if (latestState.gamePhase === 'boss_phase') {
-      // 보스 단계 진입 시 보스 스폰 (아직 스폰 안됐으면)
-      if (!bossesSpawnedRef.current) {
-        showNotification(isTutorial ? '📖 보스 등장!' : '🔥 모든 기지 파괴! 보스 출현!');
-        soundManager.play('warning');
-        soundManager.play('boss_spawn');
-
-        // 플레이어 수 계산 (자신 + 다른 플레이어)
-        const playerCount = 1 + latestState.otherHeroes.size;
-
-        // 보스 스폰 (튜토리얼은 약한 보스 1마리만)
-        const bosses = createBosses(latestState.enemyBases, playerCount, difficulty, isTutorial);
-        for (const boss of bosses) {
-          useRPGStore.getState().addEnemy(boss);
-        }
-        bossesSpawnedRef.current = true;
-        // 보스 스폰 직후에는 승리 체크 스킵 (다음 프레임에서 체크)
-      } else {
+      // 보스 단계: 승리 조건 체크
+      if (bossesSpawnedRef.current) {
         // 보스 단계: 모든 보스 처치 시 승리 (보스 스폰 후 프레임부터 체크)
         // 최신 상태에서 적 목록 가져오기 (latestState는 이미 오래됨)
         const currentEnemies = useRPGStore.getState().enemies;
@@ -1565,10 +1558,8 @@ export function useRPGGameLoop() {
     // 오래된 기본 공격 이펙트 정리
     useRPGStore.getState().cleanBasicAttackEffects();
 
-    // 오래된 보스 스킬 실행 이펙트 정리 (호스트)
-    if (isHost || !isMultiplayer) {
-      useRPGStore.getState().cleanBossSkillExecutedEffects();
-    }
+    // 오래된 보스 스킬 실행 이펙트 정리 (싱글플레이어만 이 코드 실행)
+    useRPGStore.getState().cleanBossSkillExecutedEffects();
 
     // 호스트 측 오래된 이펙트 ID 정리 (메모리 누수 방지)
     for (const [effectId, processedTime] of processedEffectIdsRef.current) {
@@ -1596,16 +1587,11 @@ export function useRPGGameLoop() {
       useRPGStore.getState().removeSkillEffect(expiredEffects[i]);
     }
 
-    // ============================================
-    // 멀티플레이어: 호스트 상태 브로드캐스트
-    // ============================================
-    const finalState = useRPGStore.getState();
-    if (finalState.multiplayer.isMultiplayer && finalState.multiplayer.isHost) {
-      broadcastGameState();
-    }
+    // 서버 권위 모델: 클라이언트는 상태 브로드캐스트하지 않음 (서버가 처리)
+    // 이 코드는 싱글플레이어에서만 실행됨 (멀티플레이어는 위에서 early return)
 
     animationIdRef.current = requestAnimationFrame(tick);
-  }, [broadcastGameState, processRemoteInputs]);
+  }, []);
 
   // 스킬 결과 처리 공통 함수
   const processSkillResult = useCallback(
@@ -2234,7 +2220,7 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
     // 스킬 쿨다운 업데이트 (광전사 버프 공격속도 적용)
     const updatedSkills = hero.skills.map(skill => {
       // Q스킬(기본 공격)에만 공격속도 버프 적용
-      const isQSkill = skill.type.endsWith('_q');
+      const isQSkill = skill.key === 'Q';
       const cooldownReduction = isQSkill
         ? deltaTime * attackSpeedMultiplier
         : deltaTime;

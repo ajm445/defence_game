@@ -2,6 +2,7 @@ import { useEffect } from 'react';
 import { useUIStore } from './stores/useUIStore';
 import { useGameStore } from './stores/useGameStore';
 import { useAuthStore } from './stores/useAuthStore';
+import { useNetworkSync } from './hooks/useNetworkSync';
 import { MainMenu } from './components/screens/MainMenu';
 import { GameTypeSelectScreen } from './components/screens/GameTypeSelectScreen';
 import { ModeSelectScreen } from './components/screens/ModeSelectScreen';
@@ -25,6 +26,9 @@ function App() {
   const currentScreen = useUIStore((state) => state.currentScreen);
   const gameMode = useGameStore((state) => state.gameMode);
   const initializeAuth = useAuthStore((state) => state.initialize);
+
+  // 서버 권위 모델 네트워크 동기화 (항상 활성화)
+  useNetworkSync();
 
   // 앱 시작 시 게임에서 사용하는 이모지 및 유닛 이미지 미리 로드
   useEffect(() => {

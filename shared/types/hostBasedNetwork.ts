@@ -158,26 +158,52 @@ export interface SerializedGameState {
 }
 
 // ============================================
-// 호스트 기반 클라이언트 → 서버 메시지
+// 클라이언트 → 서버 메시지 (서버 권위 모델)
 // ============================================
 
+export type ClientMessage =
+  // 플레이어 입력 (모든 클라이언트가 서버로 전송)
+  | { type: 'PLAYER_INPUT'; input: PlayerInput };
+
+// ============================================
+// 서버 → 클라이언트 메시지 (서버 권위 모델)
+// ============================================
+
+export type ServerMessage =
+  // 게임 시작 (서버 권위 모델 - isHost 없음)
+  | {
+      type: 'COOP_GAME_START';
+      playerIndex: number;
+      players: CoopPlayerInfo[];
+      difficulty: string;
+    }
+  // 게임 상태 (서버가 직접 브로드캐스트)
+  | { type: 'COOP_GAME_STATE'; state: SerializedGameState }
+  // 방장 변경 (로비 관리용)
+  | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
+  // 새 방장 권한 부여 (로비 관리용)
+  | { type: 'COOP_YOU_ARE_NOW_HOST'; gameState?: 'waiting' | 'countdown' | 'playing' | 'ended' }
+  // 재접속 정보
+  | {
+      type: 'COOP_RECONNECT_INFO';
+      hostPlayerId: string;
+      isHost: boolean;
+      gameState: 'waiting' | 'countdown' | 'playing' | 'ended';
+    };
+
+// ============================================
+// 레거시 호스트 기반 메시지 (호환성 유지, deprecated)
+// ============================================
+
+/** @deprecated 서버 권위 모델에서는 사용하지 않음 */
 export type HostBasedClientMessage =
-  // 기존 방 관련 메시지는 rpgNetwork.ts에서 유지
-  // 게임 상태 브로드캐스트 (호스트만)
   | { type: 'HOST_GAME_STATE_BROADCAST'; state: SerializedGameState }
-  // 게임 이벤트 브로드캐스트 (호스트만)
   | { type: 'HOST_GAME_EVENT_BROADCAST'; event: any }
-  // 플레이어 입력 (클라이언트 → 서버 → 호스트)
   | { type: 'HOST_PLAYER_INPUT'; input: PlayerInput }
-  // 게임 종료 (호스트만)
   | { type: 'HOST_GAME_OVER'; result: any };
 
-// ============================================
-// 호스트 기반 서버 → 클라이언트 메시지
-// ============================================
-
+/** @deprecated 서버 권위 모델에서는 사용하지 않음 */
 export type HostBasedServerMessage =
-  // 호스트 기반 게임 시작
   | {
       type: 'COOP_GAME_START_HOST_BASED';
       isHost: boolean;
@@ -185,15 +211,10 @@ export type HostBasedServerMessage =
       players: CoopPlayerInfo[];
       hostPlayerId: string;
     }
-  // 호스트로부터 게임 상태 수신
   | { type: 'COOP_GAME_STATE_FROM_HOST'; state: SerializedGameState }
-  // 플레이어 입력 수신 (호스트만 수신)
   | { type: 'COOP_PLAYER_INPUT'; input: PlayerInput }
-  // 호스트 변경
   | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
-  // 새 호스트 권한 부여
   | { type: 'COOP_YOU_ARE_NOW_HOST'; gameState?: 'waiting' | 'countdown' | 'playing' | 'ended' }
-  // 재접속 정보
   | {
       type: 'COOP_RECONNECT_INFO';
       hostPlayerId: string;

@@ -265,7 +265,9 @@ export type CoopClientMessage =
   | { type: 'COOP_USE_SKILL'; skillType: SkillType; targetX: number; targetY: number }
   // 넥서스 디펜스 액션
   | { type: 'COOP_UPGRADE_HERO_STAT'; upgradeType: 'attack' | 'speed' | 'hp' | 'goldRate' }
-  // 호스트 기반 메시지
+  // 서버 권위 모델 메시지
+  | { type: 'PLAYER_INPUT'; input: PlayerInput }
+  // 레거시 호스트 기반 메시지 (deprecated)
   | { type: 'HOST_GAME_STATE_BROADCAST'; state: SerializedGameState }
   | { type: 'HOST_GAME_EVENT_BROADCAST'; event: any }
   | { type: 'HOST_PLAYER_INPUT'; input: PlayerInput }
@@ -303,11 +305,16 @@ export type CoopServerMessage =
   | { type: 'COOP_ROOM_ERROR'; message: string }
   | { type: 'COOP_ROOM_DESTROYED'; reason: string; message: string }  // 방 파기 (타임아웃 등)
   | { type: 'COOP_ROOM_TIMEOUT_WARNING'; message: string; remainingSeconds: number }  // 방 파기 1분 전 경고
-  // 게임 시작 (레거시)
+  // 게임 시작
   | { type: 'COOP_GAME_COUNTDOWN'; seconds: number }
-  | { type: 'COOP_GAME_START'; state: RPGCoopGameState; yourHeroId: string }
-  // 게임 진행 (레거시)
-  | { type: 'COOP_GAME_STATE'; state: RPGCoopGameState }
+  // 서버 권위 모델 게임 시작 (isHost 없음)
+  | { type: 'COOP_GAME_START'; playerIndex: number; players: CoopPlayerInfo[]; difficulty: string }
+  // 서버 권위 모델 게임 상태 (서버가 직접 브로드캐스트)
+  | { type: 'COOP_GAME_STATE'; state: SerializedGameState }
+  // 레거시 게임 시작 (상태 포함, deprecated)
+  | { type: 'COOP_GAME_START_LEGACY'; state: RPGCoopGameState; yourHeroId: string }
+  // 레거시 게임 상태 (deprecated)
+  | { type: 'COOP_GAME_STATE_LEGACY'; state: RPGCoopGameState }
   | { type: 'COOP_GAME_EVENT'; event: RPGCoopGameEvent }
   | { type: 'COOP_WAVE_START'; waveNumber: number; enemyCount: number }
   | { type: 'COOP_WAVE_CLEAR'; waveNumber: number; nextWaveIn: number }

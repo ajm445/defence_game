@@ -1,6 +1,7 @@
 import { useCallback, useEffect, useRef } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
+import { useGameStore } from '../stores/useGameStore';
 import { wsClient } from '../services/WebSocketClient';
 import { CLASS_SKILLS, GOLD_CONFIG } from '../constants/rpgConfig';
 import {
@@ -23,45 +24,33 @@ const IRONWALL_SHARE_RANGE = Infinity; // 철벽 방어는 전체 아군에게 �
 const STATE_SYNC_INTERVAL = 50; // 50ms (20Hz)
 
 /**
- * 호스트 기반 네트워크 동기화 훅
- * - 호스트: 게임 상태 브로드캐스트
- * - 클라이언트: 게임 상태 수신 및 적용
+ * 서버 권위 모델 네트워크 동기화 훅
+ * - 서버가 게임 로직 실행 및 상태 브로드캐스트
+ * - 모든 클라이언트는 입력 전송 및 상태 수신만 담당
  */
 export function useNetworkSync() {
   const lastBroadcastTimeRef = useRef<number>(0);
-  const isSetupRef = useRef<boolean>(false);
 
-  // 호스트: 게임 상태 브로드캐스트
+  /**
+   * @deprecated 서버 권위 모델에서는 사용하지 않음 - 서버가 직접 브로드캐스트
+   */
   const broadcastGameState = useCallback(() => {
-    const state = useRPGStore.getState();
-    if (!state.multiplayer.isMultiplayer || !state.multiplayer.isHost) return;
-    if (!state.running || state.paused) return;
-
-    const now = performance.now();
-    if (now - lastBroadcastTimeRef.current < STATE_SYNC_INTERVAL) return;
-    lastBroadcastTimeRef.current = now;
-
-    const serializedState = state.serializeGameState();
-    wsClient.send({
-      type: 'HOST_GAME_STATE_BROADCAST',
-      state: serializedState,
-    });
+    // 서버 권위 모델에서는 서버가 직접 상태를 브로드캐스트하므로 클라이언트에서 호출하지 않음
+    console.warn('[NetworkSync] broadcastGameState는 서버 권위 모델에서 사용하지 않습니다.');
   }, []);
 
-  // 호스트: 원격 입력 처리
+  /**
+   * @deprecated 서버 권위 모델에서는 사용하지 않음 - 서버가 직접 입력 처리
+   */
   const processRemoteInputs = useCallback(() => {
-    const state = useRPGStore.getState();
-    if (!state.multiplayer.isMultiplayer || !state.multiplayer.isHost) return;
-
-    // 큐에서 모든 입력 처리
-    let input = state.popRemoteInput();
-    while (input) {
-      handleRemoteInput(input);
-      input = state.popRemoteInput();
-    }
+    // 서버 권위 모델에서는 서버가 직접 입력을 처리하므로 클라이언트에서 호출하지 않음
+    console.warn('[NetworkSync] processRemoteInputs는 서버 권위 모델에서 사용하지 않습니다.');
   }, []);
 
-  // 원격 입력 처리 (호스트에서)
+  /**
+   * @deprecated 서버 권위 모델에서는 사용하지 않음 - 서버가 직접 입력 처리
+   * 원격 입력 처리 (레거시 호스트 기반 모델용)
+   */
   const handleRemoteInput = useCallback((input: PlayerInput) => {
     const state = useRPGStore.getState();
     const heroId = `hero_${input.playerId}`;
@@ -123,26 +112,47 @@ export function useNetworkSync() {
 
   // 클라이언트: 서버 메시지 핸들러 설정
   useEffect(() => {
-    if (isSetupRef.current) return;
-    isSetupRef.current = true;
+    console.log('[NetworkSync] 메시지 핸들러 등록');
 
     const handleMessage = (message: any) => {
       const state = useRPGStore.getState();
 
       switch (message.type) {
-        // 호스트 기반 게임 시작
+        // ============================================
+        // 서버 권위 모델 메시지 핸들러
+        // ============================================
+
+        // 서버 권위 모델 게임 시작 (isHost 없음 - 모든 클라이언트 동등)
+        case 'COOP_GAME_START':
+          handleGameStartServerAuth(message);
+          break;
+
+        // 서버로부터 게임 상태 수신 (모든 클라이언트)
+        case 'COOP_GAME_STATE':
+          // 디버그: 첫 몇 개 메시지만 로깅
+          if (Math.random() < 0.01) {
+            console.log('[NetworkSync] COOP_GAME_STATE 수신, gameTime:', message.state?.gameTime);
+          }
+          handleGameStateFromServer(message.state);
+          break;
+
+        // ============================================
+        // 레거시 호스트 기반 메시지 핸들러 (하위 호환성)
+        // ============================================
+
+        // 호스트 기반 게임 시작 (레거시)
         case 'COOP_GAME_START_HOST_BASED':
           handleGameStartHostBased(message);
           break;
 
-        // 호스트로부터 게임 상태 수신 (클라이언트만)
+        // 호스트로부터 게임 상태 수신 (레거시 - 클라이언트만)
         case 'COOP_GAME_STATE_FROM_HOST':
           if (!state.multiplayer.isHost) {
             handleGameStateFromHost(message.state);
           }
           break;
 
-        // 플레이어 입력 수신 (호스트만)
+        // 플레이어 입력 수신 (레거시 - 호스트만)
         case 'COOP_PLAYER_INPUT':
           if (state.multiplayer.isHost) {
             state.addRemoteInput(message.input);
@@ -228,8 +238,8 @@ export function useNetworkSync() {
 
     const unsubscribe = wsClient.addMessageHandler(handleMessage);
     return () => {
+      console.log('[NetworkSync] 메시지 핸들러 해제');
       unsubscribe();
-      isSetupRef.current = false;
     };
   }, []);
 
@@ -240,13 +250,82 @@ export function useNetworkSync() {
 }
 
 // ============================================
-// 메시지 핸들러 함수들
+// 서버 권위 모델 메시지 핸들러 함수들
 // ============================================
 
+/**
+ * 서버 권위 모델 게임 시작 처리
+ * 게임 로직은 서버가 처리하지만, 방장(isHost)은 UI 목적으로 유지
+ */
+function handleGameStartServerAuth(message: any) {
+  const { playerIndex, players, difficulty } = message;
+
+  // 방장 정보 확인 (UI 목적: 일시정지, 재시작, 설정 변경 등)
+  const hostPlayer = players.find((p: CoopPlayerInfo) => p.isHost);
+  const hostPlayerId = hostPlayer?.id || null;
+  const isHost = wsClient.playerId === hostPlayerId;
+
+  console.log(`[NetworkSync] 서버 권위 모델 게임 시작:`);
+  console.log(`  - playerIndex: ${playerIndex}`);
+  console.log(`  - difficulty: ${difficulty}`);
+  console.log(`  - wsClient.playerId: ${wsClient.playerId}`);
+  console.log(`  - players:`, players.map((p: CoopPlayerInfo) => ({ id: p.id, isHost: p.isHost })));
+  console.log(`  - isHost: ${isHost}`);
+
+  useRPGStore.getState().setMultiplayerState({
+    isMultiplayer: true,
+    isHost,  // 방장 여부 (UI 목적)
+    hostPlayerId,  // 방장 ID (UI 목적)
+    myPlayerId: wsClient.playerId,
+    players,
+    connectionState: 'in_game',
+    countdown: null,
+  });
+
+  // 난이도 설정 (서버에서 전달된 값 사용)
+  if (difficulty) {
+    useRPGStore.getState().setDifficulty(difficulty);
+  }
+
+  // 게임 초기화 (서버가 게임 로직 실행, 클라이언트는 상태 수신만)
+  soundManager.init(); // AudioContext 초기화 (fallback)
+  useRPGStore.getState().initMultiplayerGame(players, isHost, difficulty);
+
+  // myHeroId 확인
+  const finalState = useRPGStore.getState();
+  console.log(`[NetworkSync] 초기화 완료:`);
+  console.log(`  - myPlayerId: ${finalState.multiplayer.myPlayerId}`);
+  console.log(`  - myHeroId: ${finalState.multiplayer.myHeroId}`);
+  console.log(`  - hero: ${finalState.hero?.id}`);
+
+  // 게임 화면으로 전환 (직접 호출하여 확실하게 전환)
+  useUIStore.getState().resetGameUI();
+  useGameStore.getState().setGameMode('rpg');
+  useUIStore.getState().setScreen('game');
+
+  console.log(`[NetworkSync] 서버 권위 모델 게임 화면 전환 완료`);
+}
+
+/**
+ * 서버로부터 게임 상태 수신 (모든 클라이언트)
+ */
+function handleGameStateFromServer(serializedState: SerializedGameState) {
+  const state = useRPGStore.getState();
+  const myHeroId = state.multiplayer.myHeroId;
+
+  // 게임 상태 적용 (myHeroId가 null이어도 applySerializedState에서 처리)
+  state.applySerializedState(serializedState, myHeroId);
+}
+
+// ============================================
+// 레거시 호스트 기반 메시지 핸들러 함수들 (하위 호환성)
+// ============================================
+
+/** @deprecated 서버 권위 모델에서는 COOP_GAME_START 사용 */
 function handleGameStartHostBased(message: any) {
   const { isHost, playerIndex, players, hostPlayerId, difficulty } = message;
 
-  console.log(`[NetworkSync] 호스트 기반 게임 시작: 호스트=${isHost}, 인덱스=${playerIndex}, 난이도=${difficulty}`);
+  console.log(`[NetworkSync] [레거시] 호스트 기반 게임 시작: 호스트=${isHost}, 인덱스=${playerIndex}, 난이도=${difficulty}`);
 
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
@@ -269,6 +348,7 @@ function handleGameStartHostBased(message: any) {
   useRPGStore.getState().initMultiplayerGame(players, isHost, difficulty);
 }
 
+/** @deprecated 서버 권위 모델에서는 COOP_GAME_STATE 사용 */
 function handleGameStateFromHost(serializedState: SerializedGameState) {
   const state = useRPGStore.getState();
   const myHeroId = state.multiplayer.myHeroId;
@@ -858,10 +938,12 @@ function shareBuffToAllies(buff: Buff, caster: HeroUnit, casterId: string) {
 }
 
 /**
+ * @deprecated 서버 권위 모델에서는 서버가 버프 공유 처리
  * 호스트 영웅이 사용한 버프를 다른 플레이어에게 공유
- * (useRPGGameLoop에서 호출)
+ * (useRPGGameLoop에서 호출 - 레거시)
  */
 export function shareHostBuffToAllies(buff: Buff, hostHero: HeroUnit) {
+  // 서버 권위 모델에서는 서버가 버프 공유 처리
   // 멀티플레이어가 아니면 스킵
   const multiplayer = useRPGStore.getState().multiplayer;
   if (!multiplayer.isMultiplayer || !multiplayer.isHost) return;
@@ -931,69 +1013,72 @@ export function shareHostBuffToAllies(buff: Buff, hostHero: HeroUnit) {
 // ============================================
 
 /**
- * 이동 방향 전송 (클라이언트 → 서버 → 호스트)
+ * 이동 방향 전송 (클라이언트 → 서버)
+ * 서버 권위 모델: 모든 클라이언트가 서버로 입력 전송
  */
 export function sendMoveDirection(direction: { x: number; y: number } | null) {
   const state = useRPGStore.getState();
   if (!state.multiplayer.isMultiplayer) return;
 
-  // 호스트가 아닐 때만 서버로 전송
-  if (!state.multiplayer.isHost) {
-    const hero = state.hero;
-    const input: PlayerInput = {
-      playerId: state.multiplayer.myPlayerId || '',
-      moveDirection: direction,
-      // 클라이언트 실제 위치 전송 (보스 스킬 데미지 계산용)
-      position: hero ? { x: hero.x, y: hero.y } : undefined,
-      timestamp: Date.now(),
-    };
-    wsClient.hostSendPlayerInput(input);
-  }
+  // 서버 권위 모델: 모든 클라이언트가 서버로 전송
+  const hero = state.hero;
+  const input: PlayerInput = {
+    playerId: state.multiplayer.myPlayerId || '',
+    moveDirection: direction,
+    // 클라이언트 실제 위치 전송 (보스 스킬 데미지 계산용)
+    position: hero ? { x: hero.x, y: hero.y } : undefined,
+    timestamp: Date.now(),
+  };
+
+  // 새 서버 권위 모델 메시지 타입 사용
+  wsClient.send({ type: 'PLAYER_INPUT', input });
 }
 
 /**
- * 스킬 사용 전송 (클라이언트 → 서버 → 호스트)
+ * 스킬 사용 전송 (클라이언트 → 서버)
+ * 서버 권위 모델: 모든 클라이언트가 서버로 입력 전송
  */
 export function sendSkillUse(skillSlot: 'Q' | 'W' | 'E', targetX: number, targetY: number) {
   const state = useRPGStore.getState();
   if (!state.multiplayer.isMultiplayer) return;
 
-  // 호스트가 아닐 때만 서버로 전송
-  if (!state.multiplayer.isHost) {
-    const hero = state.hero;
-    const input: PlayerInput = {
-      playerId: state.multiplayer.myPlayerId || '',
-      // moveDirection 생략 = 기존 이동 방향 유지
-      // 클라이언트 실제 위치 전송 (보스 스킬 데미지 계산용)
-      position: hero ? { x: hero.x, y: hero.y } : undefined,
-      skillUsed: { skillSlot, targetX, targetY },
-      timestamp: Date.now(),
-    };
-    wsClient.send({ type: 'HOST_PLAYER_INPUT', input });
-  }
+  // 서버 권위 모델: 모든 클라이언트가 서버로 전송
+  const hero = state.hero;
+  const input: PlayerInput = {
+    playerId: state.multiplayer.myPlayerId || '',
+    // moveDirection 생략 = 기존 이동 방향 유지
+    // 클라이언트 실제 위치 전송 (보스 스킬 데미지 계산용)
+    position: hero ? { x: hero.x, y: hero.y } : undefined,
+    skillUsed: { skillSlot, targetX, targetY },
+    timestamp: Date.now(),
+  };
+
+  // 새 서버 권위 모델 메시지 타입 사용
+  wsClient.send({ type: 'PLAYER_INPUT', input });
 }
 
 /**
- * 업그레이드 요청 전송 (클라이언트 → 서버 → 호스트)
+ * 업그레이드 요청 전송 (클라이언트 → 서버)
+ * 서버 권위 모델: 모든 클라이언트가 서버로 입력 전송
  * 위치 정보를 함께 전송하여 업그레이드 후 위치가 되돌아가는 버그 방지
  */
 export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'goldRate' | 'attackSpeed' | 'range') {
   const state = useRPGStore.getState();
   if (!state.multiplayer.isMultiplayer) return;
 
-  // 호스트가 아닐 때만 서버로 전송
-  if (!state.multiplayer.isHost) {
-    const hero = state.hero;
-    const input: PlayerInput = {
-      playerId: state.multiplayer.myPlayerId || '',
-      // moveDirection 생략 = 기존 이동 방향 유지
-      // 업그레이드 시에도 현재 위치 전송 (위치 되돌아감 버그 방지)
-      position: hero ? { x: hero.x, y: hero.y } : undefined,
-      upgradeRequested: upgradeType,
-      timestamp: Date.now(),
-    };
-    wsClient.send({ type: 'HOST_PLAYER_INPUT', input });
-  }
+  // 서버 권위 모델: 모든 클라이언트가 서버로 전송
+  const hero = state.hero;
+  const input: PlayerInput = {
+    playerId: state.multiplayer.myPlayerId || '',
+    // moveDirection 생략 = 기존 이동 방향 유지
+    // 업그레이드 시에도 현재 위치 전송 (위치 되돌아감 버그 방지)
+    position: hero ? { x: hero.x, y: hero.y } : undefined,
+    upgradeRequested: upgradeType,
+    timestamp: Date.now(),
+  };
+
+  // 새 서버 권위 모델 메시지 타입 사용
+  wsClient.send({ type: 'PLAYER_INPUT', input });
 }
 
 // ============================================

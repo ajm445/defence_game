@@ -125,6 +125,7 @@ export interface Buff {
   speedBonus?: number;   // 공속 증가율
   moveSpeedBonus?: number; // 이동속도 증가율
   damageReduction?: number; // 데미지 감소율
+  damageTaken?: number;  // 받는 피해 증가율 (0.5 = 50% 증가)
   lifesteal?: number;    // 피해흡혈율 (0.5 = 50%)
   casterId?: string;     // 시전자 영웅 ID (공유 버프의 경우 범위 체크용)
 }

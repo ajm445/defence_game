@@ -1131,20 +1131,20 @@ export const useRPGStore = create<RPGStore>()(
     // 영웅 스탯 업그레이드
     upgradeHeroStat: (stat: UpgradeType) => {
       const state = get();
-      const { isMultiplayer, isHost } = state.multiplayer;
+      const { isMultiplayer } = state.multiplayer;
       const heroClass = state.hero?.heroClass;
 
-      // 멀티플레이어 클라이언트(호스트가 아닌 플레이어): 네트워크로 업그레이드 요청
-      if (isMultiplayer && !isHost) {
+      // 서버 권위 모델: 멀티플레이어일 때 모든 클라이언트가 서버로 전송
+      if (isMultiplayer) {
         const currentLevel = state.upgradeLevels[stat];
         const characterLevel = state.hero?.characterLevel || 1;
 
-        // 로컬에서 업그레이드 가능 여부만 확인 (실제 처리는 호스트에서)
+        // 로컬에서 업그레이드 가능 여부만 확인 (실제 처리는 서버에서)
         if (!canUpgrade(state.gold, currentLevel, characterLevel, stat, heroClass)) {
           return false;
         }
 
-        // 호스트에게 업그레이드 요청 전송 (위치 포함하여 위치 되돌아감 버그 방지)
+        // 서버로 업그레이드 요청 전송 (위치 포함하여 위치 되돌아감 버그 방지)
         const hero = state.hero;
         const input: PlayerInput = {
           playerId: state.multiplayer.myPlayerId || '',
@@ -1153,11 +1153,11 @@ export const useRPGStore = create<RPGStore>()(
           upgradeRequested: stat,
           timestamp: Date.now(),
         };
-        wsClient.hostSendPlayerInput(input);
-        return true;  // 요청 전송 성공 (실제 결과는 호스트에서 처리)
+        wsClient.send({ type: 'PLAYER_INPUT', input });
+        return true;  // 요청 전송 성공 (실제 결과는 서버에서 처리)
       }
 
-      // 싱글플레이 또는 호스트: 로컬에서 바로 처리
+      // 싱글플레이: 로컬에서 바로 처리
       const currentLevel = state.upgradeLevels[stat];
       const characterLevel = state.hero?.characterLevel || 1;
 
@@ -1266,7 +1266,7 @@ export const useRPGStore = create<RPGStore>()(
 
         const updatedSkills = state.hero.skills.map((skill) => {
           // Q스킬(기본 공격)에만 공격속도 보너스 적용
-          const isQSkill = skill.type.endsWith('_q');
+          const isQSkill = skill.key === 'Q';
           let cooldownReduction = deltaTime;
 
           if (isQSkill) {

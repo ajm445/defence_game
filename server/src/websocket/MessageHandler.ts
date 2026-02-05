@@ -18,6 +18,7 @@ import {
   getAllWaitingCoopRooms,
   getCoopRoomByPlayerId,
   sendLobbyChatMessage,
+  stopRoomCleanupTimer,
 } from '../room/CoopRoomManager';
 import { sendToPlayer } from '../state/players';
 import { GameRoom } from '../game/GameRoom';
@@ -89,6 +90,42 @@ export function addCoopRoom(room: RPGCoopGameRoom): void {
 
 export function removeCoopRoom(roomId: string): void {
   coopGameRooms.delete(roomId);
+}
+
+/**
+ * 서버 종료 시 모든 게임 방 정리
+ * - 게임 엔진의 setInterval 정리
+ * - 방 타임아웃 타이머 정리
+ */
+export function cleanupAllRooms(): void {
+  console.log(`[Cleanup] 모든 게임 방 정리 중... (${coopGameRooms.size}개)`);
+
+  // 방 자동 파기 타이머 중지
+  stopRoomCleanupTimer();
+
+  for (const [roomId, room] of coopGameRooms) {
+    try {
+      room.cleanup();
+    } catch (e) {
+      console.error(`[Cleanup] 방 정리 실패: ${roomId}`, e);
+    }
+  }
+  coopGameRooms.clear();
+
+  // PvP 게임 방도 정리
+  for (const [roomId, room] of gameRooms) {
+    try {
+      // GameRoom에 cleanup이 있다면 호출
+      if ('cleanup' in room && typeof room.cleanup === 'function') {
+        room.cleanup();
+      }
+    } catch (e) {
+      console.error(`[Cleanup] PvP 방 정리 실패: ${roomId}`, e);
+    }
+  }
+  gameRooms.clear();
+
+  console.log(`[Cleanup] 모든 게임 방 정리 완료`);
 }
 
 export function handleMessage(playerId: string, message: ClientMessage): void {
@@ -209,7 +246,19 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleCoopUpgradeHeroStat(playerId, (message as any).upgradeType);
       break;
 
-    // 호스트 기반 메시지
+    // ============================================
+    // 서버 권위 모델 메시지
+    // ============================================
+
+    // 플레이어 입력 (서버 권위 모델 - 모든 클라이언트가 전송)
+    case 'PLAYER_INPUT':
+      handlePlayerInput(playerId, (message as any).input);
+      break;
+
+    // ============================================
+    // 레거시 호스트 기반 메시지 (하위 호환성)
+    // ============================================
+
     case 'HOST_GAME_STATE_BROADCAST':
       handleHostGameStateBroadcast(playerId, (message as any).state);
       break;
@@ -863,9 +912,34 @@ export function handleCoopDisconnect(playerId: string): void {
 }
 
 // ============================================
-// 호스트 기반 메시지 핸들러
+// 서버 권위 모델 메시지 핸들러
 // ============================================
 
+/**
+ * 서버 권위 모델: 플레이어 입력 처리
+ * 모든 클라이언트가 입력을 서버로 전송하고, 서버 게임 엔진이 처리
+ */
+function handlePlayerInput(playerId: string, input: any): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = coopGameRooms.get(player.roomId);
+  if (room) {
+    // 스킬 사용이나 업그레이드 같은 중요 액션만 로그 출력 (이동은 너무 빈번)
+    if (input.skillUsed) {
+      console.log(`[ServerAuth] 플레이어 입력: ${playerId} 스킬 ${input.skillUsed.skillSlot}`);
+    } else if (input.upgradeRequested) {
+      console.log(`[ServerAuth] 플레이어 입력: ${playerId} 업그레이드 ${input.upgradeRequested}`);
+    }
+    room.handlePlayerInput(playerId, input);
+  }
+}
+
+// ============================================
+// 레거시 호스트 기반 메시지 핸들러 (하위 호환성)
+// ============================================
+
+/** @deprecated 서버 권위 모델에서는 사용하지 않음 - 서버가 직접 브로드캐스트 */
 function handleHostGameStateBroadcast(playerId: string, state: any): void {
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
@@ -876,6 +950,7 @@ function handleHostGameStateBroadcast(playerId: string, state: any): void {
   }
 }
 
+/** @deprecated 서버 권위 모델에서는 사용하지 않음 */
 function handleHostGameEventBroadcast(playerId: string, event: any): void {
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
@@ -886,6 +961,7 @@ function handleHostGameEventBroadcast(playerId: string, event: any): void {
   }
 }
 
+/** @deprecated 서버 권위 모델에서는 PLAYER_INPUT 사용 */
 function handleHostPlayerInput(playerId: string, input: any): void {
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
@@ -896,6 +972,7 @@ function handleHostPlayerInput(playerId: string, input: any): void {
   }
 }
 
+/** @deprecated 서버 권위 모델에서는 서버가 직접 게임 종료 처리 */
 function handleHostGameOver(playerId: string, result: any): void {
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
