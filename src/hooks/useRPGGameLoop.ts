@@ -398,6 +398,9 @@ export function useRPGGameLoop() {
       // 영웅 관련 로직(스킬, 자동공격)만 스킵됨
     }
 
+    // 버프 업데이트 (스킬 쿨다운보다 먼저 처리하여 만료된 버프가 쿨다운 계산에 영향 안 줌)
+    useRPGStore.getState().updateBuffs(deltaTime);
+
     // 스킬 쿨다운 업데이트 (호스트가 살아있을 때만)
     if (!isHostDead) {
       useRPGStore.getState().updateSkillCooldowns(deltaTime);
@@ -712,9 +715,6 @@ export function useRPGGameLoop() {
         }
       }
     }
-
-    // 버프 업데이트
-    useRPGStore.getState().updateBuffs(deltaTime);
 
     // 시야 업데이트
     useRPGStore.getState().updateVisibility();
@@ -2339,9 +2339,10 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           heroId: heroId,  // 멀티플레이 이펙트 병합용
         });
 
-        // Q 스킬 쿨다운 리셋
+        // Q 스킬 쿨다운 리셋 (hero.config.attackSpeed 사용 - 인게임 업그레이드 반영)
+        const attackSpeed = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
         const skillsWithCooldown = updatedSkills.map(s =>
-          s.type === qSkillType ? { ...s, currentCooldown: s.cooldown } : s
+          s.type === qSkillType ? { ...s, currentCooldown: attackSpeed } : s
         );
         state.updateOtherHero(heroId, {
           skills: skillsWithCooldown,
@@ -2535,9 +2536,10 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             heroId: heroId,  // 멀티플레이 이펙트 병합용
           });
 
-          // Q 스킬 쿨다운 리셋
+          // Q 스킬 쿨다운 리셋 (hero.config.attackSpeed 사용 - 인게임 업그레이드 반영)
+          const attackSpeedForCooldown = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
           let skillsWithCooldown = updatedSkills.map(s =>
-            s.type === qSkillType ? { ...s, currentCooldown: s.cooldown } : s
+            s.type === qSkillType ? { ...s, currentCooldown: attackSpeedForCooldown } : s
           );
 
           // 기사 Q 스킬 적중 시 W 스킬 쿨다운 1초 감소 (적중 수만큼)
@@ -2625,9 +2627,10 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
           const normalizedBaseDirX = baseDirDist > 0 ? baseDirX / baseDirDist : 1;
           const normalizedBaseDirY = baseDirDist > 0 ? baseDirY / baseDirDist : 0;
 
-          // Q 스킬 쿨다운 리셋
+          // Q 스킬 쿨다운 리셋 (hero.config.attackSpeed 사용 - 인게임 업그레이드 반영)
+          const baseAttackSpeed = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
           const skillsWithCooldown = updatedSkills.map(s =>
-            s.type === qSkillType ? { ...s, currentCooldown: s.cooldown } : s
+            s.type === qSkillType ? { ...s, currentCooldown: baseAttackSpeed } : s
           );
           state.updateOtherHero(heroId, {
             skills: skillsWithCooldown,

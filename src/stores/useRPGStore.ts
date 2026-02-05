@@ -1189,6 +1189,19 @@ export const useRPGStore = create<RPGStore>()(
             };
           }
 
+          // 이동속도 업그레이드 시 영웅 이동속도 증가
+          if (stat === 'speed') {
+            const speedBonus = UPGRADE_CONFIG.speed.perLevel;
+            const currentSpeed = updatedHero.config.speed || updatedHero.baseSpeed || 3;
+            updatedHero = {
+              ...updatedHero,
+              config: {
+                ...updatedHero.config,
+                speed: currentSpeed + speedBonus,
+              },
+            };
+          }
+
           // 공격속도 업그레이드 시 영웅 공격속도 감소 (더 빠른 공격)
           if (stat === 'attackSpeed') {
             const attackSpeedBonus = UPGRADE_CONFIG.attackSpeed.perLevel;
@@ -1241,7 +1254,11 @@ export const useRPGStore = create<RPGStore>()(
         if (!state.hero) return state;
         const updatedSkills = state.hero.skills.map((s) => {
           if (s.type === skillType) {
-            return { ...s, currentCooldown: s.cooldown };
+            // Q 스킬은 hero.config.attackSpeed를 사용 (인게임 업그레이드 반영)
+            const cooldown = s.key === 'Q'
+              ? (state.hero?.config.attackSpeed ?? s.cooldown)
+              : s.cooldown;
+            return { ...s, currentCooldown: cooldown };
           }
           return s;
         });

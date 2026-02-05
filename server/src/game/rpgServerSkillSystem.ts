@@ -5,7 +5,7 @@
  * - 패시브 효과 (크리티컬, 피해흡혈, 멀티타겟 등)
  */
 
-import type { RPGEnemy, HeroClass, SkillEffect, PendingSkill, DamageNumber } from '../../../src/types/rpg';
+import type { RPGEnemy, HeroClass, SkillEffect, PendingSkill, DamageNumber, RPGDifficulty } from '../../../src/types/rpg';
 import type { ServerHero, ServerEnemyBase, ServerGameState } from './rpgServerTypes';
 import {
   RPG_CONFIG,
@@ -16,9 +16,11 @@ import {
   type AdvancedHeroClass,
 } from './rpgServerConfig';
 import { distance, clamp, generateId, pointToLineDistance } from './rpgServerUtils';
+import { damageBase } from './rpgServerGameSystems';
 
 export interface SkillContext {
   state: ServerGameState;
+  difficulty: RPGDifficulty;
   onEnemyDeath: (enemy: RPGEnemy, attacker?: ServerHero) => void;
 }
 
@@ -185,6 +187,34 @@ function executeQSkill(
     totalDamageDealt += hit.damage;
   }
 
+  // 기지 데미지 처리
+  const { enemyBases } = ctx.state;
+  for (const base of enemyBases) {
+    if (base.destroyed) continue;
+    const baseDist = distance(hero.x, hero.y, base.x, base.y);
+    if (baseDist > attackRange + 50) continue; // 기지는 크기가 크므로 추가 반경
+
+    const baseDx = base.x - hero.x;
+    const baseDy = base.y - hero.y;
+    const baseDistNorm = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
+    if (baseDistNorm === 0) continue;
+
+    const baseDirX = baseDx / baseDistNorm;
+    const baseDirY = baseDy / baseDistNorm;
+    const dot = dirX * baseDirX + dirY * baseDirY;
+
+    // 기지는 방향 조건이 더 관대 (-0.5)
+    if (dot < -0.5) continue;
+
+    let baseDamage = damage;
+    if (isCriticalHit) {
+      baseDamage = Math.floor(baseDamage * criticalMultiplier);
+    }
+
+    damageBase(ctx.state, base.id, baseDamage, ctx.difficulty, hero.id);
+    totalDamageDealt += baseDamage;
+  }
+
   // 피해흡혈 적용
   if (totalDamageDealt > 0) {
     let totalLifesteal = 0;
@@ -262,12 +292,12 @@ function executeQSkill(
     advancedClass: hero.advancedClass as any,
   });
 
-  // 쿨다운 시작
-  const skillCooldowns: Record<HeroClass, number> = { warrior: 1.0, archer: 0.8, knight: 1.2, mage: 1.5 };
-  hero.skillCooldowns.Q = skillCooldowns[heroClass];
+  // 쿨다운 시작 - hero.config.attackSpeed 사용 (업그레이드 반영)
+  const attackSpeed = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
+  hero.skillCooldowns.Q = attackSpeed;
   const qSkill = hero.skills?.find(s => s.key === 'Q');
   if (qSkill) {
-    qSkill.currentCooldown = skillCooldowns[heroClass];
+    qSkill.currentCooldown = attackSpeed;
   }
 }
 
@@ -322,6 +352,15 @@ function executeWSkill(
         }
       }
 
+      // 기지 데미지 (경로상 기지)
+      for (const base of enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+        if (baseDist <= 80) { // 기지는 더 큰 히트박스
+          damageBase(ctx.state, base.id, skillDamage, ctx.difficulty, hero.id);
+        }
+      }
+
       hero.dashState = {
         startX: hero.x, startY: hero.y,
         targetX: newX, targetY: newY,
@@ -344,6 +383,15 @@ function executeWSkill(
         const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, endX, endY);
         if (enemyDist <= 30) {
           applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
+        }
+      }
+
+      // 기지 데미지 (관통 화살 경로상 기지)
+      for (const base of enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, endX, endY);
+        if (baseDist <= 60) { // 기지는 더 큰 히트박스
+          damageBase(ctx.state, base.id, skillDamage, ctx.difficulty, hero.id);
         }
       }
 
@@ -377,6 +425,15 @@ function executeWSkill(
         }
       }
 
+      // 기지 데미지 (경로상 기지)
+      for (const base of enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+        if (baseDist <= 80) { // 기지는 더 큰 히트박스
+          damageBase(ctx.state, base.id, hpBasedDamage, ctx.difficulty, hero.id);
+        }
+      }
+
       hero.dashState = {
         startX: hero.x, startY: hero.y,
         targetX: newX, targetY: newY,
@@ -393,6 +450,15 @@ function executeWSkill(
         const enemyDist = distance(targetX, targetY, enemy.x, enemy.y);
         if (enemyDist <= radius) {
           applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
+        }
+      }
+
+      // 기지 데미지 (범위 내 기지)
+      for (const base of enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = distance(targetX, targetY, base.x, base.y);
+        if (baseDist <= radius + 50) { // 기지는 더 큰 히트박스
+          damageBase(ctx.state, base.id, skillDamage, ctx.difficulty, hero.id);
         }
       }
 
@@ -470,6 +536,17 @@ function executeESkill(
           applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
         }
       }
+
+      // 기지 데미지 (범위 내 기지)
+      const { enemyBases } = ctx.state;
+      for (const base of enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = distance(targetX, targetY, base.x, base.y);
+        if (baseDist <= radius + 50) { // 기지는 더 큰 히트박스
+          damageBase(ctx.state, base.id, skillDamage, ctx.difficulty, hero.id);
+        }
+      }
+
       ctx.state.activeSkillEffects.push({
         type: 'archer_e' as any,
         position: { x: targetX, y: targetY },
@@ -564,6 +641,16 @@ function executeAdvancedWSkill(
         }
       }
 
+      // 기지 데미지 (경로상 기지)
+      for (const base of state.enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+        if (baseDist <= 80) {
+          damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
+          totalDamageDealt += skillDamage;
+        }
+      }
+
       // 피해흡혈
       if (totalDamageDealt > 0) {
         const healAmount = Math.floor(totalDamageDealt * lifestealPercent);
@@ -614,6 +701,15 @@ function executeAdvancedWSkill(
         if (enemyDist <= 50) {
           applyDamageToEnemy(ctx, enemy.id, hpBasedDamage, hero);
           applyStunToEnemy(state.enemies, enemy.id, stunDuration, gameTime);
+        }
+      }
+
+      // 기지 데미지 (경로상 기지)
+      for (const base of state.enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+        if (baseDist <= 80) {
+          damageBase(state, base.id, hpBasedDamage, ctx.difficulty, hero.id);
         }
       }
 
@@ -697,6 +793,9 @@ function executeAdvancedWSkill(
       const skillDamage = Math.floor(damage * 1.0);
       const spreadAngle = Math.PI / 6; // 30도 부채꼴
 
+      // 기지 중복 피해 방지용 Set
+      const hitBases = new Set<string>();
+
       for (let i = 0; i < arrowCount; i++) {
         const angleOffset = (i - (arrowCount - 1) / 2) * (spreadAngle / (arrowCount - 1));
         const arrowDirX = dirX * Math.cos(angleOffset) - dirY * Math.sin(angleOffset);
@@ -709,6 +808,16 @@ function executeAdvancedWSkill(
           const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, endX, endY);
           if (enemyDist <= 30) {
             applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
+          }
+        }
+
+        // 기지 데미지 (경로상 기지, 중복 피해 방지)
+        for (const base of state.enemyBases) {
+          if (base.destroyed || hitBases.has(base.id)) continue;
+          const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, endX, endY);
+          if (baseDist <= 60) {
+            damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
+            hitBases.add(base.id);
           }
         }
       }
@@ -744,6 +853,15 @@ function executeAdvancedWSkill(
         if (enemyDist <= 50) {
           applyDamageToEnemy(ctx, enemy.id, hpBasedDamage, hero);
           applyStunToEnemy(state.enemies, enemy.id, stunDuration, gameTime);
+        }
+      }
+
+      // 기지 데미지 (경로상 기지)
+      for (const base of state.enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+        if (baseDist <= 80) {
+          damageBase(state, base.id, hpBasedDamage, ctx.difficulty, hero.id);
         }
       }
 
@@ -794,6 +912,16 @@ function executeAdvancedWSkill(
         }
       }
 
+      // 기지 데미지 (경로상 기지)
+      for (const base of state.enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
+        if (baseDist <= 80) {
+          damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
+          totalDamageDealt += skillDamage;
+        }
+      }
+
       if (totalDamageDealt > 0) {
         const healAmount = Math.floor(totalDamageDealt * lifestealPercent);
         hero.hp = Math.min(hero.maxHp, hero.hp + healAmount);
@@ -835,6 +963,15 @@ function executeAdvancedWSkill(
         const dist = distance(targetX, targetY, enemy.x, enemy.y);
         if (dist <= radius) {
           applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
+        }
+      }
+
+      // 기지 데미지 (범위 내 기지)
+      for (const base of state.enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = distance(targetX, targetY, base.x, base.y);
+        if (baseDist <= radius + 50) {
+          damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
         }
       }
 
@@ -1053,6 +1190,16 @@ function executeAdvancedESkill(
         }
       }
 
+      // 기지 데미지 (범위 내 기지)
+      for (const base of state.enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = distance(hero.x, hero.y, base.x, base.y);
+        if (baseDist <= radius + 50) {
+          damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
+          totalDamageDealt += skillDamage;
+        }
+      }
+
       // 피해흡혈
       if (totalDamageDealt > 0) {
         const healAmount = Math.floor(totalDamageDealt * lifestealPercent);
@@ -1089,6 +1236,15 @@ function executeAdvancedESkill(
         const dist = distance(targetX, targetY, enemy.x, enemy.y);
         if (dist <= radius) {
           applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
+        }
+      }
+
+      // 기지 데미지 (범위 내 기지)
+      for (const base of state.enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = distance(targetX, targetY, base.x, base.y);
+        if (baseDist <= radius + 50) {
+          damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
         }
       }
 
@@ -1233,6 +1389,15 @@ export function updatePendingSkills(ctx: SkillContext): void {
         if (dist <= skill.radius) {
           const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
           applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+        }
+      }
+
+      // 범위 내 기지에 데미지
+      for (const base of state.enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = distance(skill.position.x, skill.position.y, base.x, base.y);
+        if (baseDist <= skill.radius + 50) { // 기지는 더 큰 히트박스
+          damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
         }
       }
 

@@ -133,6 +133,7 @@ export class RPGServerGameEngine {
     // 컨텍스트 초기화
     this.skillContext = {
       state: this.state,
+      difficulty: this.difficulty,
       onEnemyDeath: (enemy, attacker) => this.handleEnemyDeath(enemy, attacker),
     };
 
@@ -381,8 +382,8 @@ export class RPGServerGameEngine {
         continue;
       }
 
+      updateBuffs(hero, deltaTime);  // 버프 먼저 업데이트 (만료된 버프가 쿨다운 계산에 영향 안 줌)
       updateSkillCooldowns(hero, deltaTime);
-      updateBuffs(hero, deltaTime);
       processHeroMovement(hero, deltaTime, this.state.gameTime);
 
       // 자동 공격

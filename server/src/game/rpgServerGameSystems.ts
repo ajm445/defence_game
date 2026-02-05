@@ -26,6 +26,7 @@ export interface GameSystemsContext {
 
 /**
  * 넥서스 레이저 업데이트
+ * - 범위 내 모든 적을 동시에 공격
  */
 export function updateNexusLaser(
   state: ServerGameState,
@@ -37,34 +38,35 @@ export function updateNexusLaser(
   state.nexusLaserCooldown -= deltaTime;
 
   if (state.nexusLaserCooldown <= 0) {
-    const aliveEnemies = enemies.filter(e => e.hp > 0);
-    let targetEnemy: RPGEnemy | null = null;
-    let minDist = NEXUS_CONFIG.laser.range;
+    // 범위 내 모든 생존 적 찾기
+    const enemiesInRange = enemies.filter(e =>
+      e.hp > 0 && distance(nexus.x, nexus.y, e.x, e.y) <= NEXUS_CONFIG.laser.range
+    );
 
-    for (const enemy of aliveEnemies) {
-      const dist = distance(nexus.x, nexus.y, enemy.x, enemy.y);
-      if (dist < minDist) {
-        minDist = dist;
-        targetEnemy = enemy;
+    // 범위 내 적이 있으면 모든 적에게 동시 공격
+    if (enemiesInRange.length > 0) {
+      const now = Date.now();
+
+      for (const enemy of enemiesInRange) {
+        enemy.hp -= NEXUS_CONFIG.laser.damage;
+
+        // 레이저 이펙트 생성
+        state.nexusLaserEffects.push({
+          id: `nexus_laser_${now}_${enemy.id}`,
+          targetX: enemy.x,
+          targetY: enemy.y,
+          timestamp: now,
+        });
+
+        // 적 사망 처리
+        if (enemy.hp <= 0) {
+          onEnemyDeath(enemy);
+        }
       }
+
+      // 쿨다운 리셋 (적이 있을 때만)
+      state.nexusLaserCooldown = NEXUS_CONFIG.laser.attackSpeed;
     }
-
-    if (targetEnemy) {
-      targetEnemy.hp -= NEXUS_CONFIG.laser.damage;
-
-      state.nexusLaserEffects.push({
-        id: `nexus_laser_${Date.now()}_${targetEnemy.id}`,
-        targetX: targetEnemy.x,
-        targetY: targetEnemy.y,
-        timestamp: Date.now(),
-      });
-
-      if (targetEnemy.hp <= 0) {
-        onEnemyDeath(targetEnemy);
-      }
-    }
-
-    state.nexusLaserCooldown = NEXUS_CONFIG.laser.attackSpeed;
   }
 }
 
@@ -108,15 +110,20 @@ export function processUpgrade(hero: ServerHero, upgradeType: string): void {
   hero.upgradeLevels[upgradeType as keyof UpgradeLevels]++;
 
   // 스탯 적용
+  // 참고: attack은 데미지 계산 시 upgradeLevels.attack을 기반으로 보너스가 적용되므로
+  //       여기서 hero.config.attack을 수정하면 중복 적용됨
+  // 참고: goldRate는 골드 계산 시 upgradeLevels.goldRate을 기반으로 보너스가 적용됨
   const config = UPGRADE_CONFIG[upgradeType as keyof typeof UPGRADE_CONFIG];
-  if (upgradeType === 'attack') {
-    hero.config = { ...hero.config, attack: (hero.config?.attack || hero.baseAttack || 50) + config.perLevel };
-  } else if (upgradeType === 'speed') {
+  if (upgradeType === 'speed') {
     hero.config = { ...hero.config, speed: (hero.config?.speed || hero.baseSpeed || 3) + config.perLevel };
   } else if (upgradeType === 'hp') {
     const hpIncrease = config.perLevel;
     hero.maxHp += hpIncrease;
     hero.hp += hpIncrease;
+  } else if (upgradeType === 'attackSpeed') {
+    // 공격속도 업그레이드: 더 빠른 공격 (쿨다운 감소)
+    const currentAttackSpeed = hero.config?.attackSpeed || hero.baseAttackSpeed || 1;
+    hero.config = { ...hero.config, attackSpeed: Math.max(0.3, currentAttackSpeed - config.perLevel) };
   } else if (upgradeType === 'range' && (hero.heroClass === 'archer' || hero.heroClass === 'mage')) {
     hero.config = { ...hero.config, range: (hero.config?.range || CLASS_CONFIGS[hero.heroClass].range) + config.perLevel };
   }
