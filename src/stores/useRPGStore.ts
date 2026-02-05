@@ -2539,16 +2539,19 @@ export const useRPGStore = create<RPGStore>()(
                 syncY = localHero.y;
               }
             } else {
-              // 정지 상태: 호스트 위치 사용 (점진적 보간 제거로 떨림 방지)
-              // 이전에는 30% 블렌드로 부드럽게 수렴했으나, 이로 인해 앞-뒤-앞 떨림 발생
-              // 정지 상태에서는 호스트가 정확한 위치를 알고 있으므로 즉시 동기화
-              if (positionDiff < 5) {
-                // 아주 작은 차이 (< 5px): 무시 (네트워크 지연으로 인한 미세한 차이)
+              // 정지 상태: 부드럽게 서버 위치로 수렴
+              if (positionDiff < 3) {
+                // 아주 작은 차이 (< 3px): 무시 (네트워크 지연으로 인한 미세한 차이)
                 syncX = localHero.x;
                 syncY = localHero.y;
+              } else if (positionDiff < 50) {
+                // 작은 차이 (3~50px): 부드러운 선형 보간으로 서버 위치로 수렴
+                // 약 100ms 동안 서서히 이동 (스냅 대신)
+                const alpha = 0.15;  // 매 프레임 15% 수렴
+                syncX = localHero.x + (hero.x - localHero.x) * alpha;
+                syncY = localHero.y + (hero.y - localHero.y) * alpha;
               } else {
-                // 차이가 있으면 호스트 위치로 즉시 동기화
-                // 정지 상태에서는 움직임이 없으므로 스냅해도 시각적 끊김이 거의 없음
+                // 큰 차이 (> 50px): 즉시 동기화 (텔레포트 등)
                 syncX = hero.x;
                 syncY = hero.y;
               }
@@ -2641,8 +2644,8 @@ export const useRPGStore = create<RPGStore>()(
           if (existingHero && existingInterpolation) {
             // 기존 보간 데이터가 있으면, 현재 보간된 위치를 prevX/Y로 설정
             const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
-            // 보간 시간: 서버 상태 동기화 간격(50ms)보다 약간 길게 설정
-            const interpolationDuration = 60;
+            // 보간 시간: 서버 상태 동기화 간격(50ms)과 일치
+            const interpolationDuration = 50;
             const t = Math.min(1, timeSinceUpdate / interpolationDuration);
 
             // ease-out cubic 적용
@@ -2863,8 +2866,8 @@ export const useRPGStore = create<RPGStore>()(
       const now = performance.now();
       const updatedHeroes = new Map<string, HeroUnit>();
       const updatedInterpolation = new Map<string, HeroInterpolation>();
-      // 보간 시간: 서버 상태 동기화 간격(50ms)보다 약간 길게 설정
-      const interpolationDuration = 60;
+      // 보간 시간: 서버 상태 동기화 간격(50ms)과 일치
+      const interpolationDuration = 50;
 
       // ease-out cubic 함수
       const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -2879,24 +2882,12 @@ export const useRPGStore = create<RPGStore>()(
           let x: number;
           let y: number;
 
-          // 클라이언트 측 이동 시뮬레이션
-          const isMoving = interp.moveDirectionX !== 0 || interp.moveDirectionY !== 0;
-
-          if (t >= 1 && isMoving) {
-            // 보간 완료 후 이동 중이면 예측 이동
-            const extraTime = (timeSinceUpdate - interpolationDuration) / 1000;
-            // speed는 60fps 기준이므로 * 60 필요 (다른 이동 계산과 일치)
-            const predictedMoveX = interp.moveDirectionX * interp.moveSpeed * extraTime * 60;
-            const predictedMoveY = interp.moveDirectionY * interp.moveSpeed * extraTime * 60;
-
-            x = interp.targetX + predictedMoveX;
-            y = interp.targetY + predictedMoveY;
-
-            // 맵 경계 제한 (30px 마진 - 다른 경계 처리와 일치)
-            x = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, x));
-            y = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, y));
+          // 보간 중: 이징 함수 적용
+          // 보간 완료 후에는 targetX/Y 유지 (서버 업데이트 대기, 과도한 예측 방지)
+          if (t >= 1) {
+            x = interp.targetX;
+            y = interp.targetY;
           } else {
-            // 보간 중: 이징 함수 적용
             x = interp.prevX + (interp.targetX - interp.prevX) * easedT;
             y = interp.prevY + (interp.targetY - interp.prevY) * easedT;
           }
@@ -2922,8 +2913,8 @@ export const useRPGStore = create<RPGStore>()(
       if (state.enemiesInterpolation.size === 0 || state.enemies.length === 0) return;
 
       const now = performance.now();
-      // 보간 시간: 서버 상태 동기화 간격(50ms)보다 약간 길게 설정
-      const interpolationDuration = 60;
+      // 보간 시간: 서버 상태 동기화 간격(50ms)과 일치
+      const interpolationDuration = 50;
 
       // ease-out cubic 함수
       const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);

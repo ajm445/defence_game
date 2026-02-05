@@ -357,12 +357,13 @@ export class RPGServerGameEngine {
       hero.moveDirection = input.moveDirection ?? null;
     }
 
-    // 위치 보정
+    // 위치 보정: 클라이언트 로컬 예측과 서버 위치 차이 최소화
     if (input.position) {
       const dist = distance(hero.x, hero.y, input.position.x, input.position.y);
-      if (dist > 50 && dist < 200) {
-        hero.x = hero.x + (input.position.x - hero.x) * 0.3;
-        hero.y = hero.y + (input.position.y - hero.y) * 0.3;
+      if (dist > 10 && dist < 300) {
+        // 10~300px 범위에서 50% 비율로 클라이언트 위치로 보간
+        hero.x = hero.x + (input.position.x - hero.x) * 0.5;
+        hero.y = hero.y + (input.position.y - hero.y) * 0.5;
       }
     }
 
