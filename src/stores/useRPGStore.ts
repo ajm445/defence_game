@@ -76,6 +76,8 @@ interface RPGState extends RPGGameState {
   otherPlayersKills: Map<string, number>;
   // 다른 플레이어 영웅 보간 데이터 (클라이언트용)
   otherHeroesInterpolation: Map<string, HeroInterpolation>;
+  // 적 보간 데이터 (멀티플레이 적 움직임 개선)
+  enemiesInterpolation: Map<string, EnemyInterpolation>;
 }
 
 // 영웅 보간 데이터 타입 (클라이언트 움직임 개선)
@@ -89,6 +91,15 @@ interface HeroInterpolation {
   moveDirectionX: number;   // 이동 방향 X (-1, 0, 1)
   moveDirectionY: number;   // 이동 방향 Y (-1, 0, 1)
   moveSpeed: number;        // 영웅 이동 속도 (stats.speed)
+  lastUpdateTime: number;
+}
+
+// 적 보간 데이터 타입 (멀티플레이 적 움직임 개선)
+interface EnemyInterpolation {
+  prevX: number;
+  prevY: number;
+  targetX: number;
+  targetY: number;
   lastUpdateTime: number;
 }
 
@@ -244,6 +255,8 @@ interface RPGActions {
 
   // 다른 플레이어 영웅 보간 업데이트 (클라이언트용)
   updateOtherHeroesInterpolation: () => void;
+  // 적 보간 업데이트 (멀티플레이용)
+  updateEnemiesInterpolation: () => void;
 
   // 로비 채팅
   addLobbyChatMessage: (message: import('@shared/types/rpgNetwork').LobbyChatMessage) => void;
@@ -432,6 +445,7 @@ const initialState: RPGState = {
   personalKills: 0,
   otherPlayersKills: new Map(),
   otherHeroesInterpolation: new Map(),
+  enemiesInterpolation: new Map(),
 };
 
 // 직업별 스킬 생성
@@ -665,6 +679,7 @@ export const useRPGStore = create<RPGStore>()(
         personalKills: 0,
         otherPlayersKills: new Map(),
         otherHeroesInterpolation: new Map(),
+        enemiesInterpolation: new Map(),
         visibility: {
           exploredCells: new Set<string>(),
           visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
@@ -742,6 +757,7 @@ export const useRPGStore = create<RPGStore>()(
         personalKills: 0,
         otherPlayersKills: new Map(),
         otherHeroesInterpolation: new Map(),
+        enemiesInterpolation: new Map(),
         visibility: {
           exploredCells: new Set<string>(),
           visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
@@ -2116,6 +2132,7 @@ export const useRPGStore = create<RPGStore>()(
         },
         otherHeroes: new Map(),
         otherHeroesInterpolation: new Map(),  // 보간 데이터도 초기화 (메모리 누수 방지)
+        enemiesInterpolation: new Map(),  // 적 보간 데이터도 초기화
         otherPlayersGold: new Map(),
         otherPlayersUpgrades: new Map(),
         otherPlayersGoldAccumulator: new Map(),
@@ -2610,7 +2627,8 @@ export const useRPGStore = create<RPGStore>()(
           if (existingHero && existingInterpolation) {
             // 기존 보간 데이터가 있으면, 현재 보간된 위치를 prevX/Y로 설정
             const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
-            const interpolationDuration = 80; // 80ms (네트워크 지터 흡수)
+            // 보간 시간: 서버 상태 동기화 간격(50ms)보다 약간 길게 설정
+            const interpolationDuration = 60;
             const t = Math.min(1, timeSinceUpdate / interpolationDuration);
 
             // ease-out cubic 적용
@@ -2669,14 +2687,68 @@ export const useRPGStore = create<RPGStore>()(
         }
       });
 
+      // 적 보간 데이터 업데이트
+      const newEnemiesInterpolation = new Map<string, EnemyInterpolation>();
+      // now는 이미 위에서 선언됨 (영웅 보간용)
+
       // 적 상태 적용
       const enemies: RPGEnemy[] = serializedState.enemies.map((se) => {
         const aiConfig = ENEMY_AI_CONFIGS[se.type] || ENEMY_AI_CONFIGS.melee;
+
+        // 기존 적 위치 가져오기 (보간용)
+        const existingEnemy = currentState.enemies.find(e => e.id === se.id);
+        const existingInterpolation = currentState.enemiesInterpolation.get(se.id);
+
+        let displayX = se.x;
+        let displayY = se.y;
+
+        if (existingEnemy && existingInterpolation) {
+          // 기존 적이 있으면 보간 데이터 설정
+          // 현재 보간 중인 위치를 시작점으로 사용
+          const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
+          const t = Math.min(1, timeSinceUpdate / 60);  // 60ms 보간
+
+          const currentX = existingInterpolation.prevX + (existingInterpolation.targetX - existingInterpolation.prevX) * t;
+          const currentY = existingInterpolation.prevY + (existingInterpolation.targetY - existingInterpolation.prevY) * t;
+
+          newEnemiesInterpolation.set(se.id, {
+            prevX: currentX,
+            prevY: currentY,
+            targetX: se.x,
+            targetY: se.y,
+            lastUpdateTime: now,
+          });
+
+          // 초기 표시 위치는 현재 보간 위치 사용
+          displayX = currentX;
+          displayY = currentY;
+        } else if (existingEnemy) {
+          // 보간 데이터 없으면 기존 적 위치에서 시작
+          newEnemiesInterpolation.set(se.id, {
+            prevX: existingEnemy.x,
+            prevY: existingEnemy.y,
+            targetX: se.x,
+            targetY: se.y,
+            lastUpdateTime: now,
+          });
+          displayX = existingEnemy.x;
+          displayY = existingEnemy.y;
+        } else {
+          // 새 적은 즉시 위치 설정
+          newEnemiesInterpolation.set(se.id, {
+            prevX: se.x,
+            prevY: se.y,
+            targetX: se.x,
+            targetY: se.y,
+            lastUpdateTime: now,
+          });
+        }
+
         return {
           id: se.id,
           type: se.type,
-          x: se.x,
-          y: se.y,
+          x: displayX,
+          y: displayY,
           hp: se.hp,
           maxHp: se.maxHp,
           goldReward: se.goldReward,
@@ -2733,6 +2805,7 @@ export const useRPGStore = create<RPGStore>()(
         otherPlayersUpgrades: newOtherPlayersUpgrades,
         otherPlayersKills: newOtherPlayersKills,
         otherHeroesInterpolation: newOtherHeroesInterpolation,
+        enemiesInterpolation: newEnemiesInterpolation,
         personalKills: myKills,
         enemies,
         nexus: serializedState.nexus,
@@ -2771,7 +2844,8 @@ export const useRPGStore = create<RPGStore>()(
       const now = performance.now();
       const updatedHeroes = new Map<string, HeroUnit>();
       const updatedInterpolation = new Map<string, HeroInterpolation>();
-      const interpolationDuration = 80; // 80ms (네트워크 지터 흡수)
+      // 보간 시간: 서버 상태 동기화 간격(50ms)보다 약간 길게 설정
+      const interpolationDuration = 60;
 
       // ease-out cubic 함수
       const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -2822,6 +2896,40 @@ export const useRPGStore = create<RPGStore>()(
       });
 
       set({ otherHeroes: updatedHeroes });
+    },
+
+    updateEnemiesInterpolation: () => {
+      const state = get();
+      if (state.enemiesInterpolation.size === 0 || state.enemies.length === 0) return;
+
+      const now = performance.now();
+      // 보간 시간: 서버 상태 동기화 간격(50ms)보다 약간 길게 설정
+      const interpolationDuration = 60;
+
+      // ease-out cubic 함수
+      const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
+
+      const updatedEnemies = state.enemies.map((enemy) => {
+        const interp = state.enemiesInterpolation.get(enemy.id);
+        if (interp) {
+          const timeSinceUpdate = now - interp.lastUpdateTime;
+          const t = Math.min(1, timeSinceUpdate / interpolationDuration);
+          const easedT = easeOutCubic(t);
+
+          // 보간 위치 계산
+          const x = interp.prevX + (interp.targetX - interp.prevX) * easedT;
+          const y = interp.prevY + (interp.targetY - interp.prevY) * easedT;
+
+          return {
+            ...enemy,
+            x,
+            y,
+          };
+        }
+        return enemy;
+      });
+
+      set({ enemies: updatedEnemies });
     },
 
     // ============================================

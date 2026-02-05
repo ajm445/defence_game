@@ -130,7 +130,7 @@ function executeQSkill(
     ? (ADVANCED_CLASS_CONFIGS.ranger.specialEffects.multiTarget || 5)
     : 0;
 
-  const hitEnemies: { id: string; damage: number; isCritical: boolean }[] = [];
+  const hitEnemies: { id: string; damage: number; isCritical: boolean; x: number; y: number }[] = [];
   const archerTargets: { enemy: RPGEnemy; dist: number }[] = [];
 
   for (const enemy of enemies) {
@@ -157,7 +157,7 @@ function executeQSkill(
       if (isCriticalHit) {
         actualDamage = Math.floor(actualDamage * criticalMultiplier);
       }
-      hitEnemies.push({ id: enemy.id, damage: actualDamage, isCritical: isCriticalHit });
+      hitEnemies.push({ id: enemy.id, damage: actualDamage, isCritical: isCriticalHit, x: enemy.x, y: enemy.y });
     } else if (heroClass === 'archer') {
       archerTargets.push({ enemy, dist: distToHero });
     }
@@ -176,7 +176,7 @@ function executeQSkill(
       if (isCriticalHit) {
         actualDamage = Math.floor(actualDamage * criticalMultiplier);
       }
-      hitEnemies.push({ id: t.enemy.id, damage: actualDamage, isCritical: isCriticalHit });
+      hitEnemies.push({ id: t.enemy.id, damage: actualDamage, isCritical: isCriticalHit, x: t.enemy.x, y: t.enemy.y });
     }
   }
 
@@ -279,6 +279,9 @@ function executeQSkill(
     }
   }
 
+  // hitTargets 생성 (피격 이펙트용 - 궁수 화살 피격 마커 등)
+  const hitTargets = hitEnemies.map(h => ({ x: h.x, y: h.y, damage: h.damage }));
+
   // 스킬 이펙트 추가
   ctx.state.activeSkillEffects.push({
     type: `${heroClass}_q` as any,
@@ -290,6 +293,7 @@ function executeQSkill(
     startTime: gameTime,
     heroClass,
     advancedClass: hero.advancedClass as any,
+    hitTargets: hitTargets.length > 0 ? hitTargets : undefined,
   });
 
   // 쿨다운 시작 - hero.config.attackSpeed 사용 (업그레이드 반영)

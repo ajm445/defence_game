@@ -177,7 +177,7 @@ export const RPG_ENEMY_CONFIGS: Record<string, {
   boss: { name: '보스', hp: 3500, attack: 100, attackSpeed: 2.0, speed: 1.2 },
 };
 
-// 보스 스킬 설정
+// 보스 스킬 설정 (클라이언트 rpgConfig.ts BOSS_SKILL_CONFIGS와 동일하게 유지)
 export const BOSS_SKILL_CONFIGS: Record<string, {
   cooldown: number;
   damage: number;
@@ -192,12 +192,60 @@ export const BOSS_SKILL_CONFIGS: Record<string, {
   chargeDistance?: number;
   healPercent?: number;
 }> = {
-  smash: { cooldown: 8, damage: 1.5, radius: 120, angle: Math.PI / 2, castTime: 1.5, stunDuration: 1.5 },
-  shockwave: { cooldown: 12, damage: 1.0, radius: 200, castTime: 1.0 },
-  summon: { cooldown: 20, damage: 0, radius: 0, castTime: 2.0, summonCount: 3 },
-  knockback: { cooldown: 15, damage: 0.5, radius: 150, castTime: 0.8, knockbackDistance: 300 },
-  charge: { cooldown: 10, damage: 2.0, radius: 50, castTime: 1.2, chargeDistance: 300 },
-  heal: { cooldown: 30, damage: 0, radius: 0, castTime: 2.0, healPercent: 0.15, hpThreshold: 0.3 },
+  // 강타 - 전방 부채꼴 범위 공격
+  smash: {
+    cooldown: 8,              // 8초 쿨다운
+    damage: 2.0,              // 200% 데미지
+    radius: 150,              // 150px 반경
+    angle: Math.PI * 2 / 3,   // 120도 부채꼴
+    castTime: 1.0,            // 1초 시전
+    stunDuration: 0.5,        // 0.5초 기절
+  },
+  // 충격파 - 전방위 범위 공격
+  shockwave: {
+    cooldown: 20,             // 20초 쿨다운
+    damage: 1.5,              // 150% 데미지
+    radius: 250,              // 250px 반경
+    castTime: 1.5,            // 1.5초 시전
+    hpThreshold: 0.5,         // HP 50% 이하부터 사용
+  },
+  // 소환 - 졸개 소환
+  summon: {
+    cooldown: 15,             // 15초 쿨다운
+    damage: 0,                // 데미지 없음
+    radius: 100,              // 100px 반경 내 소환
+    castTime: 1.5,            // 1.5초 시전
+    summonCount: 2,           // 2마리 소환
+    hpThreshold: 0.7,         // HP 70% 이하부터 사용
+  },
+  // 밀어내기 - 전방위 넉백 (1회용)
+  knockback: {
+    cooldown: 18,             // 쿨다운 (1회용이므로 의미 없음)
+    damage: 0.5,              // 50% 데미지 (약함)
+    radius: 200,              // 200px 반경
+    castTime: 1.0,            // 1초 시전
+    hpThreshold: 0.5,         // HP 50% 이하부터 사용
+    knockbackDistance: 700,   // 700px 밀어내기
+    oneTimeUse: true,         // 한 번만 사용
+  },
+  // 돌진 - 타겟 방향으로 돌진
+  charge: {
+    cooldown: 10,             // 10초 쿨다운
+    damage: 2.0,              // 200% 데미지
+    radius: 50,               // 경로 폭 50px
+    castTime: 2.0,            // 2초 기 모으기
+    hpThreshold: 0.9,         // HP 90% 이하부터 사용
+    chargeDistance: 300,      // 300px 돌진
+  },
+  // 회복 - 자가 회복
+  heal: {
+    cooldown: 60,             // 60초 쿨다운
+    damage: 0,                // 데미지 없음
+    radius: 0,                // 범위 없음 (자신만)
+    castTime: 3.0,            // 3초 시전
+    hpThreshold: 0.6,         // HP 60% 이하부터 사용
+    healPercent: 0.1,         // 최대 HP의 10% 회복
+  },
 };
 
 // 난이도별 보스 스킬 (클라이언트 rpgConfig.ts와 동일)

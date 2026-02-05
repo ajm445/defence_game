@@ -246,7 +246,9 @@ export class RPGServerGameEngine {
     this.gameLoopInterval = setInterval(() => {
       const now = process.hrtime.bigint();
       const deltaTimeNs = Number(now - this.lastTickTime);
-      const deltaTime = deltaTimeNs / 1_000_000_000;
+      // deltaTime 클램핑: 0.05초(50ms) 최대 - 클라이언트와 동일하게 설정
+      // 서버 지연 발생 시 게임 상태가 급격하게 변하는 것을 방지
+      const deltaTime = Math.min(deltaTimeNs / 1_000_000_000, 0.05);
       this.lastTickTime = now;
 
       if (this.state.paused || !this.state.running) {

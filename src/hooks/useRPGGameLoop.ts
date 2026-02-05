@@ -58,7 +58,9 @@ export function useRPGGameLoop() {
       return;
     }
 
-    const deltaTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.1);
+    // deltaTime 클램핑: 0.05초(50ms) 최대 = 20fps 최소 프레임
+    // 0.1초는 너무 높아서 프레임 드랍 시 움직임이 끊겨 보임
+    const deltaTime = Math.min((timestamp - lastTimeRef.current) / 1000, 0.05);
     lastTimeRef.current = timestamp;
 
     // ============================================
@@ -221,6 +223,8 @@ export function useRPGGameLoop() {
 
       // 다른 플레이어 영웅 위치 보간 업데이트 (부드러운 움직임)
       useRPGStore.getState().updateOtherHeroesInterpolation();
+      // 적 위치 보간 업데이트 (부드러운 적 움직임)
+      useRPGStore.getState().updateEnemiesInterpolation();
 
       // 클라이언트: 보류 스킬(운석 등) 이펙트/사운드 처리 (데미지는 호스트가 처리)
       const clientPendingSkills = useRPGStore.getState().pendingSkills;
