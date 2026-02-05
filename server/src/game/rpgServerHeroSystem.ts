@@ -216,14 +216,14 @@ export function updateDeadHero(hero: ServerHero, deltaTime: number): void {
 
 /**
  * 스킬 쿨다운 업데이트
+ * - 광전사 버프 활성화 시 Q스킬 쿨다운이 더 빠르게 감소
+ * - 참고: SP 공격속도 업그레이드는 영웅 생성 시 hero.config.attackSpeed에 이미 반영됨
+ *   (Q스킬 쿨다운 시간 자체가 짧아져 있으므로 여기서 추가 적용하면 중복됨)
  */
 export function updateSkillCooldowns(hero: ServerHero, deltaTime: number): void {
   // 광전사 버프 확인 (공격속도 증가)
   const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
   const buffMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
-
-  // SP 공격속도 업그레이드 보너스 (초 단위)
-  const spAttackSpeedBonus = getStatBonus('attackSpeed', hero.statUpgrades?.attackSpeed || 0);
 
   if (hero.skills) {
     for (const skill of hero.skills) {
@@ -231,10 +231,8 @@ export function updateSkillCooldowns(hero: ServerHero, deltaTime: number): void 
         const isQSkill = skill.key === 'Q';
         let cooldownReduction = deltaTime;
         if (isQSkill) {
-          // SP 공격속도 보너스를 쿨다운 감소 배율로 변환
-          // 예: 0.5초 보너스 / 1.0초 기본쿨다운 = 0.5 추가 배율 = 1.5x 빠른 회복
-          const spMultiplier = 1 + (spAttackSpeedBonus / (skill.cooldown || 1.0));
-          cooldownReduction = deltaTime * buffMultiplier * spMultiplier;
+          // 광전사 버프만 적용 (SP 공격속도는 이미 쿨다운 시간에 반영됨)
+          cooldownReduction = deltaTime * buffMultiplier;
         }
         skill.currentCooldown = Math.max(0, skill.currentCooldown - cooldownReduction);
       }
@@ -242,10 +240,8 @@ export function updateSkillCooldowns(hero: ServerHero, deltaTime: number): void 
   }
 
   if (hero.skillCooldowns) {
-    // Q 스킬에만 SP 공격속도 보너스 적용
-    const baseQCooldown = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
-    const spMultiplier = 1 + (spAttackSpeedBonus / baseQCooldown);
-    hero.skillCooldowns.Q = Math.max(0, hero.skillCooldowns.Q - deltaTime * buffMultiplier * spMultiplier);
+    // Q 스킬에만 광전사 버프 적용 (SP 공격속도는 이미 쿨다운 시간에 반영됨)
+    hero.skillCooldowns.Q = Math.max(0, hero.skillCooldowns.Q - deltaTime * buffMultiplier);
     hero.skillCooldowns.W = Math.max(0, hero.skillCooldowns.W - deltaTime);
     hero.skillCooldowns.E = Math.max(0, hero.skillCooldowns.E - deltaTime);
   }
