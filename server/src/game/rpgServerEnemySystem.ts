@@ -197,6 +197,15 @@ export function updateSpawning(
 
   if (gamePhase === 'boss_phase') return;
 
+  // 기지 파괴 여부를 먼저 체크 (스폰 간격과 무관하게 즉시 보스 스폰)
+  const activeBases = enemyBases.filter(b => !b.destroyed);
+  if (activeBases.length === 0) {
+    if (gamePhase === 'playing') {
+      ctx.onBossPhaseStart();
+    }
+    return;
+  }
+
   const minutes = gameTime / 60;
   const difficultyConfig = DIFFICULTY_CONFIGS[ctx.difficulty];
   const playerCountScaling = COOP_CONFIG.DIFFICULTY_SCALING[ctx.playerCount] ?? 1.0;
@@ -208,14 +217,6 @@ export function updateSpawning(
   const spawnInterval = baseSpawnInterval * difficultyConfig.spawnIntervalMultiplier;
 
   if (gameTime - lastSpawnTime < spawnInterval) return;
-
-  const activeBases = enemyBases.filter(b => !b.destroyed);
-  if (activeBases.length === 0) {
-    if (gamePhase === 'playing') {
-      ctx.onBossPhaseStart();
-    }
-    return;
-  }
 
   let baseSpawnCount = 1;
   if (minutes >= 6) {

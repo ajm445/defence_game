@@ -1423,7 +1423,23 @@ export const useRPGStore = create<RPGStore>()(
 
     // 플로팅 데미지 숫자 추가
     addDamageNumber: (x: number, y: number, amount: number, type: DamageNumberType) => {
-      const id = `dmg_${Date.now()}_${Math.random().toString(36).substr(2, 9)}`;
+      const now = Date.now();
+
+      // 중복 방지: 같은 위치(±50px), 같은 데미지, 같은 타입이 100ms 이내에 추가됐으면 스킵
+      const state = get();
+      const isDuplicate = state.damageNumbers.some(d =>
+        d.type === type &&
+        d.amount === amount &&
+        Math.abs(d.x - x) < 50 &&
+        Math.abs(d.y - y) < 50 &&
+        now - d.createdAt < 100
+      );
+
+      if (isDuplicate) {
+        return; // 중복 데미지 숫자 방지
+      }
+
+      const id = `dmg_${now}_${Math.random().toString(36).substr(2, 9)}`;
       // 약간의 랜덤 오프셋 추가 (겹치지 않도록)
       const offsetX = (Math.random() - 0.5) * 30;
       const offsetY = (Math.random() - 0.5) * 20;
@@ -1433,7 +1449,7 @@ export const useRPGStore = create<RPGStore>()(
         y: y + offsetY,
         amount,
         type,
-        createdAt: Date.now(),
+        createdAt: now,
       };
       set((state) => ({
         damageNumbers: [...state.damageNumbers, damageNumber],
@@ -2523,18 +2539,16 @@ export const useRPGStore = create<RPGStore>()(
                 syncY = localHero.y;
               }
             } else {
-              // 정지 상태: 호스트 위치로 부드럽게 수렴
-              if (positionDiff < 10) {
-                // 아주 작은 차이: 무시
+              // 정지 상태: 호스트 위치 사용 (점진적 보간 제거로 떨림 방지)
+              // 이전에는 30% 블렌드로 부드럽게 수렴했으나, 이로 인해 앞-뒤-앞 떨림 발생
+              // 정지 상태에서는 호스트가 정확한 위치를 알고 있으므로 즉시 동기화
+              if (positionDiff < 5) {
+                // 아주 작은 차이 (< 5px): 무시 (네트워크 지연으로 인한 미세한 차이)
                 syncX = localHero.x;
                 syncY = localHero.y;
-              } else if (positionDiff < 100) {
-                // 중간 차이: 부드럽게 보정 (30% 블렌드)
-                const blendFactor = 0.3;
-                syncX = localHero.x + dx * blendFactor;
-                syncY = localHero.y + dy * blendFactor;
               } else {
-                // 큰 차이: 호스트 위치로 스냅
+                // 차이가 있으면 호스트 위치로 즉시 동기화
+                // 정지 상태에서는 움직임이 없으므로 스냅해도 시각적 끊김이 거의 없음
                 syncX = hero.x;
                 syncY = hero.y;
               }
@@ -2821,7 +2835,12 @@ export const useRPGStore = create<RPGStore>()(
         // 따라서 서버 이펙트를 그대로 사용 (내 영웅 이펙트 포함)
         activeSkillEffects: serializedState.activeSkillEffects || [],
         basicAttackEffects: serializedState.basicAttackEffects || [],
-        nexusLaserEffects: serializedState.nexusLaserEffects || [],
+        // 넥서스 레이저 이펙트: 타임스탬프를 클라이언트 시간으로 갱신
+        // 서버(호스트)와 클라이언트의 시스템 시계 차이로 인한 렌더링 문제 방지
+        nexusLaserEffects: (serializedState.nexusLaserEffects || []).map(effect => ({
+          ...effect,
+          timestamp: Date.now(),
+        })),
         bossSkillExecutedEffects: serializedState.bossSkillExecutedEffects || [],
         pendingSkills: serializedState.pendingSkills,
         bossSkillWarnings: serializedState.bossSkillWarnings || [],

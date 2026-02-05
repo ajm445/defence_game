@@ -262,13 +262,16 @@ export function drawNexusLaserBeams(
 
   for (const effect of laserEffects) {
     const age = now - effect.timestamp;
-    if (age > 500) continue; // 500ms 이후에는 렌더링 안 함
+    // 500ms 이후에는 렌더링 안 함
+    // 음수 age는 허용 (시계 동기화 문제 또는 방금 생성된 이펙트)
+    if (age > 500) continue;
 
     const targetScreenX = effect.targetX - camera.x;
     const targetScreenY = effect.targetY - camera.y;
 
     // 알파값 계산 (페이드 아웃)
-    const alpha = Math.max(0, 1 - age / 500);
+    // age가 음수면 1.0, 0~500ms면 페이드 아웃
+    const alpha = Math.max(0, 1 - Math.max(0, age) / 500);
 
     // 레이저 빔 메인 라인
     ctx.save();

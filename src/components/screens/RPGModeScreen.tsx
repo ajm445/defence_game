@@ -16,7 +16,7 @@ import { AdvancedHeroClass } from '../../types/rpg';
 import { useRPGStore, useRPGGameOver, useRPGResult, useSelectedClass, usePersonalKills, useSelectedDifficulty } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
-import { useProfileStore, useLastGameResult, useClassProgress } from '../../stores/useProfileStore';
+import { useProfileStore, useClassProgress } from '../../stores/useProfileStore';
 import { SkillType } from '../../types/rpg';
 import { LevelUpResult, calculatePlayerExp, calculateClassExp, createDefaultStatUpgrades, VIP_EXP_MULTIPLIER } from '../../types/auth';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
@@ -35,8 +35,6 @@ export const RPGModeScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
-  // handleGameEnd는 useEffect에서 직접 getState()로 호출하여 의존성 문제 방지
-  const lastGameResult = useLastGameResult();
   const clearLastGameResult = useProfileStore((state) => state.clearLastGameResult);
   const selectedClass = useSelectedClass();
   const classProgressList = useClassProgress();
@@ -402,9 +400,9 @@ export const RPGModeScreen: React.FC = () => {
                 result.victory,
                 false  // VIP 보너스 미적용
               );
-              // 최종 경험치 (VIP 보너스 적용)
-              const finalPlayerExp = lastGameResult?.playerExpGained ?? (isVip ? Math.floor(basePlayerExp * VIP_EXP_MULTIPLIER) : basePlayerExp);
-              const finalClassExp = lastGameResult?.classExpGained ?? (isVip ? Math.floor(baseClassExp * VIP_EXP_MULTIPLIER) : baseClassExp);
+              // 최종 경험치 (VIP 보너스 적용) - 로컬 계산만 사용하여 두 번 렌더링 방지
+              const finalPlayerExp = isVip ? Math.floor(basePlayerExp * VIP_EXP_MULTIPLIER) : basePlayerExp;
+              const finalClassExp = isVip ? Math.floor(baseClassExp * VIP_EXP_MULTIPLIER) : baseClassExp;
               // VIP 보너스 경험치
               const vipBonusPlayerExp = isVip ? finalPlayerExp - basePlayerExp : 0;
               const vipBonusClassExp = isVip ? finalClassExp - baseClassExp : 0;

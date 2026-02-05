@@ -36,9 +36,17 @@ export function renderRPG(
   const scaledHeight = canvasHeight / zoom;
 
   // 카메라 적용
+  // followHero가 활성화된 경우, 렌더링 시점에서 영웅 위치로 카메라 동기화
+  // 이렇게 하면 게임 루프와 렌더링 루프 사이의 타이밍 불일치로 인한 떨림 방지
+  let cameraX = state.camera.x;
+  let cameraY = state.camera.y;
+  if (state.camera.followHero && state.hero && state.hero.hp > 0) {
+    cameraX = state.hero.x;
+    cameraY = state.hero.y;
+  }
   const camera = {
-    x: state.camera.x - scaledWidth / 2,
-    y: state.camera.y - scaledHeight / 2,
+    x: cameraX - scaledWidth / 2,
+    y: cameraY - scaledHeight / 2,
     zoom: state.camera.zoom,
   };
 

@@ -1060,7 +1060,7 @@ function executeAdvancedESkill(
       });
 
       state.activeSkillEffects.push({
-        type: 'berserker_rage' as any,
+        type: 'rage' as any,  // 클라이언트 렌더러와 일치
         position: { x: hero.x, y: hero.y },
         duration: 1.0,
         startTime: gameTime,
@@ -1082,7 +1082,7 @@ function executeAdvancedESkill(
       }
 
       state.activeSkillEffects.push({
-        type: 'guardian_wall' as any,
+        type: 'shield' as any,  // 클라이언트 렌더러와 일치
         position: { x: hero.x, y: hero.y },
         radius: 500,
         duration: 1.0,
@@ -1112,8 +1112,9 @@ function executeAdvancedESkill(
       if (targetEnemy) {
         applyDamageToEnemy(ctx, targetEnemy.id, skillDamage, hero);
         state.activeSkillEffects.push({
-          type: 'headshot' as any,
-          position: { x: targetEnemy.x, y: targetEnemy.y },
+          type: 'snipe' as any,  // 클라이언트 렌더러와 일치
+          position: { x: hero.x, y: hero.y },  // 영웅 위치에서 시작
+          targetPosition: { x: targetEnemy.x, y: targetEnemy.y },  // 타겟 위치 추가
           damage: skillDamage,
           duration: 0.5,
           startTime: gameTime,
@@ -1135,7 +1136,7 @@ function executeAdvancedESkill(
       });
 
       state.activeSkillEffects.push({
-        type: 'arrow_rain' as any,
+        type: 'arrow_storm' as any,  // 클라이언트 렌더러와 일치
         position: { x: hero.x, y: hero.y },
         duration: 1.0,
         startTime: gameTime,
@@ -1166,7 +1167,7 @@ function executeAdvancedESkill(
       }
 
       state.activeSkillEffects.push({
-        type: 'holy_judgment' as any,
+        type: 'divine_light' as any,  // 클라이언트 렌더러와 일치
         position: { x: hero.x, y: hero.y },
         radius: 500,
         duration: 1.0,

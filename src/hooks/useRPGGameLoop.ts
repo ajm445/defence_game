@@ -547,41 +547,9 @@ export function useRPGGameLoop() {
     const heroResult = updateHeroUnit(currentHeroForUpdate, deltaTime, state.enemies, state.gameTime);
     const updatedHero = heroResult.hero;
 
-    // 영웅 공격 데미지 처리
-    if (heroResult.enemyDamage) {
-      const myHeroId = state.multiplayer.myHeroId || state.hero?.id;
-      const target = state.enemies.find((e) => e.id === heroResult.enemyDamage!.targetId);
-      const killed = useRPGStore.getState().damageEnemy(
-        heroResult.enemyDamage.targetId,
-        heroResult.enemyDamage.damage,
-        myHeroId
-      );
-
-      // 데미지 숫자 표시
-      if (target) {
-        useRPGStore.getState().addDamageNumber(target.x, target.y, heroResult.enemyDamage.damage, 'damage');
-      }
-
-      if (killed) {
-        if (target) {
-          // 골드 획득은 damageEnemy 내에서 자동 처리됨
-          // 적 제거
-          useRPGStore.getState().removeEnemy(target.id);
-
-          // 킬 이펙트
-          effectManager.createEffect('attack_melee', target.x, target.y);
-          soundManager.play('attack_melee');
-        }
-      } else {
-        // 공격 이펙트
-        if (target) {
-          effectManager.createEffect('attack_melee', target.x, target.y);
-          soundManager.play('attack_melee');
-        }
-      }
-    }
-
     // 영웅 상태 업데이트 (위치, 돌진 상태, 시전 상태, 이동 상태 등)
+    // 참고: 영웅 공격 데미지 처리는 handleSkillExecution → executeQSkill → processSkillResult에서 수행됨
+    // updateHeroUnit은 이동과 상태 업데이트만 담당 (데미지 처리 없음)
     useRPGStore.getState().updateHeroState({
       x: updatedHero.x,
       y: updatedHero.y,
