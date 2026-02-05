@@ -279,6 +279,30 @@ function executeQSkill(
     }
   }
 
+  // 기사: Q 스킬 적중 시 W 스킬(방패 돌진) 쿨타임 1초 감소 (적중당)
+  if (heroClass === 'knight' && hitEnemies.length > 0) {
+    const cooldownReduction = 1.0 * hitEnemies.length;
+    if (hero.skillCooldowns.W > 0) {
+      hero.skillCooldowns.W = Math.max(0, hero.skillCooldowns.W - cooldownReduction);
+    }
+    const wSkill = hero.skills?.find(s => s.key === 'W');
+    if (wSkill && wSkill.currentCooldown > 0) {
+      wSkill.currentCooldown = Math.max(0, wSkill.currentCooldown - cooldownReduction);
+    }
+  }
+
+  // 가디언/팔라딘: Q 스킬 적중 시 W 스킬 쿨타임 1초 감소 (적중당)
+  if ((advancedClass === 'guardian' || advancedClass === 'paladin') && hitEnemies.length > 0) {
+    const cooldownReduction = 1.0 * hitEnemies.length;
+    if (hero.skillCooldowns.W > 0) {
+      hero.skillCooldowns.W = Math.max(0, hero.skillCooldowns.W - cooldownReduction);
+    }
+    const wSkill = hero.skills?.find(s => s.key === 'W');
+    if (wSkill && wSkill.currentCooldown > 0) {
+      wSkill.currentCooldown = Math.max(0, wSkill.currentCooldown - cooldownReduction);
+    }
+  }
+
   // hitTargets 생성 (피격 이펙트용 - 궁수 화살 피격 마커 등)
   const hitTargets = hitEnemies.map(h => ({ x: h.x, y: h.y, damage: h.damage }));
 
@@ -993,13 +1017,32 @@ function executeAdvancedWSkill(
     }
 
     case 'healer': {
-      // 치유의 빛: 아군 HP 회복
+      // 치유의 빛: 적에게 데미지 + 아군 HP 회복
       const healRadius = 200;
       const healPercent = 0.15;
 
+      // 범위 내 적에게 데미지
+      for (const enemy of enemies) {
+        if (enemy.hp <= 0) continue;
+        const enemyDist = distance(targetX, targetY, enemy.x, enemy.y);
+        if (enemyDist <= healRadius) {
+          applyDamageToEnemy(ctx, enemy.id, damage, hero);
+        }
+      }
+
+      // 기지에 데미지
+      for (const base of state.enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = distance(targetX, targetY, base.x, base.y);
+        if (baseDist <= healRadius + 50) {
+          damageBase(state, base.id, damage, ctx.difficulty, hero.id);
+        }
+      }
+
+      // 자신 포함 범위 내 아군 힐
       for (const [, otherHero] of state.heroes) {
         if (otherHero.isDead) continue;
-        const dist = distance(hero.x, hero.y, otherHero.x, otherHero.y);
+        const dist = distance(targetX, targetY, otherHero.x, otherHero.y);
         if (dist <= healRadius) {
           const healAmount = Math.floor(otherHero.maxHp * healPercent);
           otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
@@ -1015,7 +1058,7 @@ function executeAdvancedWSkill(
 
       state.activeSkillEffects.push({
         type: 'healing_light' as any,
-        position: { x: hero.x, y: hero.y },
+        position: { x: targetX, y: targetY },  // 타겟 위치 사용
         radius: healRadius,
         duration: 0.5,
         startTime: gameTime,

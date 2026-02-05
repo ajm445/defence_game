@@ -218,8 +218,12 @@ export function updateDeadHero(hero: ServerHero, deltaTime: number): void {
  * 스킬 쿨다운 업데이트
  */
 export function updateSkillCooldowns(hero: ServerHero, deltaTime: number): void {
+  // 광전사 버프 확인 (공격속도 증가)
   const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
   const buffMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
+
+  // SP 공격속도 업그레이드 보너스 (초 단위)
+  const spAttackSpeedBonus = getStatBonus('attackSpeed', hero.statUpgrades?.attackSpeed || 0);
 
   if (hero.skills) {
     for (const skill of hero.skills) {
@@ -227,7 +231,10 @@ export function updateSkillCooldowns(hero: ServerHero, deltaTime: number): void 
         const isQSkill = skill.key === 'Q';
         let cooldownReduction = deltaTime;
         if (isQSkill) {
-          cooldownReduction = deltaTime * buffMultiplier;
+          // SP 공격속도 보너스를 쿨다운 감소 배율로 변환
+          // 예: 0.5초 보너스 / 1.0초 기본쿨다운 = 0.5 추가 배율 = 1.5x 빠른 회복
+          const spMultiplier = 1 + (spAttackSpeedBonus / (skill.cooldown || 1.0));
+          cooldownReduction = deltaTime * buffMultiplier * spMultiplier;
         }
         skill.currentCooldown = Math.max(0, skill.currentCooldown - cooldownReduction);
       }
@@ -235,7 +242,10 @@ export function updateSkillCooldowns(hero: ServerHero, deltaTime: number): void 
   }
 
   if (hero.skillCooldowns) {
-    hero.skillCooldowns.Q = Math.max(0, hero.skillCooldowns.Q - deltaTime * buffMultiplier);
+    // Q 스킬에만 SP 공격속도 보너스 적용
+    const baseQCooldown = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
+    const spMultiplier = 1 + (spAttackSpeedBonus / baseQCooldown);
+    hero.skillCooldowns.Q = Math.max(0, hero.skillCooldowns.Q - deltaTime * buffMultiplier * spMultiplier);
     hero.skillCooldowns.W = Math.max(0, hero.skillCooldowns.W - deltaTime);
     hero.skillCooldowns.E = Math.max(0, hero.skillCooldowns.E - deltaTime);
   }

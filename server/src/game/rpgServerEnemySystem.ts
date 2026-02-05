@@ -29,6 +29,18 @@ export interface EnemyContext {
 }
 
 /**
+ * 클래스별 타겟 우선순위 (높을수록 우선)
+ * 근접 클래스 우선: 기사 > 전사 > 기타
+ */
+function getClassTargetPriority(heroClass: string | undefined): number {
+  switch (heroClass) {
+    case 'knight': return 3;  // 기사: 최우선 (탱커)
+    case 'warrior': return 2; // 전사: 높음 (근접 딜러)
+    default: return 1;        // 궁수, 마법사 등: 기본
+  }
+}
+
+/**
  * 랜덤 적 타입 선택
  */
 export function selectRandomEnemyType(enemyTypes: { type: string; weight: number }[]): string {
@@ -308,11 +320,20 @@ export function updateEnemies(
       targetHero = aliveHeroes.find(h => h.id === enemy.targetHeroId) || null;
     }
     if (!targetHero) {
+      // 클래스 우선순위 + 거리 기반 타겟팅
+      // 근접 클래스(기사 > 전사)를 우선 타겟팅하여 탱킹 역할 보장
       let minDist = enemy.aiConfig.detectionRange;
+      let maxPriority = 0;
       for (const hero of aliveHeroes) {
         const dist = distance(enemy.x, enemy.y, hero.x, hero.y);
-        if (dist < minDist) {
+        if (dist > enemy.aiConfig.detectionRange) continue;
+
+        const priority = getClassTargetPriority(hero.heroClass);
+
+        // 우선순위가 높거나, 같은 우선순위 내에서 더 가까우면 타겟 변경
+        if (priority > maxPriority || (priority === maxPriority && dist < minDist)) {
           minDist = dist;
+          maxPriority = priority;
           targetHero = hero;
         }
       }

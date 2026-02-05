@@ -1633,7 +1633,8 @@ export function useRPGGameLoop() {
       if (result.buff) {
         useRPGStore.getState().addBuff(result.buff);
 
-        // 멀티플레이어: 아군에게 버프 공유 (광전사, 철벽 방어)
+        // 싱글플레이어: 멀티플레이어 시 호환성을 위해 유지 (실제로는 즉시 반환됨)
+        // 서버 권위 모델에서는 서버가 버프 공유를 처리하므로 이 코드는 싱글플레이에서만 의미 있음
         const currentHero = useRPGStore.getState().hero;
         if (currentHero) {
           shareHostBuffToAllies(result.buff, currentHero);
