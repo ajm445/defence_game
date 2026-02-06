@@ -1,6 +1,6 @@
 import { RPGEnemy, HeroUnit, Buff, Nexus } from '../../types/rpg';
 import { UnitType } from '../../types/unit';
-import { ENEMY_AI_CONFIGS, RPG_CONFIG, NEXUS_CONFIG } from '../../constants/rpgConfig';
+import { ENEMY_AI_CONFIGS, RPG_CONFIG, NEXUS_CONFIG, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { distance, clamp } from '../../utils/math';
 
 export interface EnemyAIResult {
@@ -360,6 +360,7 @@ export function updateAllEnemiesAI(
 /**
  * 영웅의 버프로 데미지 감소 계산
  * - 무적 버프: 데미지 0
+ * - 가디언 패시브: 30% 피해 감소
  * - 철벽 방어 버프: 데미지 감소율 적용
  */
 export function calculateDamageAfterReduction(
@@ -372,11 +373,18 @@ export function calculateDamageAfterReduction(
     return 0;
   }
 
+  // 가디언 패시브 피해 감소 (30%)
+  if (hero.advancedClass === 'guardian' && damage > 0) {
+    const damageReduction = ADVANCED_CLASS_CONFIGS.guardian.specialEffects.damageReduction || 0.3;
+    damage = Math.floor(damage * (1 - damageReduction));
+  }
+
   // 철벽 방어 버프 체크 - duration > 0 인 경우만 유효
   const ironwallBuff = hero.buffs?.find(b => b.type === 'ironwall' && b.duration > 0);
   if (ironwallBuff && ironwallBuff.damageReduction) {
-    return Math.floor(damage * (1 - ironwallBuff.damageReduction));
+    damage = Math.floor(damage * (1 - ironwallBuff.damageReduction));
   }
+
   return damage;
 }
 

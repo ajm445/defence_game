@@ -386,6 +386,7 @@ export interface PendingSkill {
   tickCount?: number;    // 남은 틱 수
   healPercent?: number;  // 힐 비율 (힐러 E 스킬용)
   meteorCount?: number;  // 남은 운석 수 (대마법사 E 스킬용)
+  areaRadius?: number;   // 운석 낙하 범위 (대마법사 E 스킬용)
 }
 
 // 레벨업 보너스 (계정 레벨 보너스)

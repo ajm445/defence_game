@@ -217,9 +217,9 @@ export const PauseScreen: React.FC = () => {
             일시정지
           </h1>
 
-          {/* 호스트 대기 안내 */}
+          {/* 방장 대기 안내 */}
           <p className="text-gray-400 mb-6 text-center">
-            호스트의 결정을 기다리는 중...
+            방장의 결정을 기다리는 중...
           </p>
 
           {/* 설정 패널 (항상 표시) */}

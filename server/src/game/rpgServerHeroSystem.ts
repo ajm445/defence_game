@@ -69,14 +69,14 @@ export function createHeroSkills(heroClass: HeroClass, advancedClass?: AdvancedH
   };
 
   const advancedSkillConfigs: Record<AdvancedHeroClass, { wType: string; wCd: number; eType: string; eCd: number }> = {
-    berserker: { wType: 'blood_rush', wCd: 6.0, eType: 'berserker_rage', eCd: 40.0 },
-    guardian: { wType: 'guardian_rush', wCd: 8.0, eType: 'guardian_wall', eCd: 35.0 },
+    berserker: { wType: 'blood_rush', wCd: 6.0, eType: 'berserker_rage', eCd: 45.0 },
+    guardian: { wType: 'guardian_rush', wCd: 8.0, eType: 'guardian_wall', eCd: 40.0 },
     sniper: { wType: 'backflip_shot', wCd: 5.0, eType: 'headshot', eCd: 30.0 },
-    ranger: { wType: 'multi_arrow', wCd: 5.0, eType: 'arrow_rain', eCd: 25.0 },
-    paladin: { wType: 'holy_charge', wCd: 8.0, eType: 'holy_judgment', eCd: 35.0 },
-    darkKnight: { wType: 'shadow_slash', wCd: 8.0, eType: 'dark_blade', eCd: 35.0 },
-    archmage: { wType: 'inferno', wCd: 7.0, eType: 'meteor_shower', eCd: 45.0 },
-    healer: { wType: 'healing_light', wCd: 7.0, eType: 'spring_of_life', eCd: 40.0 },
+    ranger: { wType: 'multi_arrow', wCd: 5.0, eType: 'arrow_storm', eCd: 35.0 },
+    paladin: { wType: 'holy_charge', wCd: 8.0, eType: 'holy_judgment', eCd: 60.0 },
+    darkKnight: { wType: 'shadow_slash', wCd: 6.0, eType: 'dark_blade', eCd: 40.0 },
+    archmage: { wType: 'inferno', wCd: 7.0, eType: 'meteor_shower', eCd: 50.0 },
+    healer: { wType: 'healing_light', wCd: 7.0, eType: 'spring_of_life', eCd: 45.0 },
   };
 
   const baseConfig = baseSkillConfigs[heroClass];
@@ -331,12 +331,12 @@ export function applyHealerAura(hero: ServerHero, heroes: Map<string, ServerHero
 
   for (const [, otherHero] of heroes) {
     if (otherHero.isDead) continue;
+    if (otherHero.hp >= otherHero.maxHp) continue; // 풀피면 스킵
     const dist = distance(hero.x, hero.y, otherHero.x, otherHero.y);
     if (dist <= healRadius) {
-      const healAmount = Math.floor(otherHero.maxHp * healPerSecond * deltaTime);
-      if (healAmount > 0 && otherHero.hp < otherHero.maxHp) {
-        otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
-      }
+      // 소수점 힐량 허용 (Math.floor 제거 - 기사 패시브와 동일)
+      const healAmount = otherHero.maxHp * healPerSecond * deltaTime;
+      otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
     }
   }
 }

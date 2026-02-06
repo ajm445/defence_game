@@ -139,11 +139,16 @@ export function executeQSkill(
   let damage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 1.0));
 
   // 마법사: 보스 데미지 보너스 배율 계산 (보스에게만 적용)
+  // 1. 패시브 성장 (레벨 5: 25% 시작, 레벨당 +1%, 최대 +100%)
+  // 2. 대마법사 전직 보너스: x1.5 (곱연산)
   let bossDamageMultiplier = 1.0;
   if (heroClass === 'mage') {
-    const baseBossDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.bossDamageBonus || 0) : 0;
-    const growthBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
-    bossDamageMultiplier = 1 + baseBossDamageBonus + growthBossDamageBonus;
+    const passiveBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
+    bossDamageMultiplier = 1 + passiveBossDamageBonus;
+    // 대마법사 전직 보너스 (곱연산)
+    if (hero.advancedClass === 'archmage') {
+      bossDamageMultiplier *= 1 + (ADVANCED_CLASS_CONFIGS.archmage.specialEffects.bossBonus || 0);
+    }
   }
 
   // 버프 적용된 공격력 계산 - duration > 0인 경우만 유효
@@ -351,26 +356,22 @@ export function executeQSkill(
     }
   }
 
-  // 기사: Q 스킬 적중 시 W 스킬(방패 돌진) 쿨타임 1초 감소 (적중당)
-  if (heroClass === 'knight' && enemyDamages.length > 0) {
-    const cooldownReduction = 1.0 * enemyDamages.length; // 적중한 적 수만큼 1초씩 감소
-    const wSkillType = CLASS_SKILLS.knight.w.type;
-    const updatedSkills = updatedHero.skills.map((skill) => {
-      if (skill.type === wSkillType && skill.currentCooldown > 0) {
-        return {
-          ...skill,
-          currentCooldown: Math.max(0, skill.currentCooldown - cooldownReduction),
-        };
-      }
-      return skill;
-    });
-    updatedHero = { ...updatedHero, skills: updatedSkills };
-  }
+  // 기사/가디언/팔라딘: Q 스킬 적중 시 W 스킬 쿨타임 1초 감소 (적중당)
+  // - 기본 기사 (knight without advancedClass)
+  // - 팔라딘 (knight + paladin)
+  // - 가디언 (warrior + guardian)
+  // 참고: 다크나이트(darkKnight)는 이 기능이 없음
+  const hasWCooldownReduction =
+    hero.advancedClass === 'guardian' ||
+    hero.advancedClass === 'paladin' ||
+    (heroClass === 'knight' && !hero.advancedClass);
 
-  // 가디언/팔라딘: Q 스킬 적중 시 W 스킬 쿨타임 1초 감소 (적중당)
-  if (hero.advancedClass && (hero.advancedClass === 'guardian' || hero.advancedClass === 'paladin') && enemyDamages.length > 0) {
+  if (hasWCooldownReduction && enemyDamages.length > 0) {
     const cooldownReduction = 1.0 * enemyDamages.length; // 적중한 적 수만큼 1초씩 감소
-    const wSkillType = ADVANCED_W_SKILLS[hero.advancedClass].type;
+    // 전직이 있으면 전직 W스킬, 없으면 기본 클래스 W스킬
+    const wSkillType = hero.advancedClass
+      ? ADVANCED_W_SKILLS[hero.advancedClass].type
+      : CLASS_SKILLS.knight.w.type;
     const updatedSkills = updatedHero.skills.map((skill) => {
       if (skill.type === wSkillType && skill.currentCooldown > 0) {
         return {
@@ -438,11 +439,16 @@ export function executeWSkill(
   let damage = Math.floor((baseDamage + attackBonus) * ((skillConfig as any).damageMultiplier || 1.0));
 
   // 마법사: 보스 데미지 보너스 배율 계산 (보스에게만 적용)
+  // 1. 패시브 성장 (레벨 5: 25% 시작, 레벨당 +1%, 최대 +100%)
+  // 2. 대마법사 전직 보너스: x1.5 (곱연산)
   let bossDamageMultiplier = 1.0;
   if (heroClass === 'mage') {
-    const baseBossDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.bossDamageBonus || 0) : 0;
-    const growthBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
-    bossDamageMultiplier = 1 + baseBossDamageBonus + growthBossDamageBonus;
+    const passiveBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
+    bossDamageMultiplier = 1 + passiveBossDamageBonus;
+    // 대마법사 전직 보너스 (곱연산)
+    if (hero.advancedClass === 'archmage') {
+      bossDamageMultiplier *= 1 + (ADVANCED_CLASS_CONFIGS.archmage.specialEffects.bossBonus || 0);
+    }
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
@@ -717,15 +723,22 @@ export function executeESkill(
   let damage = Math.floor((baseDamage + attackBonus) * ((skillConfig as any).damageMultiplier || 1.0));
 
   // 마법사: 보스 데미지 보너스 배율 계산 (보스에게만 적용)
+  // 1. 패시브 성장 (레벨 5: 25% 시작, 레벨당 +1%, 최대 +100%)
+  // 2. 대마법사 전직 보너스: x1.5 (곱연산)
   let bossDamageMultiplier = 1.0;
   if (heroClass === 'mage') {
-    const baseBossDamageBonus = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL ? (classConfig.passive.bossDamageBonus || 0) : 0;
-    const growthBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
-    bossDamageMultiplier = 1 + baseBossDamageBonus + growthBossDamageBonus;
+    const passiveBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
+    bossDamageMultiplier = 1 + passiveBossDamageBonus;
+    // 대마법사 전직 보너스 (곱연산)
+    if (hero.advancedClass === 'archmage') {
+      bossDamageMultiplier *= 1 + (ADVANCED_CLASS_CONFIGS.archmage.specialEffects.bossBonus || 0);
+    }
   }
 
   const enemyDamages: { enemyId: string; damage: number }[] = [];
   const baseDamages: { baseId: EnemyBaseId; damage: number }[] = [];
+  const allyHeals: { heroId: string; heal: number }[] = [];
+  const allyBuffs: { heroId: string; buff: Buff }[] = [];
   let effect: SkillEffect | undefined;
   let buff: Buff | undefined;
   let pendingSkill: PendingSkill | undefined;
@@ -792,12 +805,13 @@ export function executeESkill(
       break;
 
     case 'knight':
-      // 철벽 방어 - 데미지 감소 + HP 회복
+      // 철벽 방어 - 아군 전체 데미지 감소 + HP 회복
       {
         const duration = (skillConfig as any).duration || 5;
         const damageReduction = (skillConfig as any).damageReduction || 0.7;
         const healPercent = (skillConfig as any).healPercent || 0.2;
 
+        // 자신에게 버프 적용
         buff = {
           type: 'ironwall',
           duration,
@@ -805,14 +819,26 @@ export function executeESkill(
           damageReduction,
         };
 
-        // HP 회복
-        const healAmount = Math.floor(hero.maxHp * healPercent);
-        updatedHero = { ...hero, hp: Math.min(hero.maxHp, hero.hp + healAmount) };
+        // 자신 HP 회복
+        const selfHealAmount = Math.floor(hero.maxHp * healPercent);
+        updatedHero = { ...hero, hp: Math.min(hero.maxHp, hero.hp + selfHealAmount) };
+
+        // 아군 전체에게 버프 및 힐 적용
+        for (const ally of allies) {
+          if (ally.id === hero.id) continue;  // 자신 제외 (위에서 처리)
+          if (ally.hp <= 0) continue;
+          const allyHealAmount = Math.floor(ally.maxHp * healPercent);
+          allyHeals.push({ heroId: ally.id, heal: allyHealAmount });
+          allyBuffs.push({
+            heroId: ally.id,
+            buff: { type: 'ironwall', duration, startTime: gameTime, damageReduction },
+          });
+        }
 
         effect = {
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
-          heal: healAmount,
+          heal: selfHealAmount,
           duration: 1.0,
           startTime: gameTime,
         };
@@ -850,7 +876,16 @@ export function executeESkill(
 
   updatedHero = startSkillCooldown(updatedHero, skillConfig.type);
 
-  return { hero: updatedHero, effect, enemyDamages, baseDamages, buff, pendingSkill };
+  return {
+    hero: updatedHero,
+    effect,
+    enemyDamages,
+    baseDamages,
+    buff,
+    pendingSkill,
+    allyHeals: allyHeals.length > 0 ? allyHeals : undefined,
+    allyBuffs: allyBuffs.length > 0 ? allyBuffs : undefined,
+  };
 }
 
 /**
@@ -1389,11 +1424,11 @@ function executeAdvancedWSkill(
       break;
 
     case 'archmage':
-      // 폭발 화염구 - 250% 데미지 + 범위 증가 + 2초간 화상 지속 데미지
+      // 폭발 화염구 - 250% 데미지 + 범위 증가 + 3초간 화상 지속 데미지
       {
         const radius = skillConfig.radius || 120;
         const burnDamage = skillConfig.burnDamage || 0.2;
-        const burnDuration = 2;  // 2초간 화상 지역
+        const burnDuration = skillConfig.burnDuration || 3;  // 설정값 사용 (기본 3초)
 
         // 즉발 데미지
         for (const enemy of enemies) {
@@ -1413,7 +1448,7 @@ function executeAdvancedWSkill(
           }
         }
 
-        // 화상 지역 지속 데미지 (2초간 초당 20% 데미지)
+        // 화상 지역 지속 데미지 (3초간 초당 20% 데미지)
         const burnTickDamage = Math.floor((baseDamage + attackBonus) * burnDamage);
         pendingSkill = {
           type: 'inferno_burn' as SkillType,  // 화상 지역 틱 데미지용 타입
@@ -1422,7 +1457,7 @@ function executeAdvancedWSkill(
           damage: burnTickDamage,
           radius,
           casterId: hero.id,
-          tickCount: burnDuration,  // 2회 틱
+          tickCount: burnDuration,  // 설정값 틱 수
         };
 
         effect = {
@@ -1841,8 +1876,9 @@ function executeAdvancedESkill(
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
           radius,
-          duration: 1.0,
+          duration: duration,  // 10초간 이펙트 유지
           startTime: gameTime,
+          heroId: casterId || hero.id,  // 힐러를 따라다니도록 heroId 추가
         };
       }
       break;

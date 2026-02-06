@@ -85,7 +85,24 @@ export function renderRPG(
   }
 
   // 스킬 이펙트 렌더링
+  const otherHeroesForEffects = useRPGStore.getState().otherHeroes;
   for (const effect of state.activeSkillEffects) {
+    // spring_of_life 이펙트는 heroId가 있으면 해당 영웅의 위치를 따라감
+    if (effect.type === 'spring_of_life' && effect.heroId) {
+      // 내 영웅인지 확인
+      if (state.hero && effect.heroId === state.hero.id) {
+        const updatedEffect = { ...effect, position: { x: state.hero.x, y: state.hero.y } };
+        drawSkillEffect(ctx, updatedEffect, camera, state.gameTime);
+        continue;
+      }
+      // 다른 플레이어 영웅인지 확인
+      const otherHero = otherHeroesForEffects?.get(effect.heroId);
+      if (otherHero) {
+        const updatedEffect = { ...effect, position: { x: otherHero.x, y: otherHero.y } };
+        drawSkillEffect(ctx, updatedEffect, camera, state.gameTime);
+        continue;
+      }
+    }
     drawSkillEffect(ctx, effect, camera, state.gameTime);
   }
 

@@ -113,7 +113,7 @@ export const PASSIVE_GROWTH_CONFIGS: Record<HeroClass, PassiveGrowthConfig> = {
   },
   mage: {
     type: 'bossDamageBonus',
-    startValue: 0,
+    startValue: 0.24,        // 레벨 5에서 25% 시작 (0.24 + 1*0.01 = 0.25)
     growthPerLevel: 0.01,    // +1%/레벨
     maxValue: 1.0,           // 100% 최대
     overflowType: 'attack',
@@ -1193,7 +1193,7 @@ export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     name: '암흑 베기',
     nameEn: 'Shadow Slash',
     key: 'W',
-    cooldown: 8,
+    cooldown: 6,
     description: '전방 돌진 + 경로상 적에게 150% 데미지 + 피해량의 30% 체력 회복',
     damageMultiplier: 1.5,
     distance: 200,

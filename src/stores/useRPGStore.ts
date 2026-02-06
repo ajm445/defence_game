@@ -2578,14 +2578,21 @@ export const useRPGStore = create<RPGStore>()(
               newCamera = { ...currentState.camera, x: hero.x, y: hero.y };
             }
 
-            // 스킬 쿨다운 병합: 로컬과 서버 중 더 높은 쿨다운 사용
-            // 이렇게 하면 스킬 방금 사용된 경우(높은 쿨다운)를 올바르게 반영
+            // 스킬 쿨다운 병합: 기본적으로 서버 값 사용
+            // 단, 클라이언트가 방금 스킬을 사용한 경우 (서버가 아직 처리 안 함) 클라이언트 값 사용
             const mergedSkills = hero.skills.map((serverSkill, index) => {
               const localSkill = localHero.skills[index];
               if (!localSkill) return serverSkill;
 
-              // 더 높은 쿨다운 값 사용 (스킬 방금 사용 시 리셋된 쿨다운 반영)
-              const mergedCooldown = Math.max(serverSkill.currentCooldown, localSkill.currentCooldown);
+              // 쿨다운 차이 계산
+              const cooldownDiff = localSkill.currentCooldown - serverSkill.currentCooldown;
+
+              // 클라이언트 쿨다운이 서버보다 3초 이상 높으면: 클라이언트가 방금 스킬 사용
+              // (서버가 아직 스킬 사용을 처리하지 않음)
+              // 그 외의 경우: 서버 값 사용 (서버의 쿨다운 감소 적용됨)
+              const mergedCooldown = cooldownDiff > 3.0
+                ? localSkill.currentCooldown
+                : serverSkill.currentCooldown;
               return { ...serverSkill, currentCooldown: mergedCooldown };
             });
 

@@ -2524,22 +2524,22 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             s.type === qSkillType ? { ...s, currentCooldown: attackSpeedForCooldown } : s
           );
 
-          // 기사 Q 스킬 적중 시 W 스킬 쿨다운 1초 감소 (적중 수만큼)
-          if (heroClass === 'knight') {
-            const cooldownReduction = 1.0 * hitCount;
-            const wSkillType = CLASS_SKILLS.knight.w.type;
-            skillsWithCooldown = skillsWithCooldown.map(s => {
-              if (s.type === wSkillType && s.currentCooldown > 0) {
-                return { ...s, currentCooldown: Math.max(0, s.currentCooldown - cooldownReduction) };
-              }
-              return s;
-            });
-          }
+          // 기사/가디언/팔라딘 Q 스킬 적중 시 W 스킬 쿨다운 1초 감소 (적중 수만큼)
+          // - 기본 기사 (knight without advancedClass)
+          // - 팔라딘 (knight + paladin)
+          // - 가디언 (warrior + guardian)
+          // 참고: 다크나이트(darkKnight)는 이 기능이 없음
+          const hasWCooldownReduction =
+            hero.advancedClass === 'guardian' ||
+            hero.advancedClass === 'paladin' ||
+            (heroClass === 'knight' && !hero.advancedClass);
 
-          // 가디언/팔라딘 Q 스킬 적중 시 W 스킬 쿨다운 1초 감소 (적중 수만큼)
-          if (hero.advancedClass === 'guardian' || hero.advancedClass === 'paladin') {
+          if (hasWCooldownReduction) {
             const cooldownReduction = 1.0 * hitCount;
-            const wSkillType = ADVANCED_W_SKILLS[hero.advancedClass].type;
+            // 전직이 있으면 전직 W스킬, 없으면 기본 클래스 W스킬
+            const wSkillType = hero.advancedClass
+              ? ADVANCED_W_SKILLS[hero.advancedClass].type
+              : CLASS_SKILLS.knight.w.type;
             skillsWithCooldown = skillsWithCooldown.map(s => {
               if (s.type === wSkillType && s.currentCooldown > 0) {
                 return { ...s, currentCooldown: Math.max(0, s.currentCooldown - cooldownReduction) };

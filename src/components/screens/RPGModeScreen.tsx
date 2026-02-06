@@ -497,7 +497,7 @@ export const RPGModeScreen: React.FC = () => {
                   // 클라이언트 버튼
                   <>
                     <div className="text-center text-gray-400 py-2">
-                      호스트의 결정을 기다리는 중...
+                      방장의 결정을 기다리는 중...
                     </div>
                     <button
                       onClick={handleLeaveRoom}

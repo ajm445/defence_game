@@ -110,13 +110,15 @@ function executeQSkill(
   const criticalMultiplier = 2.0;
 
   // 마법사 보스 데미지 보너스 계산
+  // 1. 패시브 성장 (레벨 5: 25% 시작, 레벨당 +1%, 최대 +100%)
+  // 2. 대마법사 전직 보너스: x1.5 (곱연산)
   let bossDamageMultiplier = 1.0;
   if (heroClass === 'mage') {
-    const isPassiveUnlocked = (hero.characterLevel || 1) >= PASSIVE_UNLOCK_LEVEL;
-    const growthBonus = hero.passiveGrowth?.currentValue || 0;
-    bossDamageMultiplier = 1 + (isPassiveUnlocked ? growthBonus : 0);
+    const passiveBossDamageBonus = hero.passiveGrowth?.currentValue || 0;
+    bossDamageMultiplier = 1 + passiveBossDamageBonus;
+    // 대마법사 전직 보너스 (곱연산)
     if (advancedClass === 'archmage') {
-      bossDamageMultiplier += ADVANCED_CLASS_CONFIGS.archmage.specialEffects.bossBonus || 0;
+      bossDamageMultiplier *= 1 + (ADVANCED_CLASS_CONFIGS.archmage.specialEffects.bossBonus || 0);
     }
   }
 
@@ -279,20 +281,17 @@ function executeQSkill(
     }
   }
 
-  // 기사: Q 스킬 적중 시 W 스킬(방패 돌진) 쿨타임 1초 감소 (적중당)
-  if (heroClass === 'knight' && hitEnemies.length > 0) {
-    const cooldownReduction = 1.0 * hitEnemies.length;
-    if (hero.skillCooldowns.W > 0) {
-      hero.skillCooldowns.W = Math.max(0, hero.skillCooldowns.W - cooldownReduction);
-    }
-    const wSkill = hero.skills?.find(s => s.key === 'W');
-    if (wSkill && wSkill.currentCooldown > 0) {
-      wSkill.currentCooldown = Math.max(0, wSkill.currentCooldown - cooldownReduction);
-    }
-  }
+  // 기사/가디언/팔라딘: Q 스킬 적중 시 W 스킬 쿨타임 1초 감소 (적중당)
+  // - 기본 기사 (knight without advancedClass)
+  // - 팔라딘 (knight + paladin)
+  // - 가디언 (warrior + guardian)
+  // 참고: 다크나이트(darkKnight)는 이 기능이 없음
+  const hasWCooldownReduction =
+    advancedClass === 'guardian' ||
+    advancedClass === 'paladin' ||
+    (heroClass === 'knight' && !advancedClass);
 
-  // 가디언/팔라딘: Q 스킬 적중 시 W 스킬 쿨타임 1초 감소 (적중당)
-  if ((advancedClass === 'guardian' || advancedClass === 'paladin') && hitEnemies.length > 0) {
+  if (hasWCooldownReduction && hitEnemies.length > 0) {
     const cooldownReduction = 1.0 * hitEnemies.length;
     if (hero.skillCooldowns.W > 0) {
       hero.skillCooldowns.W = Math.max(0, hero.skillCooldowns.W - cooldownReduction);
@@ -618,15 +617,25 @@ function executeESkill(
     }
 
     case 'knight': {
-      const healAmount = Math.floor(hero.maxHp * 0.2);
-      hero.hp = Math.min(hero.maxHp, hero.hp + healAmount);
-      hero.buffs = hero.buffs || [];
-      hero.buffs.push({
-        type: 'ironwall',
-        duration: 5,
-        startTime: gameTime,
-        damageReduction: 0.7,
-      });
+      // 철벽 방어: 아군 전체 HP 20% 회복 + 5초간 70% 피해 감소
+      const healPercent = 0.2;
+      const duration = 5;
+      const damageReduction = 0.7;
+
+      for (const [, otherHero] of ctx.state.heroes) {
+        if (otherHero.isDead) continue;
+        const healAmount = Math.floor(otherHero.maxHp * healPercent);
+        otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
+        if (healAmount > 0) {
+          ctx.state.damageNumbers.push({
+            id: generateId(),
+            x: otherHero.x, y: otherHero.y - 40,
+            amount: healAmount, type: 'heal', createdAt: Date.now(),
+          });
+        }
+        otherHero.buffs = otherHero.buffs || [];
+        otherHero.buffs.push({ type: 'ironwall', duration, startTime: gameTime, damageReduction });
+      }
 
       ctx.state.activeSkillEffects.push({
         type: 'knight_e' as any,
@@ -1036,15 +1045,18 @@ function executeAdvancedWSkill(
         startTime: gameTime,
       });
 
-      hero.skillCooldowns.W = 8.0;
+      hero.skillCooldowns.W = 6.0;
       return true;
     }
 
     case 'archmage': {
-      // 인페르노: 대형 화염구 + 화상
+      // 인페르노: 대형 화염구 + 3초간 화상 DoT
       const radius = 120;
       const skillDamage = Math.floor(damage * 2.5);
+      const burnDamage = 0.2;  // 초당 20% 데미지
+      const burnDuration = 3;  // 3초간 화상
 
+      // 즉발 데미지
       for (const enemy of enemies) {
         const dist = distance(targetX, targetY, enemy.x, enemy.y);
         if (dist <= radius) {
@@ -1061,12 +1073,24 @@ function executeAdvancedWSkill(
         }
       }
 
+      // 화상 지역 DoT 등록 (3초간 초당 20% 데미지)
+      const burnTickDamage = Math.floor(damage * burnDamage);
+      state.pendingSkills.push({
+        type: 'inferno_burn' as any,
+        position: { x: targetX, y: targetY },
+        triggerTime: gameTime + 1,  // 1초 후 첫 틱
+        damage: burnTickDamage,
+        radius,
+        casterId: hero.id,
+        tickCount: burnDuration,  // 3회 틱
+      });
+
       state.activeSkillEffects.push({
         type: 'inferno' as any,
         position: { x: targetX, y: targetY },
         radius,
         damage: skillDamage,
-        duration: 0.7,
+        duration: 0.5 + burnDuration,  // 폭발 + 화상 지속
         startTime: gameTime,
       });
 
@@ -1333,33 +1357,49 @@ function executeAdvancedESkill(
     }
 
     case 'archmage': {
-      // 메테오 샤워: 타겟 위치 주변에 큰 데미지
-      const radius = 200;
-      const skillDamage = Math.floor(damage * 5.0);
+      // 메테오 샤워: 5초간 랜덤 위치에 운석 10개 낙하
+      const duration = 5;
+      const meteorCount = 10;
+      const meteorDamage = Math.floor(damage * 3.0);
+      const meteorRadius = 100;
+      const areaRadius = 300;  // 운석 낙하 범위
 
-      // 즉시 범위 데미지
+      // 첫 번째 운석 즉시 낙하
       for (const enemy of enemies) {
         const dist = distance(targetX, targetY, enemy.x, enemy.y);
-        if (dist <= radius) {
-          applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
+        if (dist <= meteorRadius) {
+          applyDamageToEnemy(ctx, enemy.id, meteorDamage, hero);
         }
       }
 
-      // 기지 데미지 (범위 내 기지)
       for (const base of state.enemyBases) {
         if (base.destroyed) continue;
         const baseDist = distance(targetX, targetY, base.x, base.y);
-        if (baseDist <= radius + 50) {
-          damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
+        if (baseDist <= meteorRadius + 50) {
+          damageBase(state, base.id, meteorDamage, ctx.difficulty, hero.id);
         }
       }
 
+      // 나머지 운석을 pendingSkill로 등록
+      state.pendingSkills.push({
+        type: 'meteor_shower' as any,
+        position: { x: targetX, y: targetY },
+        triggerTime: gameTime + duration / meteorCount,  // 균등 간격
+        damage: meteorDamage,
+        radius: meteorRadius,
+        casterId: hero.id,
+        meteorCount: meteorCount - 1,  // 남은 운석 수
+        duration,
+        areaRadius,  // 운석 낙하 범위 저장
+      });
+
+      // 전체 범위 표시 이펙트
       state.activeSkillEffects.push({
         type: 'meteor_shower' as any,
         position: { x: targetX, y: targetY },
-        radius,
-        damage: skillDamage,
-        duration: 1.5,
+        radius: areaRadius,
+        damage: meteorDamage,
+        duration: duration,
         startTime: gameTime,
       });
 
@@ -1368,12 +1408,19 @@ function executeAdvancedESkill(
     }
 
     case 'healer': {
-      // 생명의 샘: 아군 전체 HP 50% 회복 + 5초간 초당 5% 회복
-      const instantHealPercent = 0.5;
+      // 생명의 샘: 10초간 시전 범위 내 아군 초당 최대 HP의 10% 회복
+      const duration = 10;
+      const healPerTick = 0.10;  // 초당 10%
+      const radius = 500;
+      const skillX = hero.x;
+      const skillY = hero.y;
 
+      // 첫 틱 즉시 적용 (범위 내 아군만)
       for (const [, otherHero] of state.heroes) {
         if (otherHero.isDead) continue;
-        const healAmount = Math.floor(otherHero.maxHp * instantHealPercent);
+        const dist = distance(skillX, skillY, otherHero.x, otherHero.y);
+        if (dist > radius) continue;  // 범위 밖이면 스킵
+        const healAmount = Math.floor(otherHero.maxHp * healPerTick);
         otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
         if (healAmount > 0) {
           state.damageNumbers.push({
@@ -1384,15 +1431,29 @@ function executeAdvancedESkill(
         }
       }
 
-      state.activeSkillEffects.push({
+      // 나머지 틱은 pendingSkill로 처리 (이펙트 위치 고정)
+      state.pendingSkills.push({
         type: 'spring_of_life' as any,
-        position: { x: hero.x, y: hero.y },
-        radius: 500,
-        duration: 1.0,
-        startTime: gameTime,
+        position: { x: skillX, y: skillY },  // 시전 위치 고정
+        triggerTime: gameTime + 1,  // 1초 후 다음 틱
+        damage: 0,
+        radius,
+        casterId: hero.id,
+        healPercent: healPerTick,
+        duration,
+        tickCount: duration - 1,  // 첫 틱 제외한 나머지
       });
 
-      hero.skillCooldowns.E = 40.0;
+      state.activeSkillEffects.push({
+        type: 'spring_of_life' as any,
+        position: { x: skillX, y: skillY },
+        radius,
+        duration: duration,  // 10초간 이펙트 유지
+        startTime: gameTime,
+        heroId: hero.id,  // 힐러를 따라다니도록 heroId 추가
+      });
+
+      hero.skillCooldowns.E = 45.0;
       return true;
     }
 
@@ -1482,45 +1543,116 @@ export function updateSkillEffects(state: ServerGameState, deltaTime: number): v
  */
 export function updatePendingSkills(ctx: SkillContext): void {
   const { state } = ctx;
-  const triggeredSkills: PendingSkill[] = [];
+  const triggeredSkillIndices: number[] = [];
+  const skillsToAdd: PendingSkill[] = [];
 
-  for (const skill of state.pendingSkills) {
+  state.pendingSkills.forEach((skill, index) => {
     if (state.gameTime >= skill.triggerTime) {
-      triggeredSkills.push(skill);
+      triggeredSkillIndices.push(index);
 
-      // 범위 내 적에게 데미지
-      for (const enemy of state.enemies) {
-        if (enemy.hp <= 0) continue;
-        const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
-        if (dist <= skill.radius) {
-          const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
-          applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+      // 힐러 생명의 샘: 범위 내 아군 힐
+      if (skill.healPercent && skill.healPercent > 0) {
+        for (const [, otherHero] of state.heroes) {
+          if (otherHero.isDead) continue;
+          const dist = distance(skill.position.x, skill.position.y, otherHero.x, otherHero.y);
+          if (dist > skill.radius) continue;  // 범위 밖이면 스킵
+          const healAmount = Math.floor(otherHero.maxHp * skill.healPercent);
+          otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
+          if (healAmount > 0) {
+            state.damageNumbers.push({
+              id: generateId(),
+              x: otherHero.x, y: otherHero.y - 40,
+              amount: healAmount, type: 'heal', createdAt: Date.now(),
+            });
+          }
+        }
+      } else {
+        // 범위 내 적에게 데미지
+        for (const enemy of state.enemies) {
+          if (enemy.hp <= 0) continue;
+          const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
+          if (dist <= skill.radius) {
+            const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+            applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+          }
+        }
+
+        // 범위 내 기지에 데미지
+        for (const base of state.enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = distance(skill.position.x, skill.position.y, base.x, base.y);
+          if (baseDist <= skill.radius + 50) {
+            damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
+          }
+        }
+
+        // 실행 이펙트 추가 (힐 스킬은 메인 이펙트가 유지되므로 제외)
+        state.activeSkillEffects.push({
+          type: skill.type,
+          position: skill.position,
+          radius: skill.radius,
+          damage: skill.damage,
+          duration: 0.5,
+          startTime: state.gameTime,
+        });
+      }
+
+      // 틱 스킬 재등록 (화상, 힐러 생명의 샘 등)
+      if (skill.tickCount && skill.tickCount > 1) {
+        if (skill.type === 'inferno_burn') {
+          // 화상 지역은 고정 위치
+          skillsToAdd.push({
+            ...skill,
+            triggerTime: state.gameTime + 1,  // 1초 후 다음 틱
+            tickCount: skill.tickCount - 1,
+          });
+        } else if (skill.type === 'spring_of_life') {
+          // 생명의 샘: 힐러를 따라다님 (힐러에게 고정)
+          const casterHero = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+          if (casterHero && !casterHero.isDead) {
+            skillsToAdd.push({
+              ...skill,
+              position: { x: casterHero.x, y: casterHero.y },  // 힐러 위치로 업데이트
+              triggerTime: state.gameTime + 1,
+              tickCount: skill.tickCount - 1,
+            });
+          }
+        } else {
+          // 다른 틱 스킬은 캐스터를 따라다님
+          const casterHero = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+          if (casterHero && !casterHero.isDead) {
+            skillsToAdd.push({
+              ...skill,
+              position: { x: casterHero.x, y: casterHero.y },
+              triggerTime: state.gameTime + 1,
+              tickCount: skill.tickCount - 1,
+            });
+          }
         }
       }
 
-      // 범위 내 기지에 데미지
-      for (const base of state.enemyBases) {
-        if (base.destroyed) continue;
-        const baseDist = distance(skill.position.x, skill.position.y, base.x, base.y);
-        if (baseDist <= skill.radius + 50) { // 기지는 더 큰 히트박스
-          damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
-        }
-      }
+      // 메테오 샤워 연속 낙하
+      if (skill.meteorCount && skill.meteorCount > 0 && skill.duration) {
+        const areaRadius = skill.areaRadius || 300;
+        const randomX = skill.position.x + (Math.random() - 0.5) * areaRadius * 2;
+        const randomY = skill.position.y + (Math.random() - 0.5) * areaRadius * 2;
+        const interval = skill.duration / (skill.meteorCount + 1);
 
-      // 실행 이펙트 추가
-      state.activeSkillEffects.push({
-        type: skill.type,
-        position: skill.position,
-        radius: skill.radius,
-        damage: skill.damage,
-        duration: 0.5,
-        startTime: state.gameTime,
-      });
+        skillsToAdd.push({
+          ...skill,
+          position: { x: randomX, y: randomY },
+          triggerTime: state.gameTime + interval,
+          meteorCount: skill.meteorCount - 1,
+        });
+      }
     }
+  });
+
+  // 처리된 스킬 제거 (역순으로 제거)
+  for (let i = triggeredSkillIndices.length - 1; i >= 0; i--) {
+    state.pendingSkills.splice(triggeredSkillIndices[i], 1);
   }
 
-  // 처리된 스킬 제거
-  state.pendingSkills = state.pendingSkills.filter(
-    skill => state.gameTime < skill.triggerTime
-  );
+  // 재등록할 스킬 추가
+  state.pendingSkills.push(...skillsToAdd);
 }

@@ -51,6 +51,14 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const playerLevel = profile?.playerLevel ?? 1;
   const classProgress = useAuthStore((state) => state.classProgress);
 
+  // 현재 선택된 직업의 전직 정보 (프로필에서 변경 시 즉시 반영되도록 별도 구독)
+  const currentClassAdvancedClass = useAuthStore((state) =>
+    state.classProgress.find(p => p.className === selectedClass)?.advancedClass
+  );
+  const currentClassTier = useAuthStore((state) =>
+    state.classProgress.find(p => p.className === selectedClass)?.tier
+  );
+
   const [inputRoomCode, setInputRoomCode] = useState('');
   const [showJoinInput, setShowJoinInput] = useState(false);
   const [isConnecting, setIsConnecting] = useState(false);
@@ -154,7 +162,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
     // 서버에 최신 정보 전송 (전직 정보 포함)
     wsClient.changeCoopClass(selectedClass, characterLevel, statUpgrades, advancedClass as any, tier);
-  }, [classProgress, multiplayer.connectionState, selectedClass]);
+  }, [classProgress, multiplayer.connectionState, selectedClass, currentClassAdvancedClass, currentClassTier]);
 
   // 방 목록 변경 시 페이지 유효성 체크
   useEffect(() => {
@@ -814,7 +822,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                 </div>
               </div>
               {!isHostPlayer && (
-                <p className="text-gray-600 text-xs text-center mt-1">호스트만 변경 가능</p>
+                <p className="text-gray-600 text-xs text-center mt-1">방장만 변경 가능</p>
               )}
             </div>
           </div>
@@ -846,7 +854,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                     <div>
                       <p className={`font-bold ${isMe ? 'text-neon-cyan' : 'text-white'}`}>
                         {player.name}
-                        {player.isHost && <span className="ml-2 text-yellow-500 text-xs">(호스트)</span>}
+                        {player.isHost && <span className="ml-2 text-yellow-500 text-xs">(방장)</span>}
                       </p>
                       <p className="text-gray-500 text-xs">
                         {displayName}
