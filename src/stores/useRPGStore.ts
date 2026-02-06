@@ -2519,8 +2519,9 @@ export const useRPGStore = create<RPGStore>()(
             const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
             const forceHostPosition = isDashing || isCasting || isStunned;
 
-            // 이동 중인지 확인
-            const isMoving = localHero.moveDirection !== undefined && localHero.moveDirection !== null;
+            // 이동 중인지 확인 (클라이언트와 서버 양쪽 체크)
+            const isLocalMoving = localHero.moveDirection !== undefined && localHero.moveDirection !== null;
+            const isServerMoving = hero.moveDirection !== undefined && hero.moveDirection !== null;
 
             let syncX: number;
             let syncY: number;
@@ -2533,19 +2534,24 @@ export const useRPGStore = create<RPGStore>()(
               // 매우 큰 차이 (> 150px): 즉시 스냅 (텔레포트/사망/부활 등)
               syncX = hero.x;
               syncY = hero.y;
-            } else if (isMoving) {
-              // 이동 중: 로컬 예측 100% 신뢰 (부드러운 움직임)
+            } else if (isLocalMoving) {
+              // 클라이언트 이동 중: 로컬 예측 100% 신뢰 (부드러운 움직임)
+              syncX = localHero.x;
+              syncY = localHero.y;
+            } else if (isServerMoving) {
+              // 클라이언트 정지, 서버 아직 이동 중: 서버가 따라잡을 때까지 로컬 유지 (뒤로 밀림 방지)
+              // 단, 서버가 로컬보다 앞서면 서버 따라감
               syncX = localHero.x;
               syncY = localHero.y;
             } else {
-              // 정지 상태: 작은 차이는 무시하여 슬라이딩 방지
-              if (positionDiff < 10) {
-                // 10px 미만: 로컬 위치 유지 (슬라이딩 방지)
+              // 양쪽 모두 정지: 작은 차이는 무시하여 슬라이딩 방지
+              if (positionDiff < 15) {
+                // 15px 미만: 로컬 위치 유지 (정지 후 안정화)
                 syncX = localHero.x;
                 syncY = localHero.y;
               } else {
-                // 10px 이상: 빠르게 서버 위치로 수렴 (30%)
-                const alpha = 0.3;
+                // 15px 이상: 부드럽게 서버 위치로 수렴 (15%)
+                const alpha = 0.15;
                 syncX = localHero.x + (hero.x - localHero.x) * alpha;
                 syncY = localHero.y + (hero.y - localHero.y) * alpha;
               }

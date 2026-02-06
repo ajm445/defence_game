@@ -409,8 +409,11 @@ export class RPGServerGameEngine {
           if (nearestBase) {
             const damage = calculateHeroDamage(hero);
             damageBase(this.state, nearestBase.id, damage, this.difficulty, hero.id);
+            // 쿨다운 시작 - hero.config.attackSpeed 사용 (적 공격과 동일, 업그레이드 반영)
+            const attackSpeed = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
+            hero.skillCooldowns.Q = attackSpeed;
             const qSkill = hero.skills?.find(s => s.key === 'Q');
-            if (qSkill) qSkill.currentCooldown = qSkill.cooldown;
+            if (qSkill) qSkill.currentCooldown = attackSpeed;
             const isRanged = hero.heroClass === 'archer' || hero.heroClass === 'mage';
             this.state.basicAttackEffects.push({
               id: `hero_attack_base_${Date.now()}_${hero.id}`,
