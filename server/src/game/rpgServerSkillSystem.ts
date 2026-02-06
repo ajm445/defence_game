@@ -398,6 +398,17 @@ function executeWSkill(
 
       hero.buffs = hero.buffs || [];
       hero.buffs.push({ type: 'invincible', duration: invincibleDuration, startTime: gameTime });
+
+      ctx.state.activeSkillEffects.push({
+        type: 'warrior_w' as any,
+        position: { x: hero.x, y: hero.y },
+        direction: { x: dirX, y: dirY },
+        radius: dashDistance,
+        damage: skillDamage,
+        duration: 0.4,
+        startTime: gameTime,
+      });
+
       hero.skillCooldowns.W = 8.0;
       break;
     }
@@ -468,6 +479,17 @@ function executeWSkill(
         progress: 0, duration: dashDuration,
         dirX, dirY,
       };
+
+      ctx.state.activeSkillEffects.push({
+        type: 'knight_w' as any,
+        position: { x: hero.x, y: hero.y },
+        direction: { x: dirX, y: dirY },
+        radius: dashDistance,
+        damage: hpBasedDamage,
+        duration: 0.4,
+        startTime: gameTime,
+      });
+
       hero.skillCooldowns.W = 10.0;
       break;
     }
@@ -551,6 +573,14 @@ function executeESkill(
         speedBonus: 0.3,
         lifesteal: 0.5,
       });
+
+      ctx.state.activeSkillEffects.push({
+        type: 'warrior_e' as any,
+        position: { x: hero.x, y: hero.y },
+        duration: 1.0,
+        startTime: gameTime,
+      });
+
       hero.skillCooldowns.E = 30.0;
       break;
     }
@@ -597,6 +627,14 @@ function executeESkill(
         startTime: gameTime,
         damageReduction: 0.7,
       });
+
+      ctx.state.activeSkillEffects.push({
+        type: 'knight_e' as any,
+        position: { x: hero.x, y: hero.y },
+        duration: 1.0,
+        startTime: gameTime,
+      });
+
       hero.skillCooldowns.E = 35.0;
       break;
     }
@@ -761,6 +799,16 @@ function executeAdvancedWSkill(
         }
       }
 
+      state.activeSkillEffects.push({
+        type: 'guardian_rush' as any,
+        position: { x: hero.x, y: hero.y },
+        direction: { x: dirX, y: dirY },
+        radius: dashDistance,
+        damage: hpBasedDamage,
+        duration: 0.4,
+        startTime: gameTime,
+      });
+
       hero.skillCooldowns.W = 8.0;
       return true;
     }
@@ -916,6 +964,16 @@ function executeAdvancedWSkill(
           }
         }
       }
+
+      state.activeSkillEffects.push({
+        type: 'holy_charge' as any,
+        position: { x: hero.x, y: hero.y },
+        direction: { x: dirX, y: dirY },
+        radius: dashDistance,
+        damage: hpBasedDamage,
+        duration: 0.4,
+        startTime: gameTime,
+      });
 
       hero.skillCooldowns.W = 8.0;
       return true;

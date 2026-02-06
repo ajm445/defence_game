@@ -176,6 +176,21 @@ export function useRPGGameLoop() {
       }
 
       // ==========================================
+      // 클라이언트: 스킬 실행 (로컬 이동 예측 전에 수행)
+      // - 스킬 이펙트 위치가 현재 영웅 위치로 정확하게 설정됨
+      // ==========================================
+      const clientCurrentGameTime = useRPGStore.getState().gameTime;
+
+      // 클라이언트: 보류된 W/E 스킬 로컬 실행 (이펙트만)
+      // 데미지는 호스트에서 처리하고 동기화됨
+      // 중요: 로컬 이동 예측 전에 실행하여 정확한 위치에서 이펙트 생성
+      if (pendingSkillRef.current) {
+        const skillType = pendingSkillRef.current;
+        pendingSkillRef.current = null;
+        handleClientSkillExecution(skillType, clientCurrentGameTime);
+      }
+
+      // ==========================================
       // 클라이언트: 클라이언트 예측 + 서버 보정 아키텍처
       // - 이동은 클라이언트에서 즉시 예측 (빠른 반응)
       // - 호스트 위치와 차이나면 applySerializedState에서 부드럽게 보정
@@ -184,19 +199,21 @@ export function useRPGGameLoop() {
 
       // 클라이언트 로컬 이동 예측 (즉각적인 반응)
       // clientHero는 이미 위에서 선언됨 (사망 체크용)
-      if (clientHero) {
-        const isDashing = clientHero.dashState !== undefined;
-        const isCasting = clientHero.castingUntil && useRPGStore.getState().gameTime < clientHero.castingUntil;
-        const isStunned = clientHero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+      // 스킬 실행 후 최신 상태 가져오기
+      const clientHeroForMove = useRPGStore.getState().hero;
+      if (clientHeroForMove) {
+        const isDashing = clientHeroForMove.dashState !== undefined;
+        const isCasting = clientHeroForMove.castingUntil && useRPGStore.getState().gameTime < clientHeroForMove.castingUntil;
+        const isStunned = clientHeroForMove.buffs?.some(b => b.type === 'stun' && b.duration > 0);
 
         // 돌진/시전/스턴 중에는 로컬 예측 중지 (호스트 위치만 사용)
-        if (!isDashing && !isCasting && !isStunned && clientHero.moveDirection) {
-          const moveDir = clientHero.moveDirection;
-          const moveSpeed = clientHero.config?.speed || 200;
+        if (!isDashing && !isCasting && !isStunned && clientHeroForMove.moveDirection) {
+          const moveDir = clientHeroForMove.moveDirection;
+          const moveSpeed = clientHeroForMove.config?.speed || 200;
 
           // 로컬 위치 예측 (deltaTime * 60으로 프레임 독립적 이동)
-          let newX = clientHero.x + moveDir.x * moveSpeed * deltaTime * 60;
-          let newY = clientHero.y + moveDir.y * moveSpeed * deltaTime * 60;
+          let newX = clientHeroForMove.x + moveDir.x * moveSpeed * deltaTime * 60;
+          let newY = clientHeroForMove.y + moveDir.y * moveSpeed * deltaTime * 60;
 
           // 맵 경계 제한
           newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, newX));
@@ -228,11 +245,11 @@ export function useRPGGameLoop() {
 
       // 클라이언트: 보류 스킬(운석 등) 이펙트/사운드 처리 (데미지는 호스트가 처리)
       const clientPendingSkills = useRPGStore.getState().pendingSkills;
-      const clientCurrentGameTime = useRPGStore.getState().gameTime;
+      const pendingSkillGameTime = useRPGStore.getState().gameTime;
       for (const skill of clientPendingSkills) {
         // 스킬 발동 시점에 이펙트/사운드 재생 (한 번만)
         const pendingEffectId = `pending_${skill.type}_${skill.triggerTime}`;
-        if (clientCurrentGameTime >= skill.triggerTime && !processedEffectIdsRef.current.has(pendingEffectId)) {
+        if (pendingSkillGameTime >= skill.triggerTime && !processedEffectIdsRef.current.has(pendingEffectId)) {
           processedEffectIdsRef.current.set(pendingEffectId, clientNow);
 
           // 스킬 타입별 이펙트/사운드 처리
@@ -338,14 +355,6 @@ export function useRPGGameLoop() {
               break;
           }
         }
-      }
-
-      // 클라이언트: 보류된 W/E 스킬 로컬 실행 (이펙트만)
-      // 데미지는 호스트에서 처리하고 동기화됨
-      if (pendingSkillRef.current) {
-        const skillType = pendingSkillRef.current;
-        pendingSkillRef.current = null;
-        handleClientSkillExecution(skillType, clientCurrentGameTime);
       }
 
       // 클라이언트: 자동 공격은 호스트에서만 처리

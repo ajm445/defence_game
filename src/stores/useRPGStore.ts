@@ -2645,7 +2645,7 @@ export const useRPGStore = create<RPGStore>()(
             // 기존 보간 데이터가 있으면, 현재 보간된 위치를 prevX/Y로 설정
             const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
             // 보간 시간: 서버 상태 동기화 간격(50ms)과 일치
-            const interpolationDuration = 50;
+            const interpolationDuration = 60; // 네트워크 지연 대비 여유 시간 (서버 50ms + 10ms 버퍼)
             const t = Math.min(1, timeSinceUpdate / interpolationDuration);
 
             // ease-out cubic 적용
@@ -2867,7 +2867,7 @@ export const useRPGStore = create<RPGStore>()(
       const updatedHeroes = new Map<string, HeroUnit>();
       const updatedInterpolation = new Map<string, HeroInterpolation>();
       // 보간 시간: 서버 상태 동기화 간격(50ms)과 일치
-      const interpolationDuration = 50;
+      const interpolationDuration = 60; // 네트워크 지연 대비 여유 시간 (서버 50ms + 10ms 버퍼)
 
       // ease-out cubic 함수
       const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -2883,10 +2883,30 @@ export const useRPGStore = create<RPGStore>()(
           let y: number;
 
           // 보간 중: 이징 함수 적용
-          // 보간 완료 후에는 targetX/Y 유지 (서버 업데이트 대기, 과도한 예측 방지)
+          // 보간 완료 후: 이동 방향이 있으면 부드러운 예측 이동 적용
           if (t >= 1) {
-            x = interp.targetX;
-            y = interp.targetY;
+            // 이동 중인 경우 예측 이동 적용 (서버 업데이트 대기 시간 동안 끊김 방지)
+            const isMoving = interp.moveDirectionX !== 0 || interp.moveDirectionY !== 0;
+            if (isMoving && interp.moveSpeed > 0) {
+              // 보간 완료 후 추가 경과 시간
+              const extraTime = timeSinceUpdate - interpolationDuration;
+              // 예측 이동 (최대 50ms까지만, 서버 업데이트 주기 고려)
+              const maxPredictTime = 50;
+              const predictTime = Math.min(extraTime, maxPredictTime);
+              // 방향 정규화 (대각선 이동 시 속도 일정하게)
+              const dirLength = Math.sqrt(interp.moveDirectionX * interp.moveDirectionX + interp.moveDirectionY * interp.moveDirectionY);
+              const normalizedDirX = dirLength > 0 ? interp.moveDirectionX / dirLength : 0;
+              const normalizedDirY = dirLength > 0 ? interp.moveDirectionY / dirLength : 0;
+              // 이동 거리 계산 (speed는 60fps 기준 픽셀/프레임)
+              const predictDistance = interp.moveSpeed * (predictTime / 1000) * 60;
+              // 맵 경계 제한
+              x = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, interp.targetX + normalizedDirX * predictDistance));
+              y = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, interp.targetY + normalizedDirY * predictDistance));
+            } else {
+              // 정지 상태면 목표 위치 유지
+              x = interp.targetX;
+              y = interp.targetY;
+            }
           } else {
             x = interp.prevX + (interp.targetX - interp.prevX) * easedT;
             y = interp.prevY + (interp.targetY - interp.prevY) * easedT;
@@ -2914,7 +2934,7 @@ export const useRPGStore = create<RPGStore>()(
 
       const now = performance.now();
       // 보간 시간: 서버 상태 동기화 간격(50ms)과 일치
-      const interpolationDuration = 50;
+      const interpolationDuration = 60; // 네트워크 지연 대비 여유 시간 (서버 50ms + 10ms 버퍼)
 
       // ease-out cubic 함수
       const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
