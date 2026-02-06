@@ -1427,15 +1427,21 @@ export const useRPGStore = create<RPGStore>()(
     addDamageNumber: (x: number, y: number, amount: number, type: DamageNumberType) => {
       const now = Date.now();
 
-      // 중복 방지: 같은 위치(±50px), 같은 데미지, 같은 타입이 100ms 이내에 추가됐으면 스킵
+      // 중복 방지: 같은 위치(±100px), 같은 데미지, 같은 타입이 200ms 이내에 추가됐으면 스킵
+      // 위치 비교는 원본 좌표(originX, originY)로 수행하여 랜덤 오프셋 영향 제거
       const state = get();
-      const isDuplicate = state.damageNumbers.some(d =>
-        d.type === type &&
-        d.amount === amount &&
-        Math.abs(d.x - x) < 50 &&
-        Math.abs(d.y - y) < 50 &&
-        now - d.createdAt < 100
-      );
+      const isDuplicate = state.damageNumbers.some(d => {
+        // 원본 좌표가 있으면 원본 좌표로 비교, 없으면 저장된 좌표로 비교 (하위 호환)
+        const compareX = d.originX !== undefined ? d.originX : d.x;
+        const compareY = d.originY !== undefined ? d.originY : d.y;
+        return (
+          d.type === type &&
+          d.amount === amount &&
+          Math.abs(compareX - x) < 100 &&
+          Math.abs(compareY - y) < 100 &&
+          now - d.createdAt < 200
+        );
+      });
 
       if (isDuplicate) {
         return; // 중복 데미지 숫자 방지
@@ -1449,6 +1455,8 @@ export const useRPGStore = create<RPGStore>()(
         id,
         x: x + offsetX,
         y: y + offsetY,
+        originX: x,  // 원본 좌표 저장 (중복 방지용)
+        originY: y,
         amount,
         type,
         createdAt: now,

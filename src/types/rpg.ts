@@ -452,6 +452,8 @@ export interface DamageNumber {
   id: string;
   x: number;
   y: number;
+  originX?: number;  // 원본 X 좌표 (중복 방지 비교용)
+  originY?: number;  // 원본 Y 좌표 (중복 방지 비교용)
   amount: number;
   type: DamageNumberType;
   createdAt: number;
