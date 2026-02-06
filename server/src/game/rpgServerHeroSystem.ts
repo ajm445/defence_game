@@ -383,14 +383,10 @@ export function processHeroMovement(hero: ServerHero, deltaTime: number, gameTim
     const dir = hero.moveDirection;
     let speed = hero.config?.speed || hero.baseSpeed || 200;
 
-    // 이동속도 버프 적용 (swiftness, berserker)
+    // 이동속도 버프 적용 (swiftness)
     const swiftnessBuff = hero.buffs?.find(b => b.type === 'swiftness' && b.duration > 0);
-    const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
     if (swiftnessBuff?.moveSpeedBonus) {
       speed *= (1 + swiftnessBuff.moveSpeedBonus);
-    }
-    if (berserkerBuff?.moveSpeedBonus) {
-      speed *= (1 + berserkerBuff.moveSpeedBonus);
     }
 
     const moveDistance = speed * deltaTime * 60;

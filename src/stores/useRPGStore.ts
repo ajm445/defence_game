@@ -100,6 +100,8 @@ interface EnemyInterpolation {
   prevY: number;
   targetX: number;
   targetY: number;
+  velocityX: number;  // 이동 속도 X (서버 업데이트 간 변화량 기반)
+  velocityY: number;  // 이동 속도 Y
   lastUpdateTime: number;
 }
 
@@ -2527,33 +2529,25 @@ export const useRPGStore = create<RPGStore>()(
               // 돌진/시전/스턴 중: 호스트 위치 100% 사용
               syncX = hero.x;
               syncY = hero.y;
+            } else if (positionDiff > 150) {
+              // 매우 큰 차이 (> 150px): 즉시 스냅 (텔레포트/사망/부활 등)
+              syncX = hero.x;
+              syncY = hero.y;
             } else if (isMoving) {
-              // 이동 중: 로컬 예측 신뢰, 큰 오차만 스냅
-              if (positionDiff > 200) {
-                // 매우 큰 차이 (> 200px): 스냅 (텔레포트/사망 등)
-                syncX = hero.x;
-                syncY = hero.y;
-              } else {
-                // 이동 중에는 로컬 위치 유지 (부드러운 움직임)
-                syncX = localHero.x;
-                syncY = localHero.y;
-              }
+              // 이동 중: 로컬 예측 100% 신뢰 (부드러운 움직임)
+              syncX = localHero.x;
+              syncY = localHero.y;
             } else {
-              // 정지 상태: 부드럽게 서버 위치로 수렴
-              if (positionDiff < 3) {
-                // 아주 작은 차이 (< 3px): 무시 (네트워크 지연으로 인한 미세한 차이)
+              // 정지 상태: 작은 차이는 무시하여 슬라이딩 방지
+              if (positionDiff < 10) {
+                // 10px 미만: 로컬 위치 유지 (슬라이딩 방지)
                 syncX = localHero.x;
                 syncY = localHero.y;
-              } else if (positionDiff < 50) {
-                // 작은 차이 (3~50px): 부드러운 선형 보간으로 서버 위치로 수렴
-                // 약 100ms 동안 서서히 이동 (스냅 대신)
-                const alpha = 0.15;  // 매 프레임 15% 수렴
+              } else {
+                // 10px 이상: 빠르게 서버 위치로 수렴 (30%)
+                const alpha = 0.3;
                 syncX = localHero.x + (hero.x - localHero.x) * alpha;
                 syncY = localHero.y + (hero.y - localHero.y) * alpha;
-              } else {
-                // 큰 차이 (> 50px): 즉시 동기화 (텔레포트 등)
-                syncX = hero.x;
-                syncY = hero.y;
               }
             }
 
@@ -2735,11 +2729,17 @@ export const useRPGStore = create<RPGStore>()(
           const currentX = existingInterpolation.prevX + (existingInterpolation.targetX - existingInterpolation.prevX) * t;
           const currentY = existingInterpolation.prevY + (existingInterpolation.targetY - existingInterpolation.prevY) * t;
 
+          // 속도 계산 (이전 목표 → 새 목표 사이 변화량 기반, 50ms 서버 주기)
+          const velocityX = (se.x - existingInterpolation.targetX) / 0.05;  // px/sec
+          const velocityY = (se.y - existingInterpolation.targetY) / 0.05;
+
           newEnemiesInterpolation.set(se.id, {
             prevX: currentX,
             prevY: currentY,
             targetX: se.x,
             targetY: se.y,
+            velocityX,
+            velocityY,
             lastUpdateTime: now,
           });
 
@@ -2748,22 +2748,30 @@ export const useRPGStore = create<RPGStore>()(
           displayY = currentY;
         } else if (existingEnemy) {
           // 보간 데이터 없으면 기존 적 위치에서 시작
+          // 속도 계산 (기존 적 위치 → 새 목표)
+          const velocityX = (se.x - existingEnemy.x) / 0.05;
+          const velocityY = (se.y - existingEnemy.y) / 0.05;
+
           newEnemiesInterpolation.set(se.id, {
             prevX: existingEnemy.x,
             prevY: existingEnemy.y,
             targetX: se.x,
             targetY: se.y,
+            velocityX,
+            velocityY,
             lastUpdateTime: now,
           });
           displayX = existingEnemy.x;
           displayY = existingEnemy.y;
         } else {
-          // 새 적은 즉시 위치 설정
+          // 새 적은 즉시 위치 설정 (속도 0)
           newEnemiesInterpolation.set(se.id, {
             prevX: se.x,
             prevY: se.y,
             targetX: se.x,
             targetY: se.y,
+            velocityX: 0,
+            velocityY: 0,
             lastUpdateTime: now,
           });
         }
@@ -2953,9 +2961,34 @@ export const useRPGStore = create<RPGStore>()(
           const t = Math.min(1, timeSinceUpdate / interpolationDuration);
           const easedT = easeOutCubic(t);
 
-          // 보간 위치 계산
-          const x = interp.prevX + (interp.targetX - interp.prevX) * easedT;
-          const y = interp.prevY + (interp.targetY - interp.prevY) * easedT;
+          let x: number;
+          let y: number;
+
+          if (t >= 1) {
+            // 보간 완료 후: 속도 기반 예측 이동 (서버 업데이트 대기 시간 동안 끊김 방지)
+            const isMoving = Math.abs(interp.velocityX) > 1 || Math.abs(interp.velocityY) > 1;
+            if (isMoving) {
+              // 보간 완료 후 추가 경과 시간
+              const extraTime = timeSinceUpdate - interpolationDuration;
+              // 예측 이동 (최대 50ms까지만, 서버 업데이트 주기 고려)
+              const maxPredictTime = 50;
+              const predictTime = Math.min(extraTime, maxPredictTime);
+              // 예측 이동 거리
+              const predictX = interp.velocityX * (predictTime / 1000);
+              const predictY = interp.velocityY * (predictTime / 1000);
+              // 맵 경계 제한
+              x = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, interp.targetX + predictX));
+              y = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, interp.targetY + predictY));
+            } else {
+              // 정지 상태면 목표 위치 유지
+              x = interp.targetX;
+              y = interp.targetY;
+            }
+          } else {
+            // 보간 중: 이징 함수 적용
+            x = interp.prevX + (interp.targetX - interp.prevX) * easedT;
+            y = interp.prevY + (interp.targetY - interp.prevY) * easedT;
+          }
 
           return {
             ...enemy,

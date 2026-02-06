@@ -129,7 +129,7 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
   };
 }
 
-// WASD 키 상태로부터 이동 방향 계산
+// WASD 키 상태로부터 이동 방향 계산 (정규화됨)
 function calculateMoveDirection(): { x: number; y: number } | undefined {
   let x = 0;
   let y = 0;
@@ -141,6 +141,13 @@ function calculateMoveDirection(): { x: number; y: number } | undefined {
 
   if (x === 0 && y === 0) {
     return undefined;
+  }
+
+  // 대각선 이동 시 정규화 (속도 일정하게 유지)
+  if (x !== 0 && y !== 0) {
+    const length = Math.sqrt(x * x + y * y);
+    x /= length;
+    y /= length;
   }
 
   return { x, y };

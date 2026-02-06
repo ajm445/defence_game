@@ -597,8 +597,19 @@ export function getAllWaitingCoopRooms(): WaitingCoopRoomInfo[] {
 export function setWaitingRoomState(roomId: string, state: 'waiting' | 'started'): void {
   const room = waitingCoopRooms.get(roomId);
   if (room) {
+    const previousState = room.state;
     room.state = state;
-    console.log(`[Coop] 대기 방 상태 변경: ${room.code} → ${state}`);
+
+    // 게임 종료 후 로비로 복귀하는 경우 (started → waiting)
+    // 방 파기 타이머를 리셋하여 새로운 10분 카운트다운 시작
+    if (previousState === 'started' && state === 'waiting') {
+      room.createdAt = Date.now();
+      room.timeoutWarningNotified = false;
+      console.log(`[Coop] 대기 방 상태 변경: ${room.code} → ${state} (타이머 리셋)`);
+    } else {
+      console.log(`[Coop] 대기 방 상태 변경: ${room.code} → ${state}`);
+    }
+
     // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림
     broadcastRoomListUpdate();
   }
@@ -927,8 +938,9 @@ function cleanupStaleRooms(): void {
   const warningRooms: string[] = [];
 
   waitingCoopRooms.forEach((room, roomId) => {
-    // 게임이 시작되지 않은 방만 체크 (waiting 또는 countdown 상태)
-    if (room.state !== 'started') {
+    // 순수 대기 상태('waiting')인 방만 체크
+    // 카운트다운 중이거나 게임 중인 방은 파기하지 않음
+    if (room.state === 'waiting') {
       const roomAge = now - room.createdAt;
       if (roomAge > ROOM_AUTO_DESTROY_CONFIG.TIMEOUT_MS) {
         staleRooms.push(roomId);

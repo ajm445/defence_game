@@ -167,9 +167,13 @@ export function useRPGGameLoop() {
 
       // 사망 체크: HP가 0 이하면 카메라 추적만 (관전 모드)
       if (isClientDead) {
-        // 카메라는 계속 따라가도록 (관전 모드)
-        if (useRPGStore.getState().camera.followHero) {
-          useRPGStore.getState().setCamera(clientHero.x, clientHero.y);
+        // 카메라는 계속 따라가도록 (관전 모드) - 부드러운 보간 적용
+        const spectateCamera = useRPGStore.getState().camera;
+        if (spectateCamera.followHero) {
+          const cameraLerpSpeed = 0.3;
+          const newCamX = spectateCamera.x + (clientHero.x - spectateCamera.x) * cameraLerpSpeed;
+          const newCamY = spectateCamera.y + (clientHero.y - spectateCamera.y) * cameraLerpSpeed;
+          useRPGStore.getState().setCamera(newCamX, newCamY);
         }
         animationIdRef.current = requestAnimationFrame(tick);
         return;
@@ -197,42 +201,62 @@ export function useRPGGameLoop() {
       // - 돌진 중에는 예측 중지 (호스트 100% 사용)
       // ==========================================
 
-      // 클라이언트 로컬 이동 예측 (즉각적인 반응)
-      // clientHero는 이미 위에서 선언됨 (사망 체크용)
-      // 스킬 실행 후 최신 상태 가져오기
+      // 클라이언트 로컬 이동 예측 (싱글플레이와 동일한 로직)
       const clientHeroForMove = useRPGStore.getState().hero;
-      if (clientHeroForMove) {
+      if (clientHeroForMove && clientHeroForMove.hp > 0) {
         const isDashing = clientHeroForMove.dashState !== undefined;
         const isCasting = clientHeroForMove.castingUntil && useRPGStore.getState().gameTime < clientHeroForMove.castingUntil;
         const isStunned = clientHeroForMove.buffs?.some(b => b.type === 'stun' && b.duration > 0);
 
         // 돌진/시전/스턴 중에는 로컬 예측 중지 (호스트 위치만 사용)
         if (!isDashing && !isCasting && !isStunned && clientHeroForMove.moveDirection) {
-          const moveDir = clientHeroForMove.moveDirection;
-          const moveSpeed = clientHeroForMove.config?.speed || 200;
+          const dir = clientHeroForMove.moveDirection;
 
-          // 로컬 위치 예측 (deltaTime * 60으로 프레임 독립적 이동)
-          let newX = clientHeroForMove.x + moveDir.x * moveSpeed * deltaTime * 60;
-          let newY = clientHeroForMove.y + moveDir.y * moveSpeed * deltaTime * 60;
+          // 이동속도 계산 (싱글플레이와 동일)
+          let moveSpeed = clientHeroForMove.config?.speed || clientHeroForMove.baseSpeed || 200;
 
-          // 맵 경계 제한
-          newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, newX));
-          newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, newY));
+          // 이동속도 버프 적용 (swiftness)
+          const swiftnessBuff = clientHeroForMove.buffs?.find(b => b.type === 'swiftness' && b.duration > 0 && b.moveSpeedBonus);
+          if (swiftnessBuff?.moveSpeedBonus) {
+            moveSpeed *= (1 + swiftnessBuff.moveSpeedBonus);
+          }
 
-          // 로컬 위치 업데이트 (즉각 반응)
-          useRPGStore.getState().updateHeroState({
-            x: newX,
-            y: newY,
-            state: 'moving',
-            facingRight: moveDir.x >= 0,
-          });
+          // 방향 정규화 (대각선 이동 시 속도 일정)
+          const dirLength = Math.sqrt(dir.x * dir.x + dir.y * dir.y);
+          if (dirLength > 0) {
+            const normalizedX = dir.x / dirLength;
+            const normalizedY = dir.y / dirLength;
+
+            // 이동 거리 계산 (싱글플레이와 동일: deltaTime * 60)
+            const moveDistance = moveSpeed * deltaTime * 60;
+
+            let newX = clientHeroForMove.x + normalizedX * moveDistance;
+            let newY = clientHeroForMove.y + normalizedY * moveDistance;
+
+            // 맵 경계 제한
+            newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, newX));
+            newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, newY));
+
+            // 로컬 위치 업데이트 (즉각 반응)
+            useRPGStore.getState().updateHeroState({
+              x: newX,
+              y: newY,
+              state: 'moving',
+              facingRight: dir.x >= 0,
+            });
+          }
         }
       }
 
-      // 카메라 추적
+      // 카메라 추적 (부드러운 보간 적용)
       const heroForCamera = useRPGStore.getState().hero;
-      if (heroForCamera && useRPGStore.getState().camera.followHero) {
-        useRPGStore.getState().setCamera(heroForCamera.x, heroForCamera.y);
+      const currentCamera = useRPGStore.getState().camera;
+      if (heroForCamera && currentCamera.followHero) {
+        // 카메라 lerp 속도 (0.3 = 빠르게 따라가면서 부드러움 유지)
+        const cameraLerpSpeed = 0.3;
+        const newCameraX = currentCamera.x + (heroForCamera.x - currentCamera.x) * cameraLerpSpeed;
+        const newCameraY = currentCamera.y + (heroForCamera.y - currentCamera.y) * cameraLerpSpeed;
+        useRPGStore.getState().setCamera(newCameraX, newCameraY);
       }
 
       // 클라이언트도 스킬 쿨다운 로컬 업데이트 (즉각적인 UI 피드백)
@@ -568,9 +592,13 @@ export function useRPGGameLoop() {
       castingUntil: updatedHero.castingUntil,
     });
 
-    // 카메라 영웅 추적
-    if (state.camera.followHero) {
-      useRPGStore.getState().setCamera(updatedHero.x, updatedHero.y);
+    // 카메라 영웅 추적 (부드러운 보간 적용)
+    const singleCamera = useRPGStore.getState().camera;
+    if (singleCamera.followHero) {
+      const cameraLerpSpeed = 0.3;
+      const newCamX = singleCamera.x + (updatedHero.x - singleCamera.x) * cameraLerpSpeed;
+      const newCamY = singleCamera.y + (updatedHero.y - singleCamera.y) * cameraLerpSpeed;
+      useRPGStore.getState().setCamera(newCamX, newCamY);
     }
 
     // HP 재생 처리 (기사: 패시브, 전사/기사: SP hpRegen 업그레이드)
