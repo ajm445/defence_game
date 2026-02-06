@@ -172,7 +172,5 @@ export type {
   SerializedEnemy,
   SerializedGameState,
   MultiplayerState,
-  HostBasedClientMessage,
-  HostBasedServerMessage,
 } from './hostBasedNetwork';
 export { HOST_BASED_CONFIG, initialMultiplayerState } from './hostBasedNetwork';

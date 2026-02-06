@@ -255,26 +255,6 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handlePlayerInput(playerId, (message as any).input);
       break;
 
-    // ============================================
-    // 레거시 호스트 기반 메시지 (하위 호환성)
-    // ============================================
-
-    case 'HOST_GAME_STATE_BROADCAST':
-      handleHostGameStateBroadcast(playerId, (message as any).state);
-      break;
-
-    case 'HOST_GAME_EVENT_BROADCAST':
-      handleHostGameEventBroadcast(playerId, (message as any).event);
-      break;
-
-    case 'HOST_PLAYER_INPUT':
-      handleHostPlayerInput(playerId, (message as any).input);
-      break;
-
-    case 'HOST_GAME_OVER':
-      handleHostGameOver(playerId, (message as any).result);
-      break;
-
     case 'RETURN_TO_LOBBY':
       handleReturnToLobby(playerId);
       break;
@@ -932,70 +912,6 @@ function handlePlayerInput(playerId: string, input: any): void {
       console.log(`[ServerAuth] 플레이어 입력: ${playerId} 업그레이드 ${input.upgradeRequested}`);
     }
     room.handlePlayerInput(playerId, input);
-  }
-}
-
-// ============================================
-// 레거시 호스트 기반 메시지 핸들러 (하위 호환성)
-// ============================================
-
-/** @deprecated 서버 권위 모델에서는 사용하지 않음 - 서버가 직접 브로드캐스트 */
-function handleHostGameStateBroadcast(playerId: string, state: any): void {
-  const player = players.get(playerId);
-  if (!player || !player.roomId) return;
-
-  const room = coopGameRooms.get(player.roomId);
-  if (room) {
-    room.handleGameStateBroadcast(playerId, state);
-  }
-}
-
-/** @deprecated 서버 권위 모델에서는 사용하지 않음 */
-function handleHostGameEventBroadcast(playerId: string, event: any): void {
-  const player = players.get(playerId);
-  if (!player || !player.roomId) return;
-
-  const room = coopGameRooms.get(player.roomId);
-  if (room) {
-    room.handleGameEventBroadcast(playerId, event);
-  }
-}
-
-/** @deprecated 서버 권위 모델에서는 PLAYER_INPUT 사용 */
-function handleHostPlayerInput(playerId: string, input: any): void {
-  const player = players.get(playerId);
-  if (!player || !player.roomId) return;
-
-  const room = coopGameRooms.get(player.roomId);
-  if (room) {
-    room.handlePlayerInput(playerId, input);
-  }
-}
-
-/** @deprecated 서버 권위 모델에서는 서버가 직접 게임 종료 처리 */
-function handleHostGameOver(playerId: string, result: any): void {
-  const player = players.get(playerId);
-  if (!player || !player.roomId) return;
-
-  const room = coopGameRooms.get(player.roomId);
-  if (room) {
-    room.handleGameOver(playerId, result);
-
-    // 관리자에게 게임 종료 이벤트 브로드캐스트
-    const playerName = player?.name || `Player_${playerId.slice(0, 4)}`;
-    broadcastToAdmins({
-      type: 'ADMIN_PLAYER_ACTIVITY',
-      activity: {
-        type: 'game_end',
-        playerId,
-        playerName,
-        timestamp: new Date().toISOString(),
-      },
-    });
-    broadcastToAdmins({
-      type: 'ADMIN_SERVER_STATUS',
-      status: getServerStatus(),
-    });
   }
 }
 

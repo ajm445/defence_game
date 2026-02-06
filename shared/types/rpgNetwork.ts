@@ -4,7 +4,7 @@ import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, Pendi
 import type { UnitType } from '../../src/types/unit';
 import type { Position } from '../../src/types/game';
 import type { CharacterStatUpgrades } from '../../src/types/auth';
-import type { SerializedGameState, PlayerInput, HostBasedClientMessage, HostBasedServerMessage } from './hostBasedNetwork';
+import type { SerializedGameState, PlayerInput } from './hostBasedNetwork';
 import type { FriendClientMessage, FriendServerMessage } from './friendNetwork';
 
 // Re-export friend network types for convenience
@@ -267,11 +267,6 @@ export type CoopClientMessage =
   | { type: 'COOP_UPGRADE_HERO_STAT'; upgradeType: 'attack' | 'speed' | 'hp' | 'goldRate' }
   // 서버 권위 모델 메시지
   | { type: 'PLAYER_INPUT'; input: PlayerInput }
-  // 레거시 호스트 기반 메시지 (deprecated)
-  | { type: 'HOST_GAME_STATE_BROADCAST'; state: SerializedGameState }
-  | { type: 'HOST_GAME_EVENT_BROADCAST'; event: any }
-  | { type: 'HOST_PLAYER_INPUT'; input: PlayerInput }
-  | { type: 'HOST_GAME_OVER'; result: any }
   // 게임 종료 후 로비 관련
   | { type: 'RETURN_TO_LOBBY' }
   | { type: 'RESTART_COOP_GAME' }
@@ -322,10 +317,7 @@ export type CoopServerMessage =
   // 연결 상태
   | { type: 'COOP_PLAYER_DISCONNECTED'; playerId: string }
   | { type: 'COOP_PLAYER_RECONNECTED'; playerId: string }
-  // 호스트 기반 메시지
-  | { type: 'COOP_GAME_START_HOST_BASED'; isHost: boolean; playerIndex: number; players: CoopPlayerInfo[]; hostPlayerId: string; difficulty?: string }
-  | { type: 'COOP_GAME_STATE_FROM_HOST'; state: SerializedGameState }
-  | { type: 'COOP_PLAYER_INPUT'; input: PlayerInput }
+  // 호스트 관련 메시지 (서버 권위 모델에서는 UI 목적으로만 사용)
   | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
   | { type: 'COOP_YOU_ARE_NOW_HOST'; gameState?: 'waiting' | 'countdown' | 'playing' | 'ended' }
   | { type: 'COOP_RECONNECT_INFO'; hostPlayerId: string; isHost: boolean; gameState: 'waiting' | 'countdown' | 'playing' | 'ended' }

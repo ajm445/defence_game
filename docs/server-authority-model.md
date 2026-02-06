@@ -394,20 +394,6 @@ src/
 
 ---
 
-## 레거시 호환성
-
-기존 호스트 기반 메시지는 `@deprecated`로 표시되어 있으며 하위 호환성을 위해 유지됩니다.
-
-```typescript
-/** @deprecated 서버 권위 모델에서는 사용하지 않음 */
-export type HostBasedClientMessage =
-  | { type: 'HOST_GAME_STATE_BROADCAST'; state: SerializedGameState }
-  | { type: 'HOST_PLAYER_INPUT'; input: PlayerInput }
-  | ...;
-```
-
----
-
 ## 장점
 
 1. **치트 방지**: 서버가 모든 게임 로직을 실행하므로 클라이언트 조작 불가
@@ -433,3 +419,4 @@ export type HostBasedClientMessage =
 | 2024-02 | 버프 시스템 확장 (damageTaken, moveSpeedBonus) |
 | 2024-02 | 스킬 슬롯 key 필드 도입 (type 접미사 대신) |
 | 2024-02 | 서버 모듈 분리 (hero, skill, enemy, boss, game systems) |
+| 2025-02 | 레거시 호스트 기반 코드 제거 (HostBasedClientMessage, HostBasedServerMessage 등) |

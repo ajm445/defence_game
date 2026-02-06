@@ -167,33 +167,6 @@ export class RPGCoopGameRoom {
   }
 
   // ============================================
-  // 레거시 호환 함수들 (호스트 기반 - 더 이상 사용하지 않음)
-  // ============================================
-
-  /**
-   * @deprecated 서버 권위 모델에서는 사용하지 않음
-   */
-  public handleGameStateBroadcast(_playerId: string, _state: SerializedGameState): void {
-    // 서버 권위 모델에서는 호스트가 상태를 브로드캐스트하지 않음
-    console.warn(`[ServerAuth] handleGameStateBroadcast는 더 이상 사용되지 않습니다.`);
-  }
-
-  /**
-   * @deprecated 서버 권위 모델에서는 사용하지 않음
-   */
-  public handleGameEventBroadcast(_playerId: string, _event: any): void {
-    // 서버 권위 모델에서는 이벤트 릴레이를 사용하지 않음
-    console.warn(`[ServerAuth] handleGameEventBroadcast는 더 이상 사용되지 않습니다.`);
-  }
-
-  /**
-   * @deprecated 서버 권위 모델에서는 게임 엔진이 직접 게임 종료 처리
-   */
-  public handleGameOver(_playerId: string, _result: any): void {
-    // 서버 권위 모델에서는 게임 엔진이 직접 게임 종료를 처리함
-    console.warn(`[ServerAuth] handleGameOver는 더 이상 사용되지 않습니다. 게임 엔진이 직접 처리합니다.`);
-  }
-
   /**
    * 게임 중 또는 게임 종료 후 로비로 복귀
    * → 방장만 호출 가능

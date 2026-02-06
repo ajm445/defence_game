@@ -170,7 +170,7 @@ export type ClientMessage =
 // ============================================
 
 export type ServerMessage =
-  // 게임 시작 (서버 권위 모델 - isHost 없음)
+  // 게임 시작 (서버 권위 모델)
   | {
       type: 'COOP_GAME_START';
       playerIndex: number;
@@ -184,37 +184,6 @@ export type ServerMessage =
   // 새 방장 권한 부여 (로비 관리용)
   | { type: 'COOP_YOU_ARE_NOW_HOST'; gameState?: 'waiting' | 'countdown' | 'playing' | 'ended' }
   // 재접속 정보
-  | {
-      type: 'COOP_RECONNECT_INFO';
-      hostPlayerId: string;
-      isHost: boolean;
-      gameState: 'waiting' | 'countdown' | 'playing' | 'ended';
-    };
-
-// ============================================
-// 레거시 호스트 기반 메시지 (호환성 유지, deprecated)
-// ============================================
-
-/** @deprecated 서버 권위 모델에서는 사용하지 않음 */
-export type HostBasedClientMessage =
-  | { type: 'HOST_GAME_STATE_BROADCAST'; state: SerializedGameState }
-  | { type: 'HOST_GAME_EVENT_BROADCAST'; event: any }
-  | { type: 'HOST_PLAYER_INPUT'; input: PlayerInput }
-  | { type: 'HOST_GAME_OVER'; result: any };
-
-/** @deprecated 서버 권위 모델에서는 사용하지 않음 */
-export type HostBasedServerMessage =
-  | {
-      type: 'COOP_GAME_START_HOST_BASED';
-      isHost: boolean;
-      playerIndex: number;
-      players: CoopPlayerInfo[];
-      hostPlayerId: string;
-    }
-  | { type: 'COOP_GAME_STATE_FROM_HOST'; state: SerializedGameState }
-  | { type: 'COOP_PLAYER_INPUT'; input: PlayerInput }
-  | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
-  | { type: 'COOP_YOU_ARE_NOW_HOST'; gameState?: 'waiting' | 'countdown' | 'playing' | 'ended' }
   | {
       type: 'COOP_RECONNECT_INFO';
       hostPlayerId: string;

@@ -337,38 +337,6 @@ class WebSocketClient {
     this.send({ type: 'COOP_UPGRADE_HERO_STAT', upgradeType } as any);
   }
 
-  // ============================================
-  // 호스트 기반 메시지 메서드
-  // ============================================
-
-  /**
-   * 게임 상태 브로드캐스트 (호스트 → 서버 → 클라이언트들)
-   */
-  public hostBroadcastGameState(state: SerializedGameState): void {
-    this.send({ type: 'HOST_GAME_STATE_BROADCAST', state } as any);
-  }
-
-  /**
-   * 게임 이벤트 브로드캐스트 (호스트 → 서버 → 클라이언트들)
-   */
-  public hostBroadcastGameEvent(event: any): void {
-    this.send({ type: 'HOST_GAME_EVENT_BROADCAST', event } as any);
-  }
-
-  /**
-   * 플레이어 입력 전송 (클라이언트 → 서버 → 호스트)
-   */
-  public hostSendPlayerInput(input: PlayerInput): void {
-    this.send({ type: 'HOST_PLAYER_INPUT', input } as any);
-  }
-
-  /**
-   * 게임 종료 알림 (호스트 → 서버 → 클라이언트들)
-   */
-  public hostBroadcastGameOver(result: any): void {
-    this.send({ type: 'HOST_GAME_OVER', result } as any);
-  }
-
   /**
    * 로비 복귀 요청 (호스트만)
    */

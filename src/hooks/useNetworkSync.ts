@@ -13,7 +13,7 @@ import { applyStunToEnemy } from '../game/rpg/enemyAI';
 import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
 import { distance } from '../utils/math';
-import type { SerializedGameState, PlayerInput, HOST_BASED_CONFIG } from '../../shared/types/hostBasedNetwork';
+import type { SerializedGameState, PlayerInput } from '../../shared/types/hostBasedNetwork';
 import type { CoopServerMessage, CoopPlayerInfo } from '../../shared/types/rpgNetwork';
 import type { HeroUnit, SkillType, Buff } from '../types/rpg';
 
@@ -29,87 +29,6 @@ const STATE_SYNC_INTERVAL = 50; // 50ms (20Hz)
  * - 모든 클라이언트는 입력 전송 및 상태 수신만 담당
  */
 export function useNetworkSync() {
-  const lastBroadcastTimeRef = useRef<number>(0);
-
-  /**
-   * @deprecated 서버 권위 모델에서는 사용하지 않음 - 서버가 직접 브로드캐스트
-   */
-  const broadcastGameState = useCallback(() => {
-    // 서버 권위 모델에서는 서버가 직접 상태를 브로드캐스트하므로 클라이언트에서 호출하지 않음
-    console.warn('[NetworkSync] broadcastGameState는 서버 권위 모델에서 사용하지 않습니다.');
-  }, []);
-
-  /**
-   * @deprecated 서버 권위 모델에서는 사용하지 않음 - 서버가 직접 입력 처리
-   */
-  const processRemoteInputs = useCallback(() => {
-    // 서버 권위 모델에서는 서버가 직접 입력을 처리하므로 클라이언트에서 호출하지 않음
-    console.warn('[NetworkSync] processRemoteInputs는 서버 권위 모델에서 사용하지 않습니다.');
-  }, []);
-
-  /**
-   * @deprecated 서버 권위 모델에서는 사용하지 않음 - 서버가 직접 입력 처리
-   * 원격 입력 처리 (레거시 호스트 기반 모델용)
-   */
-  const handleRemoteInput = useCallback((input: PlayerInput) => {
-    const state = useRPGStore.getState();
-    const heroId = `hero_${input.playerId}`;
-    const hero = state.otherHeroes.get(heroId);
-
-    if (!hero) {
-      console.warn(`[NetworkSync] 알 수 없는 영웅: ${heroId}`);
-      return;
-    }
-
-    // 이동 방향 업데이트 (사망한 영웅은 이동 불가)
-    // 위치는 updateOtherHeroesMovement에서 moveDirection으로 호스트가 직접 계산 (호스트 권위)
-    // 클라이언트 위치는 사용하지 않음 - 호스트 계산 위치가 권위적
-    if (input.moveDirection !== undefined && hero.hp > 0) {
-      // 돌진/시전/스턴 중이면 moveDirection만 업데이트 (state는 유지)
-      const isDashing = hero.dashState !== undefined;
-      const isCasting = hero.castingUntil && state.gameTime < hero.castingUntil;
-      const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
-
-      const updateData: Record<string, any> = {
-        moveDirection: input.moveDirection || undefined,
-      };
-
-      // 돌진/시전/스턴 중이 아닐 때만 state 업데이트
-      if (!isDashing && !isCasting && !isStunned) {
-        updateData.state = input.moveDirection ? 'moving' : 'idle';
-      }
-
-      // 위치는 호스트가 moveDirection으로 직접 계산 (updateOtherHeroesMovement에서 처리)
-      // 클라이언트 위치 보정 제거 - 호스트 위치가 권위적
-
-      state.updateOtherHero(heroId, updateData);
-    }
-
-    // 스킬 사용
-    if (input.skillUsed) {
-      // 호스트가 관리하는 위치 기준으로 스킬 실행
-      // 타겟 좌표는 클라이언트 의도대로 사용 (이동 방향이 동기화되므로 위치 오차 최소)
-      executeOtherHeroSkill(
-        heroId,
-        hero,
-        input.skillUsed.skillSlot,
-        input.skillUsed.targetX,
-        input.skillUsed.targetY
-      );
-    }
-
-    // 업그레이드 요청 (각 플레이어별 골드/업그레이드 사용, 사망한 영웅은 업그레이드 불가)
-    if (input.upgradeRequested && hero.hp > 0) {
-      const upgradeType = input.upgradeRequested as 'attack' | 'speed' | 'hp' | 'attackSpeed' | 'goldRate' | 'range';
-      const success = state.upgradeOtherHeroStat(heroId, upgradeType);
-      if (success) {
-        console.log(`[NetworkSync] 업그레이드 완료: ${heroId}, ${upgradeType}`);
-      } else {
-        console.log(`[NetworkSync] 업그레이드 실패 (골드 부족 또는 최대 레벨): ${heroId}, ${upgradeType}`);
-      }
-    }
-  }, []);
-
   // 클라이언트: 서버 메시지 핸들러 설정
   useEffect(() => {
     console.log('[NetworkSync] 메시지 핸들러 등록');
@@ -134,29 +53,6 @@ export function useNetworkSync() {
             console.log('[NetworkSync] COOP_GAME_STATE 수신, gameTime:', message.state?.gameTime);
           }
           handleGameStateFromServer(message.state);
-          break;
-
-        // ============================================
-        // 레거시 호스트 기반 메시지 핸들러 (하위 호환성)
-        // ============================================
-
-        // 호스트 기반 게임 시작 (레거시)
-        case 'COOP_GAME_START_HOST_BASED':
-          handleGameStartHostBased(message);
-          break;
-
-        // 호스트로부터 게임 상태 수신 (레거시 - 클라이언트만)
-        case 'COOP_GAME_STATE_FROM_HOST':
-          if (!state.multiplayer.isHost) {
-            handleGameStateFromHost(message.state);
-          }
-          break;
-
-        // 플레이어 입력 수신 (레거시 - 호스트만)
-        case 'COOP_PLAYER_INPUT':
-          if (state.multiplayer.isHost) {
-            state.addRemoteInput(message.input);
-          }
           break;
 
         // 호스트 변경
@@ -243,11 +139,8 @@ export function useNetworkSync() {
     };
   }, []);
 
-  return {
-    broadcastGameState,
-    processRemoteInputs,
-  };
 }
+
 
 // ============================================
 // 서버 권위 모델 메시지 핸들러 함수들
@@ -314,46 +207,6 @@ function handleGameStateFromServer(serializedState: SerializedGameState) {
   const myHeroId = state.multiplayer.myHeroId;
 
   // 게임 상태 적용 (myHeroId가 null이어도 applySerializedState에서 처리)
-  state.applySerializedState(serializedState, myHeroId);
-}
-
-// ============================================
-// 레거시 호스트 기반 메시지 핸들러 함수들 (하위 호환성)
-// ============================================
-
-/** @deprecated 서버 권위 모델에서는 COOP_GAME_START 사용 */
-function handleGameStartHostBased(message: any) {
-  const { isHost, playerIndex, players, hostPlayerId, difficulty } = message;
-
-  console.log(`[NetworkSync] [레거시] 호스트 기반 게임 시작: 호스트=${isHost}, 인덱스=${playerIndex}, 난이도=${difficulty}`);
-
-  useRPGStore.getState().setMultiplayerState({
-    isMultiplayer: true,
-    isHost,
-    hostPlayerId,
-    myPlayerId: wsClient.playerId,
-    players,
-    connectionState: 'in_game',
-    countdown: null,
-  });
-
-  // 난이도 설정 (서버에서 전달된 값 사용)
-  if (difficulty) {
-    useRPGStore.getState().setDifficulty(difficulty);
-  }
-
-  // 호스트는 게임 초기화 및 상태 관리
-  // 클라이언트는 호스트로부터 상태를 받아서 적용
-  soundManager.init(); // AudioContext 초기화 (fallback)
-  useRPGStore.getState().initMultiplayerGame(players, isHost, difficulty);
-}
-
-/** @deprecated 서버 권위 모델에서는 COOP_GAME_STATE 사용 */
-function handleGameStateFromHost(serializedState: SerializedGameState) {
-  const state = useRPGStore.getState();
-  const myHeroId = state.multiplayer.myHeroId;
-
-  // 게임 상태 적용 (내 영웅 ID를 전달하여 구분)
   state.applySerializedState(serializedState, myHeroId);
 }
 

@@ -19,12 +19,12 @@
 
 ## 개요
 
-이 프로젝트는 **RTS 모드**와 **RPG 모드** 두 가지 게임 모드를 지원하며, 각각 다른 멀티플레이어 아키텍처를 사용합니다.
+이 프로젝트는 **RTS 모드**와 **RPG 모드** 두 가지 게임 모드를 지원하며, 모두 **서버 권위 모델**을 사용합니다.
 
 | 모드 | 아키텍처 | 플레이어 수 | 게임 로직 위치 | 게임 방식 |
 |------|----------|-------------|----------------|-----------|
 | RTS | 전용 서버 방식 | 2명 (1v1) | 서버 | 대전 |
-| RPG | 호스트 기반 릴레이 | 1~4명 | 호스트 클라이언트 | 협동 |
+| RPG | 서버 권위 모델 | 1~4명 | 서버 | 협동 |
 
 ---
 
@@ -228,41 +228,38 @@ interface NetworkGameState {
 
 ## RPG 모드 멀티플레이어
 
-### 아키텍처: 호스트 기반 릴레이 방식 (Host-Authority)
+### 아키텍처: 서버 권위 모델 (Server Authority)
 
 ```
-호스트 (Player 1)                    클라이언트들 (Player 2, 3, 4)
-┌─────────────────┐                  ┌─────────────────┐
-│ 게임 로직 실행   │                  │ 상태 수신만      │
-│ 상태 브로드캐스트 │                  │ 입력만 전송      │
-│ 원격 입력 처리   │                  │                 │
-└────────┬────────┘                  └────────┬────────┘
-         │                                    │
-         │      WebSocket 연결                 │
-         ▼                                    ▼
-         └──────────────┬─────────────────────┘
-                        │
-                        ▼
-               ┌─────────────────┐
-               │  서버 (릴레이)   │
-               │                 │
-               │ - 메시지 전달만  │
-               │ - 게임 로직 없음 │
-               └─────────────────┘
+┌─────────────┐     입력 전송      ┌─────────────┐     입력 전송      ┌─────────────┐
+│ 클라이언트A │ ─────────────────→ │    서버     │ ←───────────────── │ 클라이언트B │
+│  (방장)     │                    │             │                    │             │
+└─────────────┘                    └─────────────┘                    └─────────────┘
+       ↑                                  │                                  ↑
+       │                           게임 로직 실행                            │
+       │                           (60fps 틱)                               │
+       │                                  │                                  │
+       │                           상태 브로드캐스트                         │
+       │                           (50ms / 20Hz)                            │
+       │                                  │                                  │
+       └──────────────────────────────────┴──────────────────────────────────┘
+                                    상태 수신
 ```
+
+**방장(Host)**: UI 권한만 보유 (일시정지, 재시작, 설정 변경). 게임 로직은 서버가 실행.
 
 ### 특징
 
 | 항목 | 설명 |
 |------|------|
-| 게임 로직 | 호스트 클라이언트가 실행 |
-| 서버 역할 | 메시지 릴레이만 담당 |
-| 입력 처리 | 클라이언트 입력 → 서버 → 호스트 → 처리 |
-| 서버 부하 | 낮음 |
-| 지연시간 | 낮음 (호스트 중심) |
-| 호스트 변경 | 자동 지원 |
+| 게임 로직 | 서버가 실행 (RPGServerGameEngine) |
+| 서버 역할 | 게임 로직 실행 + 상태 브로드캐스트 |
+| 입력 처리 | 모든 클라이언트 → 서버 → 서버가 처리 |
+| 치트 방지 | 우수 (서버가 권위적) |
+| 호스트 이탈 | 게임 계속 진행 (새 방장은 UI 권한만) |
+| 방장 역할 | UI 제어만 (일시정지, 재시작, 설정) |
 
-### 호스트 기반 설정
+### 네트워크 설정
 
 ```typescript
 // hostBasedNetwork.ts
@@ -281,36 +278,37 @@ export const HOST_BASED_CONFIG = {
 
 ### RPGCoopGameRoom.ts 역할
 
-서버는 게임 로직을 실행하지 않고 메시지만 전달합니다.
+서버가 게임 로직을 실행하고 모든 클라이언트에 상태를 브로드캐스트합니다.
 
 ```typescript
 export class RPGCoopGameRoom {
   public id: string;
   private playerIds: string[];
-  private hostPlayerId: string;
+  private hostPlayerId: string;  // UI 권한만 (일시정지, 재시작 등)
+  private gameEngine: RPGServerGameEngine | null = null;
 
-  // 호스트의 게임 상태를 다른 클라이언트에 전달
-  public handleGameStateBroadcast(playerId: string, state: SerializedGameState): void {
-    if (playerId !== this.hostPlayerId) return;  // 호스트만 허용
-
-    this.playerIds.forEach(pid => {
-      if (pid !== this.hostPlayerId) {
-        sendToPlayer(pid, {
-          type: 'COOP_GAME_STATE_FROM_HOST',
-          state,
-        });
-      }
-    });
+  // 게임 시작 시 서버 게임 엔진 생성
+  private startGame(): void {
+    this.gameEngine = new RPGServerGameEngine(
+      this.id,
+      this.playerInfos,
+      this.difficulty,
+      (state) => this.broadcastGameState(state),  // 모든 클라이언트에 상태 브로드캐스트
+      (result) => this.handleGameOverFromEngine(result)
+    );
+    this.gameEngine.start();
   }
 
-  // 클라이언트 입력을 호스트에 전달
+  // 모든 클라이언트의 입력을 게임 엔진에 전달
   public handlePlayerInput(playerId: string, input: PlayerInput): void {
-    if (playerId !== this.hostPlayerId) {
-      sendToPlayer(this.hostPlayerId, {
-        type: 'COOP_PLAYER_INPUT',
-        input: { ...input, playerId },
-      });
-    }
+    this.gameEngine?.handlePlayerInput(playerId, input);
+  }
+
+  // 게임 상태를 모든 클라이언트에 브로드캐스트
+  private broadcastGameState(state: SerializedGameState): void {
+    this.playerIds.forEach(pid => {
+      sendToPlayer(pid, { type: 'COOP_GAME_STATE', state });
+    });
   }
 }
 ```
@@ -404,23 +402,25 @@ public transferHostAndLeave(playerId: string): void {
 
 | 방향 | 내용 | 주기 |
 |------|------|------|
-| 호스트 → 서버 → 클라이언트 | 전체 게임 상태 | 50ms (20Hz) |
-| 클라이언트 → 서버 → 호스트 | 플레이어 입력 | 즉시 |
+| 서버 → 모든 클라이언트 | 전체 게임 상태 | 50ms (20Hz) |
+| 모든 클라이언트 → 서버 | 플레이어 입력 | 즉시 |
 
-### 호스트의 게임 루프
+### 서버의 게임 루프
 
 ```
-[게임 루프 (60fps)]
+[게임 루프 (60fps)] - RPGServerGameEngine
        ↓
-[자신의 입력 처리]
-       ↓
-[원격 입력 큐에서 다른 플레이어 입력 처리]
+[모든 플레이어 입력 처리]
        ↓
 [게임 상태 시뮬레이션]
+  - 영웅 이동/스킬
+  - 적 AI/스폰
+  - 보스 패턴
+  - 넥서스 레이저
        ↓
 [50ms마다 상태 브로드캐스트]
-       → HOST_GAME_STATE_BROADCAST
-         → 서버를 통해 클라이언트들에게 전송
+       → COOP_GAME_STATE
+         → 모든 클라이언트에게 전송
 ```
 
 ### 메시지 타입
@@ -435,12 +435,13 @@ public transferHostAndLeave(playerId: string): void {
 | `LEAVE_COOP_ROOM` | 협동 방 퇴장 |
 | `COOP_READY` / `COOP_UNREADY` | 준비 상태 토글 |
 | `CHANGE_COOP_CLASS` | 영웅 클래스 변경 |
-| `START_COOP_GAME` | 게임 시작 (호스트만) |
-| `KICK_COOP_PLAYER` | 플레이어 추방 (호스트만) |
-| `HOST_GAME_STATE_BROADCAST` | 게임 상태 브로드캐스트 (호스트만) |
-| `HOST_GAME_EVENT_BROADCAST` | 게임 이벤트 브로드캐스트 (호스트만) |
-| `HOST_PLAYER_INPUT` | 플레이어 입력 (클라이언트만) |
-| `HOST_GAME_OVER` | 게임 종료 (호스트만) |
+| `START_COOP_GAME` | 게임 시작 (방장만) |
+| `KICK_COOP_PLAYER` | 플레이어 추방 (방장만) |
+| `PLAYER_INPUT` | 플레이어 입력 (모든 클라이언트) |
+| `PAUSE_COOP_GAME` | 일시정지 (방장만) |
+| `RESUME_COOP_GAME` | 재개 (방장만) |
+| `RETURN_TO_LOBBY` | 로비 복귀 (방장만) |
+| `RESTART_COOP_GAME` | 재시작 (방장만) |
 
 #### 서버 → 클라이언트
 
@@ -453,14 +454,15 @@ public transferHostAndLeave(playerId: string): void {
 | `COOP_PLAYER_LEFT` | 플레이어 퇴장 |
 | `COOP_PLAYER_READY` | 플레이어 준비 상태 변경 |
 | `COOP_GAME_COUNTDOWN` | 게임 시작 카운트다운 |
-| `COOP_GAME_START_HOST_BASED` | 게임 시작 (역할 할당) |
-| `COOP_GAME_STATE_FROM_HOST` | 호스트로부터 게임 상태 |
-| `COOP_PLAYER_INPUT` | 다른 플레이어 입력 (호스트만 수신) |
+| `COOP_GAME_START` | 게임 시작 (모든 플레이어 동등) |
+| `COOP_GAME_STATE` | 게임 상태 (서버가 브로드캐스트) |
 | `COOP_GAME_OVER` | 게임 종료 |
-| `COOP_HOST_CHANGED` | 호스트 변경 알림 |
-| `COOP_YOU_ARE_NOW_HOST` | 새 호스트 권한 부여 (gameState 포함) |
-| `COOP_RECONNECT_INFO` | 재접속 정보 (hostPlayerId, isHost, gameState) |
+| `COOP_HOST_CHANGED` | 방장 변경 알림 (UI 권한) |
+| `COOP_YOU_ARE_NOW_HOST` | 새 방장 권한 부여 |
+| `COOP_RECONNECT_INFO` | 재접속 정보 |
 | `COOP_PLAYER_RECONNECTED` | 플레이어 재접속 알림 |
+| `COOP_GAME_PAUSED` | 일시정지됨 |
+| `COOP_GAME_RESUMED` | 재개됨 |
 
 ### 플레이어 입력 구조
 
@@ -533,22 +535,26 @@ interface EnemyBase {
 // - 4명: left, right, top, bottom (4개)
 ```
 
-### 호스트 변경 처리
+### 방장 변경 처리
 
-호스트가 연결 해제되면 자동으로 다음 플레이어가 호스트가 됩니다.
+방장이 나가면 자동으로 다음 플레이어가 방장이 됩니다.
+**중요**: 서버가 게임 로직을 실행하므로 방장 변경은 UI 권한만 이전됩니다.
 
 ```
-호스트 연결 끊김
+방장 연결 끊김
        ↓
 서버: RPGCoopGameRoom.handlePlayerDisconnect()
        ↓
-새 호스트 선택 (첫 번째 남은 플레이어)
+새 방장 선택 (첫 번째 남은 플레이어)
+       ↓
+게임은 서버가 계속 실행 (중단 없음)
        ↓
 모든 플레이어에게 알림:
   → COOP_HOST_CHANGED { newHostPlayerId }
 
-새 호스트에게:
+새 방장에게:
   → COOP_YOU_ARE_NOW_HOST { gameState }
+  (일시정지, 재시작 등 UI 권한 부여)
 ```
 
 ### 플레이어 재접속 흐름
@@ -564,7 +570,7 @@ interface EnemyBase {
 재접속한 플레이어에게:
   → COOP_RECONNECT_INFO { hostPlayerId, isHost, gameState }
        ↓
-클라이언트: 호스트로부터 다음 상태 브로드캐스트 대기
+클라이언트: 서버로부터 다음 상태 브로드캐스트 대기 (50ms 이내)
 ```
 
 ---
@@ -575,15 +581,15 @@ interface EnemyBase {
 |------|----------|----------|
 | **플레이어 수** | 2명 (1v1) | 1~4명 (협동) |
 | **게임 방식** | 대전 | 협동 |
-| **네트워크 방식** | 전용 서버 | 호스트 기반 |
-| **게임 로직 위치** | 서버 | 호스트 클라이언트 |
-| **서버 역할** | 게임 엔진 + 메시지 전송 | 메시지 릴레이만 |
+| **네트워크 방식** | 전용 서버 | 서버 권위 모델 |
+| **게임 로직 위치** | 서버 | 서버 |
+| **서버 역할** | 게임 엔진 + 상태 브로드캐스트 | 게임 엔진 + 상태 브로드캐스트 |
 | **동기화 주기** | 50ms (20Hz) | 50ms (20Hz) |
 | **자원 관리** | 플레이어별 개별 | 플레이어별 개별 |
-| **부정행위 방지** | 우수 (서버 검증) | 중간 (호스트 의존) |
-| **지연시간** | 높음 (왕복 필수) | 낮음 (호스트 중심) |
-| **서버 부하** | 높음 | 낮음 |
-| **호스트 변경** | N/A | 자동 지원 |
+| **부정행위 방지** | 우수 (서버 검증) | 우수 (서버 검증) |
+| **지연시간** | 중간 (클라이언트 예측) | 중간 (클라이언트 예측) |
+| **서버 부하** | 중간 | 중간 |
+| **방장 이탈** | N/A | 게임 계속 진행 (UI 권한만 이전) |
 | **재접속** | 미지원 | 지원 |
 
 ### 아키텍처 선택 이유
@@ -591,7 +597,7 @@ interface EnemyBase {
 | 모드 | 선택 이유 |
 |------|-----------|
 | RTS (전용 서버) | 경쟁 게임에서 공정성과 치팅 방지가 중요 |
-| RPG (호스트 기반) | 협동 게임에서 서버 부하 감소 및 싱글/멀티 통합 용이 |
+| RPG (서버 권위) | 치트 방지, 일관된 게임 상태, 방장 이탈 시에도 게임 진행 |
 
 ---
 
@@ -631,38 +637,38 @@ interface EnemyBase {
 ### RPG 모드 게임 플로우
 
 ```
-호스트              서버              클라이언트
-  │                 │                    │
-  │─CREATE_COOP_ROOM→│                    │
-  │←COOP_ROOM_CREATED│                    │
-  │                 │                    │
-  │                 │←─JOIN_COOP_ROOM────│
-  │                 │──COOP_ROOM_JOINED─→│
-  │←COOP_PLAYER_JOINED                   │
-  │                 │                    │
-  │──COOP_READY────→│                    │
-  │                 │←────COOP_READY─────│
-  │                 │                    │
-  │─START_COOP_GAME→│                    │
-  │←COOP_GAME_START─│─COOP_GAME_START───→│
-  │  _HOST_BASED    │  _HOST_BASED       │
-  │  (isHost: true) │  (isHost: false)   │
-  │                 │                    │
-  │ [호스트 게임 로직 실행]                │
-  │                 │                    │
-  │─HOST_GAME_STATE─→│                    │
-  │  _BROADCAST     │─COOP_GAME_STATE───→│
-  │  (50ms 간격)    │  _FROM_HOST        │
-  │                 │                    │
-  │                 │←─HOST_PLAYER_INPUT─│
-  │←COOP_PLAYER_INPUT│  (영웅 이동/스킬)  │
-  │                 │                    │
-  │ [호스트가 원격 입력 처리]              │
-  │                 │                    │
-  │─HOST_GAME_STATE─→│─COOP_GAME_STATE───→│
-  │  _BROADCAST     │  _FROM_HOST        │
-  │                 │                    │
-  │─HOST_GAME_OVER──→│──COOP_GAME_OVER───→│
+방장(클라이언트)      서버                클라이언트
+  │                   │                      │
+  │─CREATE_COOP_ROOM─→│                      │
+  │←COOP_ROOM_CREATED─│                      │
+  │                   │                      │
+  │                   │←──JOIN_COOP_ROOM─────│
+  │                   │───COOP_ROOM_JOINED──→│
+  │←COOP_PLAYER_JOINED│                      │
+  │                   │                      │
+  │───COOP_READY─────→│                      │
+  │                   │←─────COOP_READY──────│
+  │                   │                      │
+  │─START_COOP_GAME──→│                      │
+  │                   │                      │
+  │                   │  [서버 게임 엔진 시작] │
+  │                   │  RPGServerGameEngine │
+  │                   │                      │
+  │←─COOP_GAME_START──│───COOP_GAME_START───→│
+  │  (isHost: true)   │   (isHost: false)    │
+  │  (UI 권한만)      │                      │
+  │                   │                      │
+  │                   │  [서버 게임 루프 60fps]│
+  │                   │                      │
+  │───PLAYER_INPUT───→│←────PLAYER_INPUT─────│
+  │  (이동/스킬)      │     (이동/스킬)       │
+  │                   │                      │
+  │                   │  [서버가 입력 처리]   │
+  │                   │                      │
+  │←──COOP_GAME_STATE─│───COOP_GAME_STATE───→│
+  │   (50ms 간격)     │    (50ms 간격)       │
+  │                   │                      │
+  │←──COOP_GAME_OVER──│───COOP_GAME_OVER────→│
 ```
 
 ---

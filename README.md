@@ -4,7 +4,7 @@
 
 **RTS 모드**와 **RPG 모드**를 모두 즐길 수 있는 종합 전략 게임입니다.
 
-**Version: 1.21.5**
+**Version: 1.22.0**
 
 ---
 
@@ -471,7 +471,20 @@ defence_game/
 
 ## 버전 히스토리
 
-### V1.21.5 (현재)
+### V1.22.0 (현재)
+- **서버 권위 모델 아키텍처 정리**
+  - 레거시 호스트-클라이언트 통신 코드 완전 제거 (~480줄)
+  - `HostBasedClientMessage`, `HostBasedServerMessage` 타입 삭제
+  - 레거시 메시지 핸들러 제거 (`HOST_GAME_STATE_BROADCAST`, `HOST_GAME_EVENT_BROADCAST`, `HOST_PLAYER_INPUT`, `HOST_GAME_OVER`)
+  - 서버가 모든 게임 로직 실행, 방장은 UI 권한만 보유 (일시정지, 재시작, 설정)
+- **문서 업데이트**
+  - `docs/SERVER_ARCHITECTURE.md`: RPG 모드 아키텍처를 서버 권위 모델로 전면 수정
+  - `docs/server-authority-model.md`: 레거시 호환성 섹션 제거, 변경 이력 추가
+- **코드 품질 개선**
+  - 미사용 import 및 함수 정리
+  - TypeScript 컴파일 검증 완료
+
+### V1.21.5
 - **움직임/보간 시스템 개선**
   - 적 보간에 속도 기반 예측 이동 추가 (보간 완료 후 최대 50ms 예측)
   - 카메라 lerp 속도 조정 (0.15 → 0.3, 더 빠르고 부드러운 추적)
