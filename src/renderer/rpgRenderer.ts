@@ -64,7 +64,7 @@ export function renderRPG(
   }
 
   if (state.enemyBases && state.enemyBases.length > 0) {
-    drawAllEnemyBases(ctx, state.enemyBases, camera, scaledWidth, scaledHeight);
+    drawAllEnemyBases(ctx, state.enemyBases, camera, scaledWidth, scaledHeight, state.gameTime);
   }
 
   // 튜토리얼 목표 위치 마커 렌더링

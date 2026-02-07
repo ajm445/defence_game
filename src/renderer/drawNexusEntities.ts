@@ -114,7 +114,8 @@ export function drawEnemyBase(
   base: EnemyBase,
   camera: { x: number; y: number; zoom: number },
   _canvasWidth: number,
-  _canvasHeight: number
+  _canvasHeight: number,
+  gameTime: number = 0
 ): void {
   // 다른 엔티티와 동일한 좌표 변환
   const screenX = base.x - camera.x;
@@ -153,46 +154,202 @@ export function drawEnemyBase(
     return;
   }
 
-  // 활성 기지 - 어두운 빨간색
-  const glowGradient = ctx.createRadialGradient(
-    screenX, screenY, radius * 0.3,
-    screenX, screenY, radius * 1.3
-  );
-  glowGradient.addColorStop(0, 'rgba(255, 50, 50, 0.4)');
-  glowGradient.addColorStop(0.5, 'rgba(200, 50, 50, 0.2)');
-  glowGradient.addColorStop(1, 'rgba(150, 50, 50, 0)');
+  // === 미니 마왕성 ===
+  const flagWave = Math.sin(gameTime * 3) * 0.12; // 깃발 펄럭임
 
-  ctx.beginPath();
-  ctx.arc(screenX, screenY, radius * 1.3, 0, Math.PI * 2);
-  ctx.fillStyle = glowGradient;
-  ctx.fill();
-
-  // 기지 본체 (사각형)
   ctx.save();
   ctx.translate(screenX, screenY);
 
-  // 본체
-  ctx.fillStyle = '#442222';
-  ctx.fillRect(-radius, -radius, radius * 2, radius * 2);
-
-  // 테두리
-  ctx.strokeStyle = '#ff4444';
-  ctx.lineWidth = 3;
-  ctx.strokeRect(-radius, -radius, radius * 2, radius * 2);
-
-  // 중앙 문양 (X 표시)
-  ctx.strokeStyle = '#ff6666';
-  ctx.lineWidth = 4;
+  // === A. 외곽 글로우 ===
+  const glowGradient = ctx.createRadialGradient(0, 0, radius * 0.3, 0, 0, radius * 1.4);
+  glowGradient.addColorStop(0, 'rgba(120, 40, 60, 0.3)');
+  glowGradient.addColorStop(1, 'rgba(80, 20, 40, 0)');
   ctx.beginPath();
-  ctx.moveTo(-radius * 0.5, -radius * 0.5);
-  ctx.lineTo(radius * 0.5, radius * 0.5);
-  ctx.moveTo(radius * 0.5, -radius * 0.5);
-  ctx.lineTo(-radius * 0.5, radius * 0.5);
+  ctx.arc(0, 0, radius * 1.4, 0, Math.PI * 2);
+  ctx.fillStyle = glowGradient;
+  ctx.fill();
+
+  // === B. 성벽 본체 ===
+  const wallW = radius * 1.5;
+  const wallH = radius * 1.3;
+  const wallR = radius * 0.08; // 약간만 둥글게
+
+  // 성벽 그라디언트 (어두운 석재 톤)
+  const wallGrad = ctx.createLinearGradient(0, -wallH / 2, 0, wallH / 2);
+  wallGrad.addColorStop(0, '#4a3848');
+  wallGrad.addColorStop(0.5, '#3d2d3d');
+  wallGrad.addColorStop(1, '#322632');
+
+  // 약간 둥근 사각형
+  ctx.beginPath();
+  ctx.moveTo(-wallW / 2 + wallR, -wallH / 2);
+  ctx.lineTo(wallW / 2 - wallR, -wallH / 2);
+  ctx.quadraticCurveTo(wallW / 2, -wallH / 2, wallW / 2, -wallH / 2 + wallR);
+  ctx.lineTo(wallW / 2, wallH / 2);
+  ctx.lineTo(-wallW / 2, wallH / 2);
+  ctx.lineTo(-wallW / 2, -wallH / 2 + wallR);
+  ctx.quadraticCurveTo(-wallW / 2, -wallH / 2, -wallW / 2 + wallR, -wallH / 2);
+  ctx.closePath();
+  ctx.fillStyle = wallGrad;
+  ctx.fill();
+
+  // 성벽 테두리
+  ctx.strokeStyle = '#6a4a5a';
+  ctx.lineWidth = 3;
   ctx.stroke();
+
+  // 성벽 상단 흉벽 (각진 톱니)
+  const battlementCount = 5;
+  const bWidth = wallW / (battlementCount * 2 + 1);
+  const bHeight = radius * 0.16;
+  for (let i = 0; i < battlementCount; i++) {
+    const bx = -wallW / 2 + bWidth * (i * 2 + 1);
+    const by = -wallH / 2 - bHeight;
+    ctx.fillStyle = '#4a3848';
+    ctx.fillRect(bx, by, bWidth, bHeight);
+    ctx.strokeStyle = '#6a4a5a';
+    ctx.lineWidth = 1.5;
+    ctx.strokeRect(bx, by, bWidth, bHeight);
+  }
+
+  // === C. 좌우 탑 ===
+  const towerPositions = [
+    { x: -wallW / 2 - radius * 0.02, y: 0 },
+    { x: wallW / 2 + radius * 0.02, y: 0 },
+  ];
+  const tRadius = radius * 0.25;
+
+  for (const tp of towerPositions) {
+    // 탑 몸체 (사각형 기둥)
+    ctx.fillStyle = '#4a3848';
+    ctx.fillRect(tp.x - tRadius, -wallH / 2 - bHeight, tRadius * 2, wallH + bHeight);
+    ctx.strokeStyle = '#6a4a5a';
+    ctx.lineWidth = 2;
+    ctx.strokeRect(tp.x - tRadius, -wallH / 2 - bHeight, tRadius * 2, wallH + bHeight);
+
+    // 탑 지붕 (삼각형)
+    const roofH = tRadius * 1.4;
+    const roofTop = -wallH / 2 - bHeight - roofH;
+    ctx.beginPath();
+    ctx.moveTo(tp.x, roofTop);
+    ctx.lineTo(tp.x - tRadius * 1.1, -wallH / 2 - bHeight);
+    ctx.lineTo(tp.x + tRadius * 1.1, -wallH / 2 - bHeight);
+    ctx.closePath();
+
+    const roofGrad = ctx.createLinearGradient(tp.x, roofTop, tp.x, -wallH / 2 - bHeight);
+    roofGrad.addColorStop(0, '#8b3040');
+    roofGrad.addColorStop(1, '#6b2030');
+    ctx.fillStyle = roofGrad;
+    ctx.fill();
+    ctx.strokeStyle = '#9b4050';
+    ctx.lineWidth = 1.5;
+    ctx.stroke();
+
+    // 탑 창문 (빛나는 작은 사각)
+    const winSize = tRadius * 0.35;
+    ctx.fillStyle = '#1a0a10';
+    ctx.fillRect(tp.x - winSize, tp.y - winSize, winSize * 2, winSize * 2);
+    const windowGlow = ctx.createRadialGradient(tp.x, tp.y, 0, tp.x, tp.y, winSize);
+    windowGlow.addColorStop(0, 'rgba(255, 160, 60, 0.7)');
+    windowGlow.addColorStop(1, 'rgba(200, 100, 30, 0.1)');
+    ctx.fillStyle = windowGlow;
+    ctx.fillRect(tp.x - winSize, tp.y - winSize, winSize * 2, winSize * 2);
+  }
+
+  // === D. 중앙 문 (아치형) ===
+  const doorW = radius * 0.3;
+  const doorH = radius * 0.45;
+  const doorY = wallH / 2 - doorH;
+
+  ctx.beginPath();
+  ctx.moveTo(-doorW, wallH / 2);
+  ctx.lineTo(-doorW, doorY);
+  ctx.arc(0, doorY, doorW, Math.PI, 0, false);
+  ctx.lineTo(doorW, wallH / 2);
+  ctx.closePath();
+  ctx.fillStyle = '#1a0a10';
+  ctx.fill();
+  ctx.strokeStyle = '#7a5533';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 문 안쪽 빛
+  const doorGlow = ctx.createRadialGradient(0, doorY + doorH * 0.4, 0, 0, doorY + doorH * 0.4, doorW * 0.6);
+  doorGlow.addColorStop(0, 'rgba(255, 140, 40, 0.4)');
+  doorGlow.addColorStop(1, 'rgba(200, 80, 20, 0)');
+  ctx.beginPath();
+  ctx.moveTo(-doorW + 2, wallH / 2);
+  ctx.lineTo(-doorW + 2, doorY);
+  ctx.arc(0, doorY, doorW - 2, Math.PI, 0, false);
+  ctx.lineTo(doorW - 2, wallH / 2);
+  ctx.closePath();
+  ctx.fillStyle = doorGlow;
+  ctx.fill();
+
+  // === E. 깃발 ===
+  const flagX = 0;
+  const flagBaseY = -wallH / 2 - bHeight;
+  const flagPoleH = radius * 0.55;
+
+  // 깃대
+  ctx.beginPath();
+  ctx.moveTo(flagX, flagBaseY);
+  ctx.lineTo(flagX, flagBaseY - flagPoleH);
+  ctx.strokeStyle = '#8a6a44';
+  ctx.lineWidth = 2;
+  ctx.stroke();
+
+  // 깃발 (펄럭이는 삼각형)
+  ctx.save();
+  ctx.translate(flagX, flagBaseY - flagPoleH);
+  ctx.rotate(flagWave);
+
+  ctx.beginPath();
+  ctx.moveTo(0, 0);
+  ctx.lineTo(radius * 0.3, radius * 0.08);
+  ctx.lineTo(0, radius * 0.18);
+  ctx.closePath();
+  ctx.fillStyle = '#aa2233';
+  ctx.fill();
+  ctx.strokeStyle = '#cc3344';
+  ctx.lineWidth = 1;
+  ctx.stroke();
+  ctx.restore();
+
+  // === F. 중앙 문양 (맥동하는 코어) ===
+  const pulseAlpha = 0.5 + Math.sin(gameTime * 2) * 0.25;
+  const coreY = -wallH * 0.15;
+  const coreRadius = radius * 0.15;
+
+  // 코어 글로우
+  const coreGlow = ctx.createRadialGradient(0, coreY, 0, 0, coreY, coreRadius * 2.5);
+  coreGlow.addColorStop(0, `rgba(200, 60, 80, ${pulseAlpha * 0.5})`);
+  coreGlow.addColorStop(1, 'rgba(150, 40, 60, 0)');
+  ctx.beginPath();
+  ctx.arc(0, coreY, coreRadius * 2.5, 0, Math.PI * 2);
+  ctx.fillStyle = coreGlow;
+  ctx.fill();
+
+  // 코어 본체 (다이아몬드)
+  ctx.save();
+  ctx.translate(0, coreY);
+  ctx.rotate(Math.PI / 4);
+  ctx.fillStyle = hpPercent > 0.5 ? '#cc3344' : hpPercent > 0.25 ? '#cc7733' : '#993322';
+  ctx.fillRect(-coreRadius, -coreRadius, coreRadius * 2, coreRadius * 2);
+  ctx.strokeStyle = '#dd6666';
+  ctx.lineWidth = 1.5;
+  ctx.strokeRect(-coreRadius, -coreRadius, coreRadius * 2, coreRadius * 2);
+  ctx.restore();
+
+  // 코어 하이라이트
+  ctx.beginPath();
+  ctx.arc(-coreRadius * 0.2, coreY - coreRadius * 0.2, coreRadius * 0.25, 0, Math.PI * 2);
+  ctx.fillStyle = `rgba(255, 255, 255, ${pulseAlpha * 0.5})`;
+  ctx.fill();
 
   ctx.restore();
 
-  // HP 바
+  // === G. HP 바 & 라벨 ===
   const hpBarWidth = radius * 2;
   const hpBarHeight = 6;
   const hpBarX = screenX - hpBarWidth / 2;
@@ -203,7 +360,7 @@ export function drawEnemyBase(
   ctx.fillRect(hpBarX, hpBarY, hpBarWidth, hpBarHeight);
 
   // HP 바 내용
-  const hpColor = hpPercent > 0.5 ? '#ff4444' : hpPercent > 0.25 ? '#ff8844' : '#ffaa44';
+  const hpColor = hpPercent > 0.5 ? '#cc3344' : hpPercent > 0.25 ? '#cc7733' : '#cc5522';
   ctx.fillStyle = hpColor;
   ctx.fillRect(hpBarX, hpBarY, hpBarWidth * hpPercent, hpBarHeight);
 
@@ -218,17 +375,6 @@ export function drawEnemyBase(
   ctx.textAlign = 'center';
   ctx.fillText(`${Math.floor(base.hp)} / ${base.maxHp}`, screenX, hpBarY + hpBarHeight + 10);
 
-  // 라벨
-  ctx.fillStyle = '#ff6666';
-  ctx.font = 'bold 11px sans-serif';
-  ctx.textAlign = 'center';
-  const baseLabels: Record<string, string> = {
-    left: 'LEFT BASE',
-    right: 'RIGHT BASE',
-    top: 'TOP BASE',
-    bottom: 'BOTTOM BASE',
-  };
-  ctx.fillText(baseLabels[base.id] || 'BASE', screenX, screenY - radius - 8);
 }
 
 /**
@@ -239,10 +385,11 @@ export function drawAllEnemyBases(
   bases: EnemyBase[],
   camera: { x: number; y: number; zoom: number },
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  gameTime: number = 0
 ): void {
   for (const base of bases) {
-    drawEnemyBase(ctx, base, camera, canvasWidth, canvasHeight);
+    drawEnemyBase(ctx, base, camera, canvasWidth, canvasHeight, gameTime);
   }
 }
 
