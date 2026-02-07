@@ -119,6 +119,7 @@ export const GameOverScreen: React.FC = () => {
         victory,
         playTime,
         mode: 'ai',
+        difficulty: selectedDifficulty,
       }).then((result) => {
         if (result) {
           setExpResult(result);

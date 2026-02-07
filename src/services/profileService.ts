@@ -502,26 +502,15 @@ export const processRTSGameResult = async (
     victory: boolean;
     playTime: number;  // 초 단위
     mode: 'tutorial' | 'ai' | 'multiplayer';
+    difficulty?: 'easy' | 'normal' | 'hard' | 'nightmare' | 'bosstest';
   }
 ): Promise<{
   playerExpGained: number;
   levelUpResult: { playerLeveledUp: boolean; newPlayerLevel?: number };
   newProfile: PlayerProfile;
 }> => {
-  // VIP 여부 확인 (경험치 2배)
-  const isVip = profile.role === 'vip';
-
-  // RTS 경험치 계산
-  // 기본 경험치: 승리 100, 패배 30
-  // 플레이 시간 보너스: 분당 5exp (최대 30분까지)
-  // 멀티플레이어 보너스: 1.5배
-  let baseExp = gameData.victory ? 100 : 30;
-  const timeBonus = Math.min(Math.floor(gameData.playTime / 60) * 5, 150); // 최대 150 (30분)
-  const modeMultiplier = gameData.mode === 'multiplayer' ? 1.5 : 1;
-  const vipMultiplier = isVip ? 2 : 1;
-
-  // 튜토리얼은 경험치 없음
-  if (gameData.mode === 'tutorial') {
+  // 튜토리얼, 멀티플레이어는 경험치 없음
+  if (gameData.mode === 'tutorial' || gameData.mode === 'multiplayer') {
     return {
       playerExpGained: 0,
       levelUpResult: { playerLeveledUp: false },
@@ -529,7 +518,28 @@ export const processRTSGameResult = async (
     };
   }
 
-  const playerExpGained = Math.floor((baseExp + timeBonus) * modeMultiplier * vipMultiplier);
+  // 패배 시 경험치 없음
+  if (!gameData.victory) {
+    return {
+      playerExpGained: 0,
+      levelUpResult: { playerLeveledUp: false },
+      newProfile: profile,
+    };
+  }
+
+  // 난이도별 클리어 경험치
+  const RTS_VICTORY_EXP: Record<string, number> = {
+    easy: 100,
+    normal: 250,
+    hard: 700,
+    nightmare: 1600,
+    bosstest: 0,
+  };
+
+  const difficulty = gameData.difficulty || 'easy';
+  const isVip = profile.role === 'vip';
+  const vipMultiplier = isVip ? 2 : 1;
+  const playerExpGained = (RTS_VICTORY_EXP[difficulty] ?? 100) * vipMultiplier;
 
   // 플레이어 레벨업 계산
   let newPlayerLevel = profile.playerLevel;

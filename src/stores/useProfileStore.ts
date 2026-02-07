@@ -91,6 +91,7 @@ interface ProfileActions {
     victory: boolean;
     playTime: number;
     mode: 'tutorial' | 'ai' | 'multiplayer';
+    difficulty?: 'easy' | 'normal' | 'hard' | 'nightmare' | 'bosstest';
   }) => Promise<{ playerLeveledUp: boolean; newPlayerLevel?: number; playerExpGained: number } | null>;
 
   // 클래스 진행 상황 가져오기

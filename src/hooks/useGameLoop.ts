@@ -1,6 +1,7 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useGameStore } from '../stores/useGameStore';
 import { useUIStore } from '../stores/useUIStore';
+import { useTutorialStore, TUTORIAL_STEPS } from '../stores/useTutorialStore';
 import { CONFIG, AI_DIFFICULTY_CONFIG } from '../constants/config';
 import { updateCombatUnit } from '../game/units/combatUnit';
 import { updateSupportUnit } from '../game/units/supportUnit';
@@ -525,10 +526,14 @@ export const useGameLoop = () => {
         aiTimerRef.current = 0;
         const currentState = useGameStore.getState();
 
-        // 튜토리얼 모드에서는 간단한 AI만 실행 (검병만 소환)
+        // 튜토리얼 모드에서는 공격 유닛 스텝 이후부터만 적 소환
         if (isTutorial) {
-          if (currentState.aiResources.gold >= 30 && Math.random() < 0.3) {
-            spawnUnit('melee', 'enemy');
+          const tutorialState = useTutorialStore.getState();
+          const enemySpawnStepIndex = TUTORIAL_STEPS.findIndex(s => s.id === 'spawn_melee');
+          if (tutorialState.currentStepIndex >= enemySpawnStepIndex) {
+            if (currentState.aiResources.gold >= 30 && Math.random() < 0.3) {
+              spawnUnit('melee', 'enemy');
+            }
           }
         } else {
           const decision = makeAIDecision(

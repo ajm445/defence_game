@@ -102,6 +102,8 @@ export const TutorialOverlay: React.FC = () => {
         return resources.stone >= 10;
       case 'has_herb':
         return resources.herb >= 5;
+      case 'has_herb_30':
+        return resources.herb >= 30;
       case 'has_wall':
         return walls.length > 0;
       case 'has_upgrade':

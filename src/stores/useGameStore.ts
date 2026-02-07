@@ -211,12 +211,12 @@ export const useGameStore = create<GameStore>()(
       const state = createInitialState();
 
       if (mode === 'tutorial') {
-        // 튜토리얼 모드: 넉넉한 자원과 약한 적
-        state.resources.gold = 500;
-        state.resources.wood = 50;
-        state.resources.stone = 30;
-        state.resources.herb = 30; // 약초 판매 가능하도록 (판매 비용 30)
-        state.resources.crystal = 10; // 마법사 소환 가능하도록 (비용 10)
+        // 튜토리얼 모드: 자원 유닛의 필요성을 강조하기 위해 최소한의 자원
+        state.resources.gold = 300;     // 약초 판매로 골드 수급 유도
+        state.resources.wood = 20;      // 나무꾼 필요성 강조
+        state.resources.stone = 10;     // 광부 필요성 강조
+        state.resources.herb = 0;       // 채집꾼으로 직접 모아야 함
+        state.resources.crystal = 10;   // 마법사 소환 가능하도록 (비용 10)
         state.aiResources.gold = 30;
         state.enemyBase.hp = 300;
         state.enemyBase.maxHp = 300;
