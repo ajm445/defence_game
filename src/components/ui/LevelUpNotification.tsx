@@ -1,6 +1,6 @@
 import React from 'react';
 import { LevelUpResult } from '../../types/auth';
-import { CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { CLASS_CONFIGS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
 
 interface LevelUpNotificationProps {
   result: LevelUpResult;
@@ -43,9 +43,15 @@ export const LevelUpNotification: React.FC<LevelUpNotificationProps> = ({ result
           {result.classLeveledUp && result.newClassLevel && result.className && (
             <div className="bg-cyan-500/20 rounded-lg p-4 border border-cyan-500/30">
               <div className="flex items-center justify-center gap-2 mb-2">
-                <span className="text-2xl">{CLASS_CONFIGS[result.className].emoji}</span>
+                <span className="text-2xl">
+                  {result.advancedClassName
+                    ? ADVANCED_CLASS_CONFIGS[result.advancedClassName].emoji
+                    : CLASS_CONFIGS[result.className].emoji}
+                </span>
                 <span className="text-xl text-white font-bold">
-                  {CLASS_CONFIGS[result.className].name} 레벨
+                  {result.advancedClassName
+                    ? ADVANCED_CLASS_CONFIGS[result.advancedClassName].name
+                    : CLASS_CONFIGS[result.className].name} 레벨
                 </span>
               </div>
               <div className="text-3xl text-cyan-400 font-bold">

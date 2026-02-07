@@ -221,7 +221,7 @@ export const BOSS_SKILL_CONFIGS: Record<string, {
   // 밀어내기 - 전방위 넉백 (1회용)
   knockback: {
     cooldown: 18,             // 쿨다운 (1회용이므로 의미 없음)
-    damage: 0.5,              // 50% 데미지 (약함)
+    damage: 0,                // 데미지 없음 (넉백만)
     radius: 200,              // 200px 반경
     castTime: 1.0,            // 1초 시전
     hpThreshold: 0.5,         // HP 50% 이하부터 사용

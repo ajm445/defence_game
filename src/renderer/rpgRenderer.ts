@@ -349,20 +349,20 @@ function drawBossSkillWarning(
     }
 
     case 'shockwave': {
-      // 충격파: 원형 범위 (퍼져나가는 애니메이션)
+      // 충격파: 원형 범위 (퍼져나가는 애니메이션) - 즉사 스킬
       ctx.beginPath();
       ctx.arc(screenX, screenY, warning.radius * progress, 0, Math.PI * 2);
 
-      // 그라데이션 채우기
+      // 그라데이션 채우기 (빨간 톤으로 위험 강조)
       const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, warning.radius);
-      gradient.addColorStop(0, `rgba(150, 0, 255, ${alpha * 0.3})`);
-      gradient.addColorStop(0.7, `rgba(200, 50, 255, ${alpha * 0.5})`);
-      gradient.addColorStop(1, `rgba(255, 100, 255, ${alpha * 0.2})`);
+      gradient.addColorStop(0, `rgba(255, 0, 0, ${alpha * 0.4})`);
+      gradient.addColorStop(0.5, `rgba(200, 0, 50, ${alpha * 0.5})`);
+      gradient.addColorStop(1, `rgba(150, 0, 255, ${alpha * 0.2})`);
       ctx.fillStyle = gradient;
       ctx.fill();
 
-      // 바깥쪽 링
-      ctx.strokeStyle = `rgba(255, 150, 255, ${alpha})`;
+      // 바깥쪽 링 (빨간색)
+      ctx.strokeStyle = `rgba(255, 80, 80, ${alpha})`;
       ctx.lineWidth = 4;
       ctx.stroke();
 
@@ -372,6 +372,26 @@ function drawBossSkillWarning(
       ctx.strokeStyle = `rgba(255, 255, 255, ${alpha * 0.8})`;
       ctx.lineWidth = 2;
       ctx.stroke();
+
+      // 경고 텍스트 (보스 위치에 표시)
+      const textBlink = Math.sin(elapsed * 12) > 0 ? 1 : 0.5;
+      ctx.globalAlpha = textBlink;
+      ctx.font = 'bold 20px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.textBaseline = 'middle';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 4;
+      ctx.strokeText('⚠ 즉사 충격파 ⚠', screenX, screenY - warning.radius - 25);
+      ctx.fillStyle = '#ff3333';
+      ctx.fillText('⚠ 즉사 충격파 ⚠', screenX, screenY - warning.radius - 25);
+
+      // 범위 밖으로 이탈 안내
+      ctx.font = 'bold 14px sans-serif';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.strokeText('범위 밖으로 이동하세요!', screenX, screenY - warning.radius - 5);
+      ctx.fillStyle = '#ffcc00';
+      ctx.fillText('범위 밖으로 이동하세요!', screenX, screenY - warning.radius - 5);
       break;
     }
 

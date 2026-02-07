@@ -1536,36 +1536,41 @@ export function updatePendingSkills(ctx: SkillContext): void {
           }
         }
       } else if (skill.type === 'heavy_strike') {
-        // 강타: 캐스터 전방 방향으로 부채꼴 데미지 (±45도, 120px)
+        // 강타: 캐스터 전방 직선 범위 데미지 (길이 120px, 폭 ±40px)
         const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
         const hitX = caster ? caster.x : skill.position.x;
         const hitY = caster ? caster.y : skill.position.y;
         const dir = skill.direction || { x: 1, y: 0 };
-        const dirAngle = Math.atan2(dir.y, dir.x);
-        const halfAngle = Math.PI / 4; // ±45도 (총 90도 부채꼴)
+        const dirLen = Math.sqrt(dir.x * dir.x + dir.y * dir.y) || 1;
+        const nx = dir.x / dirLen; // 정규화된 방향 벡터
+        const ny = dir.y / dirLen;
+        const lineLength = skill.radius; // 120px
+        const lineHalfWidth = 40; // 폭 ±40px
 
-        // 전방 부채꼴 내 적에게 데미지
+        // 직선 범위 내 적에게 데미지
         for (const enemy of state.enemies) {
           if (enemy.hp <= 0) continue;
-          const dist = distance(hitX, hitY, enemy.x, enemy.y);
-          if (dist > skill.radius) continue;
-          const enemyAngle = Math.atan2(enemy.y - hitY, enemy.x - hitX);
-          let angleDiff = Math.abs(enemyAngle - dirAngle);
-          if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
-          if (angleDiff <= halfAngle) {
+          const dx = enemy.x - hitX;
+          const dy = enemy.y - hitY;
+          // 방향 벡터에 대한 투영 (전방 거리)
+          const forward = dx * nx + dy * ny;
+          if (forward < 0 || forward > lineLength) continue;
+          // 방향 벡터에 대한 수직 거리 (좌우 폭)
+          const lateral = Math.abs(dx * (-ny) + dy * nx);
+          if (lateral <= lineHalfWidth) {
             applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
           }
         }
 
-        // 전방 부채꼴 내 기지에 데미지
+        // 직선 범위 내 기지에 데미지
         for (const base of state.enemyBases) {
           if (base.destroyed) continue;
-          const baseDist = distance(hitX, hitY, base.x, base.y);
-          if (baseDist > skill.radius + 50) continue;
-          const baseAngle = Math.atan2(base.y - hitY, base.x - hitX);
-          let baseAngleDiff = Math.abs(baseAngle - dirAngle);
-          if (baseAngleDiff > Math.PI) baseAngleDiff = 2 * Math.PI - baseAngleDiff;
-          if (baseAngleDiff <= halfAngle) {
+          const dx = base.x - hitX;
+          const dy = base.y - hitY;
+          const forward = dx * nx + dy * ny;
+          if (forward < -50 || forward > lineLength + 50) continue;
+          const lateral = Math.abs(dx * (-ny) + dy * nx);
+          if (lateral <= lineHalfWidth + 50) {
             damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
           }
         }

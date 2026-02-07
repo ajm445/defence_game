@@ -130,6 +130,7 @@ function executeBossSkill(
 ): void {
   const config = BOSS_SKILL_CONFIGS[cast.skillType];
   const baseDamage = boss.aiConfig.attackDamage;
+  const nexus = state.nexus;
 
   switch (cast.skillType) {
     case 'smash': {
@@ -144,29 +145,31 @@ function executeBossSkill(
           }
         }
       }
+      // 넥서스 데미지
+      if (isInConeRange(boss.x, boss.y, nexus.x, nexus.y, config.radius, config.angle!, targetAngle)) {
+        applyDamageToNexus(state, damage);
+      }
       break;
     }
 
     case 'shockwave': {
-      const damage = Math.floor(baseDamage * config.damage);
+      // 즉사 데미지 (캐릭터에게만, 넥서스에는 데미지 없음)
       for (const hero of heroes) {
         const dist = distance(boss.x, boss.y, hero.x, hero.y);
         if (dist <= config.radius) {
-          applyDamageToHero(state, hero, damage);
+          applyDamageToHero(state, hero, hero.maxHp);
         }
       }
       break;
     }
 
     case 'knockback': {
-      const damage = Math.floor(baseDamage * config.damage);
+      // 데미지 없음, 넉백만 (넥서스에도 데미지 없음)
       const knockbackDist = config.knockbackDistance || 300;
 
       for (const hero of heroes) {
         const dist = distance(boss.x, boss.y, hero.x, hero.y);
         if (dist <= config.radius) {
-          applyDamageToHero(state, hero, damage);
-
           const angle = Math.atan2(hero.y - boss.y, hero.x - boss.x);
           hero.x = clamp(hero.x + Math.cos(angle) * knockbackDist, 30, RPG_CONFIG.MAP_WIDTH - 30);
           hero.y = clamp(hero.y + Math.sin(angle) * knockbackDist, 30, RPG_CONFIG.MAP_HEIGHT - 30);
@@ -199,6 +202,10 @@ function executeBossSkill(
         if (distToPath <= config.radius) {
           applyDamageToHero(state, hero, damage);
         }
+      }
+      // 넥서스 데미지 (돌진 경로에 넥서스가 있는 경우)
+      if (pointToLineDistance(nexus.x, nexus.y, boss.x, boss.y, newBossX, newBossY) <= config.radius + 50) {
+        applyDamageToNexus(state, damage);
       }
       break;
     }
@@ -303,4 +310,21 @@ export function applyStunToHero(hero: ServerHero, duration: number, gameTime: nu
   hero.buffs = hero.buffs || [];
   hero.buffs = hero.buffs.filter(b => b.type !== 'stun');
   hero.buffs.push({ type: 'stun', duration, startTime: gameTime });
+}
+
+/**
+ * 보스 스킬로 넥서스에 데미지 적용
+ */
+function applyDamageToNexus(state: ServerGameState, damage: number): void {
+  if (state.nexus.hp <= 0) return;
+  state.nexus.hp -= damage;
+
+  state.damageNumbers.push({
+    id: generateId(),
+    x: state.nexus.x,
+    y: state.nexus.y - 30,
+    amount: damage,
+    type: 'enemy_damage',
+    createdAt: state.currentTickTimestamp,
+  });
 }

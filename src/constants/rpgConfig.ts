@@ -807,24 +807,24 @@ export const BOSS_SKILL_CONFIGS: Record<BossSkillType, BossSkillConfig> = {
     summonCount: 2,           // 2마리 소환
     hpThreshold: 0.7,         // HP 70% 이하부터 사용
   },
-  // 충격파 - 전방위 범위 공격
+  // 충격파 - 전방위 즉사 공격 (캐릭터에게만, 넥서스 데미지 없음)
   shockwave: {
     type: 'shockwave',
     name: '충격파',
     nameEn: 'Shockwave',
     cooldown: 20,             // 20초 쿨다운
-    damage: 1.5,              // 150% 데미지
+    damage: 9999,             // 즉사 데미지
     radius: 250,              // 250px 반경
     castTime: 1.5,            // 1.5초 시전
     hpThreshold: 0.5,         // HP 50% 이하부터 사용
   },
-  // 밀어내기 - 전방위 넉백 (1회용)
+  // 밀어내기 - 전방위 넉백 (1회용, 데미지 없음)
   knockback: {
     type: 'knockback',
     name: '밀어내기',
     nameEn: 'Knockback',
     cooldown: 18,             // 쿨다운 (1회용이므로 의미 없음)
-    damage: 0.5,              // 50% 데미지 (약함)
+    damage: 0,                // 데미지 없음 (넉백만)
     radius: 200,              // 200px 반경
     castTime: 1.0,            // 1초 시전
     hpThreshold: 0.5,         // HP 50% 이하부터 사용
@@ -1193,7 +1193,7 @@ export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     healPercent: 0.1,
     radius: 200,  // 힐 범위
   },
-  // 다크나이트: 강타 - 1초 시전 후 전방 350% 데미지, HP 8% 소모
+  // 다크나이트: 강타 - 1초 시전 후 전방 직선 350% 데미지, HP 11% 소모
   darkKnight: {
     type: 'heavy_strike',
     name: '강타',
@@ -1304,11 +1304,11 @@ export const ADVANCED_E_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     nameEn: 'Dark Blade',
     key: 'E',
     cooldown: 0,
-    description: '토글: 초당 HP 3% 소모, 주변 적에게 초당 100% 데미지',
+    description: '토글: 초당 HP 5% 소모, 주변 적에게 초당 120% 데미지',
     isToggle: true,
     reuseCooldown: 2,
-    hpDrainRatio: 0.03,
-    damageMultiplier: 1.0,
+    hpDrainRatio: 0.05,
+    damageMultiplier: 1.2,
     radius: 150,
     autoOffHpRatio: 0.1,
   },

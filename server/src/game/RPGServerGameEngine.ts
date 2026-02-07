@@ -434,8 +434,8 @@ export class RPGServerGameEngine {
 
       // 다크나이트 어둠의 칼날 토글 틱 처리
       if (hero.darkBladeActive) {
-        // HP 소모: 초당 maxHp * 0.03
-        hero.hp -= hero.maxHp * 0.03 * deltaTime;
+        // HP 소모: 초당 maxHp * 0.05
+        hero.hp -= hero.maxHp * 0.05 * deltaTime;
 
         // 1초 틱 데미지
         hero.darkBladeTickTimer = (hero.darkBladeTickTimer || 0) + deltaTime;
@@ -446,7 +446,7 @@ export class RPGServerGameEngine {
           const darkBladeAttack = hero.config?.attack || hero.baseAttack || 50;
           const darkBladeUpgradeBonus = (hero.upgradeLevels?.attack || 0) * UPGRADE_CONFIG.attack.perLevel;
           const darkBladeTotalDamage = darkBladeAttack + darkBladeUpgradeBonus;
-          const tickDamage = Math.floor(darkBladeTotalDamage * 1.0);
+          const tickDamage = Math.floor(darkBladeTotalDamage * 1.2);
 
           // 범위 150px 내 적에게 데미지
           const darkBladeRadius = 150;

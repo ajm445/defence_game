@@ -1,4 +1,4 @@
-import { HeroClass, RPGDifficulty } from './rpg';
+import { HeroClass, AdvancedHeroClass, RPGDifficulty } from './rpg';
 import { DIFFICULTY_CONFIGS } from '../constants/rpgConfig';
 
 // 플레이어 역할 타입
@@ -221,6 +221,7 @@ export interface LevelUpResult {
   classLeveledUp: boolean;
   newClassLevel?: number;
   className?: HeroClass;
+  advancedClassName?: AdvancedHeroClass;
   spGained?: number;
 }
 

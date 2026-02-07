@@ -449,6 +449,7 @@ export const processGameResult = async (
     classLeveledUp,
     newClassLevel: classLeveledUp ? newClassLevel : undefined,
     className: classLeveledUp ? gameData.classUsed : undefined,
+    advancedClassName: classLeveledUp ? existingProgress?.advancedClass as AdvancedHeroClass | undefined : undefined,
     spGained: spGained > 0 ? spGained : undefined,
   };
 
