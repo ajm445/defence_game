@@ -1716,7 +1716,7 @@ function executeAdvancedESkill(
       break;
 
     case 'ranger':
-      // 화살 폭풍 - 5초간 공격 속도 3배
+      // 화살 폭풍 - 6초간 공격 속도 2배
       {
         const duration = skillConfig.duration || 5;
         const speedBonusVal = skillConfig.speedBonus || 2.0;
@@ -1785,7 +1785,7 @@ function executeAdvancedESkill(
       break;
 
     case 'darkKnight':
-      // 어둠의 칼날 - 5초간 주변 적에게 초당 50% 데미지
+      // 어둠의 칼날 - 5초간 주변 적에게 초당 75% 데미지
       {
         const duration = skillConfig.duration || 5;
         const tickDamage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 0.5));
@@ -1818,6 +1818,7 @@ function executeAdvancedESkill(
           radius,
           duration,  // 5초간 지속
           startTime: gameTime,
+          heroId: casterId || hero.id,
         };
       }
       break;

@@ -224,32 +224,32 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
           </div>
         )}
 
-        {/* 기본 스탯 */}
+        {/* 현재 스탯 (기본 + SP 업그레이드 합산) */}
         <div className="bg-gray-800/50 rounded-lg p-4 mb-4" style={{ paddingLeft: '5px', paddingRight: '5px' }}>
           <h3 className="text-white font-bold mb-3">
-            기본 스탯
+            현재 스탯
             {progress.tier === 2 && <span className="ml-2 text-orange-400 text-sm">(2차 강화)</span>}
           </h3>
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-400">HP</span>
-              <span className="text-white">{displayConfig.hp}</span>
+              <span className="text-white">{displayConfig.hp + getStatBonus('hp', safeStatUpgrades.hp)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">공격력</span>
-              <span className="text-white">{displayConfig.attack}</span>
+              <span className="text-white">{displayConfig.attack + getStatBonus('attack', safeStatUpgrades.attack)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">공격속도</span>
-              <span className="text-white">{displayConfig.attackSpeed}초</span>
+              <span className="text-white">{Math.max(0.3, displayConfig.attackSpeed - getStatBonus('attackSpeed', safeStatUpgrades.attackSpeed ?? 0)).toFixed(2)}초</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">이동속도</span>
-              <span className="text-white">{displayConfig.speed}</span>
+              <span className="text-white">{(displayConfig.speed + getStatBonus('speed', safeStatUpgrades.speed)).toFixed(1)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">사거리</span>
-              <span className="text-white">{displayConfig.range}</span>
+              <span className="text-white">{displayConfig.range + getStatBonus('range', safeStatUpgrades.range)}</span>
             </div>
           </div>
         </div>
@@ -612,8 +612,12 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
               const currentLevel = safeStatUpgrades[statType] ?? 0;
               const currentBonus = getStatBonus(statType, currentLevel);
               const nextBonus = getStatBonus(statType, currentLevel + 1);
-              const isMaxed = currentLevel >= statConfig.maxLevel;
-              const canUpgrade = canUpgradeStat(heroClass, statType);
+
+              // 공격속도 0.3초 캡 체크
+              const isAttackSpeedCapped = statType === 'attackSpeed' &&
+                (displayConfig.attackSpeed - getStatBonus('attackSpeed', safeStatUpgrades.attackSpeed ?? 0)) <= 0.3;
+              const isMaxed = isAttackSpeedCapped || currentLevel >= statConfig.maxLevel;
+              const canUpgrade = isAttackSpeedCapped ? false : canUpgradeStat(heroClass, statType);
               // 소수점 표시가 필요한 스탯들 (부동소수점 오류 방지)
               const needsDecimalFormat = statType === 'speed' || statType === 'attackSpeed';
               const decimalPlaces = statType === 'attackSpeed' ? 2 : 1;
@@ -646,11 +650,16 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
                     </div>
                   </div>
 
-                  <div className="ml-4 mr-2">
+                  <div className="ml-4 mr-2 flex flex-col items-end gap-1">
                     {isMaxed ? (
-                      <span className="px-3 py-1 bg-yellow-500/20 rounded text-yellow-400 text-sm font-bold">
-                        MAX
-                      </span>
+                      <>
+                        <span className="px-3 py-1 bg-yellow-500/20 rounded text-yellow-400 text-sm font-bold">
+                          MAX
+                        </span>
+                        {isAttackSpeedCapped && (
+                          <span className="text-[10px] text-yellow-400/80">최대 공격속도는 0.3초입니다</span>
+                        )}
+                      </>
                     ) : (
                       <button
                         onClick={() => handleUpgrade(statType)}

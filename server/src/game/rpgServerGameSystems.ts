@@ -104,6 +104,12 @@ export function processUpgrade(hero: ServerHero, upgradeType: string): void {
     if (currentLevel >= (UPGRADE_CONFIG.range.maxLevel || 10)) return;
   }
 
+  // 공격속도 0.3초 캡 체크 (이미 최대치면 업그레이드 불가)
+  if (upgradeType === 'attackSpeed') {
+    const currentAttackSpeed = hero.config?.attackSpeed || hero.baseAttackSpeed || 1;
+    if (currentAttackSpeed <= 0.3) return;
+  }
+
   if (hero.gold < cost) return;
 
   hero.gold -= cost;

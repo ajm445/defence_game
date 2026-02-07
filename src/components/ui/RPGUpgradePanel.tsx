@@ -20,6 +20,7 @@ interface UpgradeButtonProps {
   gold: number;
   onUpgrade: () => void;
   isHidden?: boolean;
+  capMessage?: string;  // 캡 도달 시 표시할 메시지
 }
 
 const UpgradeButton: React.FC<UpgradeButtonProps> = ({
@@ -29,6 +30,7 @@ const UpgradeButton: React.FC<UpgradeButtonProps> = ({
   gold,
   onUpgrade,
   isHidden,
+  capMessage,
 }) => {
   if (isHidden) return null;
 
@@ -84,6 +86,9 @@ const UpgradeButton: React.FC<UpgradeButtonProps> = ({
             <div className={`text-xs mt-1 ${canAfford ? 'text-yellow-400' : 'text-red-400'}`}>
               비용: {cost} 골드
             </div>
+          )}
+          {isMaxed && capMessage && (
+            <div className="text-xs mt-1 text-yellow-400">{capMessage}</div>
           )}
         </div>
       </div>
@@ -156,10 +161,17 @@ export const RPGUpgradePanel: React.FC = () => {
     return () => window.removeEventListener('keydown', handleKeyDown);
   }, [handleUpgrade, isRangedClass]);
 
-  // 업그레이드별 최대 레벨 결정 (사거리만 제한, 나머지는 무제한)
+  // 공격속도 0.3초 캡 체크
+  const isAttackSpeedCapped = hero?.config.attackSpeed !== undefined && hero.config.attackSpeed <= 0.3;
+
+  // 업그레이드별 최대 레벨 결정
   const getMaxLevel = (type: UpgradeType): number | null => {
     if (type === 'range') {
       return rangeMaxLevel;
+    }
+    // 공격속도가 0.3초 이하면 더 이상 업그레이드 불가
+    if (type === 'attackSpeed' && isAttackSpeedCapped) {
+      return upgradeLevels.attackSpeed;  // 현재 레벨 = 최대 레벨 → MAX 표시
     }
     return null;  // 무제한
   };
@@ -177,6 +189,7 @@ export const RPGUpgradePanel: React.FC = () => {
             maxLevel={getMaxLevel(type)}
             gold={gold}
             onUpgrade={() => handleUpgrade(type)}
+            capMessage={type === 'attackSpeed' && isAttackSpeedCapped ? '최대 공격속도 0.3초' : undefined}
           />
         </div>
       ))}

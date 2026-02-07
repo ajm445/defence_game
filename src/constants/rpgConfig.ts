@@ -976,7 +976,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
       attack: 64,        // 40 * 1.60
       attackSpeed: 0.71, // 0.75 / 1.05 (5% 빠름)
       speed: 3.3,        // 3.0 * 1.10
-      range: 270,        // 180 * 1.50
+      range: 280,        // 180 * 1.56
     },
     specialEffects: {
       critChance: 0.5,   // 크리티컬 50% 확률
@@ -1058,7 +1058,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
       attack: 102,       // 60 * 1.70
       attackSpeed: 1.27, // 1.4 / 1.10 (10% 빠름)
       speed: 2.94,       // 2.8 * 1.05
-      range: 315,        // 210 * 1.50
+      range: 300,        // 210 * 1.43
     },
     specialEffects: {
       bossBonus: 0.5,    // 보스에게 50% 추가 데미지
@@ -1267,16 +1267,16 @@ export const ADVANCED_E_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     damageMultiplier: 10.0,
     range: 2000,  // 무제한 사거리 (맵 전체)
   },
-  // 레인저: 화살 폭풍 - 5초간 자동 공격 속도 3배
+  // 레인저: 화살 폭풍 - 6초간 자동 공격 속도 2배
   ranger: {
     type: 'arrow_storm',
     name: '화살 폭풍',
     nameEn: 'Arrow Storm',
     key: 'E',
     cooldown: 35,
-    description: '5초간 공격 속도 3배',
-    duration: 5,
-    speedBonus: 2.0,  // 3배 = 기본 + 200%
+    description: '6초간 공격 속도 2배',
+    duration: 6,
+    speedBonus: 1.0,  // 2배 = 기본 + 100%
   },
   // 팔라딘: 신성한 빛 - 아군 전체 HP 30% 회복 + 3초 무적
   paladin: {

@@ -993,7 +993,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         })}
       </div>
 
-      {multiplayer.countdown && multiplayer.countdown > 0 && (
+      {multiplayer.countdown != null && multiplayer.countdown > 0 && (
         <div className="mt-4 text-center">
           <p className="text-gray-400">게임 시작까지</p>
           <p className="text-6xl font-bold text-neon-cyan animate-pulse">{multiplayer.countdown}</p>

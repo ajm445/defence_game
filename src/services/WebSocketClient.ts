@@ -157,9 +157,13 @@ class WebSocketClient {
       useUIStore.getState().setScreen('login');
     }
 
-    // 등록된 핸들러에 메시지 전달
+    // 등록된 핸들러에 메시지 전달 (개별 핸들러 오류가 다른 핸들러를 차단하지 않도록)
     this.messageHandlers.forEach((handler) => {
-      handler(message);
+      try {
+        handler(message);
+      } catch (error) {
+        console.error('[WebSocket] 메시지 핸들러 오류:', message.type, error);
+      }
     });
   }
 

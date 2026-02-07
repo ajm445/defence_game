@@ -409,7 +409,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, {
   sniper: {
     name: '저격수',
     baseClass: 'archer',
-    stats: { hp: 308, attack: 64, attackSpeed: 0.71, speed: 3.3, range: 270 },
+    stats: { hp: 308, attack: 64, attackSpeed: 0.71, speed: 3.3, range: 280 },
     specialEffects: { critChance: 0.5 },
   },
   ranger: {
@@ -433,7 +433,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, {
   archmage: {
     name: '대마법사',
     baseClass: 'mage',
-    stats: { hp: 253, attack: 102, attackSpeed: 1.27, speed: 2.94, range: 315 },
+    stats: { hp: 253, attack: 102, attackSpeed: 1.27, speed: 2.94, range: 300 },
     specialEffects: { bossBonus: 0.5 },
   },
   healer: {

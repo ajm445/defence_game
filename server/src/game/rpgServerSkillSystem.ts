@@ -1251,13 +1251,13 @@ function executeAdvancedESkill(
     }
 
     case 'ranger': {
-      // 화살 폭풍: 5초간 공격 속도 3배
+      // 화살 폭풍: 6초간 공격 속도 2배
       hero.buffs = hero.buffs || [];
       hero.buffs.push({
         type: 'berserker',
-        duration: 5,
+        duration: 6,
         startTime: gameTime,
-        speedBonus: 2.0, // 3배 = 기본 + 200%
+        speedBonus: 1.0, // 2배 = 기본 + 100%
       });
 
       state.activeSkillEffects.push({
@@ -1304,19 +1304,17 @@ function executeAdvancedESkill(
     }
 
     case 'darkKnight': {
-      // 어둠의 칼날: 주변 적에게 300% 데미지 + 30% 피해흡혈
-      // (원래 5초간 초당 75% = 총 375%를 즉시 데미지로 간소화)
+      // 어둠의 칼날: 5초간 주변 적에게 초당 공격력 75% 데미지
+      const duration = 5;
       const radius = 150;
-      const skillDamage = Math.floor(damage * 3.0);
-      const lifestealPercent = 0.3;
+      const tickDamage = Math.floor(damage * 0.75);
 
-      let totalDamageDealt = 0;
+      // 첫 번째 틱 즉시 발동
       for (const enemy of enemies) {
         if (enemy.hp <= 0) continue;
         const dist = distance(hero.x, hero.y, enemy.x, enemy.y);
         if (dist <= radius) {
-          applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
-          totalDamageDealt += skillDamage;
+          applyDamageToEnemy(ctx, enemy.id, tickDamage, hero);
         }
       }
 
@@ -1325,31 +1323,31 @@ function executeAdvancedESkill(
         if (base.destroyed) continue;
         const baseDist = distance(hero.x, hero.y, base.x, base.y);
         if (baseDist <= radius + 50) {
-          damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
-          totalDamageDealt += skillDamage;
+          damageBase(state, base.id, tickDamage, ctx.difficulty, hero.id);
         }
       }
 
-      // 피해흡혈
-      if (totalDamageDealt > 0) {
-        const healAmount = Math.floor(totalDamageDealt * lifestealPercent);
-        hero.hp = Math.min(hero.maxHp, hero.hp + healAmount);
-        if (healAmount > 0) {
-          state.damageNumbers.push({
-            id: generateId(),
-            x: hero.x, y: hero.y - 40,
-            amount: healAmount, type: 'heal', createdAt: Date.now(),
-          });
-        }
-      }
+      // 나머지 틱을 pendingSkill로 등록 (캐스터를 따라다님)
+      state.pendingSkills.push({
+        type: 'dark_blade' as any,
+        position: { x: hero.x, y: hero.y },
+        triggerTime: gameTime + 1,
+        damage: tickDamage,
+        radius,
+        casterId: hero.id,
+        duration,
+        tickCount: duration - 1,  // 첫 틱은 이미 발동했으므로 나머지
+      });
 
+      // 지속 이펙트 (5초, heroId로 캐릭터 따라다님)
       state.activeSkillEffects.push({
         type: 'dark_blade' as any,
         position: { x: hero.x, y: hero.y },
         radius,
-        damage: skillDamage,
-        duration: 1.0,
+        damage: tickDamage,
+        duration,
         startTime: gameTime,
+        heroId: hero.id,
       });
 
       hero.skillCooldowns.E = 40.0;
@@ -1586,15 +1584,17 @@ export function updatePendingSkills(ctx: SkillContext): void {
           }
         }
 
-        // 실행 이펙트 추가 (힐 스킬은 메인 이펙트가 유지되므로 제외)
-        state.activeSkillEffects.push({
-          type: skill.type,
-          position: skill.position,
-          radius: skill.radius,
-          damage: skill.damage,
-          duration: 0.5,
-          startTime: state.gameTime,
-        });
+        // 실행 이펙트 추가 (힐 스킬, dark_blade는 메인 이펙트가 유지되므로 제외)
+        if (skill.type !== 'dark_blade') {
+          state.activeSkillEffects.push({
+            type: skill.type,
+            position: skill.position,
+            radius: skill.radius,
+            damage: skill.damage,
+            duration: 0.5,
+            startTime: state.gameTime,
+          });
+        }
       }
 
       // 틱 스킬 재등록 (화상, 힐러 생명의 샘 등)

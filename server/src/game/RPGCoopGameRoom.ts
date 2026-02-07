@@ -87,15 +87,19 @@ export class RPGCoopGameRoom {
       }
     });
 
-    // 서버 게임 엔진 생성 및 시작
-    this.gameEngine = new RPGServerGameEngine(
-      this.id,
-      this.playerInfos,
-      this.difficulty as RPGDifficulty,
-      (state) => this.broadcastGameState(state),
-      (result) => this.handleGameOverFromEngine(result)
-    );
-    this.gameEngine.start();
+    try {
+      // 서버 게임 엔진 생성 및 시작
+      this.gameEngine = new RPGServerGameEngine(
+        this.id,
+        this.playerInfos,
+        this.difficulty as RPGDifficulty,
+        (state) => this.broadcastGameState(state),
+        (result) => this.handleGameOverFromEngine(result)
+      );
+      this.gameEngine.start();
+    } catch (error) {
+      console.error(`[ServerAuth] 게임 엔진 생성/시작 오류: Room ${this.id}`, error);
+    }
 
     // 각 플레이어에게 자신의 인덱스 전달 (서버 권위 모델에서는 isHost 불필요)
     this.playerIds.forEach((playerId, index) => {

@@ -1152,6 +1152,11 @@ export const useRPGStore = create<RPGStore>()(
       const { isMultiplayer } = state.multiplayer;
       const heroClass = state.hero?.heroClass;
 
+      // 공격속도 0.3초 캡 체크 (더 이상 업그레이드 불가)
+      if (stat === 'attackSpeed' && state.hero?.config.attackSpeed !== undefined && state.hero.config.attackSpeed <= 0.3) {
+        return false;
+      }
+
       // 서버 권위 모델: 멀티플레이어일 때 모든 클라이언트가 서버로 전송
       if (isMultiplayer) {
         const currentLevel = state.upgradeLevels[stat];

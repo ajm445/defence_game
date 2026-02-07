@@ -183,9 +183,6 @@ export const RPGHeroPanel: React.FC = () => {
           <div className="text-red-400">⚔️ 공격</div>
           <div className="text-white font-bold">
             {hero.baseAttack + upgradeBonuses.attackBonus}
-            {upgradeBonuses.attackBonus > 0 && (
-              <span className="text-green-400 text-[10px]"> +{upgradeBonuses.attackBonus}</span>
-            )}
           </div>
         </div>
         <div className="bg-dark-700/50 rounded-lg p-2">
@@ -198,9 +195,6 @@ export const RPGHeroPanel: React.FC = () => {
           <div className="text-blue-400">👟 속도</div>
           <div className="text-white font-bold">
             {(hero.baseSpeed + upgradeBonuses.speedBonus).toFixed(2)}
-            {upgradeBonuses.speedBonus > 0 && (
-              <span className="text-green-400 text-[10px]"> +{upgradeBonuses.speedBonus.toFixed(2)}</span>
-            )}
           </div>
         </div>
         <div className="bg-dark-700/50 rounded-lg p-2">
