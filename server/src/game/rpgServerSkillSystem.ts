@@ -232,7 +232,7 @@ function executeQSkill(
     }
 
     if (advancedClass === 'darkKnight') {
-      totalLifesteal = ADVANCED_CLASS_CONFIGS.darkKnight.specialEffects.lifesteal || 0.3;
+      totalLifesteal = ADVANCED_CLASS_CONFIGS.darkKnight.specialEffects.lifesteal || 0.2;
     }
 
     const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
@@ -975,8 +975,8 @@ function executeAdvancedWSkill(
     }
 
     case 'darkKnight': {
-      // 강타: 1초 시전 후 전방 120px 범위에 350% 데미지, HP 8% 소모
-      const hpCost = Math.floor(hero.maxHp * 0.08);
+      // 강타: 1초 시전 후 전방 120px 범위에 350% 데미지, HP 11% 소모
+      const hpCost = Math.floor(hero.maxHp * 0.11);
 
       // HP가 비용보다 적으면 사용 불가
       if (hero.hp <= hpCost) return false;
@@ -994,6 +994,7 @@ function executeAdvancedWSkill(
       state.pendingSkills.push({
         type: 'heavy_strike' as any,
         position: { x: hero.x, y: hero.y },
+        direction: { x: dirX, y: dirY },
         triggerTime: gameTime + 1.0,
         damage: skillDamage,
         radius,
@@ -1535,33 +1536,45 @@ export function updatePendingSkills(ctx: SkillContext): void {
           }
         }
       } else if (skill.type === 'heavy_strike') {
-        // 강타: 캐스터 현재 위치 기준으로 데미지 적용
+        // 강타: 캐스터 전방 방향으로 부채꼴 데미지 (±45도, 120px)
         const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
         const hitX = caster ? caster.x : skill.position.x;
         const hitY = caster ? caster.y : skill.position.y;
+        const dir = skill.direction || { x: 1, y: 0 };
+        const dirAngle = Math.atan2(dir.y, dir.x);
+        const halfAngle = Math.PI / 4; // ±45도 (총 90도 부채꼴)
 
-        // 범위 내 적에게 데미지
+        // 전방 부채꼴 내 적에게 데미지
         for (const enemy of state.enemies) {
           if (enemy.hp <= 0) continue;
           const dist = distance(hitX, hitY, enemy.x, enemy.y);
-          if (dist <= skill.radius) {
+          if (dist > skill.radius) continue;
+          const enemyAngle = Math.atan2(enemy.y - hitY, enemy.x - hitX);
+          let angleDiff = Math.abs(enemyAngle - dirAngle);
+          if (angleDiff > Math.PI) angleDiff = 2 * Math.PI - angleDiff;
+          if (angleDiff <= halfAngle) {
             applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
           }
         }
 
-        // 범위 내 기지에 데미지
+        // 전방 부채꼴 내 기지에 데미지
         for (const base of state.enemyBases) {
           if (base.destroyed) continue;
           const baseDist = distance(hitX, hitY, base.x, base.y);
-          if (baseDist <= skill.radius + 50) {
+          if (baseDist > skill.radius + 50) continue;
+          const baseAngle = Math.atan2(base.y - hitY, base.x - hitX);
+          let baseAngleDiff = Math.abs(baseAngle - dirAngle);
+          if (baseAngleDiff > Math.PI) baseAngleDiff = 2 * Math.PI - baseAngleDiff;
+          if (baseAngleDiff <= halfAngle) {
             damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
           }
         }
 
-        // 충격파 이펙트
+        // 충격파 이펙트 (전방 방향 정보 포함)
         state.activeSkillEffects.push({
           type: 'heavy_strike_impact' as any,
           position: { x: hitX, y: hitY },
+          direction: { x: dir.x, y: dir.y },
           radius: skill.radius,
           damage: skill.damage,
           duration: 0.5,

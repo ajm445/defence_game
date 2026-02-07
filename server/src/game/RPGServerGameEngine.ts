@@ -479,9 +479,9 @@ export class RPGServerGameEngine {
             }
           }
 
-          // 피해흡혈 30% 적용 (다크나이트 패시브)
+          // 피해흡혈 20% 적용 (다크나이트 패시브)
           if (totalDarkBladeDmg > 0) {
-            const lifestealAmount = Math.floor(totalDarkBladeDmg * 0.3);
+            const lifestealAmount = Math.floor(totalDarkBladeDmg * 0.2);
             if (lifestealAmount > 0) {
               hero.hp = Math.min(hero.maxHp, hero.hp + lifestealAmount);
               this.state.damageNumbers.push({

@@ -361,6 +361,8 @@ export function applyHealerAura(hero: ServerHero, heroes: Map<string, ServerHero
  */
 export function applyKnightPassiveRegen(hero: ServerHero, deltaTime: number): void {
   if (hero.heroClass === 'knight' && hero.passiveGrowth?.currentValue > 0) {
+    // 다크나이트 어둠의 칼날 활성 시 HP 리젠 비활성화
+    if (hero.darkBladeActive) return;
     const regenAmount = hero.passiveGrowth.currentValue * deltaTime;
     hero.hp = Math.min(hero.maxHp, hero.hp + regenAmount);
   }

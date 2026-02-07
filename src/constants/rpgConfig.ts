@@ -1029,7 +1029,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
     name: '다크나이트',
     nameEn: 'Dark Knight',
     emoji: '⚔️',
-    description: '어둠의 힘으로 적을 베는 암흑기사',
+    description: 'HP를 소모하여 강한 데미지를 내는 암흑기사',
     baseClass: 'knight',
     // HP +25%, 공격력 +40%, 공격속도 +15%, 속도 +10%, 사거리 +5%
     stats: {
@@ -1040,7 +1040,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
       range: 84,         // 80 * 1.05
     },
     specialEffects: {
-      lifesteal: 0.3,    // 30% 피해흡혈 부여
+      lifesteal: 0.2,    // 20% 피해흡혈 부여
     },
   },
   // ============================================
@@ -1200,10 +1200,10 @@ export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     nameEn: 'Heavy Strike',
     key: 'W',
     cooldown: 4,
-    description: '1초 시전 후 전방에 350% 데미지. HP 8% 소모',
+    description: '1초 시전 후 전방에 350% 데미지. HP 11% 소모',
     damageMultiplier: 3.5,
     castTime: 1.0,
-    hpCostRatio: 0.08,
+    hpCostRatio: 0.11,
     range: 120,
   },
   // 대마법사: 폭발 화염구 - 대형 화염구 + 화상

@@ -11,6 +11,8 @@ interface SkillInfo {
   cooldown: number;
   description: string;
   isAdvanced?: boolean;
+  isToggle?: boolean;       // 토글 스킬 여부
+  reuseCooldown?: number;   // 토글 재사용 딜레이
 }
 
 interface ClassSkillDisplayProps {
@@ -65,6 +67,8 @@ export const ClassSkillDisplay: React.FC<ClassSkillDisplayProps> = ({
       cooldown: advESkill.cooldown,
       description: advESkill.description,
       isAdvanced: true,
+      isToggle: advESkill.isToggle,
+      reuseCooldown: advESkill.reuseCooldown,
     });
   } else {
     skills.push({
@@ -134,7 +138,10 @@ export const ClassSkillDisplay: React.FC<ClassSkillDisplayProps> = ({
 
               {/* 쿨다운 */}
               <p className="text-sm text-yellow-400 mb-3">
-                쿨타임: {skill.cooldown}초
+                {skill.isToggle
+                  ? `ON/OFF 토글 (재사용 ${skill.reuseCooldown || 0}초)`
+                  : `쿨타임: ${skill.cooldown}초`
+                }
               </p>
 
               {/* 설명 */}

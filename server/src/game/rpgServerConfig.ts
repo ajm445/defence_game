@@ -430,7 +430,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, {
     name: '다크나이트',
     baseClass: 'knight',
     stats: { hp: 688, attack: 56, attackSpeed: 0.96, speed: 2.64, range: 84 },
-    specialEffects: { lifesteal: 0.3 },
+    specialEffects: { lifesteal: 0.2 },
   },
   archmage: {
     name: '대마법사',

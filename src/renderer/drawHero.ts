@@ -2678,40 +2678,70 @@ export function drawSkillEffect(
       break;
 
     case 'heavy_strike':
-      // 다크나이트 - 강타 시전 (검을 들어올리는 차징 이펙트)
+      // 다크나이트 - 강타 시전 (전방으로 검을 내려찍는 차징)
       {
         const chargeProgress = progress;
         const fade = chargeProgress < 0.1 ? chargeProgress / 0.1 : 1;
         const chargeRadius = 120;
+        const dir = effect.direction || { x: 1, y: 0 };
+        const dirAngle = Math.atan2(dir.y, dir.x);
+        const halfAngle = Math.PI / 4; // ±45도
 
-        // 어두운 기운 모으기
-        ctx.globalAlpha = fade * 0.3;
-        const chargeGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, chargeRadius);
-        chargeGrad.addColorStop(0, '#4c1d95');
-        chargeGrad.addColorStop(0.5, '#7c3aed60');
-        chargeGrad.addColorStop(1, 'transparent');
-        ctx.fillStyle = chargeGrad;
+        // 전방 부채꼴 바닥 기운
+        ctx.globalAlpha = fade * 0.25;
+        ctx.fillStyle = '#4c1d95';
         ctx.beginPath();
-        ctx.arc(screenX, screenY, chargeRadius, 0, Math.PI * 2);
+        ctx.moveTo(screenX, screenY);
+        ctx.arc(screenX, screenY, chargeRadius, dirAngle - halfAngle, dirAngle + halfAngle);
+        ctx.closePath();
         ctx.fill();
 
-        // 수렴하는 파티클 (중심으로 모이는 에너지)
-        ctx.globalAlpha = fade * 0.7;
-        const particleCount = 8;
+        // 전방 방향으로 수렴하는 에너지 파티클
+        ctx.globalAlpha = fade * 0.8;
+        const particleCount = 10;
         for (let i = 0; i < particleCount; i++) {
-          const angle = (i / particleCount) * Math.PI * 2 + chargeProgress * 3;
-          const dist = chargeRadius * (1 - chargeProgress * 0.7);
-          const px = screenX + Math.cos(angle) * dist;
-          const py = screenY + Math.sin(angle) * dist;
-          const size = 3 + chargeProgress * 4;
+          const spreadAngle = dirAngle + (i / particleCount - 0.5) * halfAngle * 2;
+          const dist = chargeRadius * (1 - chargeProgress * 0.8) + Math.sin(i * 1.5 + chargeProgress * 8) * 8;
+          const px = screenX + Math.cos(spreadAngle) * dist;
+          const py = screenY + Math.sin(spreadAngle) * dist;
+          const size = 2 + chargeProgress * 5;
 
-          ctx.fillStyle = '#a855f7';
+          ctx.fillStyle = i % 2 === 0 ? '#a855f7' : '#7c3aed';
           ctx.beginPath();
           ctx.arc(px, py, size, 0, Math.PI * 2);
           ctx.fill();
         }
 
-        // 충격 준비 표시 (원형 경고)
+        // 검 내려찍기 모션 (차징이 진행될수록 검이 앞으로 이동)
+        if (chargeProgress > 0.3) {
+          const swordProgress = (chargeProgress - 0.3) / 0.7;
+          const swordLen = 35;
+          const swordDist = 20 + swordProgress * 40;
+          const swordX = screenX + Math.cos(dirAngle) * swordDist;
+          const swordY = screenY + Math.sin(dirAngle) * swordDist;
+          const swordTipX = swordX + Math.cos(dirAngle) * swordLen;
+          const swordTipY = swordY + Math.sin(dirAngle) * swordLen;
+
+          // 검 잔상
+          ctx.globalAlpha = fade * 0.3 * swordProgress;
+          ctx.strokeStyle = '#7c3aed';
+          ctx.lineWidth = 8;
+          ctx.beginPath();
+          ctx.moveTo(swordX, swordY);
+          ctx.lineTo(swordTipX, swordTipY);
+          ctx.stroke();
+
+          // 검 본체
+          ctx.globalAlpha = fade * 0.9;
+          ctx.strokeStyle = '#c4b5fd';
+          ctx.lineWidth = 4;
+          ctx.beginPath();
+          ctx.moveTo(swordX, swordY);
+          ctx.lineTo(swordTipX, swordTipY);
+          ctx.stroke();
+        }
+
+        // 전방 경고선 (50% 이후)
         if (chargeProgress > 0.5) {
           const warningAlpha = (chargeProgress - 0.5) * 2;
           ctx.globalAlpha = warningAlpha * 0.4;
@@ -2719,7 +2749,9 @@ export function drawSkillEffect(
           ctx.lineWidth = 2;
           ctx.setLineDash([8, 4]);
           ctx.beginPath();
-          ctx.arc(screenX, screenY, chargeRadius, 0, Math.PI * 2);
+          ctx.moveTo(screenX, screenY);
+          ctx.arc(screenX, screenY, chargeRadius, dirAngle - halfAngle, dirAngle + halfAngle);
+          ctx.closePath();
           ctx.stroke();
           ctx.setLineDash([]);
         }
@@ -2727,37 +2759,42 @@ export function drawSkillEffect(
       break;
 
     case 'heavy_strike_impact':
-      // 다크나이트 - 강타 충격파 (내려찍는 충격)
+      // 다크나이트 - 강타 충격파 (전방 내려찍기 충격)
       {
         const impactRadius = effect.radius || 120;
         const impactFade = progress < 0.1 ? progress / 0.1 : progress > 0.6 ? (1 - progress) / 0.4 : 1;
+        const impDir = effect.direction || { x: 1, y: 0 };
+        const impAngle = Math.atan2(impDir.y, impDir.x);
+        const impHalfAngle = Math.PI / 4; // ±45도
 
-        // 충격파 원형
-        ctx.globalAlpha = impactFade * 0.6;
+        // 전방 부채꼴 충격파
+        ctx.globalAlpha = impactFade * 0.5;
         const impactGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, impactRadius * (0.5 + progress * 0.5));
         impactGrad.addColorStop(0, '#7c3aed');
         impactGrad.addColorStop(0.5, '#4c1d9580');
         impactGrad.addColorStop(1, 'transparent');
         ctx.fillStyle = impactGrad;
         ctx.beginPath();
-        ctx.arc(screenX, screenY, impactRadius * (0.5 + progress * 0.5), 0, Math.PI * 2);
+        ctx.moveTo(screenX, screenY);
+        ctx.arc(screenX, screenY, impactRadius * (0.5 + progress * 0.5), impAngle - impHalfAngle, impAngle + impHalfAngle);
+        ctx.closePath();
         ctx.fill();
 
-        // 충격파 링
+        // 전방 충격파 링 (부채꼴)
         ctx.globalAlpha = impactFade * 0.8;
         ctx.strokeStyle = '#a855f7';
         ctx.lineWidth = 4 * (1 - progress);
         ctx.beginPath();
-        ctx.arc(screenX, screenY, impactRadius * progress, 0, Math.PI * 2);
+        ctx.arc(screenX, screenY, impactRadius * progress, impAngle - impHalfAngle, impAngle + impHalfAngle);
         ctx.stroke();
 
-        // 바닥 균열 효과
+        // 전방 균열 효과
         ctx.globalAlpha = impactFade * 0.5;
         ctx.strokeStyle = '#581c87';
         ctx.lineWidth = 2;
-        for (let i = 0; i < 6; i++) {
-          const crackAngle = (i / 6) * Math.PI * 2;
-          const crackLen = impactRadius * 0.8 * progress;
+        for (let i = 0; i < 5; i++) {
+          const crackAngle = impAngle + (i / 4 - 0.5) * impHalfAngle * 2;
+          const crackLen = impactRadius * 0.9 * progress;
           ctx.beginPath();
           ctx.moveTo(screenX, screenY);
           ctx.lineTo(

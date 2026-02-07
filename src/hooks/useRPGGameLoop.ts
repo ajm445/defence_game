@@ -327,11 +327,12 @@ export function useRPGGameLoop() {
               }
               break;
             case 'heavy_strike':
-              // 다크나이트 강타 충격파 이펙트
+              // 다크나이트 강타 충격파 이펙트 (전방 방향)
               {
                 const heavyStrikeEffect: SkillEffect = {
                   type: 'heavy_strike_impact' as SkillType,
                   position: { x: skill.position.x, y: skill.position.y },
+                  direction: skill.direction,
                   radius: skill.radius,
                   damage: skill.damage,
                   duration: 0.5,

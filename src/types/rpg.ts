@@ -378,6 +378,7 @@ export interface BossSkillWarning {
 export interface PendingSkill {
   type: SkillType;
   position: Position;
+  direction?: Position;  // 스킬 방향 (강타 등 전방 공격용)
   triggerTime: number;   // 발동 시간
   damage: number;
   radius: number;
