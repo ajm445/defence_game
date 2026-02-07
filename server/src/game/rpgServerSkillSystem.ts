@@ -975,63 +975,44 @@ function executeAdvancedWSkill(
     }
 
     case 'darkKnight': {
-      // 암흑 베기: 전방 돌진 + 150% 데미지 + 피해흡혈 30%
-      const dashDistance = 200;
-      const dashDuration = 0.25;
-      const skillDamage = Math.floor(damage * 1.5);
-      const lifestealPercent = 0.3;
+      // 강타: 1초 시전 후 전방 120px 범위에 350% 데미지, HP 8% 소모
+      const hpCost = Math.floor(hero.maxHp * 0.08);
 
-      const newX = clamp(hero.x + dirX * dashDistance, 30, RPG_CONFIG.MAP_WIDTH - 30);
-      const newY = clamp(hero.y + dirY * dashDistance, 30, RPG_CONFIG.MAP_HEIGHT - 30);
+      // HP가 비용보다 적으면 사용 불가
+      if (hero.hp <= hpCost) return false;
 
-      let totalDamageDealt = 0;
-      for (const enemy of enemies) {
-        const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, newX, newY);
-        if (enemyDist <= 50) {
-          applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
-          totalDamageDealt += skillDamage;
-        }
-      }
+      // HP 차감
+      hero.hp -= hpCost;
 
-      // 기지 데미지 (경로상 기지)
-      for (const base of state.enemyBases) {
-        if (base.destroyed) continue;
-        const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
-        if (baseDist <= 80) {
-          damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
-          totalDamageDealt += skillDamage;
-        }
-      }
+      // 1초 시전 (이동 불가)
+      hero.castingUntil = gameTime + 1.0;
 
-      if (totalDamageDealt > 0) {
-        const healAmount = Math.floor(totalDamageDealt * lifestealPercent);
-        hero.hp = Math.min(hero.maxHp, hero.hp + healAmount);
-        if (healAmount > 0) {
-          state.damageNumbers.push({
-            id: generateId(),
-            x: hero.x, y: hero.y - 40,
-            amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
-          });
-        }
-      }
+      const skillDamage = Math.floor(damage * 3.5);
+      const radius = 120;
 
-      hero.dashState = {
-        startX: hero.x, startY: hero.y,
-        targetX: newX, targetY: newY,
-        progress: 0, duration: dashDuration,
-        dirX, dirY,
-      };
+      // pendingSkill 등록: 1초 후 데미지 발동
+      state.pendingSkills.push({
+        type: 'heavy_strike' as any,
+        position: { x: hero.x, y: hero.y },
+        triggerTime: gameTime + 1.0,
+        damage: skillDamage,
+        radius,
+        casterId: hero.id,
+        tickCount: 1,
+      });
 
+      // 시전 이펙트 (heroId로 영웅 추적)
       state.activeSkillEffects.push({
-        type: 'shadow_slash' as any,
+        type: 'heavy_strike' as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
         damage: skillDamage,
-        duration: 0.4,
+        duration: 1.0,
         startTime: gameTime,
+        heroId: hero.id,
       });
 
-      hero.skillCooldowns.W = 6.0;
+      hero.skillCooldowns.W = 4.0;
       return true;
     }
 
@@ -1290,54 +1271,57 @@ function executeAdvancedESkill(
     }
 
     case 'darkKnight': {
-      // 어둠의 칼날: 5초간 주변 적에게 초당 공격력 75% 데미지
-      const duration = 5;
-      const radius = 150;
-      const tickDamage = Math.floor(damage * 0.75);
+      // 어둠의 칼날 (토글): 온/오프 전환
+      if (hero.darkBladeActive) {
+        // 비활성화
+        hero.darkBladeActive = false;
+        hero.darkBladeLastToggleOff = gameTime;
+        hero.skillCooldowns.E = 2.0;  // 재사용 딜레이
 
-      // 첫 번째 틱 즉시 발동
-      for (const enemy of enemies) {
-        if (enemy.hp <= 0) continue;
-        const dist = distance(hero.x, hero.y, enemy.x, enemy.y);
-        if (dist <= radius) {
-          applyDamageToEnemy(ctx, enemy.id, tickDamage, hero);
+        // dark_blade 이펙트 제거
+        for (let i = state.activeSkillEffects.length - 1; i >= 0; i--) {
+          const eff = state.activeSkillEffects[i];
+          if (eff.type === 'dark_blade' && eff.heroId === hero.id) {
+            state.activeSkillEffects.splice(i, 1);
+          }
         }
-      }
 
-      // 기지 데미지 (범위 내 기지)
-      for (const base of state.enemyBases) {
-        if (base.destroyed) continue;
-        const baseDist = distance(hero.x, hero.y, base.x, base.y);
-        if (baseDist <= radius + 50) {
-          damageBase(state, base.id, tickDamage, ctx.difficulty, hero.id);
+        // dark_blade pendingSkills 제거
+        for (let i = state.pendingSkills.length - 1; i >= 0; i--) {
+          const ps = state.pendingSkills[i];
+          if (ps.type === 'dark_blade' && ps.casterId === hero.id) {
+            state.pendingSkills.splice(i, 1);
+          }
         }
+
+        return true;
+      } else {
+        // 활성화 조건 체크
+        const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+        if (isStunned) return false;
+        if (hero.hp <= hero.maxHp * 0.1) return false;
+
+        // 재사용 딜레이 체크 (lastToggleOff + 2초)
+        if (hero.darkBladeLastToggleOff && (gameTime - hero.darkBladeLastToggleOff) < 2.0) return false;
+
+        // 활성화
+        hero.darkBladeActive = true;
+        hero.darkBladeTickTimer = 0;
+        hero.skillCooldowns.E = 0;  // 토글이므로 즉시 재사용 가능
+
+        // 지속 이펙트 (무한 지속, heroId로 캐릭터 따라다님)
+        state.activeSkillEffects.push({
+          type: 'dark_blade' as any,
+          position: { x: hero.x, y: hero.y },
+          radius: 150,
+          damage: 0,
+          duration: 9999,
+          startTime: gameTime,
+          heroId: hero.id,
+        });
+
+        return true;
       }
-
-      // 나머지 틱을 pendingSkill로 등록 (캐스터를 따라다님)
-      state.pendingSkills.push({
-        type: 'dark_blade' as any,
-        position: { x: hero.x, y: hero.y },
-        triggerTime: gameTime + 1,
-        damage: tickDamage,
-        radius,
-        casterId: hero.id,
-        duration,
-        tickCount: duration - 1,  // 첫 틱은 이미 발동했으므로 나머지
-      });
-
-      // 지속 이펙트 (5초, heroId로 캐릭터 따라다님)
-      state.activeSkillEffects.push({
-        type: 'dark_blade' as any,
-        position: { x: hero.x, y: hero.y },
-        radius,
-        damage: tickDamage,
-        duration,
-        startTime: gameTime,
-        heroId: hero.id,
-      });
-
-      hero.skillCooldowns.E = 40.0;
-      return true;
     }
 
     case 'archmage': {
@@ -1550,6 +1534,39 @@ export function updatePendingSkills(ctx: SkillContext): void {
             });
           }
         }
+      } else if (skill.type === 'heavy_strike') {
+        // 강타: 캐스터 현재 위치 기준으로 데미지 적용
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        const hitX = caster ? caster.x : skill.position.x;
+        const hitY = caster ? caster.y : skill.position.y;
+
+        // 범위 내 적에게 데미지
+        for (const enemy of state.enemies) {
+          if (enemy.hp <= 0) continue;
+          const dist = distance(hitX, hitY, enemy.x, enemy.y);
+          if (dist <= skill.radius) {
+            applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+          }
+        }
+
+        // 범위 내 기지에 데미지
+        for (const base of state.enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = distance(hitX, hitY, base.x, base.y);
+          if (baseDist <= skill.radius + 50) {
+            damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
+          }
+        }
+
+        // 충격파 이펙트
+        state.activeSkillEffects.push({
+          type: 'heavy_strike_impact' as any,
+          position: { x: hitX, y: hitY },
+          radius: skill.radius,
+          damage: skill.damage,
+          duration: 0.5,
+          startTime: state.gameTime,
+        });
       } else {
         // 범위 내 적에게 데미지
         for (const enemy of state.enemies) {

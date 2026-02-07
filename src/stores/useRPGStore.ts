@@ -559,13 +559,13 @@ function createHeroUnit(
   // 캐릭터 레벨이 5 이상이면 패시브 활성화
   const passiveState = getPassiveFromCharacterLevel(heroClass, characterLevel) || createInitialPassiveState();
 
-  // SP 스탯 업그레이드 적용
+  // SP 스탯 업그레이드 적용 (2차 강화 시 maxLevel 제한 해제)
   const upgrades = statUpgrades || createDefaultStatUpgrades();
-  const attackBonus = getStatBonus('attack', upgrades.attack);
-  const speedBonus = getStatBonus('speed', upgrades.speed);
-  const hpBonus = getStatBonus('hp', upgrades.hp);
-  const attackSpeedBonus = getStatBonus('attackSpeed', upgrades.attackSpeed);
-  const rangeBonus = getStatBonus('range', upgrades.range);
+  const attackBonus = getStatBonus('attack', upgrades.attack, tier);
+  const speedBonus = getStatBonus('speed', upgrades.speed, tier);
+  const hpBonus = getStatBonus('hp', upgrades.hp, tier);
+  const attackSpeedBonus = getStatBonus('attackSpeed', upgrades.attackSpeed, tier);
+  const rangeBonus = getStatBonus('range', upgrades.range, tier);
   // hpRegen은 게임 루프에서 적용됨
 
   // 최종 스탯 계산
@@ -1077,13 +1077,13 @@ export const useRPGStore = create<RPGStore>()(
       const enhancedAttackSpeed = baseStats.attackSpeed / SECOND_ENHANCEMENT_MULTIPLIER; // 더 빨라짐
       const enhancedRange = Math.floor(baseStats.range * SECOND_ENHANCEMENT_MULTIPLIER);
 
-      // SP 업그레이드 보너스 다시 적용
+      // SP 업그레이드 보너스 다시 적용 (2차 강화이므로 tier 2 - maxLevel 제한 해제)
       const upgrades = state.hero.statUpgrades || { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 };
-      const attackBonus = getStatBonus('attack', upgrades.attack);
-      const speedBonus = getStatBonus('speed', upgrades.speed);
-      const hpBonus = getStatBonus('hp', upgrades.hp);
-      const attackSpeedBonus = getStatBonus('attackSpeed', upgrades.attackSpeed);
-      const rangeBonus = getStatBonus('range', upgrades.range);
+      const attackBonus = getStatBonus('attack', upgrades.attack, 2);
+      const speedBonus = getStatBonus('speed', upgrades.speed, 2);
+      const hpBonus = getStatBonus('hp', upgrades.hp, 2);
+      const attackSpeedBonus = getStatBonus('attackSpeed', upgrades.attackSpeed, 2);
+      const rangeBonus = getStatBonus('range', upgrades.range, 2);
 
       // 최종 스탯 계산
       const finalHp = enhancedHp + hpBonus;
@@ -1302,7 +1302,7 @@ export const useRPGStore = create<RPGStore>()(
         const buffMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
 
         // SP 공격속도 업그레이드 보너스 (초 단위)
-        const spAttackSpeedBonus = getStatBonus('attackSpeed', state.hero.statUpgrades?.attackSpeed || 0);
+        const spAttackSpeedBonus = getStatBonus('attackSpeed', state.hero.statUpgrades?.attackSpeed || 0, state.hero.tier);
 
         const updatedSkills = state.hero.skills.map((skill) => {
           // Q스킬(기본 공격)에만 공격속도 보너스 적용
@@ -3208,6 +3208,7 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
     statUpgrades: serialized.statUpgrades,
     deathTime: serialized.deathTime,  // 사망 시간 동기화
     castingUntil: serialized.castingUntil,  // 시전 상태 동기화
+    darkBladeActive: serialized.darkBladeActive,  // 다크나이트 토글 상태 동기화
   };
 }
 

@@ -1116,6 +1116,12 @@ export interface AdvancedSkillConfig {
   burnDuration?: number;     // 화상 지속시간
   meteorCount?: number;      // 운석 개수
   range?: number;            // 스킬 사거리
+  castTime?: number;         // 시전 시간
+  hpCostRatio?: number;      // HP 비용 (최대 HP 대비)
+  isToggle?: boolean;        // 토글 스킬 여부
+  reuseCooldown?: number;    // 토글 재사용 딜레이
+  hpDrainRatio?: number;     // 초당 HP 소모 비율
+  autoOffHpRatio?: number;   // 자동 해제 HP 비율
 }
 
 // ============================================
@@ -1187,17 +1193,18 @@ export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     healPercent: 0.1,
     radius: 200,  // 힐 범위
   },
-  // 다크나이트: 암흑 베기 - 전방 돌진 + 150% 데미지 + 피해흡혈
+  // 다크나이트: 강타 - 1초 시전 후 전방 350% 데미지, HP 8% 소모
   darkKnight: {
-    type: 'shadow_slash',
-    name: '암흑 베기',
-    nameEn: 'Shadow Slash',
+    type: 'heavy_strike',
+    name: '강타',
+    nameEn: 'Heavy Strike',
     key: 'W',
-    cooldown: 6,
-    description: '전방 돌진 + 경로상 적에게 150% 데미지 + 피해량의 30% 체력 회복',
-    damageMultiplier: 1.5,
-    distance: 200,
-    lifestealPercent: 0.3,
+    cooldown: 4,
+    description: '1초 시전 후 전방에 350% 데미지. HP 8% 소모',
+    damageMultiplier: 3.5,
+    castTime: 1.0,
+    hpCostRatio: 0.08,
+    range: 120,
   },
   // 대마법사: 폭발 화염구 - 대형 화염구 + 화상
   archmage: {
@@ -1290,17 +1297,20 @@ export const ADVANCED_E_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     invincibleDuration: 3,
     radius: 500,
   },
-  // 다크나이트: 어둠의 칼날 - 주변 적에게 5초간 초당 75% 데미지
+  // 다크나이트: 어둠의 칼날 (토글) - HP 소모 주변 지속 데미지
   darkKnight: {
     type: 'dark_blade',
     name: '어둠의 칼날',
     nameEn: 'Dark Blade',
     key: 'E',
-    cooldown: 40,
-    description: '5초간 주변 적에게 초당 공격력 75% 데미지',
-    duration: 5,
-    damageMultiplier: 0.75,
+    cooldown: 0,
+    description: '토글: 초당 HP 3% 소모, 주변 적에게 초당 100% 데미지',
+    isToggle: true,
+    reuseCooldown: 2,
+    hpDrainRatio: 0.03,
+    damageMultiplier: 1.0,
     radius: 150,
+    autoOffHpRatio: 0.1,
   },
   // 대마법사: 메테오 샤워 - 5초간 랜덤 위치에 운석 10개 낙하
   archmage: {

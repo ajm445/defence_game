@@ -326,19 +326,19 @@ export function useRPGGameLoop() {
                 soundManager.play('attack_melee');
               }
               break;
-            case 'dark_blade':
-              // 다크나이트 어둠의 칼날 틱 이펙트
+            case 'heavy_strike':
+              // 다크나이트 강타 충격파 이펙트
               {
-                const darkBladeEffect: SkillEffect = {
-                  type: 'dark_blade' as SkillType,
+                const heavyStrikeEffect: SkillEffect = {
+                  type: 'heavy_strike_impact' as SkillType,
                   position: { x: skill.position.x, y: skill.position.y },
                   radius: skill.radius,
                   damage: skill.damage,
-                  duration: 1.0,
+                  duration: 0.5,
                   startTime: clientCurrentGameTime,
-                  heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
+                  heroId: skill.casterId,
                 };
-                useRPGStore.getState().addSkillEffect(darkBladeEffect);
+                useRPGStore.getState().addSkillEffect(heavyStrikeEffect);
                 soundManager.play('attack_melee');
               }
               break;
@@ -618,7 +618,7 @@ export function useRPGGameLoop() {
 
       // SP hpRegen 업그레이드 보너스 (전사, 기사만)
       if ((heroClass === 'warrior' || heroClass === 'knight') && heroForRegen.statUpgrades) {
-        const hpRegenBonus = getStatBonus('hpRegen', heroForRegen.statUpgrades.hpRegen);
+        const hpRegenBonus = getStatBonus('hpRegen', heroForRegen.statUpgrades.hpRegen, heroForRegen.tier);
         totalRegen += hpRegenBonus;
       }
 
@@ -647,7 +647,7 @@ export function useRPGGameLoop() {
 
       // SP hpRegen 업그레이드 보너스 (전사, 기사만)
       if ((otherHeroClass === 'warrior' || otherHeroClass === 'knight') && otherHero.statUpgrades) {
-        const hpRegenBonus = getStatBonus('hpRegen', otherHero.statUpgrades.hpRegen);
+        const hpRegenBonus = getStatBonus('hpRegen', otherHero.statUpgrades.hpRegen, otherHero.tier);
         otherTotalRegen += hpRegenBonus;
       }
 

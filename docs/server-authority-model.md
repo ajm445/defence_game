@@ -194,7 +194,7 @@ const wSkill = hero.skills?.find(s => s.key === 'W');
 | sniper | backflip_shot (후방 도약) | headshot (저격) |
 | ranger | multi_arrow (다중 화살) | arrow_rain (화살 폭풍) |
 | paladin | holy_charge (신성한 돌진) | holy_judgment (신성한 빛) |
-| darkKnight | shadow_slash (암흑 베기) | dark_blade (어둠의 칼날) |
+| darkKnight | heavy_strike (강타) | dark_blade (어둠의 칼날, 토글) |
 | archmage | inferno (인페르노) | meteor_shower (메테오 샤워) |
 | healer | healing_light (치유의 빛) | spring_of_life (생명의 샘) |
 

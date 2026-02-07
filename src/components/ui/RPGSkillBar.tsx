@@ -13,6 +13,7 @@ interface SkillButtonProps {
   onHoverEnd: () => void;
   disabled?: boolean;  // 타겟 없음 등의 이유로 비활성화
   disabledReason?: string;  // 비활성화 이유
+  active?: boolean;  // 토글 스킬 활성화 상태
 }
 
 // 직업별 스킬 아이콘
@@ -44,7 +45,8 @@ const getSkillIcon = (skillType: SkillType, _heroClass: HeroClass): string => {
     backflip_shot: '🔙',   // 저격수 - 후방 도약
     multi_arrow: '🏹',     // 레인저 - 다중 화살
     holy_charge: '✝️',     // 팔라딘 - 신성한 돌진
-    shadow_slash: '🗡️',    // 다크나이트 - 암흑 베기
+    shadow_slash: '🗡️',    // 다크나이트 - 암흑 베기 (레거시)
+    heavy_strike: '⚔️',    // 다크나이트 - 강타
     inferno: '🔥',         // 대마법사 - 폭발 화염구
     healing_light: '💚',   // 힐러 - 치유의 빛
     // 전직 E 스킬
@@ -101,10 +103,10 @@ const getSkillLabel = (key: string): string => {
   return key;
 };
 
-const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHoverStart, onHoverEnd, disabled, disabledReason }) => {
+const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHoverStart, onHoverEnd, disabled, disabledReason, active }) => {
   const isOnCooldown = skill.currentCooldown > 0;
   const cooldownPercent = isOnCooldown ? (skill.currentCooldown / skill.cooldown) * 100 : 0;
-  const isDisabled = isOnCooldown || disabled;
+  const isDisabled = active ? false : (isOnCooldown || disabled);
 
   const skillIcon = getSkillIcon(skill.type, heroClass);
   const skillColor = getSkillColor(skill.key, heroClass);
@@ -122,9 +124,11 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
         className={`
           relative w-14 h-14 rounded-lg border-2 overflow-hidden
           transition-all duration-200
-          ${isDisabled
-            ? 'bg-dark-700/80 border-dark-500 cursor-not-allowed'
-            : `bg-gradient-to-br ${skillColor} border-neon-cyan/50 hover:border-neon-cyan hover:scale-105 cursor-pointer`
+          ${active
+            ? 'bg-gradient-to-br from-purple-600/50 to-purple-900/50 border-purple-400 shadow-[0_0_12px_rgba(147,51,234,0.5)] cursor-pointer'
+            : isDisabled
+              ? 'bg-dark-700/80 border-dark-500 cursor-not-allowed'
+              : `bg-gradient-to-br ${skillColor} border-neon-cyan/50 hover:border-neon-cyan hover:scale-105 cursor-pointer`
           }
         `}
       >
@@ -148,6 +152,13 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
             <span className="text-lg font-bold text-white drop-shadow-lg">
               {Math.ceil(skill.currentCooldown)}
             </span>
+          </div>
+        )}
+
+        {/* 토글 활성 표시 */}
+        {active && (
+          <div className="absolute top-0 left-0 bg-purple-500 text-white text-[10px] font-bold px-1 rounded-br animate-pulse">
+            ON
           </div>
         )}
 
@@ -324,6 +335,7 @@ export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
               onHoverEnd={handleSkillHoverEnd}
               disabled={disabled}
               disabledReason={reason}
+              active={skill.type === 'dark_blade' && hero.darkBladeActive}
             />
           </div>
         );

@@ -233,23 +233,23 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
           <div className="grid grid-cols-2 gap-2 text-sm">
             <div className="flex justify-between">
               <span className="text-gray-400">HP</span>
-              <span className="text-white">{displayConfig.hp + getStatBonus('hp', safeStatUpgrades.hp)}</span>
+              <span className="text-white">{displayConfig.hp + getStatBonus('hp', safeStatUpgrades.hp, progress.tier)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">공격력</span>
-              <span className="text-white">{displayConfig.attack + getStatBonus('attack', safeStatUpgrades.attack)}</span>
+              <span className="text-white">{displayConfig.attack + getStatBonus('attack', safeStatUpgrades.attack, progress.tier)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">공격속도</span>
-              <span className="text-white">{Math.max(0.3, displayConfig.attackSpeed - getStatBonus('attackSpeed', safeStatUpgrades.attackSpeed ?? 0)).toFixed(2)}초</span>
+              <span className="text-white">{Math.max(0.3, displayConfig.attackSpeed - getStatBonus('attackSpeed', safeStatUpgrades.attackSpeed ?? 0, progress.tier)).toFixed(2)}초</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">이동속도</span>
-              <span className="text-white">{(displayConfig.speed + getStatBonus('speed', safeStatUpgrades.speed)).toFixed(1)}</span>
+              <span className="text-white">{(displayConfig.speed + getStatBonus('speed', safeStatUpgrades.speed, progress.tier)).toFixed(1)}</span>
             </div>
             <div className="flex justify-between">
               <span className="text-gray-400">사거리</span>
-              <span className="text-white">{displayConfig.range + getStatBonus('range', safeStatUpgrades.range)}</span>
+              <span className="text-white">{displayConfig.range + getStatBonus('range', safeStatUpgrades.range, progress.tier)}</span>
             </div>
           </div>
         </div>
@@ -610,13 +610,14 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
             {upgradeableStats.map((statType) => {
               const statConfig = STAT_UPGRADE_CONFIG[statType];
               const currentLevel = safeStatUpgrades[statType] ?? 0;
-              const currentBonus = getStatBonus(statType, currentLevel);
-              const nextBonus = getStatBonus(statType, currentLevel + 1);
+              const currentBonus = getStatBonus(statType, currentLevel, progress.tier);
+              const nextBonus = getStatBonus(statType, currentLevel + 1, progress.tier);
 
               // 공격속도 0.3초 캡 체크
               const isAttackSpeedCapped = statType === 'attackSpeed' &&
-                (displayConfig.attackSpeed - getStatBonus('attackSpeed', safeStatUpgrades.attackSpeed ?? 0)) <= 0.3;
-              const isMaxed = isAttackSpeedCapped || currentLevel >= statConfig.maxLevel;
+                (displayConfig.attackSpeed - getStatBonus('attackSpeed', safeStatUpgrades.attackSpeed ?? 0, progress.tier)) <= 0.3;
+              const isTier2 = progress.tier === 2;
+              const isMaxed = isAttackSpeedCapped || (!isTier2 && currentLevel >= statConfig.maxLevel);
               const canUpgrade = isAttackSpeedCapped ? false : canUpgradeStat(heroClass, statType);
               // 소수점 표시가 필요한 스탯들 (부동소수점 오류 방지)
               const needsDecimalFormat = statType === 'speed' || statType === 'attackSpeed';

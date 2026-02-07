@@ -91,7 +91,9 @@ export type SkillType =
   | 'backflip_shot'   // 저격수 - 후방 도약
   | 'multi_arrow'     // 레인저 - 다중 화살
   | 'holy_charge'     // 팔라딘 - 신성한 돌진
-  | 'shadow_slash'    // 다크나이트 - 암흑 베기
+  | 'shadow_slash'    // 다크나이트 - 암흑 베기 (레거시)
+  | 'heavy_strike'    // 다크나이트 - 강타
+  | 'heavy_strike_impact'  // 다크나이트 - 강타 충격파
   | 'inferno'         // 대마법사 - 폭발 화염구
   | 'inferno_burn'    // 대마법사 - 폭발 화염구 화상 효과
   | 'healing_light'   // 힐러 - 치유의 빛
@@ -246,6 +248,7 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   passiveGrowth: PassiveGrowthState; // 패시브 성장 상태
   deathTime?: number;        // 사망 시간 (부활 타이머용)
   castingUntil?: number;     // 시전 종료 시간 (게임 시간 기준, 시전 중 이동/공격 불가)
+  darkBladeActive?: boolean; // 다크나이트 어둠의 칼날 토글 활성 상태
 }
 
 // 웨이브 설정

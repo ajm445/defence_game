@@ -2570,11 +2570,13 @@ export function drawSkillEffect(
       break;
 
     case 'dark_blade':
-      // 다크나이트 - 어둠의 칼날 (암흑검 3자루가 캐릭터 주위를 회전)
+      // 다크나이트 - 어둠의 칼날 (암흑검 3자루가 캐릭터 주위를 회전, 토글)
       {
         const radius = effect.radius || 150;
-        const t = progress * 5;
-        const fade = progress < 0.08 ? progress / 0.08 : progress > 0.88 ? (1 - progress) / 0.12 : 1;
+        const t = elapsed;
+        // 토글 이펙트는 duration이 9999이므로 페이드아웃 없이 유지, 시작 시 페이드인만
+        const fadeInTime = 0.3;  // 0.3초 페이드인
+        const fade = elapsed < fadeInTime ? elapsed / fadeInTime : 1;
         const swordCount = 3;
         const spinSpeed = 2.5;
         const orbitR = radius * 0.55;
@@ -2671,6 +2673,98 @@ export function drawSkillEffect(
 
           ctx.shadowBlur = 0;
           ctx.restore();
+        }
+      }
+      break;
+
+    case 'heavy_strike':
+      // 다크나이트 - 강타 시전 (검을 들어올리는 차징 이펙트)
+      {
+        const chargeProgress = progress;
+        const fade = chargeProgress < 0.1 ? chargeProgress / 0.1 : 1;
+        const chargeRadius = 120;
+
+        // 어두운 기운 모으기
+        ctx.globalAlpha = fade * 0.3;
+        const chargeGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, chargeRadius);
+        chargeGrad.addColorStop(0, '#4c1d95');
+        chargeGrad.addColorStop(0.5, '#7c3aed60');
+        chargeGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = chargeGrad;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, chargeRadius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 수렴하는 파티클 (중심으로 모이는 에너지)
+        ctx.globalAlpha = fade * 0.7;
+        const particleCount = 8;
+        for (let i = 0; i < particleCount; i++) {
+          const angle = (i / particleCount) * Math.PI * 2 + chargeProgress * 3;
+          const dist = chargeRadius * (1 - chargeProgress * 0.7);
+          const px = screenX + Math.cos(angle) * dist;
+          const py = screenY + Math.sin(angle) * dist;
+          const size = 3 + chargeProgress * 4;
+
+          ctx.fillStyle = '#a855f7';
+          ctx.beginPath();
+          ctx.arc(px, py, size, 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 충격 준비 표시 (원형 경고)
+        if (chargeProgress > 0.5) {
+          const warningAlpha = (chargeProgress - 0.5) * 2;
+          ctx.globalAlpha = warningAlpha * 0.4;
+          ctx.strokeStyle = '#a855f7';
+          ctx.lineWidth = 2;
+          ctx.setLineDash([8, 4]);
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, chargeRadius, 0, Math.PI * 2);
+          ctx.stroke();
+          ctx.setLineDash([]);
+        }
+      }
+      break;
+
+    case 'heavy_strike_impact':
+      // 다크나이트 - 강타 충격파 (내려찍는 충격)
+      {
+        const impactRadius = effect.radius || 120;
+        const impactFade = progress < 0.1 ? progress / 0.1 : progress > 0.6 ? (1 - progress) / 0.4 : 1;
+
+        // 충격파 원형
+        ctx.globalAlpha = impactFade * 0.6;
+        const impactGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, impactRadius * (0.5 + progress * 0.5));
+        impactGrad.addColorStop(0, '#7c3aed');
+        impactGrad.addColorStop(0.5, '#4c1d9580');
+        impactGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = impactGrad;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, impactRadius * (0.5 + progress * 0.5), 0, Math.PI * 2);
+        ctx.fill();
+
+        // 충격파 링
+        ctx.globalAlpha = impactFade * 0.8;
+        ctx.strokeStyle = '#a855f7';
+        ctx.lineWidth = 4 * (1 - progress);
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, impactRadius * progress, 0, Math.PI * 2);
+        ctx.stroke();
+
+        // 바닥 균열 효과
+        ctx.globalAlpha = impactFade * 0.5;
+        ctx.strokeStyle = '#581c87';
+        ctx.lineWidth = 2;
+        for (let i = 0; i < 6; i++) {
+          const crackAngle = (i / 6) * Math.PI * 2;
+          const crackLen = impactRadius * 0.8 * progress;
+          ctx.beginPath();
+          ctx.moveTo(screenX, screenY);
+          ctx.lineTo(
+            screenX + Math.cos(crackAngle) * crackLen,
+            screenY + Math.sin(crackAngle) * crackLen
+          );
+          ctx.stroke();
         }
       }
       break;

@@ -24,6 +24,7 @@ import {
   DIFFICULTY_CONFIGS,
   ENEMY_BASE_CONFIG,
   COOP_CONFIG,
+  UPGRADE_CONFIG,
 } from './rpgServerConfig';
 
 import type {
@@ -427,6 +428,107 @@ export class RPGServerGameEngine {
               y: nearestBase.y,
               timestamp: this.state.currentTickTimestamp,
             });
+          }
+        }
+      }
+
+      // 다크나이트 어둠의 칼날 토글 틱 처리
+      if (hero.darkBladeActive) {
+        // HP 소모: 초당 maxHp * 0.03
+        hero.hp -= hero.maxHp * 0.03 * deltaTime;
+
+        // 1초 틱 데미지
+        hero.darkBladeTickTimer = (hero.darkBladeTickTimer || 0) + deltaTime;
+        if (hero.darkBladeTickTimer >= 1.0) {
+          hero.darkBladeTickTimer -= 1.0;
+
+          // 데미지 계산
+          const darkBladeAttack = hero.config?.attack || hero.baseAttack || 50;
+          const darkBladeUpgradeBonus = (hero.upgradeLevels?.attack || 0) * UPGRADE_CONFIG.attack.perLevel;
+          const darkBladeTotalDamage = darkBladeAttack + darkBladeUpgradeBonus;
+          const tickDamage = Math.floor(darkBladeTotalDamage * 1.0);
+
+          // 범위 150px 내 적에게 데미지
+          const darkBladeRadius = 150;
+          let totalDarkBladeDmg = 0;
+          for (const enemy of this.state.enemies) {
+            if (enemy.hp <= 0) continue;
+            const dist = distance(hero.x, hero.y, enemy.x, enemy.y);
+            if (dist <= darkBladeRadius) {
+              enemy.hp -= tickDamage;
+              totalDarkBladeDmg += tickDamage;
+              this.state.damageNumbers.push({
+                id: `db_${this.state.currentTickTimestamp}_${enemy.id}`,
+                x: enemy.x, y: enemy.y - 20,
+                amount: tickDamage, type: 'damage',
+                createdAt: this.state.currentTickTimestamp,
+              });
+              if (enemy.hp <= 0) {
+                this.handleEnemyDeath(enemy, hero);
+              }
+            }
+          }
+
+          // 범위 내 기지에 데미지
+          for (const base of this.state.enemyBases) {
+            if (base.destroyed) continue;
+            const baseDist = distance(hero.x, hero.y, base.x, base.y);
+            if (baseDist <= darkBladeRadius + 50) {
+              damageBase(this.state, base.id, tickDamage, this.difficulty, hero.id);
+              totalDarkBladeDmg += tickDamage;
+            }
+          }
+
+          // 피해흡혈 30% 적용 (다크나이트 패시브)
+          if (totalDarkBladeDmg > 0) {
+            const lifestealAmount = Math.floor(totalDarkBladeDmg * 0.3);
+            if (lifestealAmount > 0) {
+              hero.hp = Math.min(hero.maxHp, hero.hp + lifestealAmount);
+              this.state.damageNumbers.push({
+                id: `db_heal_${this.state.currentTickTimestamp}_${hero.id}`,
+                x: hero.x, y: hero.y - 40,
+                amount: lifestealAmount, type: 'heal',
+                createdAt: this.state.currentTickTimestamp,
+              });
+            }
+          }
+        }
+
+        // 자동 해제: HP ≤ 10% 또는 스턴
+        const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+        if (hero.hp <= hero.maxHp * 0.1 || isStunned) {
+          hero.darkBladeActive = false;
+          hero.darkBladeLastToggleOff = this.state.gameTime;
+          hero.skillCooldowns.E = 2.0;
+          hero._skillE.currentCooldown = 2.0;
+
+          // 이펙트 제거
+          for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {
+            const eff = this.state.activeSkillEffects[i];
+            if (eff.type === 'dark_blade' && eff.heroId === hero.id) {
+              this.state.activeSkillEffects.splice(i, 1);
+            }
+          }
+        }
+
+        // HP 0 이하 시 사망 처리
+        if (hero.hp <= 0) {
+          hero.hp = 0;
+          hero.isDead = true;
+          hero.darkBladeActive = false;
+          hero.deathTime = this.state.gameTime;
+          const wave = Math.floor(this.state.gameTime / 60);
+          hero.reviveTimer = Math.min(
+            COOP_CONFIG.REVIVE.MAX_TIME,
+            COOP_CONFIG.REVIVE.BASE_TIME + wave * COOP_CONFIG.REVIVE.TIME_PER_WAVE
+          );
+
+          // 이펙트 제거
+          for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {
+            const eff = this.state.activeSkillEffects[i];
+            if (eff.type === 'dark_blade' && eff.heroId === hero.id) {
+              this.state.activeSkillEffects.splice(i, 1);
+            }
           }
         }
       }

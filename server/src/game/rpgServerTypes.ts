@@ -58,6 +58,10 @@ export interface ServerHero extends Omit<SerializedHero, 'skills'> {
   _skillW: Skill;
   _skillE: Skill;
   goldAccumulator: number;
+  // 다크나이트 어둠의 칼날 토글 상태
+  darkBladeActive?: boolean;
+  darkBladeLastToggleOff?: number;
+  darkBladeTickTimer?: number;
 }
 
 // 서버 게임 상태

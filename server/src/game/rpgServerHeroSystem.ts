@@ -74,7 +74,7 @@ export function createHeroSkills(heroClass: HeroClass, advancedClass?: AdvancedH
     sniper: { wType: 'backflip_shot', wCd: 5.0, eType: 'headshot', eCd: 30.0 },
     ranger: { wType: 'multi_arrow', wCd: 5.0, eType: 'arrow_storm', eCd: 35.0 },
     paladin: { wType: 'holy_charge', wCd: 8.0, eType: 'holy_judgment', eCd: 60.0 },
-    darkKnight: { wType: 'shadow_slash', wCd: 6.0, eType: 'dark_blade', eCd: 40.0 },
+    darkKnight: { wType: 'heavy_strike', wCd: 4.0, eType: 'dark_blade', eCd: 0 },
     archmage: { wType: 'inferno', wCd: 7.0, eType: 'meteor_shower', eCd: 50.0 },
     healer: { wType: 'healing_light', wCd: 7.0, eType: 'spring_of_life', eCd: 45.0 },
   };
@@ -133,11 +133,11 @@ export function createHero(playerInfo: CoopPlayerInfo, spawnPos: { x: number; y:
   }
 
   const upgrades = playerInfo.statUpgrades || { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 };
-  const attackBonus = getStatBonus('attack', upgrades.attack);
-  const speedBonus = getStatBonus('speed', upgrades.speed);
-  const hpBonus = getStatBonus('hp', upgrades.hp);
-  const attackSpeedBonus = getStatBonus('attackSpeed', upgrades.attackSpeed);
-  const rangeBonus = getStatBonus('range', upgrades.range);
+  const attackBonus = getStatBonus('attack', upgrades.attack, tier);
+  const speedBonus = getStatBonus('speed', upgrades.speed, tier);
+  const hpBonus = getStatBonus('hp', upgrades.hp, tier);
+  const attackSpeedBonus = getStatBonus('attackSpeed', upgrades.attackSpeed, tier);
+  const rangeBonus = getStatBonus('range', upgrades.range, tier);
 
   const finalHp = baseStats.hp + hpBonus;
   const finalAttack = baseStats.attack + attackBonus;

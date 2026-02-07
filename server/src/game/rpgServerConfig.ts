@@ -371,17 +371,19 @@ export function getPassiveFromCharacterLevel(heroClass: HeroClass, characterLeve
 
 // SP 스탯 업그레이드 설정
 export const STAT_UPGRADE_CONFIG = {
-  attack: { perLevel: 5 },
-  speed: { perLevel: 0.1 },
-  hp: { perLevel: 20 },
-  attackSpeed: { perLevel: 0.05 },
-  range: { perLevel: 5 },
-  hpRegen: { perLevel: 2 },
+  attack: { perLevel: 5, maxLevel: 30 },
+  speed: { perLevel: 0.1, maxLevel: 30 },
+  hp: { perLevel: 35, maxLevel: 30 },
+  attackSpeed: { perLevel: 0.02, maxLevel: 30 },
+  range: { perLevel: 5, maxLevel: 30 },
+  hpRegen: { perLevel: 1, maxLevel: 30 },
 };
 
-// SP 스탯 보너스 계산
-export function getStatBonus(upgradeType: keyof typeof STAT_UPGRADE_CONFIG, level: number): number {
-  return STAT_UPGRADE_CONFIG[upgradeType].perLevel * level;
+// SP 스탯 보너스 계산 (2차 강화 전: maxLevel 제한, 2차 강화 후: 제한 해제)
+export function getStatBonus(upgradeType: keyof typeof STAT_UPGRADE_CONFIG, level: number, tier?: number): number {
+  const config = STAT_UPGRADE_CONFIG[upgradeType];
+  const clampedLevel = tier === 2 ? level : Math.min(level, config.maxLevel);
+  return config.perLevel * clampedLevel;
 }
 
 // 전직 클래스 타입

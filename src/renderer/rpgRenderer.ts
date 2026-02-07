@@ -83,8 +83,8 @@ export function renderRPG(
   // 스킬 이펙트 렌더링
   const otherHeroesForEffects = useRPGStore.getState().otherHeroes;
   for (const effect of state.activeSkillEffects) {
-    // heroId가 있는 이펙트는 해당 영웅의 위치를 따라감 (spring_of_life, dark_blade 등)
-    if ((effect.type === 'spring_of_life' || effect.type === 'dark_blade') && effect.heroId) {
+    // heroId가 있는 이펙트는 해당 영웅의 위치를 따라감 (spring_of_life, dark_blade, heavy_strike 등)
+    if ((effect.type === 'spring_of_life' || effect.type === 'dark_blade' || effect.type === 'heavy_strike') && effect.heroId) {
       // 내 영웅인지 확인
       if (state.hero && effect.heroId === state.hero.id) {
         const updatedEffect = { ...effect, position: { x: state.hero.x, y: state.hero.y } };

@@ -337,6 +337,7 @@ export function serializeGameState(state: ServerGameState): SerializedGameState 
       advancedClass: hero.advancedClass,
       tier: hero.tier,
       castingUntil: hero.castingUntil,
+      darkBladeActive: hero.darkBladeActive || false,
     });
   }
 

@@ -428,10 +428,13 @@ export const useProfileStore = create<ProfileStore>()(
       const upgradeableStats = getUpgradeableStats(className);
       if (!upgradeableStats.includes(statType)) return false;
 
-      // 최대 레벨 확인
+      // 최대 레벨 확인 (2차 강화 전: maxLevel 제한, 2차 강화 후: 제한 해제)
       const currentLevel = progress.statUpgrades[statType] ?? 0;
-      const maxLevel = STAT_UPGRADE_CONFIG[statType].maxLevel;
-      if (currentLevel >= maxLevel) return false;
+      const isTier2 = progress.tier === 2;
+      if (!isTier2) {
+        const maxLevel = STAT_UPGRADE_CONFIG[statType].maxLevel;
+        if (currentLevel >= maxLevel) return false;
+      }
 
       return true;
     },

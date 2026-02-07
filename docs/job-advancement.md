@@ -259,13 +259,13 @@ SP 업그레이드 +20 포함 시:
 **특수 효과:**
 - 피해흡혈 30% 부여
 
-**W 스킬 - 암흑 베기 (Shadow Slash):** `shadow_slash`
-- 쿨다운: 8초
-- 효과: 전방 돌진 + 경로상 적에게 150% 데미지 + 피해량의 30% 체력 회복
+**W 스킬 - 강타 (Heavy Strike):** `heavy_strike`
+- 쿨다운: 4초
+- 효과: 1초 시전 후 전방 120px 범위에 350% 데미지, HP 8% 소모
 
 **E 스킬 - 어둠의 칼날 (Dark Blade):** `dark_blade`
-- 쿨다운: 40초
-- 효과: 5초간 주변 150px 내 적에게 초당 공격력 75% 데미지, 암흑검 3자루가 캐릭터 주위를 회전
+- 쿨다운: 없음 (토글, 재사용 딜레이 2초)
+- 효과: 토글 온/오프, 초당 HP 3% 소모, 주변 150px 내 적에게 초당 공격력 100% 데미지, HP ≤10% 또는 기절 시 자동 해제
 
 ---
 
@@ -326,7 +326,7 @@ SP 업그레이드 +20 포함 시:
 | 궁수 | 관통 화살 | 저격수 | 후방 도약 (뒤로 점프 + 200% 화살) | `backflip_shot` |
 | 궁수 | 관통 화살 | 레인저 | 다중 화살 (부채꼴 5발 관통) | `multi_arrow` |
 | 기사 | 방패 돌진 | 팔라딘 | 신성한 돌진 (돌진 + 기절 + 아군 힐) | `holy_charge` |
-| 기사 | 방패 돌진 | 다크나이트 | 암흑 베기 (돌진 + 150% 데미지 + 피해흡혈) | `shadow_slash` |
+| 기사 | 방패 돌진 | 다크나이트 | 강타 (1초 시전 + 350% 데미지 + HP 8% 소모) | `heavy_strike` |
 | 마법사 | 화염구 | 대마법사 | 폭발 화염구 (250% + 범위 증가 + 화상) | `inferno` |
 | 마법사 | 화염구 | 힐러 | 치유의 빛 (적 데미지 + 아군 힐) | `healing_light` |
 
@@ -339,7 +339,7 @@ SP 업그레이드 +20 포함 시:
 | 궁수 | 화살 비 | 저격수 | 저격 (3초 조준, 1000% 데미지) | `snipe` |
 | 궁수 | 화살 비 | 레인저 | 화살 폭풍 (6초간 공속 2배) | `arrow_storm` |
 | 기사 | 철벽 방어 | 팔라딘 | 신성한 빛 (아군 HP 30% + 3초 무적) | `divine_light` |
-| 기사 | 철벽 방어 | 다크나이트 | 어둠의 칼날 (5초간 주변 초당 75% 데미지) | `dark_blade` |
+| 기사 | 철벽 방어 | 다크나이트 | 어둠의 칼날 (토글, 초당 HP 3% 소모 + 초당 100% 데미지) | `dark_blade` |
 | 마법사 | 운석 낙하 | 대마법사 | 메테오 샤워 (5초간 운석 10개) | `meteor_shower` |
 | 마법사 | 운석 낙하 | 힐러 | 생명의 샘 (15초간 아군 초당 5% 힐) | `spring_of_life` |
 
@@ -804,25 +804,27 @@ interface SkillEffect {
 
 #### 6.7 다크나이트 스킬
 
-**W - 암흑 베기 (shadow_slash)**
+**W - 강타 (heavy_strike)**
 | 항목 | 값 |
 |------|-----|
-| 타입 | 방향 지정 돌진 |
-| 쿨다운 | 8초 |
-| 사거리 | 250px (돌진 거리) |
-| 데미지 | 150% |
-| 특수효과 | 피해량의 30% 체력 회복 |
-| 애니메이션 | 보라색 잔상 + 검은 베기 |
-| 히트박스 | 돌진 경로 (폭 50px) |
+| 타입 | 시전형 범위 공격 |
+| 쿨다운 | 4초 |
+| 시전 시간 | 1초 (이동 불가) |
+| HP 비용 | 최대 HP의 8% |
+| 데미지 | 350% |
+| 범위 | 120px (영웅 전방) |
+| 애니메이션 | 보라색 차징 파티클 → 충격파 |
+| 이펙트 | 차징 중 수렴 파티클 + 충격파 원형 (heroId 추적) |
 
-**E - 어둠의 칼날 (dark_blade)**
+**E - 어둠의 칼날 (dark_blade) [토글]**
 | 항목 | 값 |
 |------|-----|
-| 타입 | 지속 범위 데미지 |
-| 쿨다운 | 40초 |
-| 지속시간 | 5초 |
-| 데미지 | 초당 공격력의 75% |
+| 타입 | 토글 온/오프 지속 범위 데미지 |
+| 쿨다운 | 없음 (재사용 딜레이 2초) |
+| HP 소모 | 초당 최대 HP의 3% |
+| 데미지 | 초당 공격력의 100% |
 | 범위 | 반경 150px |
+| 자동 해제 | HP ≤ 10% 또는 기절(stun) |
 | 애니메이션 | 암흑검 3자루 회전 |
 | 이펙트 | 보라색/검은색 검이 캐릭터 주위를 회전 (heroId 추적) |
 
@@ -876,7 +878,8 @@ interface SkillEffect {
 | 이펙트 | 아군에게 녹색 회복 파티클 |
 
 #### 6.10 스킬 구현 우선순위
-1. 돌진형 스킬 (blood_rush, guardian_rush, holy_charge, shadow_slash)
+1. 돌진형 스킬 (blood_rush, guardian_rush, holy_charge)
+1-1. 시전형 스킬 (heavy_strike)
 2. 버프형 스킬 (rage, shield, arrow_storm, spring_of_life)
 3. 투사체형 스킬 (backflip_shot, multi_arrow, inferno, healing_light)
 4. 특수 스킬 (snipe, dark_blade, meteor_shower, divine_light)
@@ -943,7 +946,7 @@ class SkillEffectManager {
 
 #### 7.5 모션 프레임 시퀀스
 
-**돌진형 스킬 (blood_rush, guardian_rush, holy_charge, shadow_slash)**
+**돌진형 스킬 (blood_rush, guardian_rush, holy_charge)**
 ```
 프레임 0 (0ms)     : 스킬 시전 시작, 캐릭터 준비 자세
 프레임 1 (50ms)    : 돌진 시작, 잔상 이펙트 생성 시작
@@ -1009,13 +1012,14 @@ class SkillEffectManager {
 └─ 3300ms: 스킬 종료
 ```
 
-**범위 지속 스킬 (dark_blade, meteor_shower)**
+**범위 지속 스킬 (dark_blade 토글, meteor_shower)**
 ```
-dark_blade:
-├─ 0ms: 암흑 오라 발생
+dark_blade (토글):
+├─ 0ms: 토글 ON, 암흑 오라 발생
 ├─ 200ms: 칼날 회전 시작
-├─ 200ms-5000ms: 매 500ms마다 데미지 판정
-└─ 5000ms: 오라 소멸 (300ms 페이드 아웃)
+├─ 매 1000ms: 데미지 판정 + HP 소모
+├─ HP ≤ 10% 또는 기절: 자동 해제
+└─ 토글 OFF: 오라 소멸 (300ms 페이드 아웃), 2초 재사용 딜레이
 
 meteor_shower:
 ├─ 0ms: 하늘 어두워짐
@@ -1104,7 +1108,8 @@ public/img/effects/
 │   └── invincible_shield.png  # 무적 실드 (96x96, 4프레임)
 │
 ├── dark_knight/
-│   ├── shadow_trail.png       # 암흑 베기 잔상 (64x64, 6프레임)
+│   ├── heavy_strike_charge.png # 강타 차징 (128x128, 8프레임)
+│   ├── heavy_strike_impact.png # 강타 충격파 (192x192, 6프레임)
 │   ├── dark_aura.png          # 어둠의 칼날 오라 (256x256, 8프레임)
 │   ├── dark_blade.png         # 회전 칼날 (48x48, 8프레임)
 │   └── lifesteal_particle.png # 흡혈 파티클 (16x16)
@@ -1157,13 +1162,13 @@ interface SkillRenderConfig {
   }[];
 }
 
-// 예: 암흑 베기 (shadow_slash)
-const shadowSlashRender: SkillRenderConfig = {
-  skillId: 'shadow_slash',
+// 예: 강타 (heavy_strike)
+const heavyStrikeRender: SkillRenderConfig = {
+  skillId: 'heavy_strike',
   layers: [
-    { layer: RenderLayer.GROUND_EFFECTS, effectType: 'shadow_trail_ground' },
-    { layer: RenderLayer.ENTITY_EFFECTS, effectType: 'shadow_trail_air', zOffset: 1 },
-    { layer: RenderLayer.TOP_EFFECTS, effectType: 'slash_effect' },
+    { layer: RenderLayer.GROUND_EFFECTS, effectType: 'charge_particles' },
+    { layer: RenderLayer.ENTITY_EFFECTS, effectType: 'charge_glow', zOffset: 1 },
+    { layer: RenderLayer.TOP_EFFECTS, effectType: 'impact_shockwave' },
   ]
 };
 ```

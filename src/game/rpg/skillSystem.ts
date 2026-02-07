@@ -1353,73 +1353,35 @@ function executeAdvancedWSkill(
       break;
 
     case 'darkKnight':
-      // 암흑 베기 - 전방 돌진 + 150% 데미지 + 피해흡혈 30%
+      // 강타 - 1초 시전 후 전방 120px 범위에 350% 데미지, HP 8% 소모
       {
-        const dashDistance = skillConfig.distance || 200;
-        const dashDuration = 0.25;
-        const lifestealPercent = skillConfig.lifestealPercent || 0.3;
+        const hpCostRatio = skillConfig.hpCostRatio || 0.08;
+        const hpCost = Math.floor(hero.maxHp * hpCostRatio);
 
-        const newX = Math.max(30, Math.min(RPG_CONFIG.MAP_WIDTH - 30, hero.x + dirX * dashDistance));
-        const newY = Math.max(30, Math.min(RPG_CONFIG.MAP_HEIGHT - 30, hero.y + dirY * dashDistance));
-
-        // 돌진 경로상 적에게 데미지
-        let totalDamageDealt = 0;
-        for (const enemy of enemies) {
-          if (enemy.hp <= 0) continue;
-          const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, newX, newY);
-          if (enemyDist <= 50) {
-            enemyDamages.push({ enemyId: enemy.id, damage });
-            totalDamageDealt += damage;
-          }
+        // HP가 비용보다 적으면 사용 불가
+        if (hero.hp <= hpCost) {
+          return { hero, enemyDamages: [], baseDamages: [] };
         }
 
-        // 돌진 경로상 기지에 데미지
-        for (const base of enemyBases) {
-          if (base.destroyed) continue;
-          const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, newX, newY);
-          if (baseDist <= 80) {
-            baseDamages.push({ baseId: base.id, damage });
-          }
-        }
+        // HP 차감 (클라이언트 예측)
+        updatedHero = {
+          ...hero,
+          hp: hero.hp - hpCost,
+          castingUntil: gameTime + 1.0,
+        };
 
-        // 피해흡혈 적용
-        const healAmount = Math.floor(totalDamageDealt * lifestealPercent);
-        if (healAmount > 0) {
-          updatedHero = {
-            ...hero,
-            hp: Math.min(hero.maxHp, hero.hp + healAmount),
-          };
-        }
-
+        // 시전 이펙트 (heroId로 영웅 추적)
         effect = {
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
           direction: { x: dirX, y: dirY },
-          radius: dashDistance,
           damage,
-          duration: dashDuration + 0.1,
+          duration: 1.0,
           startTime: gameTime,
-          heal: healAmount,
+          heroId: hero.id,
         };
 
-        // 돌진 상태 설정
-        updatedHero = {
-          ...updatedHero,
-          targetPosition: undefined,
-          state: 'moving',
-          facingRight: dirX >= 0,
-          facingAngle: Math.atan2(dirY, dirX),
-          dashState: {
-            startX: hero.x,
-            startY: hero.y,
-            targetX: newX,
-            targetY: newY,
-            progress: 0,
-            duration: dashDuration,
-            dirX,
-            dirY,
-          },
-        };
+        // 데미지는 서버가 pendingSkill로 처리하므로 클라이언트에서 즉시 적용하지 않음
       }
       break;
 
@@ -1785,38 +1747,18 @@ function executeAdvancedESkill(
       break;
 
     case 'darkKnight':
-      // 어둠의 칼날 - 5초간 주변 적에게 초당 75% 데미지
+      // 어둠의 칼날 (토글) - 서버에 E스킬 입력 전송, 서버가 토글 판단
+      // 클라이언트에서는 이펙트만 표시 (로컬 예측)
       {
-        const duration = skillConfig.duration || 5;
-        const tickDamage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 0.5));
         const radius = skillConfig.radius || 150;
 
-        // 지속 데미지는 pendingSkill로 처리 (틱 데미지)
-        pendingSkill = {
-          type: skillConfig.type,
-          position: { x: hero.x, y: hero.y },
-          triggerTime: gameTime + 1,  // 1초마다 틱
-          damage: tickDamage,
-          radius,
-          casterId: casterId || hero.id,
-          duration,  // 총 지속시간 저장
-          tickCount: duration,  // 남은 틱 수
-        };
-
-        // 자신에게 표시용 버프
-        buff = {
-          type: 'berserker',
-          duration,
-          startTime: gameTime,
-          attackBonus: 0,
-          speedBonus: 0,
-        };
-
+        // 토글 상태에 따라 이펙트 생성/제거는 서버 동기화에서 처리
+        // 여기서는 서버에 입력만 전송하면 됨 (executeAdvancedESkill 호출 시)
         effect = {
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
           radius,
-          duration,  // 5초간 지속
+          duration: 0.1,  // 짧은 이펙트 (서버에서 실제 토글 처리)
           startTime: gameTime,
           heroId: casterId || hero.id,
         };

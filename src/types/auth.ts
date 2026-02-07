@@ -264,48 +264,51 @@ export const STAT_UPGRADE_CONFIG: Record<StatUpgradeType, {
     icon: '⚔️',
     perLevel: 5,      // 레벨당 +5 공격력
     unit: '',
-    maxLevel: Infinity,
+    maxLevel: 30,
   },
   speed: {
     name: '이동속도',
     icon: '👟',
     perLevel: 0.1,    // 레벨당 +0.1 이동속도
     unit: '',
-    maxLevel: Infinity,
+    maxLevel: 30,
   },
   hp: {
     name: '체력',
     icon: '❤️',
-    perLevel: 20,     // 레벨당 +20 체력
+    perLevel: 35,     // 레벨당 +35 체력
     unit: '',
-    maxLevel: Infinity,
+    maxLevel: 30,
   },
   attackSpeed: {
     name: '공격속도',
     icon: '⚡',
-    perLevel: 0.05,   // 레벨당 +0.05초 공격속도 감소 (더 빠른 공격)
+    perLevel: 0.02,   // 레벨당 +0.02초 공격속도 감소 (더 빠른 공격)
     unit: '초',
-    maxLevel: Infinity,
+    maxLevel: 30,
   },
   range: {
     name: '사거리',
     icon: '🎯',
     perLevel: 5,     // 레벨당 +5 사거리
     unit: '',
-    maxLevel: Infinity,
+    maxLevel: 30,
   },
   hpRegen: {
     name: '체력 재생',
     icon: '💚',
-    perLevel: 2,      // 레벨당 +2/초 체력 재생
+    perLevel: 1,      // 레벨당 +1/초 체력 재생
     unit: '/초',
-    maxLevel: Infinity,
+    maxLevel: 30,
   },
 };
 
 // 특정 스탯의 총 보너스 계산
-export const getStatBonus = (upgradeType: StatUpgradeType, level: number): number => {
-  return STAT_UPGRADE_CONFIG[upgradeType].perLevel * level;
+// tier: 2차 강화(tier 2) 시 maxLevel 제한 해제
+export const getStatBonus = (upgradeType: StatUpgradeType, level: number, tier?: number): number => {
+  const config = STAT_UPGRADE_CONFIG[upgradeType];
+  const clampedLevel = tier === 2 ? level : Math.min(level, config.maxLevel);
+  return config.perLevel * clampedLevel;
 };
 
 // 사용한 총 SP 계산 (모든 스탯 레벨의 합)

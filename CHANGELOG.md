@@ -1,5 +1,49 @@
 # Changelog
 
+## [1.22.3] - 2026-02-07
+
+### Dark Knight Skill Rework
+- **W스킬 리워크: 암흑 베기(Shadow Slash) → 강타(Heavy Strike)**
+  - 돌진 → 시전형 범위 공격으로 변경
+  - 1초 시전 (이동 불가), HP 8% 소모, 공격력 ×3.5 데미지, 120px 범위, 4초 쿨다운
+  - pendingSkill 기반 지연 데미지 (캐스터 위치 추적)
+- **E스킬 리워크: 어둠의 칼날 고정 5초 → 토글 온/오프**
+  - 초당 HP 3% 소모, 초당 공격력 ×1.0 데미지 (150px 범위)
+  - HP ≤10% 또는 기절(stun) 시 자동 해제
+  - 재사용 딜레이 2초 (쿨다운 대신)
+  - 사망 시 자동 비활성화
+- **패시브 30% 피해흡혈 유지** (E스킬 틱 데미지에도 적용)
+
+### UI Changes
+- 스킬바 토글 활성 표시: 보라색 글로우 + "ON" 뱃지 (animate-pulse)
+- 토글 활성 중 E스킬 버튼 클릭 가능 (비활성화 해제)
+
+### Visual Effects
+- `heavy_strike`: 보라색 차징 파티클 수렴 이펙트 (heroId 추적)
+- `heavy_strike_impact`: 충격파 확산 + 바닥 균열 이펙트
+- `dark_blade`: 토글 기반 무한 지속 (duration 9999), elapsed 기반 회전 타이밍 수정
+
+### Technical Changes
+- `shared/types/hostBasedNetwork.ts`: SerializedHero에 `darkBladeActive` 추가
+- `server/src/game/rpgServerTypes.ts`: ServerHero에 `darkBladeActive`, `darkBladeLastToggleOff`, `darkBladeTickTimer` 추가
+- `server/src/game/rpgServerHeroSystem.ts`: darkKnight 스킬 설정 변경 (`heavy_strike`/4s, `dark_blade`/0)
+- `server/src/game/rpgServerSkillSystem.ts`: W 강타 구현, E 토글 구현, updatePendingSkills에 heavy_strike 추가
+- `server/src/game/RPGServerGameEngine.ts`: updateHeroes에 다크블레이드 틱 처리 (HP 소모, 데미지, 흡혈, 자동 해제, 사망)
+- `server/src/game/rpgServerGameSystems.ts`: 직렬화에 `darkBladeActive` 추가
+- `src/constants/rpgConfig.ts`: W/E 설정 변경, `AdvancedSkillConfig` 타입 확장
+- `src/game/rpg/skillSystem.ts`: 클라이언트 W/E 스킬 로직
+- `src/hooks/useRPGGameLoop.ts`: heavy_strike 이펙트 처리
+- `src/stores/useRPGStore.ts`: `darkBladeActive` 역직렬화
+- `src/types/rpg.ts`: `heavy_strike`, `heavy_strike_impact` SkillType 추가, HeroUnit에 `darkBladeActive`
+- `src/renderer/drawHero.ts`: heavy_strike/heavy_strike_impact 렌더링, dark_blade 타이밍 버그 수정
+- `src/renderer/rpgRenderer.ts`: heavy_strike heroId 추적
+- `src/components/ui/RPGSkillBar.tsx`: 토글 UI + heavy_strike 아이콘
+
+### Documentation
+- `docs/job-advancement.md`: 다크나이트 스킬 정보 전면 갱신 (암흑 베기 → 강타, 토글 E스킬)
+- `docs/rpg-mode.md`: 다크나이트 컨셉 및 스킬 설명 업데이트
+- `docs/server-authority-model.md`: 스킬 테이블 업데이트
+
 ## [1.22.2] - 2026-02-07
 
 ### Performance Optimization
