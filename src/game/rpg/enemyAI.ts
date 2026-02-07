@@ -617,8 +617,16 @@ function updateEnemyAIMultiplayer(
     }
   }
 
-  // 타겟 결정: 어그로 대상 > 탐지 범위 내 플레이어
-  const targetHero = aggroHero || heroInDetectionRange;
+  // 타겟 결정: 감지 범위 내 클래스 우선순위 > 어그로 > 넥서스
+  // 근접 클래스(기사 > 전사)가 감지 범위 내에 있으면 어그로보다 우선
+  let targetHero: HeroUnit | null;
+  if (heroInDetectionRange && aggroHero) {
+    const aggroPriority = getClassTargetPriority(aggroHero.heroClass);
+    // 감지 범위 내 더 높은 우선순위 영웅이 있으면 어그로 무시
+    targetHero = heroInDetectionRangePriority > aggroPriority ? heroInDetectionRange : aggroHero;
+  } else {
+    targetHero = heroInDetectionRange || aggroHero;
+  }
   const distToTargetHero = targetHero ? distance(enemy.x, enemy.y, targetHero.x, targetHero.y) : Infinity;
 
   // 공격자 정보 (보스 공격 이펙트용)

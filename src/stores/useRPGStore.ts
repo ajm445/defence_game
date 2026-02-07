@@ -2540,9 +2540,16 @@ export const useRPGStore = create<RPGStore>()(
             let syncY: number;
 
             if (forceHostPosition) {
-              // 돌진/시전/스턴 중: 호스트 위치 100% 사용
-              syncX = hero.x;
-              syncY = hero.y;
+              // 시전 중: 위치 차이가 작으면 로컬 위치 유지 (스킬 시작 시 뒤로 밀림 방지)
+              // 시전 중에는 이동 불가이므로 로컬 위치를 그대로 유지해도 안전
+              if (isCasting && !isDashing && !isStunned && positionDiff < 50) {
+                syncX = localHero.x;
+                syncY = localHero.y;
+              } else {
+                // 돌진/스턴 또는 큰 차이: 호스트 위치 100% 사용
+                syncX = hero.x;
+                syncY = hero.y;
+              }
             } else if (positionDiff > 150) {
               // 매우 큰 차이 (> 150px): 즉시 스냅 (텔레포트/사망/부활 등)
               syncX = hero.x;
@@ -2577,8 +2584,23 @@ export const useRPGStore = create<RPGStore>()(
             // 무적 상태일 때는 피격 이펙트 표시하지 않음 (서버 버프로 체크)
             // HP 재생 타이밍 차이로 인한 오탐 방지: 최소 5 이상 감소했을 때만 피격으로 판정
             const isInvincible = hero.buffs?.some(b => b.type === 'invincible' && b.duration > 0);
-            const hpDecrease = localHero.hp - hero.hp;
+            let hpDecrease = localHero.hp - hero.hp;
             const MIN_DAMAGE_THRESHOLD = 5;  // HP 재생 타이밍 차이 무시
+
+            // 다크나이트 자체 HP 소모 보정: W스킬 HP 비용 및 E스킬 HP 드레인은 피격이 아님
+            if (hero.advancedClass === 'darkKnight' && hpDecrease > 0) {
+              // W스킬 시전 중 (castingUntil이 새로 설정됨): HP 20% 비용 차감
+              const isCastingNew = hero.castingUntil && hero.castingUntil > serializedState.gameTime &&
+                (!localHero.castingUntil || localHero.castingUntil <= serializedState.gameTime);
+              if (isCastingNew) {
+                hpDecrease -= hero.maxHp * 0.20;
+              }
+              // E스킬 토글 활성 중: 초당 HP 5% 드레인 (서버 틱 ~50ms 기준)
+              if ((hero as any).darkBladeActive) {
+                hpDecrease -= hero.maxHp * 0.05 * 0.06;
+              }
+            }
+
             if (hpDecrease >= MIN_DAMAGE_THRESHOLD && !isInvincible) {
               newLastDamageTime = serializedState.gameTime;
             }

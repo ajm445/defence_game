@@ -1193,18 +1193,18 @@ export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     healPercent: 0.1,
     radius: 200,  // 힐 범위
   },
-  // 다크나이트: 강타 - 1초 시전 후 전방 직선 350% 데미지, HP 11% 소모
+  // 다크나이트: 암흑 찌르기 - 1초 시전 후 전방 직선 350% 데미지, HP 20% 소모
   darkKnight: {
     type: 'heavy_strike',
-    name: '강타',
-    nameEn: 'Heavy Strike',
+    name: '암흑 찌르기',
+    nameEn: 'Dark Pierce',
     key: 'W',
     cooldown: 4,
-    description: '1초 시전 후 전방에 350% 데미지. HP 11% 소모',
+    description: '1초 시전 후 전방에 350% 데미지. HP 20% 소모',
     damageMultiplier: 3.5,
     castTime: 1.0,
-    hpCostRatio: 0.11,
-    range: 120,
+    hpCostRatio: 0.20,
+    range: 150,
   },
   // 대마법사: 폭발 화염구 - 대형 화염구 + 화상
   archmage: {

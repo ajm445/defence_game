@@ -130,7 +130,8 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
 }
 
 // WASD 키 상태로부터 이동 방향 계산 (정규화됨)
-function calculateMoveDirection(): { x: number; y: number } | undefined {
+// 게임 루프에서 시전 종료 후 이동 재개에도 사용
+export function calculateMoveDirection(): { x: number; y: number } | undefined {
   let x = 0;
   let y = 0;
 
@@ -155,11 +156,19 @@ function calculateMoveDirection(): { x: number; y: number } | undefined {
 
 // 이동 방향 업데이트 및 네트워크 전송
 function updateMoveDirection() {
+  const state = useRPGStore.getState();
+
+  // 시전 중에는 이동 입력 무시 (서버/로컬 모두 이동 방지)
+  // keyState는 유지 → 시전 끝나면 누르고 있던 키로 이동 재개
+  if (state.hero?.castingUntil && state.gameTime < state.hero.castingUntil) {
+    return;
+  }
+
   const direction = calculateMoveDirection();
-  useRPGStore.getState().setMoveDirection(direction);
+  state.setMoveDirection(direction);
 
   // 서버 권위 모델: 모든 클라이언트가 서버로 입력 전송 (호스트 포함)
-  const { isMultiplayer } = useRPGStore.getState().multiplayer;
+  const { isMultiplayer } = state.multiplayer;
   if (isMultiplayer) {
     sendMoveDirection(direction || null);
   }
@@ -233,6 +242,48 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
               if (isMultiplayer) {
                 // 서버 권위 모델: 서버로 스킬 요청 전송 (모든 클라이언트)
                 sendSkillUse('W', state.mousePosition.x, state.mousePosition.y);
+
+                // 다크나이트 W스킬: 로컬 예측 (즉각적인 시각 피드백)
+                // HP 차감, 시전 상태, 이펙트를 서버 응답 전에 표시
+                if (state.hero.advancedClass === 'darkKnight') {
+                  const hpCost = Math.floor(state.hero.maxHp * 0.20);
+                  if (state.hero.hp > hpCost) {
+                    const dx = state.mousePosition.x - state.hero.x;
+                    const dy = state.mousePosition.y - state.hero.y;
+                    const dist = Math.sqrt(dx * dx + dy * dy);
+                    const dirX = dist > 0 ? dx / dist : (state.hero.facingRight ? 1 : -1);
+                    const dirY = dist > 0 ? dy / dist : 0;
+
+                    // HP 차감 + 시전 상태 설정 + 이동 즉시 정지 (로컬 예측)
+                    useRPGStore.setState((s) => {
+                      if (!s.hero) return s;
+                      return {
+                        hero: {
+                          ...s.hero,
+                          hp: s.hero.hp - hpCost,
+                          castingUntil: s.gameTime + 1.0,
+                          facingRight: dirX >= 0,
+                          moveDirection: undefined,  // 이동 즉시 정지
+                          state: 'idle' as const,
+                        },
+                        // 시전 이펙트 추가
+                        activeSkillEffects: [...s.activeSkillEffects, {
+                          type: 'heavy_strike' as any,
+                          position: { x: s.hero.x, y: s.hero.y },
+                          direction: { x: dirX, y: dirY },
+                          duration: 1.0,
+                          startTime: s.gameTime,
+                          heroId: s.hero.id,
+                        }],
+                      };
+                    });
+                    // 쿨다운 시작 (로컬)
+                    useRPGStore.getState().useSkill(wSkill.type);
+                    // 서버에도 이동 정지 전송
+                    sendMoveDirection(null);
+                  }
+                }
+
                 soundManager.play('attack_melee');
               } else if (requestSkill?.(wSkill.type)) {
                 // 싱글플레이: 로컬에서 스킬 실행

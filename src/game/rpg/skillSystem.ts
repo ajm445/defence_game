@@ -1353,9 +1353,9 @@ function executeAdvancedWSkill(
       break;
 
     case 'darkKnight':
-      // 강타 - 1초 시전 후 전방 120px 범위에 350% 데미지, HP 11% 소모
+      // 강타 - 1초 시전 후 전방 150px 범위에 350% 데미지, HP 20% 소모
       {
-        const hpCostRatio = skillConfig.hpCostRatio || 0.11;
+        const hpCostRatio = skillConfig.hpCostRatio || 0.20;
         const hpCost = Math.floor(hero.maxHp * hpCostRatio);
 
         // HP가 비용보다 적으면 사용 불가

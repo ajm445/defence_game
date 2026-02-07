@@ -975,8 +975,8 @@ function executeAdvancedWSkill(
     }
 
     case 'darkKnight': {
-      // 강타: 1초 시전 후 전방 120px 범위에 350% 데미지, HP 11% 소모
-      const hpCost = Math.floor(hero.maxHp * 0.11);
+      // 강타: 1초 시전 후 전방 150px 범위에 350% 데미지, HP 20% 소모
+      const hpCost = Math.floor(hero.maxHp * 0.20);
 
       // HP가 비용보다 적으면 사용 불가
       if (hero.hp <= hpCost) return false;
@@ -988,7 +988,7 @@ function executeAdvancedWSkill(
       hero.castingUntil = gameTime + 1.0;
 
       const skillDamage = Math.floor(damage * 3.5);
-      const radius = 120;
+      const radius = 150;
 
       // pendingSkill 등록: 1초 후 데미지 발동
       state.pendingSkills.push({
@@ -1536,7 +1536,7 @@ export function updatePendingSkills(ctx: SkillContext): void {
           }
         }
       } else if (skill.type === 'heavy_strike') {
-        // 강타: 캐스터 전방 직선 범위 데미지 (길이 120px, 폭 ±40px)
+        // 강타: 캐스터 전방 직선 범위 데미지 (길이 150px, 폭 ±40px)
         const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
         const hitX = caster ? caster.x : skill.position.x;
         const hitY = caster ? caster.y : skill.position.y;

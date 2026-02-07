@@ -26,6 +26,7 @@ import { createBosses, areAllBossesDead, hasBosses, updateBossSkills, applyStunT
 import { processNexusLaser, isNexusAlive } from '../game/rpg/nexusLaserSystem';
 import { rollMultiTarget } from '../game/rpg/passiveSystem';
 import { sendMoveDirection, sendSkillUse, shareHostBuffToAllies } from './useNetworkSync';
+import { calculateMoveDirection } from './useRPGInput';
 import { wsClient } from '../services/WebSocketClient';
 import { useRPGTutorialStore } from '../stores/useRPGTutorialStore';
 
@@ -42,6 +43,8 @@ export function useRPGGameLoop() {
   const accumulatedAuraHealRef = useRef<Map<string, number>>(new Map());
   // 클라이언트: 이전 프레임 사망 상태 추적 (사망 알림 중복 방지)
   const wasClientDeadRef = useRef<boolean>(false);
+  // 클라이언트: 이전 프레임 시전 상태 추적 (시전 종료 시 이동 재개용)
+  const wasCastingRef = useRef<boolean>(false);
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -205,8 +208,20 @@ export function useRPGGameLoop() {
       const clientHeroForMove = useRPGStore.getState().hero;
       if (clientHeroForMove && clientHeroForMove.hp > 0) {
         const isDashing = clientHeroForMove.dashState !== undefined;
-        const isCasting = clientHeroForMove.castingUntil && useRPGStore.getState().gameTime < clientHeroForMove.castingUntil;
+        const isCasting = !!(clientHeroForMove.castingUntil && useRPGStore.getState().gameTime < clientHeroForMove.castingUntil);
         const isStunned = clientHeroForMove.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+
+        // 시전 종료 감지: 눌려있던 이동 키로 이동 재개
+        // OS가 다른 키(Shift 등) 입력 시 기존 키의 repeat를 중단하므로
+        // 키 이벤트에 의존하지 않고 게임 루프에서 직접 체크
+        if (wasCastingRef.current && !isCasting && !isDashing && !isStunned) {
+          const heldDirection = calculateMoveDirection();
+          if (heldDirection) {
+            useRPGStore.getState().setMoveDirection(heldDirection);
+            sendMoveDirection(heldDirection);
+          }
+        }
+        wasCastingRef.current = isCasting;
 
         // 돌진/시전/스턴 중에는 로컬 예측 중지 (호스트 위치만 사용)
         if (!isDashing && !isCasting && !isStunned && clientHeroForMove.moveDirection) {
@@ -1785,8 +1800,8 @@ export function useRPGGameLoop() {
           heroClass === 'knight' ||
           advancedClass === 'berserker' ||
           advancedClass === 'guardian' ||
-          advancedClass === 'paladin' ||
-          advancedClass === 'darkKnight';
+          advancedClass === 'paladin';
+          // 다크나이트 제외: W스킬이 돌진(shadow_slash)에서 시전형(heavy_strike)으로 변경됨
 
         const isBackflip = advancedClass === 'sniper';  // 후방 도약
 

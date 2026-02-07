@@ -322,30 +322,41 @@ export function updateEnemies(
       enemy.aggroExpireTime = undefined;
     }
 
-    // 타겟 결정
+    // 타겟 결정: 감지 범위 내 클래스 우선순위 > 어그로 > 넥서스
+    // 근접 클래스(기사 > 전사)가 감지 범위 내에 있으면 어그로보다 우선
     let targetHero: ServerHero | null = null;
+
+    // 1. 어그로 대상 확인
+    let aggroTarget: ServerHero | null = null;
     if (enemy.aggroOnHero && enemy.targetHeroId) {
-      targetHero = aliveHeroes.find(h => h.id === enemy.targetHeroId) || null;
+      aggroTarget = aliveHeroes.find(h => h.id === enemy.targetHeroId) || null;
     }
-    if (!targetHero) {
-      // 클래스 우선순위 + 거리 기반 타겟팅 (distanceSquared로 Math.sqrt 제거)
-      // 근접 클래스(기사 > 전사)를 우선 타겟팅하여 탱킹 역할 보장
-      const detectionRangeSq = enemy.aiConfig.detectionRange * enemy.aiConfig.detectionRange;
-      let minDistSq = detectionRangeSq;
-      let maxPriority = 0;
-      for (const hero of aliveHeroes) {
-        const distSq = distanceSquared(enemy.x, enemy.y, hero.x, hero.y);
-        if (distSq > detectionRangeSq) continue;
 
-        const priority = getClassTargetPriority(hero.heroClass);
+    // 2. 감지 범위 내 클래스 우선순위 기반 스캔
+    const detectionRangeSq = enemy.aiConfig.detectionRange * enemy.aiConfig.detectionRange;
+    let bestDetectionTarget: ServerHero | null = null;
+    let bestMinDistSq = detectionRangeSq;
+    let bestMaxPriority = 0;
+    for (const hero of aliveHeroes) {
+      const distSq = distanceSquared(enemy.x, enemy.y, hero.x, hero.y);
+      if (distSq > detectionRangeSq) continue;
 
-        // 우선순위가 높거나, 같은 우선순위 내에서 더 가까우면 타겟 변경
-        if (priority > maxPriority || (priority === maxPriority && distSq < minDistSq)) {
-          minDistSq = distSq;
-          maxPriority = priority;
-          targetHero = hero;
-        }
+      const priority = getClassTargetPriority(hero.heroClass);
+
+      if (priority > bestMaxPriority || (priority === bestMaxPriority && distSq < bestMinDistSq)) {
+        bestMinDistSq = distSq;
+        bestMaxPriority = priority;
+        bestDetectionTarget = hero;
       }
+    }
+
+    // 3. 최종 타겟 결정
+    if (bestDetectionTarget && aggroTarget) {
+      const aggroPriority = getClassTargetPriority(aggroTarget.heroClass);
+      // 감지 범위 내 더 높은 우선순위 영웅이 있으면 어그로 무시
+      targetHero = bestMaxPriority > aggroPriority ? bestDetectionTarget : aggroTarget;
+    } else {
+      targetHero = bestDetectionTarget || aggroTarget;
     }
 
     const nexusX = nexus.x;

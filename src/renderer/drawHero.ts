@@ -2678,179 +2678,204 @@ export function drawSkillEffect(
       break;
 
     case 'heavy_strike':
-      // 다크나이트 - 강타 시전 (전방 직선으로 에너지를 모아 내려찍기)
+      // 다크나이트 - 암흑 찌르기 시전 (어둠 에너지를 칼에 모아 전방으로 찌르기 준비)
       {
-        const chargeProgress = progress;
-        const fade = chargeProgress < 0.1 ? chargeProgress / 0.1 : 1;
-        const lineLength = 120;
-        const lineHalfWidth = 40;
+        const p = progress; // 0→1
+        const fade = p < 0.05 ? p / 0.05 : 1;  // 빠른 페이드인 (50ms)
         const dir = effect.direction || { x: 1, y: 0 };
         const dirAngle = Math.atan2(dir.y, dir.x);
-        const perpAngle = dirAngle + Math.PI / 2;
 
-        // 직선 범위 바닥 기운 (사각형 영역)
-        ctx.save();
-        ctx.globalAlpha = fade * 0.2;
-        ctx.translate(screenX, screenY);
-        ctx.rotate(dirAngle);
-        const grd = ctx.createLinearGradient(0, 0, lineLength, 0);
-        grd.addColorStop(0, '#4c1d95');
-        grd.addColorStop(0.7, '#7c3aed80');
-        grd.addColorStop(1, 'transparent');
-        ctx.fillStyle = grd;
-        ctx.fillRect(0, -lineHalfWidth, lineLength, lineHalfWidth * 2);
-        ctx.restore();
+        // 1) 캐릭터 주변 어둠 오라 (즉시 표시, 점점 응축)
+        const auraRadius = 35 - p * 10;  // 점점 좁아짐 (에너지 응축)
+        ctx.globalAlpha = fade * (0.3 + p * 0.3);
+        const auraGrad = ctx.createRadialGradient(screenX, screenY, 3, screenX, screenY, auraRadius);
+        auraGrad.addColorStop(0, '#4c1d95');
+        auraGrad.addColorStop(0.5, 'rgba(124, 58, 237, 0.4)');
+        auraGrad.addColorStop(1, 'transparent');
+        ctx.fillStyle = auraGrad;
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, auraRadius, 0, Math.PI * 2);
+        ctx.fill();
 
-        // 에너지 수렴 파티클 (직선을 따라 중심으로 모임)
-        ctx.globalAlpha = fade * 0.8;
-        const particleCount = 14;
-        for (let i = 0; i < particleCount; i++) {
-          const t = i / particleCount;
-          const fwdDist = lineLength * t * (1 - chargeProgress * 0.3);
-          const latOscill = Math.sin(i * 2.3 + chargeProgress * 10) * lineHalfWidth * (1 - chargeProgress * 0.6);
-          const px = screenX + Math.cos(dirAngle) * fwdDist + Math.cos(perpAngle) * latOscill;
-          const py = screenY + Math.sin(dirAngle) * fwdDist + Math.sin(perpAngle) * latOscill;
-          const size = 2 + chargeProgress * 4 + Math.sin(i + chargeProgress * 6) * 1.5;
+        // 2) 뒤로 당기는 칼 모션 (0~50%: 뒤로 당김, 50~100%: 앞으로 찌르기 준비)
+        const pullBack = p < 0.5 ? p / 0.5 : 1;
+        const thrustReady = p > 0.5 ? (p - 0.5) / 0.5 : 0;
+        // 뒤로 당겨졌다가 점점 앞으로 이동
+        const bladeOffset = -25 * pullBack + 40 * thrustReady;
+        const bladeCX = screenX + Math.cos(dirAngle) * bladeOffset;
+        const bladeCY = screenY + Math.sin(dirAngle) * bladeOffset;
+        const bladeLen = 28 + thrustReady * 12;
 
-          ctx.fillStyle = i % 3 === 0 ? '#c4b5fd' : i % 3 === 1 ? '#a855f7' : '#7c3aed';
-          ctx.beginPath();
-          ctx.arc(px, py, size, 0, Math.PI * 2);
-          ctx.fill();
-        }
+        // 칼날 외곽 글로우 (넓은 보라 빛)
+        ctx.globalAlpha = fade * (0.4 + p * 0.4);
+        ctx.shadowColor = '#7c3aed';
+        ctx.shadowBlur = 15;
+        ctx.strokeStyle = '#7c3aed';
+        ctx.lineWidth = 12 + p * 5;
+        ctx.lineCap = 'round';
+        ctx.beginPath();
+        ctx.moveTo(bladeCX - Math.cos(dirAngle) * bladeLen * 0.4, bladeCY - Math.sin(dirAngle) * bladeLen * 0.4);
+        ctx.lineTo(bladeCX + Math.cos(dirAngle) * bladeLen * 0.6, bladeCY + Math.sin(dirAngle) * bladeLen * 0.6);
+        ctx.stroke();
+        ctx.shadowBlur = 0;
 
-        // 검 내려찍기 모션 (차징이 진행될수록 검이 전방으로 이동 + 회전)
-        if (chargeProgress > 0.2) {
-          const swordProgress = (chargeProgress - 0.2) / 0.8;
-          const swordLen = 40;
-          const swordWidth = 6;
-          const swordDist = 15 + swordProgress * 50;
-          const swordCenterX = screenX + Math.cos(dirAngle) * swordDist;
-          const swordCenterY = screenY + Math.sin(dirAngle) * swordDist;
+        // 칼날 본체 (밝은 코어)
+        ctx.globalAlpha = fade * (0.7 + p * 0.3);
+        ctx.strokeStyle = '#c4b5fd';
+        ctx.lineWidth = 5 + thrustReady * 3;
+        ctx.beginPath();
+        ctx.moveTo(bladeCX - Math.cos(dirAngle) * bladeLen * 0.4, bladeCY - Math.sin(dirAngle) * bladeLen * 0.4);
+        ctx.lineTo(bladeCX + Math.cos(dirAngle) * bladeLen * 0.6, bladeCY + Math.sin(dirAngle) * bladeLen * 0.6);
+        ctx.stroke();
 
-          // 검 끝 방향 (약간 회전하며 내려찍는 느낌)
-          const swingAngle = dirAngle + (1 - swordProgress) * 0.4;
-          const tipX = swordCenterX + Math.cos(swingAngle) * swordLen * 0.6;
-          const tipY = swordCenterY + Math.sin(swingAngle) * swordLen * 0.6;
-          const baseX = swordCenterX - Math.cos(swingAngle) * swordLen * 0.4;
-          const baseY = swordCenterY - Math.sin(swingAngle) * swordLen * 0.4;
+        // 칼 끝 빛점
+        const tipBX = bladeCX + Math.cos(dirAngle) * bladeLen * 0.6;
+        const tipBY = bladeCY + Math.sin(dirAngle) * bladeLen * 0.6;
+        ctx.globalAlpha = fade * (0.6 + thrustReady * 0.4);
+        ctx.fillStyle = '#e9d5ff';
+        ctx.beginPath();
+        ctx.arc(tipBX, tipBY, 3 + thrustReady * 3, 0, Math.PI * 2);
+        ctx.fill();
+        ctx.lineCap = 'butt';
 
-          // 검 잔상 (넓은 보라 빛)
-          ctx.globalAlpha = fade * 0.25 * swordProgress;
-          ctx.strokeStyle = '#7c3aed';
-          ctx.lineWidth = swordWidth + 8;
-          ctx.lineCap = 'round';
-          ctx.beginPath();
-          ctx.moveTo(baseX, baseY);
-          ctx.lineTo(tipX, tipY);
-          ctx.stroke();
-
-          // 검 빛남 효과
-          ctx.globalAlpha = fade * 0.4 * swordProgress;
+        // 3) 에너지 수렴 라인 (바깥에서 칼 쪽으로 수렴)
+        for (let i = 0; i < 6; i++) {
+          const angle = dirAngle + (i / 6 - 0.5) * Math.PI * 0.8 + Math.PI;
+          const dist = 55 * (1 - p * 0.7) + Math.sin(i * 2.1 + p * 12) * 8;
+          const ox = screenX + Math.cos(angle) * dist;
+          const oy = screenY + Math.sin(angle) * dist;
+          ctx.globalAlpha = fade * (0.3 + p * 0.5);
           ctx.strokeStyle = '#a855f7';
-          ctx.lineWidth = swordWidth + 4;
+          ctx.lineWidth = 2;
           ctx.beginPath();
-          ctx.moveTo(baseX, baseY);
-          ctx.lineTo(tipX, tipY);
+          ctx.moveTo(ox, oy);
+          ctx.lineTo(bladeCX, bladeCY);
           ctx.stroke();
-
-          // 검 본체 (밝은 핵)
-          ctx.globalAlpha = fade * 0.95;
-          ctx.strokeStyle = '#e9d5ff';
-          ctx.lineWidth = swordWidth;
-          ctx.beginPath();
-          ctx.moveTo(baseX, baseY);
-          ctx.lineTo(tipX, tipY);
-          ctx.stroke();
-
-          // 검 끝 빛
-          ctx.globalAlpha = fade * 0.9 * swordProgress;
-          ctx.fillStyle = '#fff';
-          ctx.beginPath();
-          ctx.arc(tipX, tipY, 3 + swordProgress * 2, 0, Math.PI * 2);
-          ctx.fill();
-          ctx.lineCap = 'butt';
         }
 
-        // 전방 직선 경고선 (50% 이후)
-        if (chargeProgress > 0.5) {
-          const warningAlpha = (chargeProgress - 0.5) * 2;
-          ctx.save();
-          ctx.globalAlpha = warningAlpha * 0.35;
+        // 4) 전방 직선 경고 (60% 이후)
+        if (p > 0.6) {
+          const warnP = (p - 0.6) / 0.4;
+          const blink = Math.sin(p * 25) * 0.3 + 0.7;
+          ctx.globalAlpha = fade * warnP * 0.5 * blink;
           ctx.strokeStyle = '#a855f7';
           ctx.lineWidth = 2;
           ctx.setLineDash([6, 4]);
-          ctx.translate(screenX, screenY);
-          ctx.rotate(dirAngle);
-          ctx.strokeRect(0, -lineHalfWidth, lineLength, lineHalfWidth * 2);
+          ctx.beginPath();
+          ctx.moveTo(screenX + Math.cos(dirAngle) * 20, screenY + Math.sin(dirAngle) * 20);
+          ctx.lineTo(screenX + Math.cos(dirAngle) * 120, screenY + Math.sin(dirAngle) * 120);
+          ctx.stroke();
           ctx.setLineDash([]);
-          ctx.restore();
         }
+
+        // 5) 바닥 어둠 원 (시전 범위 표시)
+        ctx.globalAlpha = fade * 0.15;
+        ctx.fillStyle = '#1a0030';
+        ctx.beginPath();
+        ctx.ellipse(screenX, screenY + 5, 30, 12, 0, 0, Math.PI * 2);
+        ctx.fill();
       }
       break;
 
     case 'heavy_strike_impact':
-      // 다크나이트 - 강타 충격파 (전방 직선 내려찍기 충격)
+      // 다크나이트 - 암흑 찌르기 충격 (어둠 에너지 창이 직선으로 관통)
       {
-        const impLineLength = effect.radius || 120;
-        const impLineHalfWidth = 40;
-        const impactFade = progress < 0.05 ? progress / 0.05 : progress > 0.6 ? (1 - progress) / 0.4 : 1;
+        const impLen = effect.radius || 120;
+        const impFade = progress < 0.05 ? progress / 0.05 : progress > 0.5 ? (1 - progress) / 0.5 : 1;
         const impDir = effect.direction || { x: 1, y: 0 };
         const impAngle = Math.atan2(impDir.y, impDir.x);
+        const impPerpAngle = impAngle + Math.PI / 2;
+        const w = progress; // 0→1
 
-        // 직선 충격파 (전방으로 확장)
-        ctx.save();
-        ctx.translate(screenX, screenY);
-        ctx.rotate(impAngle);
+        // 1) 에너지 창 - 전방으로 빠르게 뻗어나감
+        const spearTip = impLen * (0.3 + w * 0.7);
+        const spearTailLen = Math.min(spearTip, 60) * (1 - w * 0.3);
+        const spearTail = Math.max(0, spearTip - spearTailLen);
+        const tipX = screenX + Math.cos(impAngle) * spearTip;
+        const tipY = screenY + Math.sin(impAngle) * spearTip;
+        const tailX = screenX + Math.cos(impAngle) * spearTail;
+        const tailY = screenY + Math.sin(impAngle) * spearTail;
 
-        // 충격파 메인 영역
-        const expandProgress = 0.3 + progress * 0.7;
-        ctx.globalAlpha = impactFade * 0.5;
-        const impGrad = ctx.createLinearGradient(0, 0, impLineLength * expandProgress, 0);
-        impGrad.addColorStop(0, '#a855f7');
-        impGrad.addColorStop(0.4, '#7c3aed');
-        impGrad.addColorStop(1, 'transparent');
-        ctx.fillStyle = impGrad;
-        ctx.fillRect(0, -impLineHalfWidth * expandProgress, impLineLength * expandProgress, impLineHalfWidth * 2 * expandProgress);
+        // 뒤쪽 넓고 앞쪽 좁은 창 형태
+        const tailWidth = (12 + (1 - w) * 8) * impFade;
+        const tipWidth = 2;
 
-        // 충격파 밝은 중심선
-        ctx.globalAlpha = impactFade * 0.9;
-        const coreWidth = 8 * (1 - progress * 0.7);
-        const coreGrad = ctx.createLinearGradient(0, 0, impLineLength * expandProgress, 0);
-        coreGrad.addColorStop(0, '#e9d5ff');
-        coreGrad.addColorStop(0.5, '#c4b5fd');
-        coreGrad.addColorStop(1, 'transparent');
-        ctx.fillStyle = coreGrad;
-        ctx.fillRect(0, -coreWidth / 2, impLineLength * expandProgress, coreWidth);
-
-        // 양쪽 경계 충격파 라인
-        ctx.globalAlpha = impactFade * 0.7;
-        ctx.strokeStyle = '#a855f7';
-        ctx.lineWidth = 2 * (1 - progress);
-        const edgeW = impLineHalfWidth * expandProgress;
+        // 에너지 창 글로우 (넓은 보라빛)
+        ctx.globalAlpha = impFade * 0.35;
         ctx.beginPath();
-        ctx.moveTo(0, -edgeW);
-        ctx.lineTo(impLineLength * expandProgress, -edgeW * 0.3);
-        ctx.moveTo(0, edgeW);
-        ctx.lineTo(impLineLength * expandProgress, edgeW * 0.3);
+        ctx.moveTo(tipX + Math.cos(impPerpAngle) * tipWidth, tipY + Math.sin(impPerpAngle) * tipWidth);
+        ctx.lineTo(tailX + Math.cos(impPerpAngle) * tailWidth, tailY + Math.sin(impPerpAngle) * tailWidth);
+        ctx.lineTo(tailX - Math.cos(impPerpAngle) * tailWidth, tailY - Math.sin(impPerpAngle) * tailWidth);
+        ctx.lineTo(tipX - Math.cos(impPerpAngle) * tipWidth, tipY - Math.sin(impPerpAngle) * tipWidth);
+        ctx.closePath();
+        ctx.fillStyle = '#7c3aed';
+        ctx.fill();
+
+        // 에너지 창 본체 (밝은 핵)
+        const coreHalfW = tailWidth * 0.4;
+        ctx.globalAlpha = impFade * 0.9;
+        ctx.beginPath();
+        ctx.moveTo(tipX, tipY);
+        ctx.lineTo(tailX + Math.cos(impPerpAngle) * coreHalfW, tailY + Math.sin(impPerpAngle) * coreHalfW);
+        ctx.lineTo(tailX - Math.cos(impPerpAngle) * coreHalfW, tailY - Math.sin(impPerpAngle) * coreHalfW);
+        ctx.closePath();
+        const spearGrad = ctx.createLinearGradient(tailX, tailY, tipX, tipY);
+        spearGrad.addColorStop(0, '#a855f7');
+        spearGrad.addColorStop(0.6, '#e9d5ff');
+        spearGrad.addColorStop(1, '#fff');
+        ctx.fillStyle = spearGrad;
+        ctx.fill();
+
+        // 끝부분 빛
+        ctx.globalAlpha = impFade * 0.8;
+        const tipGlow = ctx.createRadialGradient(tipX, tipY, 0, tipX, tipY, 8);
+        tipGlow.addColorStop(0, '#fff');
+        tipGlow.addColorStop(0.5, 'rgba(196, 181, 253, 0.5)');
+        tipGlow.addColorStop(1, 'transparent');
+        ctx.fillStyle = tipGlow;
+        ctx.beginPath();
+        ctx.arc(tipX, tipY, 8, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 2) 관통 궤적 (중심선)
+        ctx.globalAlpha = impFade * 0.4;
+        const trailGrd = ctx.createLinearGradient(screenX, screenY, tipX, tipY);
+        trailGrd.addColorStop(0, 'rgba(76, 29, 149, 0.1)');
+        trailGrd.addColorStop(0.5, 'rgba(124, 58, 237, 0.4)');
+        trailGrd.addColorStop(1, 'transparent');
+        ctx.strokeStyle = trailGrd;
+        ctx.lineWidth = 3 * (1 - w * 0.5);
+        ctx.beginPath();
+        ctx.moveTo(screenX, screenY);
+        ctx.lineTo(tipX, tipY);
         ctx.stroke();
 
-        ctx.restore();
-
-        // 충격 파편 파티클
-        ctx.globalAlpha = impactFade * 0.6;
+        // 3) 관통 파편 (찌른 경로를 따라 좌우로 튀는 파편)
+        ctx.globalAlpha = impFade * 0.6;
         for (let i = 0; i < 8; i++) {
           const t = (i + 0.5) / 8;
-          const fragDist = impLineLength * t * expandProgress;
-          const perpAngle = impAngle + Math.PI / 2;
-          const spread = impLineHalfWidth * (1 - t * 0.5) * (Math.sin(i * 3.7 + progress * 12) * 0.5 + 0.5);
-          const side = i % 2 === 0 ? 1 : -1;
-          const fx = screenX + Math.cos(impAngle) * fragDist + Math.cos(perpAngle) * spread * side;
-          const fy = screenY + Math.sin(impAngle) * fragDist + Math.sin(perpAngle) * spread * side;
-          const fragSize = (3 - progress * 2) * (1 - t * 0.5);
-
-          ctx.fillStyle = i % 3 === 0 ? '#e9d5ff' : '#a855f7';
+          const pDist = spearTip * t;
+          const spread = (8 + w * 15) * ((i % 2) * 2 - 1) * Math.sin(i * 2.5 + w * 8);
+          const px = screenX + Math.cos(impAngle) * pDist + Math.cos(impPerpAngle) * spread;
+          const py = screenY + Math.sin(impAngle) * pDist + Math.sin(impPerpAngle) * spread;
+          const pSize = (2 - w * 1.2) * (1 - t * 0.4);
+          ctx.fillStyle = i % 3 === 0 ? '#e9d5ff' : i % 3 === 1 ? '#a855f7' : '#7c3aed';
           ctx.beginPath();
-          ctx.arc(fx, fy, Math.max(fragSize, 0.5), 0, Math.PI * 2);
+          ctx.arc(px, py, Math.max(pSize, 0.5), 0, Math.PI * 2);
+          ctx.fill();
+        }
+
+        // 4) 시작점 섬광
+        if (w < 0.2) {
+          const flashP = w / 0.2;
+          ctx.globalAlpha = (1 - flashP) * 0.5;
+          const flashGrad = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 20 * flashP);
+          flashGrad.addColorStop(0, '#fff');
+          flashGrad.addColorStop(0.5, '#c4b5fd');
+          flashGrad.addColorStop(1, 'transparent');
+          ctx.fillStyle = flashGrad;
+          ctx.beginPath();
+          ctx.arc(screenX, screenY, 20 * flashP, 0, Math.PI * 2);
           ctx.fill();
         }
       }
