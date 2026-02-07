@@ -20,7 +20,7 @@ import {
   ADVANCED_CLASS_CONFIGS,
   type AdvancedHeroClass,
 } from './rpgServerConfig';
-import { distance, clamp, generateId } from './rpgServerUtils';
+import { distance, distanceSquared, clamp, generateId } from './rpgServerUtils';
 
 export interface EnemyContext {
   difficulty: RPGDifficulty;
@@ -272,7 +272,15 @@ export function updateEnemies(
     const isStunned = enemy.buffs?.some(b => b.type === 'stun' && b.duration > 0);
     if (isStunned) {
       enemy.state = 'idle';
-      enemy.buffs = enemy.buffs?.map(b => ({ ...b, duration: b.duration - deltaTime })).filter(b => b.duration > 0);
+      // 인플레이스 버프 업데이트
+      if (enemy.buffs) {
+        for (let bi = enemy.buffs.length - 1; bi >= 0; bi--) {
+          enemy.buffs[bi].duration -= deltaTime;
+          if (enemy.buffs[bi].duration <= 0) {
+            enemy.buffs.splice(bi, 1);
+          }
+        }
+      }
       continue;
     }
 
@@ -320,19 +328,20 @@ export function updateEnemies(
       targetHero = aliveHeroes.find(h => h.id === enemy.targetHeroId) || null;
     }
     if (!targetHero) {
-      // 클래스 우선순위 + 거리 기반 타겟팅
+      // 클래스 우선순위 + 거리 기반 타겟팅 (distanceSquared로 Math.sqrt 제거)
       // 근접 클래스(기사 > 전사)를 우선 타겟팅하여 탱킹 역할 보장
-      let minDist = enemy.aiConfig.detectionRange;
+      const detectionRangeSq = enemy.aiConfig.detectionRange * enemy.aiConfig.detectionRange;
+      let minDistSq = detectionRangeSq;
       let maxPriority = 0;
       for (const hero of aliveHeroes) {
-        const dist = distance(enemy.x, enemy.y, hero.x, hero.y);
-        if (dist > enemy.aiConfig.detectionRange) continue;
+        const distSq = distanceSquared(enemy.x, enemy.y, hero.x, hero.y);
+        if (distSq > detectionRangeSq) continue;
 
         const priority = getClassTargetPriority(hero.heroClass);
 
         // 우선순위가 높거나, 같은 우선순위 내에서 더 가까우면 타겟 변경
-        if (priority > maxPriority || (priority === maxPriority && dist < minDist)) {
-          minDist = dist;
+        if (priority > maxPriority || (priority === maxPriority && distSq < minDistSq)) {
+          minDistSq = distSq;
           maxPriority = priority;
           targetHero = hero;
         }
@@ -341,12 +350,12 @@ export function updateEnemies(
 
     const nexusX = nexus.x;
     const nexusY = nexus.y;
-    const distToNexus = distance(enemy.x, enemy.y, nexusX, nexusY);
+    const attackRangeSq = enemy.aiConfig.attackRange * enemy.aiConfig.attackRange;
 
     if (targetHero) {
-      const distToHero = distance(enemy.x, enemy.y, targetHero.x, targetHero.y);
+      const distToHeroSq = distanceSquared(enemy.x, enemy.y, targetHero.x, targetHero.y);
 
-      if (distToHero <= enemy.aiConfig.attackRange) {
+      if (distToHeroSq <= attackRangeSq) {
         if (enemy.attackCooldown <= 0) {
           onAttackHero(enemy, targetHero);
           enemy.attackCooldown = enemy.aiConfig.attackSpeed;
@@ -363,7 +372,8 @@ export function updateEnemies(
         enemy.state = 'moving';
       }
     } else {
-      if (distToNexus <= enemy.aiConfig.attackRange) {
+      const distToNexusSq = distanceSquared(enemy.x, enemy.y, nexusX, nexusY);
+      if (distToNexusSq <= attackRangeSq) {
         if (enemy.attackCooldown <= 0) {
           onAttackNexus(enemy);
           enemy.attackCooldown = enemy.aiConfig.attackSpeed;
@@ -381,9 +391,14 @@ export function updateEnemies(
       }
     }
 
-    // 버프 업데이트
+    // 버프 업데이트 (인플레이스)
     if (enemy.buffs) {
-      enemy.buffs = enemy.buffs.map(b => ({ ...b, duration: b.duration - deltaTime })).filter(b => b.duration > 0);
+      for (let bi = enemy.buffs.length - 1; bi >= 0; bi--) {
+        enemy.buffs[bi].duration -= deltaTime;
+        if (enemy.buffs[bi].duration <= 0) {
+          enemy.buffs.splice(bi, 1);
+        }
+      }
     }
   }
 }
@@ -391,7 +406,7 @@ export function updateEnemies(
 /**
  * 적 영웅 공격 처리
  */
-export function enemyAttackHero(enemy: RPGEnemy, hero: ServerHero, damageNumbers: any[]): void {
+export function enemyAttackHero(enemy: RPGEnemy, hero: ServerHero, damageNumbers: any[], now: number): void {
   let damage = enemy.aiConfig.attackDamage;
 
   // 무적 버프 체크
@@ -428,7 +443,7 @@ export function enemyAttackHero(enemy: RPGEnemy, hero: ServerHero, damageNumbers
       y: hero.y - 30,
       amount: damage,
       type: 'enemy_damage',
-      createdAt: Date.now(),
+      createdAt: now,
     });
   }
 
@@ -438,7 +453,7 @@ export function enemyAttackHero(enemy: RPGEnemy, hero: ServerHero, damageNumbers
 /**
  * 적 넥서스 공격 처리
  */
-export function enemyAttackNexus(enemy: RPGEnemy, nexus: ServerNexus, damageNumbers: any[]): void {
+export function enemyAttackNexus(enemy: RPGEnemy, nexus: ServerNexus, damageNumbers: any[], now: number): void {
   const damage = enemy.aiConfig.attackDamage;
   nexus.hp -= damage;
 
@@ -448,7 +463,7 @@ export function enemyAttackNexus(enemy: RPGEnemy, nexus: ServerNexus, damageNumb
     y: nexus.y - 30,
     amount: damage,
     type: 'enemy_damage',
-    createdAt: Date.now(),
+    createdAt: now,
   });
 }
 

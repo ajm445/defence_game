@@ -46,6 +46,13 @@ export function sendMessage(ws: WebSocket, message: ServerMessage): void {
   }
 }
 
+// 이미 stringify된 메시지 전송 (브로드캐스트 최적화용)
+export function sendPreStringifiedMessage(ws: WebSocket, jsonString: string): void {
+  if (ws.readyState === WebSocket.OPEN) {
+    ws.send(jsonString);
+  }
+}
+
 // 플레이어에게 메시지 전송
 export function sendToPlayer(playerId: string, message: ServerMessage): void {
   const player = players.get(playerId);

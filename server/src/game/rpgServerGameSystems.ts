@@ -17,7 +17,7 @@ import {
   UPGRADE_CONFIG,
   CLASS_CONFIGS,
 } from './rpgServerConfig';
-import { distance, generateId } from './rpgServerUtils';
+import { distance, distanceSquared, generateId } from './rpgServerUtils';
 
 export interface GameSystemsContext {
   difficulty: RPGDifficulty;
@@ -38,14 +38,15 @@ export function updateNexusLaser(
   state.nexusLaserCooldown -= deltaTime;
 
   if (state.nexusLaserCooldown <= 0) {
-    // 범위 내 모든 생존 적 찾기
+    // 범위 내 모든 생존 적 찾기 (distanceSquared로 Math.sqrt 제거)
+    const laserRangeSq = NEXUS_CONFIG.laser.range * NEXUS_CONFIG.laser.range;
     const enemiesInRange = enemies.filter(e =>
-      e.hp > 0 && distance(nexus.x, nexus.y, e.x, e.y) <= NEXUS_CONFIG.laser.range
+      e.hp > 0 && distanceSquared(nexus.x, nexus.y, e.x, e.y) <= laserRangeSq
     );
 
     // 범위 내 적이 있으면 모든 적에게 동시 공격
     if (enemiesInRange.length > 0) {
-      const now = Date.now();
+      const now = state.currentTickTimestamp;
 
       for (const enemy of enemiesInRange) {
         enemy.hp -= NEXUS_CONFIG.laser.damage;
@@ -157,7 +158,7 @@ export function damageBase(
     y: base.y - 20,
     amount: damage,
     type: 'damage',
-    createdAt: Date.now(),
+    createdAt: state.currentTickTimestamp,
   });
 
   if (base.hp <= 0) {
@@ -199,20 +200,31 @@ export function checkWinCondition(state: ServerGameState): 'victory' | 'defeat' 
     return 'defeat';
   }
 
-  // 모든 영웅이 죽으면 패배
-  const aliveHeroes = Array.from(state.heroes.values()).filter(h => !h.isDead);
-  if (aliveHeroes.length === 0) {
-    const revisingHeroes = Array.from(state.heroes.values()).filter(h => h.isDead && h.reviveTimer > 0);
-    if (revisingHeroes.length === 0) {
-      return 'defeat';
+  // 모든 영웅이 죽으면 패배 (배열 할당 없이 직접 카운트)
+  let aliveCount = 0;
+  let revivingCount = 0;
+  for (const hero of state.heroes.values()) {
+    if (!hero.isDead) {
+      aliveCount++;
+    } else if (hero.reviveTimer > 0) {
+      revivingCount++;
     }
+  }
+  if (aliveCount === 0 && revivingCount === 0) {
+    return 'defeat';
   }
 
   // 승리: 보스 페이즈에서 모든 보스 처치
   if (gamePhase === 'boss_phase') {
-    const bosses = enemies.filter(e => e.type === 'boss');
-    const allBossesDead = bosses.length > 0 && bosses.every(b => b.hp <= 0);
-    if (allBossesDead) {
+    let bossCount = 0;
+    let deadBossCount = 0;
+    for (const e of enemies) {
+      if (e.type === 'boss') {
+        bossCount++;
+        if (e.hp <= 0) deadBossCount++;
+      }
+    }
+    if (bossCount > 0 && bossCount === deadBossCount) {
       return 'victory';
     }
   }
@@ -221,46 +233,62 @@ export function checkWinCondition(state: ServerGameState): 'victory' | 'defeat' 
 }
 
 /**
- * 이펙트 정리
+ * 이펙트 정리 (인플레이스 - 매 틱 배열 재할당 제거)
  */
 export function cleanupEffects(state: ServerGameState): void {
   const { gameTime } = state;
-  const now = Date.now();
+  const now = state.currentTickTimestamp;
   const effectDuration = 500; // 0.5초
   const damageNumberDuration = 1000; // 1초
 
   // 스킬 이펙트 정리
-  state.activeSkillEffects = state.activeSkillEffects.filter(
-    e => gameTime < e.startTime + e.duration
-  );
+  for (let i = state.activeSkillEffects.length - 1; i >= 0; i--) {
+    if (gameTime >= state.activeSkillEffects[i].startTime + state.activeSkillEffects[i].duration) {
+      state.activeSkillEffects.splice(i, 1);
+    }
+  }
 
   // 기본 공격 이펙트 정리
-  state.basicAttackEffects = state.basicAttackEffects.filter(
-    e => now - e.timestamp < effectDuration
-  );
+  for (let i = state.basicAttackEffects.length - 1; i >= 0; i--) {
+    if (now - state.basicAttackEffects[i].timestamp >= effectDuration) {
+      state.basicAttackEffects.splice(i, 1);
+    }
+  }
 
   // 넥서스 레이저 이펙트 정리
-  state.nexusLaserEffects = state.nexusLaserEffects.filter(
-    e => now - e.timestamp < effectDuration
-  );
+  for (let i = state.nexusLaserEffects.length - 1; i >= 0; i--) {
+    if (now - state.nexusLaserEffects[i].timestamp >= effectDuration) {
+      state.nexusLaserEffects.splice(i, 1);
+    }
+  }
 
   // 보스 스킬 경고 정리
-  state.bossSkillWarnings = state.bossSkillWarnings.filter(
-    w => gameTime < w.startTime + w.duration
-  );
+  for (let i = state.bossSkillWarnings.length - 1; i >= 0; i--) {
+    if (gameTime >= state.bossSkillWarnings[i].startTime + state.bossSkillWarnings[i].duration) {
+      state.bossSkillWarnings.splice(i, 1);
+    }
+  }
 
   // 보스 스킬 실행 이펙트 정리
-  state.bossSkillExecutedEffects = state.bossSkillExecutedEffects.filter(
-    e => now - e.timestamp < effectDuration
-  );
+  for (let i = state.bossSkillExecutedEffects.length - 1; i >= 0; i--) {
+    if (now - state.bossSkillExecutedEffects[i].timestamp >= effectDuration) {
+      state.bossSkillExecutedEffects.splice(i, 1);
+    }
+  }
 
   // 데미지 넘버 정리
-  state.damageNumbers = state.damageNumbers.filter(
-    d => now - d.createdAt < damageNumberDuration
-  );
+  for (let i = state.damageNumbers.length - 1; i >= 0; i--) {
+    if (now - state.damageNumbers[i].createdAt >= damageNumberDuration) {
+      state.damageNumbers.splice(i, 1);
+    }
+  }
 
   // 죽은 적 정리
-  state.enemies = state.enemies.filter(e => e.hp > 0);
+  for (let i = state.enemies.length - 1; i >= 0; i--) {
+    if (state.enemies[i].hp <= 0) {
+      state.enemies.splice(i, 1);
+    }
+  }
 }
 
 /**
@@ -294,11 +322,11 @@ export function serializeGameState(state: ServerGameState): SerializedGameState 
       facingAngle: hero.facingAngle,
       buffs: hero.buffs || [],
       passiveGrowth: hero.passiveGrowth || { currentValue: 0, currentLevel: 0, overflowValue: 0 },
-      // hero.skills에서 쿨다운을 가져와서 skillCooldowns에 동기화 (key 필드로 찾기)
+      // hero._skill 캐시에서 쿨다운 참조 (find 호출 제거)
       skillCooldowns: {
-        Q: hero.skills?.find(s => s.key === 'Q')?.currentCooldown ?? 0,
-        W: hero.skills?.find(s => s.key === 'W')?.currentCooldown ?? 0,
-        E: hero.skills?.find(s => s.key === 'E')?.currentCooldown ?? 0,
+        Q: hero._skillQ.currentCooldown,
+        W: hero._skillW.currentCooldown,
+        E: hero._skillE.currentCooldown,
       },
       moveDirection: hero.moveDirection,
       state: hero.state,
@@ -312,10 +340,11 @@ export function serializeGameState(state: ServerGameState): SerializedGameState 
     });
   }
 
-  // 적 직렬화
-  const enemies: SerializedEnemy[] = state.enemies
-    .filter(e => e.hp > 0)
-    .map(e => ({
+  // 적 직렬화 (단일 패스 - filter+map 중간 배열 제거)
+  const enemies: SerializedEnemy[] = [];
+  for (const e of state.enemies) {
+    if (e.hp <= 0) continue;
+    enemies.push({
       id: e.id,
       type: e.type,
       x: e.x,
@@ -330,7 +359,8 @@ export function serializeGameState(state: ServerGameState): SerializedGameState 
       buffs: e.buffs || [],
       isStunned: e.buffs?.some(b => b.type === 'stun' && b.duration > 0) || false,
       dashState: e.dashState,
-    }));
+    });
+  }
 
   return {
     gameTime: state.gameTime,

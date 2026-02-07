@@ -1,4 +1,4 @@
-import { players, sendToPlayer } from '../state/players';
+import { players, sendToPlayer, sendPreStringifiedMessage } from '../state/players';
 import { removeCoopRoom } from '../websocket/MessageHandler';
 import { setWaitingRoomState, syncWaitingRoomPlayers, deleteWaitingRoom } from '../room/CoopRoomManager';
 import { friendManager } from '../friend/FriendManager';
@@ -114,14 +114,19 @@ export class RPGCoopGameRoom {
 
   /**
    * 서버가 직접 게임 상태 브로드캐스트
+   * JSON.stringify를 1회만 수행하여 플레이어 수만큼 중복 stringify 방지
    */
   private broadcastGameState(state: SerializedGameState): void {
-    this.playerIds.forEach(playerId => {
-      sendToPlayer(playerId, {
-        type: 'COOP_GAME_STATE',
-        state,
-      });
+    const jsonString = JSON.stringify({
+      type: 'COOP_GAME_STATE',
+      state,
     });
+    for (const playerId of this.playerIds) {
+      const player = players.get(playerId);
+      if (player) {
+        sendPreStringifiedMessage(player.ws, jsonString);
+      }
+    }
   }
 
   /**

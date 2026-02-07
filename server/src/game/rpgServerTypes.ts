@@ -53,6 +53,10 @@ export interface ServerHero extends Omit<SerializedHero, 'skills'> {
   attackCooldown: number;
   team: 'player';
   skills: Skill[];
+  // 스킬 직접 참조 캐시 (find 호출 제거용)
+  _skillQ: Skill;
+  _skillW: Skill;
+  _skillE: Skill;
   goldAccumulator: number;
 }
 
@@ -87,6 +91,8 @@ export interface ServerGameState {
   };
   goldAccumulator: number;
   nexusLaserCooldown: number;
+  // Date.now() 틱당 1회 캐시
+  currentTickTimestamp: number;
 }
 
 // 게임 결과 타입

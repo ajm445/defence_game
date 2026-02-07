@@ -15,7 +15,7 @@ import {
   PASSIVE_UNLOCK_LEVEL,
   type AdvancedHeroClass,
 } from './rpgServerConfig';
-import { distance, clamp, generateId, pointToLineDistance } from './rpgServerUtils';
+import { distance, distanceSquared, clamp, generateId, pointToLineDistance } from './rpgServerUtils';
 import { damageBase } from './rpgServerGameSystems';
 
 export interface SkillContext {
@@ -38,10 +38,10 @@ export function executeSkill(
     return;
   }
 
-  // 스킬 쿨다운 체크 (hero.skills의 key 필드로 찾기 - 전직 스킬 지원)
-  const skill = hero.skills?.find(s => s.key === skillSlot);
+  // 스킬 쿨다운 체크 (캐시된 직접 참조 사용)
+  const skill = skillSlot === 'Q' ? hero._skillQ : skillSlot === 'W' ? hero._skillW : hero._skillE;
 
-  if (!skill || skill.currentCooldown > 0) {
+  if (skill.currentCooldown > 0) {
     return;
   }
 
@@ -135,15 +135,16 @@ function executeQSkill(
   const hitEnemies: { id: string; damage: number; isCritical: boolean; x: number; y: number }[] = [];
   const archerTargets: { enemy: RPGEnemy; dist: number }[] = [];
 
+  const attackRangeSq = attackRange * attackRange;
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
-    const distToHero = distance(hero.x, hero.y, enemy.x, enemy.y);
-    if (distToHero > attackRange) continue;
+    const distToHeroSq = distanceSquared(hero.x, hero.y, enemy.x, enemy.y);
+    if (distToHeroSq > attackRangeSq) continue;
 
+    if (distToHeroSq === 0) continue;
     const enemyDx = enemy.x - hero.x;
     const enemyDy = enemy.y - hero.y;
-    const enemyDist = Math.sqrt(enemyDx * enemyDx + enemyDy * enemyDy);
-    if (enemyDist === 0) continue;
+    const enemyDist = Math.sqrt(distToHeroSq);
 
     const enemyDirX = enemyDx / enemyDist;
     const enemyDirY = enemyDy / enemyDist;
@@ -161,7 +162,7 @@ function executeQSkill(
       }
       hitEnemies.push({ id: enemy.id, damage: actualDamage, isCritical: isCriticalHit, x: enemy.x, y: enemy.y });
     } else if (heroClass === 'archer') {
-      archerTargets.push({ enemy, dist: distToHero });
+      archerTargets.push({ enemy, dist: distToHeroSq });
     }
   }
 
@@ -191,15 +192,16 @@ function executeQSkill(
 
   // 기지 데미지 처리
   const { enemyBases } = ctx.state;
+  const baseRangeSq = (attackRange + 50) * (attackRange + 50);
   for (const base of enemyBases) {
     if (base.destroyed) continue;
-    const baseDist = distance(hero.x, hero.y, base.x, base.y);
-    if (baseDist > attackRange + 50) continue; // 기지는 크기가 크므로 추가 반경
+    const baseDistSq = distanceSquared(hero.x, hero.y, base.x, base.y);
+    if (baseDistSq > baseRangeSq) continue; // 기지는 크기가 크므로 추가 반경
+    if (baseDistSq === 0) continue;
 
     const baseDx = base.x - hero.x;
     const baseDy = base.y - hero.y;
-    const baseDistNorm = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
-    if (baseDistNorm === 0) continue;
+    const baseDistNorm = Math.sqrt(baseDistSq);
 
     const baseDirX = baseDx / baseDistNorm;
     const baseDirY = baseDy / baseDistNorm;
@@ -248,7 +250,7 @@ function executeQSkill(
           y: hero.y - 40,
           amount: healAmount,
           type: 'heal',
-          createdAt: Date.now(),
+          createdAt: ctx.state.currentTickTimestamp,
         });
       }
     }
@@ -273,7 +275,7 @@ function executeQSkill(
               y: otherHero.y - 40,
               amount: healAmount,
               type: 'heal',
-              createdAt: Date.now(),
+              createdAt: ctx.state.currentTickTimestamp,
             });
           }
         }
@@ -296,9 +298,8 @@ function executeQSkill(
     if (hero.skillCooldowns.W > 0) {
       hero.skillCooldowns.W = Math.max(0, hero.skillCooldowns.W - cooldownReduction);
     }
-    const wSkill = hero.skills?.find(s => s.key === 'W');
-    if (wSkill && wSkill.currentCooldown > 0) {
-      wSkill.currentCooldown = Math.max(0, wSkill.currentCooldown - cooldownReduction);
+    if (hero._skillW.currentCooldown > 0) {
+      hero._skillW.currentCooldown = Math.max(0, hero._skillW.currentCooldown - cooldownReduction);
     }
   }
 
@@ -322,10 +323,7 @@ function executeQSkill(
   // 쿨다운 시작 - hero.config.attackSpeed 사용 (업그레이드 반영)
   const attackSpeed = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
   hero.skillCooldowns.Q = attackSpeed;
-  const qSkill = hero.skills?.find(s => s.key === 'Q');
-  if (qSkill) {
-    qSkill.currentCooldown = attackSpeed;
-  }
+  hero._skillQ.currentCooldown = attackSpeed;
 }
 
 /**
@@ -350,11 +348,8 @@ function executeWSkill(
   if (advancedClass) {
     const executed = executeAdvancedWSkill(ctx, hero, enemies, targetX, targetY, dirX, dirY, damage, gameTime, advancedClass);
     if (executed) {
-      // hero.skills의 W 스킬 쿨다운도 동기화
-      const wSkill = hero.skills?.find(s => s.key === 'W');
-      if (wSkill) {
-        wSkill.currentCooldown = hero.skillCooldowns.W;
-      }
+      // 캐시된 W 스킬 쿨다운 동기화
+      hero._skillW.currentCooldown = hero.skillCooldowns.W;
       return;
     }
   }
@@ -525,11 +520,8 @@ function executeWSkill(
     }
   }
 
-  // hero.skills의 W 스킬 쿨다운도 동기화
-  const wSkill = hero.skills?.find(s => s.key === 'W');
-  if (wSkill) {
-    wSkill.currentCooldown = hero.skillCooldowns.W;
-  }
+  // 캐시된 W 스킬 쿨다운 동기화
+  hero._skillW.currentCooldown = hero.skillCooldowns.W;
 }
 
 /**
@@ -551,11 +543,8 @@ function executeESkill(
   if (advancedClass) {
     const executed = executeAdvancedESkill(ctx, hero, enemies, targetX, targetY, damage, gameTime, advancedClass);
     if (executed) {
-      // hero.skills의 E 스킬 쿨다운도 동기화
-      const eSkill = hero.skills?.find(s => s.key === 'E');
-      if (eSkill) {
-        eSkill.currentCooldown = hero.skillCooldowns.E;
-      }
+      // 캐시된 E 스킬 쿨다운 동기화
+      hero._skillE.currentCooldown = hero.skillCooldowns.E;
       return;
     }
   }
@@ -630,7 +619,7 @@ function executeESkill(
           ctx.state.damageNumbers.push({
             id: generateId(),
             x: otherHero.x, y: otherHero.y - 40,
-            amount: healAmount, type: 'heal', createdAt: Date.now(),
+            amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
           });
         }
         otherHero.buffs = otherHero.buffs || [];
@@ -672,11 +661,8 @@ function executeESkill(
     }
   }
 
-  // hero.skills의 E 스킬 쿨다운도 동기화
-  const eSkill = hero.skills?.find(s => s.key === 'E');
-  if (eSkill) {
-    eSkill.currentCooldown = hero.skillCooldowns.E;
-  }
+  // 캐시된 E 스킬 쿨다운 동기화
+  hero._skillE.currentCooldown = hero.skillCooldowns.E;
 }
 
 /**
@@ -734,7 +720,7 @@ function executeAdvancedWSkill(
           state.damageNumbers.push({
             id: generateId(),
             x: hero.x, y: hero.y - 40,
-            amount: healAmount, type: 'heal', createdAt: Date.now(),
+            amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
           });
         }
       }
@@ -841,12 +827,12 @@ function executeAdvancedWSkill(
 
       // 전방에 화살 발사 (가장 가까운 적에게)
       let nearestEnemy: RPGEnemy | null = null;
-      let minDist = 300;
+      let minDistSq = 300 * 300;
       for (const enemy of enemies) {
         if (enemy.hp <= 0) continue;
-        const dist = distance(hero.x, hero.y, enemy.x, enemy.y);
-        if (dist < minDist) {
-          minDist = dist;
+        const distSq = distanceSquared(hero.x, hero.y, enemy.x, enemy.y);
+        if (distSq < minDistSq) {
+          minDistSq = distSq;
           nearestEnemy = enemy;
         }
       }
@@ -968,7 +954,7 @@ function executeAdvancedWSkill(
             state.damageNumbers.push({
               id: generateId(),
               x: otherHero.x, y: otherHero.y - 40,
-              amount: healAmount, type: 'heal', createdAt: Date.now(),
+              amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
             });
           }
         }
@@ -1024,7 +1010,7 @@ function executeAdvancedWSkill(
           state.damageNumbers.push({
             id: generateId(),
             x: hero.x, y: hero.y - 40,
-            amount: healAmount, type: 'heal', createdAt: Date.now(),
+            amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
           });
         }
       }
@@ -1132,7 +1118,7 @@ function executeAdvancedWSkill(
             state.damageNumbers.push({
               id: generateId(),
               x: otherHero.x, y: otherHero.y - 40,
-              amount: healAmount, type: 'heal', createdAt: Date.now(),
+              amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
             });
           }
         }
@@ -1284,7 +1270,7 @@ function executeAdvancedESkill(
           state.damageNumbers.push({
             id: generateId(),
             x: otherHero.x, y: otherHero.y - 40,
-            amount: healAmount, type: 'heal', createdAt: Date.now(),
+            amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
           });
         }
         otherHero.buffs = otherHero.buffs || [];
@@ -1424,7 +1410,7 @@ function executeAdvancedESkill(
           state.damageNumbers.push({
             id: generateId(),
             x: otherHero.x, y: otherHero.y - 40,
-            amount: healAmount, type: 'heal', createdAt: Date.now(),
+            amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
           });
         }
       }
@@ -1481,7 +1467,7 @@ export function applyDamageToEnemyWithCrit(
     y: enemy.y - 20,
     amount: damage,
     type: isCritical ? 'critical' : 'damage',
-    createdAt: Date.now(),
+    createdAt: ctx.state.currentTickTimestamp,
   });
 
   if (attacker && !enemy.aggroOnHero) {
@@ -1560,7 +1546,7 @@ export function updatePendingSkills(ctx: SkillContext): void {
             state.damageNumbers.push({
               id: generateId(),
               x: otherHero.x, y: otherHero.y - 40,
-              amount: healAmount, type: 'heal', createdAt: Date.now(),
+              amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
             });
           }
         }

@@ -227,12 +227,13 @@ function executeBossSkill(
   }
 
   // 스킬 실행 이펙트 추가
+  const now = state.currentTickTimestamp;
   state.bossSkillExecutedEffects.push({
-    id: `boss_skill_${cast.skillType}_${Date.now()}_${boss.id}`,
+    id: `boss_skill_${cast.skillType}_${now}_${boss.id}`,
     skillType: cast.skillType,
     x: boss.x,
     y: boss.y,
-    timestamp: Date.now(),
+    timestamp: now,
   });
 
   boss.state = 'idle';
@@ -277,7 +278,7 @@ export function applyDamageToHero(state: ServerGameState, hero: ServerHero, dama
       y: hero.y - 30,
       amount: damage,
       type: 'enemy_damage',
-      createdAt: Date.now(),
+      createdAt: state.currentTickTimestamp,
     });
 
     if (hero.hp <= 0) {

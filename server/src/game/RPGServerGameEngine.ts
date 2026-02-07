@@ -230,6 +230,7 @@ export class RPGServerGameEngine {
       },
       goldAccumulator: 0,
       nexusLaserCooldown: 0,
+      currentTickTimestamp: Date.now(),
     };
   }
 
@@ -292,6 +293,9 @@ export class RPGServerGameEngine {
   }
 
   private update(deltaTime: number): void {
+    // Date.now() 틱당 1회 캐시
+    this.state.currentTickTimestamp = Date.now();
+
     // 1. 게임 시간 업데이트
     this.state.gameTime += deltaTime;
     this.state.stats.timePlayed = this.state.gameTime;
@@ -340,10 +344,11 @@ export class RPGServerGameEngine {
 
   private processAllInputs(): void {
     for (const [playerId, queue] of this.inputQueues) {
-      while (queue.length > 0) {
-        const input = queue.shift()!;
-        this.processInput(playerId, input);
+      // 인덱스 순회 + 일괄 정리 (shift() O(n) 제거)
+      for (let i = 0; i < queue.length; i++) {
+        this.processInput(playerId, queue[i]);
       }
+      queue.length = 0;
     }
   }
 
@@ -397,12 +402,13 @@ export class RPGServerGameEngine {
         if (nearestEnemy) {
           executeSkill(this.skillContext, hero, 'Q', nearestEnemy.x, nearestEnemy.y);
           const isRanged = hero.heroClass === 'archer' || hero.heroClass === 'mage';
+          const now = this.state.currentTickTimestamp;
           this.state.basicAttackEffects.push({
-            id: `hero_attack_${Date.now()}_${hero.id}`,
+            id: `hero_attack_${now}_${hero.id}`,
             type: isRanged ? 'ranged' : 'melee',
             x: nearestEnemy.x,
             y: nearestEnemy.y,
-            timestamp: Date.now(),
+            timestamp: now,
           });
         } else {
           const nearestBase = findNearestEnemyBase(this.state.enemyBases, hero.x, hero.y, attackRange + 50);
@@ -412,15 +418,14 @@ export class RPGServerGameEngine {
             // 쿨다운 시작 - hero.config.attackSpeed 사용 (적 공격과 동일, 업그레이드 반영)
             const attackSpeed = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
             hero.skillCooldowns.Q = attackSpeed;
-            const qSkill = hero.skills?.find(s => s.key === 'Q');
-            if (qSkill) qSkill.currentCooldown = attackSpeed;
-            const isRanged = hero.heroClass === 'archer' || hero.heroClass === 'mage';
+            hero._skillQ.currentCooldown = attackSpeed;
+            const isRangedBase = hero.heroClass === 'archer' || hero.heroClass === 'mage';
             this.state.basicAttackEffects.push({
-              id: `hero_attack_base_${Date.now()}_${hero.id}`,
-              type: isRanged ? 'ranged' : 'melee',
+              id: `hero_attack_base_${this.state.currentTickTimestamp}_${hero.id}`,
+              type: isRangedBase ? 'ranged' : 'melee',
               x: nearestBase.x,
               y: nearestBase.y,
-              timestamp: Date.now(),
+              timestamp: this.state.currentTickTimestamp,
             });
           }
         }
@@ -432,7 +437,7 @@ export class RPGServerGameEngine {
   }
 
   private onEnemyAttackHero(enemy: RPGEnemy, hero: ServerHero): void {
-    enemyAttackHero(enemy, hero, this.state.damageNumbers);
+    enemyAttackHero(enemy, hero, this.state.damageNumbers, this.state.currentTickTimestamp);
 
     // 영웅 사망 처리
     if (hero.hp <= 0) {
@@ -449,7 +454,7 @@ export class RPGServerGameEngine {
   }
 
   private onEnemyAttackNexus(enemy: RPGEnemy): void {
-    enemyAttackNexus(enemy, this.state.nexus, this.state.damageNumbers);
+    enemyAttackNexus(enemy, this.state.nexus, this.state.damageNumbers, this.state.currentTickTimestamp);
   }
 
   private handleEnemyDeath(enemy: RPGEnemy, attacker?: ServerHero): void {

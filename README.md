@@ -4,7 +4,7 @@
 
 **RTS 모드**와 **RPG 모드**를 모두 즐길 수 있는 종합 전략 게임입니다.
 
-**Version: 1.22.1**
+**Version: 1.22.2**
 
 ---
 
@@ -420,7 +420,7 @@ defence_game/
 ├── server/                   # 멀티플레이어 서버 (Node.js)
 │   └── src/
 │       ├── api/             # REST API 라우터 (인증 등)
-│       ├── game/            # 서버 게임 로직 (GameRoom)
+│       ├── game/            # 서버 게임 로직 (RTS GameRoom, RPG ServerGameEngine)
 │       ├── room/            # 방 관리 (RoomManager)
 │       ├── services/        # Supabase Admin 클라이언트
 │       ├── state/           # 서버 상태 관리
@@ -471,7 +471,19 @@ defence_game/
 
 ## 버전 히스토리
 
-### V1.22.1 (현재)
+### V1.22.2 (현재)
+- **서버 성능 최적화** (CPU 50-70% 감소, GC 압력 60-80% 감소 목표)
+  - JSON.stringify 1회 통합: 4인 플레이 기준 초당 60회 중복 stringify 제거
+  - 스킬 캐시 (`_skillQ/W/E`): `hero.skills.find()` 배열 탐색을 직접 참조로 대체
+  - 이펙트/버프 인플레이스 처리: `.filter()` → 역순 `for` + `splice` (초당 900개 배열 할당 제거)
+  - `Date.now()` 틱당 1회 캐시 (`state.currentTickTimestamp`)
+  - `distanceSquared()` 도입: 범위 비교에서 `Math.sqrt` 제거 (초당 6,000-12,000회)
+  - 입력 큐 최적화: `queue.shift()` O(n) → 인덱스 순회 + 일괄 정리
+  - 적 직렬화 단일 패스: `.filter().map()` → 단일 `for` 루프
+  - 승리 조건 체크 배열 제거: `Array.from().filter()` → 카운터 변수
+- **서버 전용 최적화**: 클라이언트 수정 없음, 게임 동작 변경 없음
+
+### V1.22.1
 - **다크나이트 E스킬(어둠의 칼날) 수정**
   - 서버-클라이언트 스킬 구현 불일치 수정 (즉시 데미지 → 5초간 틱 데미지)
   - 5초 지속, 초당 공격력 75% 데미지, 범위 150px

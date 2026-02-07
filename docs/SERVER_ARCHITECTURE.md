@@ -13,7 +13,8 @@
 5. [RPG 모드 멀티플레이어](#rpg-모드-멀티플레이어)
 6. [두 모드 비교](#두-모드-비교)
 7. [메시지 흐름 다이어그램](#메시지-흐름-다이어그램)
-8. [서버 실행](#서버-실행)
+8. [서버 성능 최적화](#서버-성능-최적화-v1222)
+9. [서버 실행](#서버-실행)
 
 ---
 
@@ -86,8 +87,17 @@ const message: ServerMessage = JSON.parse(event.data);
 └── src/services/WebSocketClient.ts      # WebSocket 통신
 
 서버:
-├── server/src/game/RPGCoopGameRoom.ts   # 게임 방 (메시지 릴레이만)
-├── server/src/room/CoopRoomManager.ts   # 협동 방 관리
+├── server/src/game/RPGCoopGameRoom.ts      # 게임 방 관리 + 상태 브로드캐스트
+├── server/src/game/RPGServerGameEngine.ts  # 서버 게임 엔진 (60fps 게임 루프)
+├── server/src/game/rpgServerGameSystems.ts # 넥서스 레이저, 골드, 업그레이드, 승패 조건
+├── server/src/game/rpgServerHeroSystem.ts  # 영웅 생성, 버프, 스킬 설정
+├── server/src/game/rpgServerSkillSystem.ts # 스킬 실행 (Q/W/E)
+├── server/src/game/rpgServerEnemySystem.ts # 적 AI, 스폰, 이동
+├── server/src/game/rpgServerBossSystem.ts  # 보스 AI, 스킬 패턴
+├── server/src/game/rpgServerConfig.ts      # 서버 게임 설정값
+├── server/src/game/rpgServerUtils.ts       # 유틸리티 (distance, distanceSquared)
+├── server/src/game/rpgServerTypes.ts       # 서버 전용 타입 정의
+├── server/src/room/CoopRoomManager.ts      # 협동 방 관리
 ├── server/src/websocket/WebSocketServer.ts
 └── server/src/websocket/MessageHandler.ts
 
@@ -304,11 +314,13 @@ export class RPGCoopGameRoom {
     this.gameEngine?.handlePlayerInput(playerId, input);
   }
 
-  // 게임 상태를 모든 클라이언트에 브로드캐스트
+  // 게임 상태를 모든 클라이언트에 브로드캐스트 (1회 stringify 최적화)
   private broadcastGameState(state: SerializedGameState): void {
-    this.playerIds.forEach(pid => {
-      sendToPlayer(pid, { type: 'COOP_GAME_STATE', state });
-    });
+    const jsonString = JSON.stringify({ type: 'COOP_GAME_STATE', state });
+    for (const playerId of this.playerIds) {
+      const player = players.get(playerId);
+      if (player) sendPreStringifiedMessage(player.ws, jsonString);
+    }
   }
 }
 ```
@@ -670,6 +682,43 @@ interface EnemyBase {
   │                   │                      │
   │←──COOP_GAME_OVER──│───COOP_GAME_OVER────→│
 ```
+
+---
+
+## 서버 성능 최적화 (V1.22.2)
+
+RPG 모드 서버는 60fps 게임루프 + 20Hz 브로드캐스트를 실행하므로 GC 압력과 CPU 부하 최적화가 중요합니다.
+
+### 브로드캐스트 최적화
+
+| 기법 | 설명 |
+|------|------|
+| JSON.stringify 1회 통합 | 같은 상태를 플레이어 수만큼 stringify하지 않고, 1회만 stringify 후 `sendPreStringifiedMessage()` 사용 |
+| 스킬 캐시 (`_skillQ/W/E`) | `hero.skills.find()` 대신 hero 생성 시 직접 참조 캐시 |
+| 적 직렬화 단일 패스 | `.filter().map()` → 단일 `for` 루프 (중간 배열 제거) |
+
+### 배열 할당 제거
+
+| 기법 | 대상 | 효과 |
+|------|------|------|
+| 인플레이스 splice | `cleanupEffects()` 7개 `.filter()` | 초당 420개 배열 제거 |
+| 인플레이스 splice | `updateBuffs()` `.map(spread).filter()` | 초당 480개 배열+객체 제거 |
+| 카운터 변수 | `checkWinCondition()` `Array.from().filter()` | 매 틱 2-3개 배열 제거 |
+
+### 연산 최적화
+
+| 기법 | 설명 |
+|------|------|
+| `currentTickTimestamp` | `Date.now()` 틱당 1회 캐시 → `state.currentTickTimestamp` |
+| `distanceSquared()` | 범위 비교에서 `Math.sqrt` 제거 (초당 6,000-12,000회) |
+| 입력 큐 인덱스 순회 | `queue.shift()` O(n) → 인덱스 순회 + `queue.length = 0` |
+
+### 주의사항
+
+- `distanceSquared` 사용 시 비교 값도 제곱: `dist <= range` → `distSq <= range * range`
+- 인플레이스 splice는 역순으로 진행 (인덱스 꼬임 방지)
+- `_skillQ/W/E`는 `hero.skills` 배열의 같은 객체를 참조 (어느 쪽 수정이든 동기화)
+- 클라이언트 수정 없음 (`SerializedGameState` 인터페이스 유지)
 
 ---
 

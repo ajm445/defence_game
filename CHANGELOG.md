@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.22.2] - 2026-02-07
+
+### Performance Optimization
+- **서버 JSON.stringify 1회 통합**: 같은 게임 상태를 플레이어 수만큼 JSON.stringify하던 것을 1회만 실행
+  - `sendPreStringifiedMessage()` 함수 추가로 사전 직렬화된 메시지 전송
+  - 4인 플레이 기준 초당 60회 중복 stringify 제거
+- **스킬 쿨다운 캐시 (`_skillQ/W/E`)**: `hero.skills.find()` 배열 탐색을 직접 참조로 대체
+  - 영웅 생성 시 `_skillQ`, `_skillW`, `_skillE` 캐시 생성
+  - 초당 240회 이상의 배열 탐색 완전 제거
+- **이펙트 정리 인플레이스 처리**: 7개 `.filter()` 배열 생성을 역순 `for` + `splice`로 대체
+  - 초당 420개 배열 할당 제거
+- **버프 업데이트 인플레이스 처리**: `.map(spread).filter()` → 역순 `for` + duration 직접 수정 + `splice`
+  - 영웅/적 버프 모두 적용, 초당 480개 배열+객체 할당 제거
+- **승리 조건 체크 배열 제거**: `Array.from().filter()` → 직접 `for` 순회 + 카운터 변수
+- **`Date.now()` 틱당 1회 캐시**: 틱당 20-25회 호출되던 `Date.now()`를 `state.currentTickTimestamp`로 1회 캐시
+- **`distanceSquared()` 도입**: 범위 비교에서 `Math.sqrt` 제거 (초당 6,000-12,000회)
+  - 적용 대상: findNearestEnemy, findNearestEnemyBase, applyHealerAura, updateNexusLaser, 적 AI 탐지, Q스킬 범위 체크
+- **입력 큐 최적화**: `queue.shift()` O(n) → 인덱스 순회 + `queue.length = 0` 일괄 정리
+- **적 직렬화 단일 패스**: `.filter().map()` 이중 순회 → 단일 `for` 루프
+
+### Technical Changes
+- `server/src/state/players.ts`: `sendPreStringifiedMessage()` 함수 추가
+- `server/src/game/RPGCoopGameRoom.ts`: `broadcastGameState`에서 1회 stringify + `sendPreStringifiedMessage` 사용
+- `server/src/game/rpgServerTypes.ts`: ServerHero에 `_skillQ/W/E` 캐시, ServerGameState에 `currentTickTimestamp` 필드 추가
+- `server/src/game/rpgServerHeroSystem.ts`: createHero 스킬 캐시, updateBuffs 인플레이스, findNearest/applyHealerAura에 distanceSquared
+- `server/src/game/rpgServerGameSystems.ts`: serializeGameState 스킬 캐시, 적 직렬화 단일 패스, cleanupEffects 인플레이스, checkWinCondition 카운터
+- `server/src/game/RPGServerGameEngine.ts`: `currentTickTimestamp` 캐시, 입력 큐 인덱스 순회, 자동공격에 `_skillQ` 캐시
+- `server/src/game/rpgServerUtils.ts`: `distanceSquared()` 함수 추가
+- `server/src/game/rpgServerSkillSystem.ts`: 스킬 캐시 참조, Q스킬 범위 체크에 distanceSquared, Date.now→currentTickTimestamp
+- `server/src/game/rpgServerEnemySystem.ts`: 적 AI 탐지에 distanceSquared, 버프 인플레이스 처리
+- `server/src/game/rpgServerBossSystem.ts`: Date.now→currentTickTimestamp
+
+### Notes
+- 클라이언트 수정 없음 (SerializedGameState 인터페이스 유지)
+- 게임 동작 변경 없음, 서버 전용 최적화
+- 목표: CPU 50-70% 감소, GC 압력 60-80% 감소
+
+---
+
 ## [1.20.20] - 2026-02-05
 
 ### Bug Fixes

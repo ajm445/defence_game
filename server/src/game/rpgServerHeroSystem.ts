@@ -21,7 +21,7 @@ import {
   getPassiveFromCharacterLevel,
   type AdvancedHeroClass,
 } from './rpgServerConfig';
-import { distance, clamp, generateId } from './rpgServerUtils';
+import { distance, distanceSquared, clamp, generateId } from './rpgServerUtils';
 
 /**
  * 영웅 스폰 위치 계산
@@ -146,6 +146,12 @@ export function createHero(playerInfo: CoopPlayerInfo, spawnPos: { x: number; y:
   const finalRange = baseStats.range + rangeBonus;
 
   const heroId = `hero_${playerInfo.id}`;
+  const skills = createHeroSkills(heroClass, advancedClass);
+  // 스킬 직접 참조 캐시 (매 틱 find 호출 제거)
+  const skillQ = skills.find(s => s.key === 'Q')!;
+  const skillW = skills.find(s => s.key === 'W')!;
+  const skillE = skills.find(s => s.key === 'E')!;
+
   return {
     id: heroId,
     playerId: playerInfo.id,
@@ -173,7 +179,10 @@ export function createHero(playerInfo: CoopPlayerInfo, spawnPos: { x: number; y:
     moveDirection: null,
     state: 'idle',
     characterLevel: playerInfo.characterLevel || 1,
-    skills: createHeroSkills(heroClass, advancedClass),
+    skills,
+    _skillQ: skillQ,
+    _skillW: skillW,
+    _skillE: skillE,
     config: {
       name: configName,
       cost: {},
@@ -248,7 +257,7 @@ export function updateSkillCooldowns(hero: ServerHero, deltaTime: number): void 
 }
 
 /**
- * 버프 업데이트
+ * 버프 업데이트 (인플레이스 - 매 틱 배열/객체 재할당 제거)
  */
 export function updateBuffs(hero: ServerHero, deltaTime: number): void {
   if (!hero.buffs) {
@@ -256,9 +265,12 @@ export function updateBuffs(hero: ServerHero, deltaTime: number): void {
     return;
   }
 
-  hero.buffs = hero.buffs
-    .map(buff => ({ ...buff, duration: buff.duration - deltaTime }))
-    .filter(buff => buff.duration > 0);
+  for (let i = hero.buffs.length - 1; i >= 0; i--) {
+    hero.buffs[i].duration -= deltaTime;
+    if (hero.buffs[i].duration <= 0) {
+      hero.buffs.splice(i, 1);
+    }
+  }
 }
 
 /**
@@ -283,13 +295,14 @@ export function calculateHeroDamage(hero: ServerHero): number {
  */
 export function findNearestEnemy(enemies: RPGEnemy[], x: number, y: number, range: number): RPGEnemy | null {
   let nearest: RPGEnemy | null = null;
-  let minDist = Infinity;
+  let minDistSq = Infinity;
+  const rangeSq = range * range;
 
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
-    const dist = distance(x, y, enemy.x, enemy.y);
-    if (dist <= range && dist < minDist) {
-      minDist = dist;
+    const distSq = distanceSquared(x, y, enemy.x, enemy.y);
+    if (distSq <= rangeSq && distSq < minDistSq) {
+      minDistSq = distSq;
       nearest = enemy;
     }
   }
@@ -302,13 +315,14 @@ export function findNearestEnemy(enemies: RPGEnemy[], x: number, y: number, rang
  */
 export function findNearestEnemyBase(bases: ServerEnemyBase[], x: number, y: number, range: number): ServerEnemyBase | null {
   let nearest: ServerEnemyBase | null = null;
-  let minDist = Infinity;
+  let minDistSq = Infinity;
+  const rangeSq = range * range;
 
   for (const base of bases) {
     if (base.destroyed || base.hp <= 0) continue;
-    const dist = distance(x, y, base.x, base.y);
-    if (dist <= range && dist < minDist) {
-      minDist = dist;
+    const distSq = distanceSquared(x, y, base.x, base.y);
+    if (distSq <= rangeSq && distSq < minDistSq) {
+      minDistSq = distSq;
       nearest = base;
     }
   }
@@ -327,13 +341,14 @@ export function applyHealerAura(hero: ServerHero, heroes: Map<string, ServerHero
   if (!healAura) return;
 
   const healRadius = healAura.radius || 150;
+  const healRadiusSq = healRadius * healRadius;
   const healPerSecond = healAura.healPerSecond || 0.04;
 
   for (const [, otherHero] of heroes) {
     if (otherHero.isDead) continue;
     if (otherHero.hp >= otherHero.maxHp) continue; // 풀피면 스킵
-    const dist = distance(hero.x, hero.y, otherHero.x, otherHero.y);
-    if (dist <= healRadius) {
+    const distSq = distanceSquared(hero.x, hero.y, otherHero.x, otherHero.y);
+    if (distSq <= healRadiusSq) {
       // 소수점 힐량 허용 (Math.floor 제거 - 기사 패시브와 동일)
       const healAmount = otherHero.maxHp * healPerSecond * deltaTime;
       otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
@@ -423,6 +438,5 @@ export function canHeroAutoAttack(hero: ServerHero, gameTime: number): boolean {
   const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
   if (isCasting || isStunned) return false;
 
-  const qSkill = hero.skills?.find(s => s.key === 'Q');
-  return !!(qSkill && qSkill.currentCooldown <= 0);
+  return hero._skillQ.currentCooldown <= 0;
 }
