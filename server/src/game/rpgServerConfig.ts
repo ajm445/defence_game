@@ -265,13 +265,13 @@ export const DIFFICULTY_BOSS_SKILLS: Record<RPGDifficulty, string[]> = {
 export const SPAWN_CONFIG = {
   BASE_INTERVAL: 4.0,
   MIN_INTERVAL: 1.5,
-  INTERVAL_DECREASE_PER_MINUTE: 0.3,
+  INTERVAL_DECREASE_PER_MINUTE: 0.2,
   getEnemyTypesForTime: (minutes: number, unitTimeMultiplier: number = 1.0): { type: string; weight: number }[] => {
     const adjustedMinutes = minutes * unitTimeMultiplier;
     if (adjustedMinutes < 2) return [{ type: 'melee', weight: 1 }];
-    if (adjustedMinutes < 4) return [{ type: 'melee', weight: 0.7 }, { type: 'ranged', weight: 0.3 }];
-    if (adjustedMinutes < 6) return [{ type: 'melee', weight: 0.5 }, { type: 'ranged', weight: 0.3 }, { type: 'knight', weight: 0.2 }];
-    return [{ type: 'melee', weight: 0.3 }, { type: 'ranged', weight: 0.25 }, { type: 'knight', weight: 0.25 }, { type: 'mage', weight: 0.2 }];
+    if (adjustedMinutes < 4) return [{ type: 'melee', weight: 3 }, { type: 'ranged', weight: 1 }];
+    if (adjustedMinutes < 6) return [{ type: 'melee', weight: 2 }, { type: 'ranged', weight: 2 }, { type: 'knight', weight: 1 }];
+    return [{ type: 'melee', weight: 2 }, { type: 'ranged', weight: 2 }, { type: 'knight', weight: 2 }, { type: 'mage', weight: 1 }];
   },
 };
 

@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.22.9] - 2026-02-08
+
+### Server-Client Sync
+- **서버-클라이언트 스킬 로직 전면 동기화**: 8개 항목 불일치 수정 (클라이언트 기준)
+  - 저격수 W (후방 도약): 단일 타겟 → 전방 60도 범위 적 전체 + 기지 데미지 추가
+  - 저격수 E (저격): 즉시 발동 → 3초 시전(castingUntil + pendingSkill) + 마우스 위치 기반 타겟팅 + 보스 우선
+  - 레인저 W (다중 화살): 산탄 각도 30° → 45°
+  - 힐러 W (치유의 빛): 힐 범위 200px → 150px
+  - 버서커 E (광란): lifesteal 제거, damageTaken 0.5 유지
+  - 팔라딘 Q (기본공격 힐): 공격력 기반 → 아군 최대HP × 5% 회복
+  - 스폰 설정: 가중치 형식 통일 (확률 → 카운트), 스폰 간격 감소율 0.3 → 0.2
+
+### Client Fixes
+- **버서커 광란 버프에 받는 피해 증가 추가**: `damageTaken: 0.5` (50% 추가 피해)
+  - 클라이언트 `calculateDamageAfterReduction`에 damageTaken 버프 체크 추가
+- **팔라딘 기본공격 힐 변경**: 공격력 비례 → 아군 최대HP × 5% 회복
+- **저격수 E 타겟팅 변경**: 30도 각도 필터 → 마우스 위치 기반 + 보스 우선
+- **데미지 숫자 중복 표시 수정**: `isMultiplayerClient` → `isMultiplayer`로 변경
+  - 멀티플레이에서 호스트 포함 모든 클라이언트가 서버 상태에 의존하도록 통일
+
+### UI/UX
+- **스킬 호버 범위 표시 개선**
+  - 버프 스킬 (버서커/가디언/레인저/팔라딘/저격수 E): 범위 표시 제거
+  - 다크나이트/힐러 E: 마우스 위치 AoE → 캐릭터 중심 원형 범위
+  - 대마법사 E (메테오 샤워): 마우스 위치 AoE 유지
+  - 다크나이트 W (암흑 찌르기): 범위 미표시 → 전방 직선 150px 표시
+- **AoE 스킬 범위 미리보기 위치 변경**: 마우스 위치 → 캐릭터 전방 100px
+  - 스킬 버튼 호버 시 마우스는 UI 위에 있으므로, 실제 스킬 발동 위치 표시로 변경
+
+### Technical Changes
+- `server/src/game/rpgServerSkillSystem.ts`: 저격수 W/E, 레인저 W, 힐러 W, 버서커 E, 팔라딘 Q, 저격수 E pendingSkill 처리
+- `server/src/game/rpgServerConfig.ts`: 스폰 가중치/감소율 동기화
+- `src/game/rpg/skillSystem.ts`: 버서커 E damageTaken, 팔라딘 Q 힐, 저격수 E 타겟팅
+- `src/game/rpg/enemyAI.ts`: damageTaken 버프 데미지 증가 적용
+- `src/components/ui/RPGDamageNumbers.tsx`: 멀티플레이 데미지 숫자 중복 수정
+- `src/components/ui/RPGSkillBar.tsx`: 스킬 호버 범위 표시 로직 개선
+- `src/renderer/drawHero.ts`: AoE 범위 미리보기 캐릭터 전방 100px로 변경
+
 ## [1.22.6] - 2026-02-08
 
 ### Tutorial

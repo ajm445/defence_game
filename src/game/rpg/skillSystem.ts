@@ -384,7 +384,7 @@ export function executeQSkill(
     updatedHero = { ...updatedHero, skills: updatedSkills };
   }
 
-  // 팔라딘: 기본 공격 시 주변 아군 힐 (본인 제외)
+  // 팔라딘: 기본 공격 시 주변 아군 힐 (본인 제외, 아군 최대 HP 5% 회복)
   const allyHeals: { heroId: string; heal: number }[] = [];
   if (hero.advancedClass === 'paladin' && enemyDamages.length > 0) {
     const advancedConfig = ADVANCED_CLASS_CONFIGS.paladin;
@@ -392,16 +392,15 @@ export function executeQSkill(
     if (basicAttackHeal) {
       const healRange = basicAttackHeal.range;
       const healPercent = basicAttackHeal.healPercent;
-      const healAmount = Math.floor((baseDamage + attackBonus) * healPercent);
 
-      if (healAmount > 0) {
-        for (const ally of allies) {
-          // 본인 제외, 사망한 아군 제외
-          if (ally.id === hero.id) continue;
-          if (ally.hp <= 0) continue;
+      for (const ally of allies) {
+        if (ally.id === hero.id) continue;
+        if (ally.hp <= 0) continue;
 
-          const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
-          if (allyDist <= healRange) {
+        const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
+        if (allyDist <= healRange) {
+          const healAmount = Math.floor(ally.maxHp * healPercent);
+          if (healAmount > 0) {
             allyHeals.push({ heroId: ally.id, heal: healAmount });
           }
         }
@@ -1541,7 +1540,6 @@ function executeAdvancedESkill(
         const duration = skillConfig.duration || 10;
         const attackBonusVal = skillConfig.attackBonus || 1.0;
         const speedBonusVal = skillConfig.speedBonus || 1.0;
-        // damageTaken 증가는 별도 로직 필요 (디버프 시스템)
 
         buff = {
           type: 'berserker',
@@ -1549,6 +1547,7 @@ function executeAdvancedESkill(
           startTime: gameTime,
           attackBonus: attackBonusVal,
           speedBonus: speedBonusVal,
+          damageTaken: 0.5,
         };
 
         effect = {
@@ -1605,34 +1604,25 @@ function executeAdvancedESkill(
         const chargeTime = skillConfig.chargeTime || 3;
         const snipeDamage = Math.floor((baseDamage + attackBonus) * (skillConfig.damageMultiplier || 10.0));
 
-        // 타겟팅 (보스 우선, 그 다음 가장 가까운 적)
+        // 타겟팅: 마우스 위치 기준 가장 가까운 적, 보스 우선 (무제한 사거리)
         let targetEnemy: RPGEnemy | null = null;
         let closestBoss: RPGEnemy | null = null;
         let closestNormal: RPGEnemy | null = null;
         let closestBossDist = Infinity;
         let closestNormalDist = Infinity;
-        const targetAngle = Math.atan2(targetY - hero.y, targetX - hero.x);
 
         for (const enemy of enemies) {
           if (enemy.hp <= 0) continue;
-          const enemyAngle = Math.atan2(enemy.y - hero.y, enemy.x - hero.x);
-          const angleDiff = Math.abs(enemyAngle - targetAngle);
-          const normalizedDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff);
-
-          if (normalizedDiff < Math.PI / 6) {  // 30도 이내
-            const enemyDist = distance(hero.x, hero.y, enemy.x, enemy.y);
-
-            // 보스와 일반 적 분리
-            if (enemy.type === 'boss') {
-              if (enemyDist < closestBossDist) {
-                closestBossDist = enemyDist;
-                closestBoss = enemy;
-              }
-            } else {
-              if (enemyDist < closestNormalDist) {
-                closestNormalDist = enemyDist;
-                closestNormal = enemy;
-              }
+          const dist = distance(targetX, targetY, enemy.x, enemy.y);
+          if (enemy.type === 'boss') {
+            if (dist < closestBossDist) {
+              closestBossDist = dist;
+              closestBoss = enemy;
+            }
+          } else {
+            if (dist < closestNormalDist) {
+              closestNormalDist = dist;
+              closestNormal = enemy;
             }
           }
         }

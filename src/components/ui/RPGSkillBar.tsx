@@ -258,8 +258,12 @@ function getSkillRangeInfo(
   for (const [advClass, skillConfig] of Object.entries(ADVANCED_W_SKILLS)) {
     if (skillConfig.type === skillType) {
       if (skillConfig.distance) {
-        // 돌진 스킬 (버서커, 가디언, 팔라딘, 다크나이트, 저격수)
+        // 돌진 스킬 (버서커, 가디언, 팔라딘, 저격수)
         return { type: 'line', range: skillConfig.distance };
+      }
+      if ((skillConfig as any).range && !skillConfig.radius) {
+        // 전방 공격 스킬 (다크나이트 암흑 찌르기)
+        return { type: 'line', range: (skillConfig as any).range };
       }
       if (skillConfig.radius) {
         // 범위 스킬 (대마법사 화염구, 힐러 치유의 빛, 레인저 다중화살)
@@ -272,11 +276,15 @@ function getSkillRangeInfo(
   // 전직 E 스킬 사거리 정보
   for (const [advClass, skillConfig] of Object.entries(ADVANCED_E_SKILLS)) {
     if (skillConfig.type === skillType) {
-      if (skillConfig.radius) {
-        // 범위 스킬 - 무제한 사거리, 마우스 위치에 AoE 표시
+      // 다크나이트/힐러: 자신 기준 원형 범위 표시
+      if ((advClass === 'darkKnight' || advClass === 'healer') && skillConfig.radius) {
+        return { type: 'circle', range: skillConfig.radius };
+      }
+      // 대마법사 메테오 샤워: 마우스 위치 AoE 표시
+      if (advClass === 'archmage' && skillConfig.radius) {
         return { type: 'aoe', range: 0, radius: skillConfig.radius };
       }
-      // 버프 스킬 (버서커 광란, 레인저 화살 폭풍 등)은 사거리 표시 없음
+      // 버프 스킬 (버서커, 가디언, 레인저, 팔라딘 등)은 사거리 표시 없음
       return null;
     }
   }

@@ -256,18 +256,18 @@ function executeQSkill(
     }
   }
 
-  // 팔라딘 기본 공격 힐
+  // 팔라딘 기본 공격 힐 (아군 최대 HP 5% 회복)
   if (advancedClass === 'paladin' && totalDamageDealt > 0) {
     const healConfig = ADVANCED_CLASS_CONFIGS.paladin.specialEffects.basicAttackHeal;
     if (healConfig) {
       const healRange = healConfig.range || 200;
       const healPercent = healConfig.healPercent || 0.05;
-      const healAmount = Math.floor(totalDamageDealt * healPercent);
-      if (healAmount > 0) {
-        for (const [, otherHero] of ctx.state.heroes) {
-          if (otherHero.id === hero.id || otherHero.isDead) continue;
-          const dist = distance(hero.x, hero.y, otherHero.x, otherHero.y);
-          if (dist <= healRange) {
+      for (const [, otherHero] of ctx.state.heroes) {
+        if (otherHero.id === hero.id || otherHero.isDead) continue;
+        const dist = distance(hero.x, hero.y, otherHero.x, otherHero.y);
+        if (dist <= healRange) {
+          const healAmount = Math.floor(otherHero.maxHp * healPercent);
+          if (healAmount > 0) {
             otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
             ctx.state.damageNumbers.push({
               id: generateId(),
@@ -828,19 +828,35 @@ function executeAdvancedWSkill(
         dirX: -dirX, dirY: -dirY,
       };
 
-      // 전방에 화살 발사 (가장 가까운 적에게)
-      let nearestEnemy: RPGEnemy | null = null;
-      let minDistSq = 300 * 300;
+      // 전방에 화살 발사 (전방 60도 범위 내 모든 적)
+      const arrowRange = hero.config?.range || 200;
       for (const enemy of enemies) {
         if (enemy.hp <= 0) continue;
-        const distSq = distanceSquared(hero.x, hero.y, enemy.x, enemy.y);
-        if (distSq < minDistSq) {
-          minDistSq = distSq;
-          nearestEnemy = enemy;
+        const enemyDist = distance(hero.x, hero.y, enemy.x, enemy.y);
+        if (enemyDist > arrowRange) continue;
+        const enemyDx = enemy.x - hero.x;
+        const enemyDy = enemy.y - hero.y;
+        const enemyDirDist = Math.sqrt(enemyDx * enemyDx + enemyDy * enemyDy);
+        if (enemyDirDist === 0) continue;
+        const dot = (dirX * enemyDx + dirY * enemyDy) / enemyDirDist;
+        if (dot > 0.3) {
+          applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
         }
       }
-      if (nearestEnemy) {
-        applyDamageToEnemy(ctx, nearestEnemy.id, skillDamage, hero);
+
+      // 전방 기지에 데미지
+      for (const base of state.enemyBases) {
+        if (base.destroyed) continue;
+        const baseDist = distance(hero.x, hero.y, base.x, base.y);
+        if (baseDist > arrowRange) continue;
+        const baseDx = base.x - hero.x;
+        const baseDy = base.y - hero.y;
+        const baseDirDist = Math.sqrt(baseDx * baseDx + baseDy * baseDy);
+        if (baseDirDist === 0) continue;
+        const dot = (dirX * baseDx + dirY * baseDy) / baseDirDist;
+        if (dot > 0.3) {
+          damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
+        }
       }
 
       // 이동속도 버프
@@ -866,7 +882,7 @@ function executeAdvancedWSkill(
       const arrowCount = 5;
       const pierceDistance = 300;
       const skillDamage = Math.floor(damage * 1.0);
-      const spreadAngle = Math.PI / 6; // 30도 부채꼴
+      const spreadAngle = Math.PI / 4; // 45도 부채꼴
 
       // 기지 중복 피해 방지용 Set
       const hitBases = new Set<string>();
@@ -1073,7 +1089,7 @@ function executeAdvancedWSkill(
 
     case 'healer': {
       // 치유의 빛: 적에게 데미지 + 아군 HP 회복
-      const healRadius = 200;
+      const healRadius = 150;
       const healPercent = 0.15;
 
       // 범위 내 적에게 데미지
@@ -1145,7 +1161,7 @@ function executeAdvancedESkill(
 
   switch (advancedClass) {
     case 'berserker': {
-      // 광란: 10초간 공격력/공속 100% 증가 + 50% 피해흡혈 + 받는 피해 50% 증가
+      // 광란: 10초간 공격력/공속 100% 증가 + 받는 피해 50% 증가
       hero.buffs = hero.buffs || [];
       hero.buffs.push({
         type: 'berserker',
@@ -1153,7 +1169,6 @@ function executeAdvancedESkill(
         startTime: gameTime,
         attackBonus: 1.0,
         speedBonus: 1.0,
-        lifesteal: 0.5,
         damageTaken: 0.5,
       });
 
@@ -1194,32 +1209,60 @@ function executeAdvancedESkill(
     }
 
     case 'sniper': {
-      // 저격: 마우스 위치의 적에게 1000% 데미지 (캐스팅 없이 즉시, 무제한 사거리)
+      // 저격: 3초 조준 후 타겟에게 1000% 데미지 (무제한 사거리)
+      const chargeTime = 3.0;
       const skillDamage = Math.floor(damage * 10.0);
 
-      // 타겟 위치에서 가장 가까운 적 찾기 (무제한 사거리)
+      // 타겟팅: 마우스 위치 기준 가장 가까운 적, 보스 우선 (무제한 사거리)
       let targetEnemy: RPGEnemy | null = null;
-      let minDist = Infinity;
+      let closestBoss: RPGEnemy | null = null;
+      let closestNormal: RPGEnemy | null = null;
+      let closestBossDist = Infinity;
+      let closestNormalDist = Infinity;
+
       for (const enemy of enemies) {
         if (enemy.hp <= 0) continue;
         const dist = distance(targetX, targetY, enemy.x, enemy.y);
-        if (dist < minDist) {
-          minDist = dist;
-          targetEnemy = enemy;
+        if (enemy.type === 'boss') {
+          if (dist < closestBossDist) {
+            closestBossDist = dist;
+            closestBoss = enemy;
+          }
+        } else {
+          if (dist < closestNormalDist) {
+            closestNormalDist = dist;
+            closestNormal = enemy;
+          }
         }
       }
 
-      if (targetEnemy) {
-        applyDamageToEnemy(ctx, targetEnemy.id, skillDamage, hero);
-        state.activeSkillEffects.push({
-          type: 'snipe' as any,  // 클라이언트 렌더러와 일치
-          position: { x: hero.x, y: hero.y },  // 영웅 위치에서 시작
-          targetPosition: { x: targetEnemy.x, y: targetEnemy.y },  // 타겟 위치 추가
-          damage: skillDamage,
-          duration: 0.5,
-          startTime: gameTime,
-        });
-      }
+      targetEnemy = closestBoss || closestNormal;
+      if (!targetEnemy) return false;
+
+      // 3초 시전 (이동/공격 불가)
+      hero.castingUntil = gameTime + chargeTime;
+
+      // pendingSkill 등록: 3초 후 데미지 발동
+      state.pendingSkills.push({
+        type: 'snipe' as any,
+        position: { x: hero.x, y: hero.y },
+        triggerTime: gameTime + chargeTime,
+        damage: skillDamage,
+        radius: 0,
+        casterId: hero.id,
+        targetId: targetEnemy.id,
+      });
+
+      // 시전 이펙트 (조준선 표시, heroId로 영웅 추적)
+      state.activeSkillEffects.push({
+        type: 'snipe' as any,
+        position: { x: hero.x, y: hero.y },
+        targetPosition: { x: targetEnemy.x, y: targetEnemy.y },
+        damage: skillDamage,
+        duration: chargeTime,
+        startTime: gameTime,
+        heroId: hero.id,
+      });
 
       hero.skillCooldowns.E = 30.0;
       return true;
@@ -1594,6 +1637,23 @@ export function updatePendingSkills(ctx: SkillContext): void {
           duration: 0.5,
           startTime: state.gameTime,
         });
+      } else if (skill.type === 'snipe') {
+        // 저격: targetId로 단일 적 타격
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        if (skill.targetId) {
+          const targetEnemy = state.enemies.find(e => e.id === skill.targetId && e.hp > 0);
+          if (targetEnemy) {
+            applyDamageToEnemy(ctx, targetEnemy.id, skill.damage, caster);
+            state.activeSkillEffects.push({
+              type: 'snipe' as any,
+              position: { x: caster?.x || skill.position.x, y: caster?.y || skill.position.y },
+              targetPosition: { x: targetEnemy.x, y: targetEnemy.y },
+              damage: skill.damage,
+              duration: 0.5,
+              startTime: state.gameTime,
+            });
+          }
+        }
       } else {
         // 범위 내 적에게 데미지
         for (const enemy of state.enemies) {

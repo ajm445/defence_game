@@ -12,20 +12,20 @@ const DamageNumberItem: React.FC<{
   camera: { x: number; y: number; zoom: number };
   screenWidth: number;
   screenHeight: number;
-  isMultiplayerClient: boolean;
-}> = memo(({ item, camera, screenWidth, screenHeight, isMultiplayerClient }) => {
+  isMultiplayer: boolean;
+}> = memo(({ item, camera, screenWidth, screenHeight, isMultiplayer }) => {
   const removeDamageNumber = useRPGStore((state) => state.removeDamageNumber);
 
-  // 1초 후 자동 제거 (싱글플레이어 또는 호스트만)
-  // 멀티플레이어 클라이언트는 호스트의 상태 동기화에 의존하여 중복 방지
+  // 1초 후 자동 제거 (싱글플레이어만)
+  // 멀티플레이어는 서버 상태 동기화에 의존 (로컬 제거 시 서버 재전송으로 중복 발생)
   useEffect(() => {
-    if (isMultiplayerClient) return; // 클라이언트는 로컬에서 제거하지 않음
+    if (isMultiplayer) return;
 
     const timer = setTimeout(() => {
       removeDamageNumber(item.id);
     }, 1000);
     return () => clearTimeout(timer);
-  }, [item.id, removeDamageNumber, isMultiplayerClient]);
+  }, [item.id, removeDamageNumber, isMultiplayer]);
 
   // 월드 좌표를 화면 좌표로 변환
   const screenX = (item.x - camera.x) * camera.zoom + screenWidth / 2;
@@ -103,19 +103,19 @@ export const RPGDamageNumbers: React.FC = () => {
   const cleanDamageNumbers = useRPGStore((state) => state.cleanDamageNumbers);
   const multiplayer = useRPGStore((state) => state.multiplayer);
 
-  // 멀티플레이어 클라이언트(비호스트) 여부 확인
-  const isMultiplayerClient = multiplayer.isMultiplayer && !multiplayer.isHost;
+  // 멀티플레이어 여부 확인 (서버 권위 모델: 호스트 포함 모든 클라이언트 동일 처리)
+  const isMultiplayer = multiplayer.isMultiplayer;
 
-  // 주기적으로 오래된 데미지 숫자 정리 (싱글플레이어 또는 호스트만)
-  // 멀티플레이어 클라이언트는 호스트의 상태 동기화에 의존
+  // 주기적으로 오래된 데미지 숫자 정리 (싱글플레이어만)
+  // 멀티플레이어는 서버가 damageNumbers 배열을 관리 (applySerializedState로 교체)
   useEffect(() => {
-    if (isMultiplayerClient) return; // 클라이언트는 로컬 정리하지 않음
+    if (isMultiplayer) return;
 
     const interval = setInterval(() => {
       cleanDamageNumbers();
     }, 500);
     return () => clearInterval(interval);
-  }, [cleanDamageNumbers, isMultiplayerClient]);
+  }, [cleanDamageNumbers, isMultiplayer]);
 
   // 화면 크기 가져오기
   const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
@@ -132,7 +132,7 @@ export const RPGDamageNumbers: React.FC = () => {
           camera={camera}
           screenWidth={screenWidth}
           screenHeight={screenHeight}
-          isMultiplayerClient={isMultiplayerClient}
+          isMultiplayer={isMultiplayer}
         />
       ))}
     </div>

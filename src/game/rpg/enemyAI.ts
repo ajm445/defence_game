@@ -385,6 +385,12 @@ export function calculateDamageAfterReduction(
     damage = Math.floor(damage * (1 - ironwallBuff.damageReduction));
   }
 
+  // 받는 피해 증가 버프 체크 (광란 등)
+  const damageTakenBuff = hero.buffs?.find(b => b.damageTaken && b.duration > 0);
+  if (damageTakenBuff && damageTakenBuff.damageTaken) {
+    damage = Math.floor(damage * (1 + damageTakenBuff.damageTaken));
+  }
+
   return damage;
 }
 

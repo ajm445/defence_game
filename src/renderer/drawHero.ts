@@ -3173,10 +3173,11 @@ export function drawSkillRange(
   ctx.save();
 
   if (skillRange.type === 'aoe') {
-    // AoE 전용 (무제한 사거리 스킬 - 마우스 위치에 범위만 표시)
+    // AoE 전용 - 캐릭터가 바라보는 방향 앞 100px에 범위 표시
     if (skillRange.radius) {
-      const mouseScreenX = mousePosition.x - camera.x;
-      const mouseScreenY = mousePosition.y - camera.y;
+      const angle = hero.facingAngle;
+      const aoeX = screenX + Math.cos(angle) * 100;
+      const aoeY = screenY + Math.sin(angle) * 100;
 
       // AoE 범위 외곽
       ctx.globalAlpha = 0.35;
@@ -3184,21 +3185,21 @@ export function drawSkillRange(
       ctx.lineWidth = 3;
       ctx.setLineDash([6, 4]);
       ctx.beginPath();
-      ctx.arc(mouseScreenX, mouseScreenY, skillRange.radius, 0, Math.PI * 2);
+      ctx.arc(aoeX, aoeY, skillRange.radius, 0, Math.PI * 2);
       ctx.stroke();
 
       // AoE 범위 내부 채우기
       ctx.globalAlpha = 0.15;
       ctx.fillStyle = '#ff6600';
       ctx.beginPath();
-      ctx.arc(mouseScreenX, mouseScreenY, skillRange.radius, 0, Math.PI * 2);
+      ctx.arc(aoeX, aoeY, skillRange.radius, 0, Math.PI * 2);
       ctx.fill();
 
       // 중심 표시
       ctx.globalAlpha = 0.5;
       ctx.fillStyle = '#ff6600';
       ctx.beginPath();
-      ctx.arc(mouseScreenX, mouseScreenY, 5, 0, Math.PI * 2);
+      ctx.arc(aoeX, aoeY, 5, 0, Math.PI * 2);
       ctx.fill();
     }
   } else if (skillRange.type === 'circle') {
@@ -3218,23 +3219,24 @@ export function drawSkillRange(
     ctx.arc(screenX, screenY, skillRange.range, 0, Math.PI * 2);
     ctx.fill();
 
-    // AoE 반경 표시 (마우스 위치에)
+    // AoE 반경 표시 (캐릭터 전방 100px)
     if (skillRange.radius) {
-      const mouseScreenX = mousePosition.x - camera.x;
-      const mouseScreenY = mousePosition.y - camera.y;
+      const angle = hero.facingAngle;
+      const aoeX = screenX + Math.cos(angle) * 100;
+      const aoeY = screenY + Math.sin(angle) * 100;
 
       ctx.globalAlpha = 0.25;
       ctx.strokeStyle = '#ff6600';
       ctx.lineWidth = 2;
       ctx.setLineDash([5, 3]);
       ctx.beginPath();
-      ctx.arc(mouseScreenX, mouseScreenY, skillRange.radius, 0, Math.PI * 2);
+      ctx.arc(aoeX, aoeY, skillRange.radius, 0, Math.PI * 2);
       ctx.stroke();
 
       ctx.globalAlpha = 0.1;
       ctx.fillStyle = '#ff6600';
       ctx.beginPath();
-      ctx.arc(mouseScreenX, mouseScreenY, skillRange.radius, 0, Math.PI * 2);
+      ctx.arc(aoeX, aoeY, skillRange.radius, 0, Math.PI * 2);
       ctx.fill();
     }
   } else if (skillRange.type === 'line') {
