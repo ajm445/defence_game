@@ -2609,8 +2609,8 @@ export const useRPGStore = create<RPGStore>()(
             const wasDeadBeforeSync = localHero.hp <= 0;
             const isAliveAfterSync = hero.hp > 0;
             if (wasDeadBeforeSync && isAliveAfterSync) {
-              // 부활했으므로 카메라를 영웅 위치로 이동
-              newCamera = { ...currentState.camera, x: hero.x, y: hero.y };
+              // 부활했으므로 카메라를 영웅 위치로 이동 + 카메라 추적 활성화
+              newCamera = { ...currentState.camera, x: hero.x, y: hero.y, followHero: true };
             }
 
             // 스킬 쿨다운 병합: 기본적으로 서버 값 사용
