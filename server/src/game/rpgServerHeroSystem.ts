@@ -211,7 +211,7 @@ export function updateDeadHero(hero: ServerHero, deltaTime: number): void {
 
   if (hero.reviveTimer <= 0) {
     hero.isDead = false;
-    hero.hp = Math.floor(hero.maxHp * COOP_CONFIG.REVIVE.REVIVE_HP_PERCENT);
+    hero.hp = hero.maxHp;
     hero.reviveTimer = 0;
     hero.deathTime = undefined;
 

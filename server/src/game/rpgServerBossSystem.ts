@@ -291,6 +291,7 @@ export function applyDamageToHero(state: ServerGameState, hero: ServerHero, dama
     if (hero.hp <= 0) {
       hero.hp = 0;
       hero.isDead = true;
+      hero.darkBladeActive = false;
       hero.deathTime = state.gameTime;
 
       const wave = Math.floor(state.gameTime / 60);

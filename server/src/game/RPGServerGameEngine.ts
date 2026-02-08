@@ -545,6 +545,7 @@ export class RPGServerGameEngine {
     if (hero.hp <= 0) {
       hero.hp = 0;
       hero.isDead = true;
+      hero.darkBladeActive = false;
       hero.deathTime = this.state.gameTime;
       const wave = Math.floor(this.state.gameTime / 60);
       hero.reviveTimer = Math.min(
