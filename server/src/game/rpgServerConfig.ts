@@ -80,6 +80,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, {
   bossHpMultiplier: number;
   bossAttackMultiplier: number;
   enemyBaseHpMultiplier: number;
+  unitTimeMultiplier: number;
 }> = {
   easy: {
     enemyHpMultiplier: 1.0,
@@ -90,36 +91,40 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, {
     bossHpMultiplier: 1.0,
     bossAttackMultiplier: 1.0,
     enemyBaseHpMultiplier: 1.0,
+    unitTimeMultiplier: 1.0,
   },
   normal: {
-    enemyHpMultiplier: 1.3,
-    enemyAttackMultiplier: 1.2,
+    enemyHpMultiplier: 2.2,
+    enemyAttackMultiplier: 1.6,
     spawnIntervalMultiplier: 0.9,
-    spawnCountMultiplier: 1.2,
-    goldRewardMultiplier: 1.15,
-    bossHpMultiplier: 1.3,
-    bossAttackMultiplier: 1.2,
-    enemyBaseHpMultiplier: 1.3,
+    spawnCountMultiplier: 1.4,
+    goldRewardMultiplier: 1.3,
+    bossHpMultiplier: 2.2,
+    bossAttackMultiplier: 1.6,
+    enemyBaseHpMultiplier: 2.2,
+    unitTimeMultiplier: 1.3,
   },
   hard: {
-    enemyHpMultiplier: 2.5,
-    enemyAttackMultiplier: 2.0,
+    enemyHpMultiplier: 2.8,
+    enemyAttackMultiplier: 2.2,
     spawnIntervalMultiplier: 0.8,
-    spawnCountMultiplier: 1.8,
-    goldRewardMultiplier: 1.5,
-    bossHpMultiplier: 2.5,
-    bossAttackMultiplier: 2.0,
-    enemyBaseHpMultiplier: 2.5,
+    spawnCountMultiplier: 2.0,
+    goldRewardMultiplier: 1.6,
+    bossHpMultiplier: 2.8,
+    bossAttackMultiplier: 2.2,
+    enemyBaseHpMultiplier: 2.8,
+    unitTimeMultiplier: 1.6,
   },
   extreme: {
-    enemyHpMultiplier: 3.5,
-    enemyAttackMultiplier: 2.8,
+    enemyHpMultiplier: 4.0,
+    enemyAttackMultiplier: 3.0,
     spawnIntervalMultiplier: 0.7,
-    spawnCountMultiplier: 2.5,
-    goldRewardMultiplier: 2.0,
-    bossHpMultiplier: 3.5,
-    bossAttackMultiplier: 2.8,
-    enemyBaseHpMultiplier: 3.5,
+    spawnCountMultiplier: 2.8,
+    goldRewardMultiplier: 2.2,
+    bossHpMultiplier: 4.0,
+    bossAttackMultiplier: 3.0,
+    enemyBaseHpMultiplier: 4.0,
+    unitTimeMultiplier: 2.0,
   },
 };
 
@@ -261,10 +266,11 @@ export const SPAWN_CONFIG = {
   BASE_INTERVAL: 4.0,
   MIN_INTERVAL: 1.5,
   INTERVAL_DECREASE_PER_MINUTE: 0.3,
-  getEnemyTypesForTime: (minutes: number): { type: string; weight: number }[] => {
-    if (minutes < 2) return [{ type: 'melee', weight: 1 }];
-    if (minutes < 4) return [{ type: 'melee', weight: 0.7 }, { type: 'ranged', weight: 0.3 }];
-    if (minutes < 6) return [{ type: 'melee', weight: 0.5 }, { type: 'ranged', weight: 0.3 }, { type: 'knight', weight: 0.2 }];
+  getEnemyTypesForTime: (minutes: number, unitTimeMultiplier: number = 1.0): { type: string; weight: number }[] => {
+    const adjustedMinutes = minutes * unitTimeMultiplier;
+    if (adjustedMinutes < 2) return [{ type: 'melee', weight: 1 }];
+    if (adjustedMinutes < 4) return [{ type: 'melee', weight: 0.7 }, { type: 'ranged', weight: 0.3 }];
+    if (adjustedMinutes < 6) return [{ type: 'melee', weight: 0.5 }, { type: 'ranged', weight: 0.3 }, { type: 'knight', weight: 0.2 }];
     return [{ type: 'melee', weight: 0.3 }, { type: 'ranged', weight: 0.25 }, { type: 'knight', weight: 0.25 }, { type: 'mage', weight: 0.2 }];
   },
 };

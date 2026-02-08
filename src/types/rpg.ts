@@ -20,6 +20,8 @@ export interface DifficultyConfig {
   bossHpMultiplier: number;        // 보스 HP 배율
   bossAttackMultiplier: number;    // 보스 공격력 배율
   enemyBaseHpMultiplier: number;   // 적 기지 HP 배율
+  unitTimeMultiplier: number;      // 유닛 등장 시간 가속 배율 (높을수록 빨리 등장)
+  recommendedLevel: number;        // 추천 레벨
 }
 
 // 영웅 직업 타입

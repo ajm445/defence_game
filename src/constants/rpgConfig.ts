@@ -20,51 +20,59 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     bossHpMultiplier: 1.0,
     bossAttackMultiplier: 1.0,
     enemyBaseHpMultiplier: 1.0,
+    unitTimeMultiplier: 1.0,      // 기본 유닛 등장 시간
+    recommendedLevel: 1,
   },
   normal: {
     id: 'normal',
     name: '중간',
     nameEn: 'Normal',
     description: '적 강화, 보상 증가 (추천 레벨: 15+)',
-    enemyHpMultiplier: 1.3,
-    enemyAttackMultiplier: 1.2,
+    enemyHpMultiplier: 2.2,
+    enemyAttackMultiplier: 1.6,
     spawnIntervalMultiplier: 0.9,
-    spawnCountMultiplier: 1.2,    // 스폰 수 20% 증가
-    goldRewardMultiplier: 1.15,
-    expRewardMultiplier: 1.2,     // 경험치 20% 증가
-    bossHpMultiplier: 1.3,
-    bossAttackMultiplier: 1.2,
-    enemyBaseHpMultiplier: 1.3,
+    spawnCountMultiplier: 1.4,    // 스폰 수 40% 증가
+    goldRewardMultiplier: 1.3,
+    expRewardMultiplier: 1.4,     // 경험치 40% 증가
+    bossHpMultiplier: 2.2,
+    bossAttackMultiplier: 1.6,
+    enemyBaseHpMultiplier: 2.2,
+    unitTimeMultiplier: 1.3,      // 유닛 등장 30% 가속
+    recommendedLevel: 15,
   },
   hard: {
     id: 'hard',
     name: '어려움',
     nameEn: 'Hard',
     description: '도전적인 난이도 (추천 레벨: 25+)',
-    enemyHpMultiplier: 2.5,
-    enemyAttackMultiplier: 2.0,
+    enemyHpMultiplier: 2.8,
+    enemyAttackMultiplier: 2.2,
     spawnIntervalMultiplier: 0.8,
-    spawnCountMultiplier: 1.8,    // 스폰 수 80% 증가
-    goldRewardMultiplier: 1.5,
-    expRewardMultiplier: 1.8,     // 경험치 80% 증가
-    bossHpMultiplier: 2.5,
-    bossAttackMultiplier: 2.0,
-    enemyBaseHpMultiplier: 2.5,
+    spawnCountMultiplier: 2.0,    // 스폰 수 2배
+    goldRewardMultiplier: 1.6,
+    expRewardMultiplier: 2.0,     // 경험치 2배
+    bossHpMultiplier: 2.8,
+    bossAttackMultiplier: 2.2,
+    enemyBaseHpMultiplier: 2.8,
+    unitTimeMultiplier: 1.6,      // 유닛 등장 60% 가속
+    recommendedLevel: 25,
   },
   extreme: {
     id: 'extreme',
     name: '극한',
     nameEn: 'Extreme',
     description: '최고의 도전 (추천 레벨: 40+)',
-    enemyHpMultiplier: 3.5,
-    enemyAttackMultiplier: 2.8,
+    enemyHpMultiplier: 4.0,
+    enemyAttackMultiplier: 3.0,
     spawnIntervalMultiplier: 0.7,
-    spawnCountMultiplier: 2.5,    // 스폰 수 2.5배
-    goldRewardMultiplier: 2.0,
-    expRewardMultiplier: 2.5,     // 경험치 2.5배
-    bossHpMultiplier: 3.5,
-    bossAttackMultiplier: 2.8,
-    enemyBaseHpMultiplier: 3.5,
+    spawnCountMultiplier: 2.8,    // 스폰 수 2.8배
+    goldRewardMultiplier: 2.2,
+    expRewardMultiplier: 2.8,     // 경험치 2.8배
+    bossHpMultiplier: 4.0,
+    bossAttackMultiplier: 3.0,
+    enemyBaseHpMultiplier: 4.0,
+    unitTimeMultiplier: 2.0,      // 유닛 등장 2배 가속
+    recommendedLevel: 40,
   },
 };
 
@@ -239,16 +247,17 @@ export const SPAWN_CONFIG = {
   // 적 스탯 배율 (분당 10% 증가)
   STAT_MULTIPLIER_PER_MINUTE: 0.1,
 
-  // 적 구성 (게임 시간에 따라 변화)
-  getEnemyTypesForTime: (minutes: number): { type: UnitType; weight: number }[] => {
-    if (minutes < 2) {
+  // 적 구성 (게임 시간에 따라 변화, unitTimeMultiplier로 난이도별 가속)
+  getEnemyTypesForTime: (minutes: number, unitTimeMultiplier: number = 1.0): { type: UnitType; weight: number }[] => {
+    const adjustedMinutes = minutes * unitTimeMultiplier;
+    if (adjustedMinutes < 2) {
       return [{ type: 'melee', weight: 1 }];
-    } else if (minutes < 4) {
+    } else if (adjustedMinutes < 4) {
       return [
         { type: 'melee', weight: 3 },
         { type: 'ranged', weight: 1 },
       ];
-    } else if (minutes < 6) {
+    } else if (adjustedMinutes < 6) {
       return [
         { type: 'melee', weight: 2 },
         { type: 'ranged', weight: 2 },

@@ -42,8 +42,8 @@ export function getSpawnConfig(gameTime: number, difficulty: RPGDifficulty = 'ea
   // 경험치 배율: 난이도에 따른 경험치 배율
   const expMultiplier = difficultyConfig.expRewardMultiplier;
 
-  // 적 구성: 시간에 따라 다양해짐
-  const enemyTypes = SPAWN_CONFIG.getEnemyTypesForTime(minutes);
+  // 적 구성: 시간에 따라 다양해짐 (난이도별 유닛 등장 가속)
+  const enemyTypes = SPAWN_CONFIG.getEnemyTypesForTime(minutes, difficultyConfig.unitTimeMultiplier);
 
   return {
     spawnInterval,

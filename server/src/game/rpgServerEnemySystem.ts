@@ -240,7 +240,7 @@ export function updateSpawning(
   }
   const finalSpawnCount = Math.max(1, Math.round(baseSpawnCount * difficultyConfig.spawnCountMultiplier));
 
-  const enemyTypes = SPAWN_CONFIG.getEnemyTypesForTime(minutes);
+  const enemyTypes = SPAWN_CONFIG.getEnemyTypesForTime(minutes, difficultyConfig.unitTimeMultiplier);
 
   for (const base of activeBases) {
     for (let i = 0; i < finalSpawnCount; i++) {

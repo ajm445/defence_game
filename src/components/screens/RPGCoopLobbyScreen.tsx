@@ -816,6 +816,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                         title={config.description}
                       >
                         {config.name}
+                        <span className="ml-1 opacity-60">Lv.{config.recommendedLevel}+</span>
                       </button>
                     );
                   })}
@@ -1551,7 +1552,10 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                       <span className={`font-bold text-sm ${isSelected ? colors.text : 'text-gray-400'}`}>
                         {config.name}
                       </span>
-                      <span className="text-gray-500 text-xs mt-1">{config.nameEn}</span>
+                      <span className="text-gray-500 text-xs mt-0.5">{config.nameEn}</span>
+                      <span className={`text-xs mt-0.5 ${isSelected ? colors.text : 'text-gray-500'}`} style={{ opacity: 0.7 }}>
+                        Lv.{config.recommendedLevel}+
+                      </span>
                     </button>
                   );
                 })}
