@@ -9,6 +9,17 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { drawNexus, drawAllEnemyBases, drawNexusLaserBeams } from './drawNexusEntities';
 import { useRPGTutorialStore, TutorialTargetPosition } from '../stores/useRPGTutorialStore';
 
+// 영웅 중심 이펙트 타입 (영웅 현재 위치를 따라가야 하는 이펙트)
+// 대시 이펙트(warrior_w, knight_w, blood_rush 등)와 타겟 위치 이펙트(mage_w, inferno 등)는 제외
+const HERO_CENTERED_EFFECT_TYPES = new Set([
+  // 지속 추적 이펙트
+  'spring_of_life', 'dark_blade', 'heavy_strike',
+  // W스킬 - 영웅 위치에서 발사되는 투사체
+  'archer_w', 'backflip_shot', 'multi_arrow',
+  // E스킬 - 영웅 중심 버프/버스트 이펙트
+  'warrior_e', 'knight_e', 'rage', 'shield', 'arrow_storm', 'divine_light',
+]);
+
 /**
  * RPG 모드 렌더링
  */
@@ -83,8 +94,8 @@ export function renderRPG(
   // 스킬 이펙트 렌더링
   const otherHeroesForEffects = useRPGStore.getState().otherHeroes;
   for (const effect of state.activeSkillEffects) {
-    // heroId가 있는 이펙트는 해당 영웅의 위치를 따라감 (spring_of_life, dark_blade, heavy_strike 등)
-    if ((effect.type === 'spring_of_life' || effect.type === 'dark_blade' || effect.type === 'heavy_strike') && effect.heroId) {
+    // heroId가 있는 영웅 중심 이펙트는 해당 영웅의 현재 위치를 따라감
+    if (effect.heroId && HERO_CENTERED_EFFECT_TYPES.has(effect.type)) {
       // 내 영웅인지 확인
       if (state.hero && effect.heroId === state.hero.id) {
         const updatedEffect = { ...effect, position: { x: state.hero.x, y: state.hero.y } };

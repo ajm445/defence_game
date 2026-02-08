@@ -104,7 +104,7 @@ export function updateBossSkills(
 
       // 경고 표시
       const config = BOSS_SKILL_CONFIGS[availableSkill.type];
-      state.bossSkillWarnings.push({
+      const warning: any = {
         id: `warning_${boss.id}_${availableSkill.type}_${gameTime}`,
         skillType: availableSkill.type as any,
         x: boss.x,
@@ -113,7 +113,13 @@ export function updateBossSkills(
         angle: targetAngle,
         startTime: gameTime,
         duration: config.castTime,
-      });
+      };
+      // 돌진 스킬: 경로 끝점 추가
+      if (availableSkill.type === 'charge' && config.chargeDistance) {
+        warning.targetX = clamp(boss.x + Math.cos(targetAngle) * config.chargeDistance, 50, RPG_CONFIG.MAP_WIDTH - 50);
+        warning.targetY = clamp(boss.y + Math.sin(targetAngle) * config.chargeDistance, 50, RPG_CONFIG.MAP_HEIGHT - 50);
+      }
+      state.bossSkillWarnings.push(warning);
     }
   }
 }
@@ -292,6 +298,7 @@ export function applyDamageToHero(state: ServerGameState, hero: ServerHero, dama
       hero.hp = 0;
       hero.isDead = true;
       hero.darkBladeActive = false;
+      hero.buffs = [];
       hero.deathTime = state.gameTime;
 
       const wave = Math.floor(state.gameTime / 60);

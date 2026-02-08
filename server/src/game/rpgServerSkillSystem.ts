@@ -436,6 +436,7 @@ function executeWSkill(
         damage: skillDamage,
         duration: 0.4,
         startTime: gameTime,
+        heroId: hero.id,
       });
       hero.skillCooldowns.W = 6.0;
       break;
@@ -567,6 +568,7 @@ function executeESkill(
         position: { x: hero.x, y: hero.y },
         duration: 1.0,
         startTime: gameTime,
+        heroId: hero.id,
       });
 
       hero.skillCooldowns.E = 30.0;
@@ -631,6 +633,7 @@ function executeESkill(
         position: { x: hero.x, y: hero.y },
         duration: 1.0,
         startTime: gameTime,
+        heroId: hero.id,
       });
 
       hero.skillCooldowns.E = 35.0;
@@ -851,6 +854,7 @@ function executeAdvancedWSkill(
         damage: skillDamage,
         duration: 0.4,
         startTime: gameTime,
+        heroId: hero.id,
       });
 
       hero.skillCooldowns.W = 5.0;
@@ -901,6 +905,7 @@ function executeAdvancedWSkill(
         damage: skillDamage,
         duration: 0.4,
         startTime: gameTime,
+        heroId: hero.id,
       });
 
       hero.skillCooldowns.W = 5.0;
@@ -1157,6 +1162,7 @@ function executeAdvancedESkill(
         position: { x: hero.x, y: hero.y },
         duration: 1.0,
         startTime: gameTime,
+        heroId: hero.id,
       });
 
       hero.skillCooldowns.E = 45.0;
@@ -1180,6 +1186,7 @@ function executeAdvancedESkill(
         radius: 500,
         duration: 1.0,
         startTime: gameTime,
+        heroId: hero.id,
       });
 
       hero.skillCooldowns.E = 40.0;
@@ -1233,6 +1240,7 @@ function executeAdvancedESkill(
         position: { x: hero.x, y: hero.y },
         duration: 1.0,
         startTime: gameTime,
+        heroId: hero.id,
       });
 
       hero.skillCooldowns.E = 35.0;
@@ -1265,6 +1273,7 @@ function executeAdvancedESkill(
         radius: 500,
         duration: 1.0,
         startTime: gameTime,
+        heroId: hero.id,
       });
 
       hero.skillCooldowns.E = 60.0;

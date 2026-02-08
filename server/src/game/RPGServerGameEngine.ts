@@ -516,6 +516,7 @@ export class RPGServerGameEngine {
           hero.hp = 0;
           hero.isDead = true;
           hero.darkBladeActive = false;
+          hero.buffs = [];
           hero.deathTime = this.state.gameTime;
           const wave = Math.floor(this.state.gameTime / 60);
           hero.reviveTimer = Math.min(
@@ -546,6 +547,7 @@ export class RPGServerGameEngine {
       hero.hp = 0;
       hero.isDead = true;
       hero.darkBladeActive = false;
+      hero.buffs = [];
       hero.deathTime = this.state.gameTime;
       const wave = Math.floor(this.state.gameTime / 60);
       hero.reviveTimer = Math.min(
