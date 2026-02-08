@@ -214,6 +214,9 @@ export function updateDeadHero(hero: ServerHero, deltaTime: number): void {
     hero.hp = hero.maxHp;
     hero.reviveTimer = 0;
     hero.deathTime = undefined;
+    hero.darkBladeActive = false;
+    hero.darkBladeTickTimer = 0;
+    hero.buffs = [];
 
     const offset = COOP_CONFIG.REVIVE.SPAWN_OFFSET;
     hero.x = NEXUS_CONFIG.position.x + (Math.random() - 0.5) * offset;

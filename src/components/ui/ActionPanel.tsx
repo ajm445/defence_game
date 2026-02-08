@@ -3,7 +3,7 @@ import { useGameStore, useResources } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useTutorialStore } from '../../stores/useTutorialStore';
-import { CONFIG } from '../../constants/config';
+import { CONFIG, getUpgradeCost } from '../../constants/config';
 import { wsClient } from '../../services/WebSocketClient';
 import { Emoji } from '../common/Emoji';
 import { soundManager } from '../../services/SoundManager';
@@ -107,7 +107,7 @@ export const ActionPanel: React.FC = () => {
   const resources = myPlayerState ? myPlayerState.resources : singlePlayerResources;
   const currentBaseLevel = myPlayerState ? myPlayerState.upgradeLevel : (playerBaseLevel ?? 0);
 
-  const upgradeCost = getNextUpgradeCost();
+  const upgradeCost = myPlayerState ? getUpgradeCost(currentBaseLevel) : getNextUpgradeCost();
   const isMaxLevel = currentBaseLevel >= CONFIG.BASE_UPGRADE.MAX_LEVEL;
   const canBuildWall = resources.wood >= CONFIG.WALL_COST.wood && resources.stone >= CONFIG.WALL_COST.stone;
   const canUpgrade = !isMaxLevel &&

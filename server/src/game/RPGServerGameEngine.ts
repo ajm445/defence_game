@@ -554,6 +554,14 @@ export class RPGServerGameEngine {
         COOP_CONFIG.REVIVE.MAX_TIME,
         COOP_CONFIG.REVIVE.BASE_TIME + wave * COOP_CONFIG.REVIVE.TIME_PER_WAVE
       );
+
+      // 다크블레이드 이펙트 제거
+      for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {
+        const eff = this.state.activeSkillEffects[i];
+        if (eff.type === 'dark_blade' && eff.heroId === hero.id) {
+          this.state.activeSkillEffects.splice(i, 1);
+        }
+      }
       console.log(`[ServerEngine] 영웅 사망: ${hero.id}, 부활 ${hero.reviveTimer}초`);
     }
   }
