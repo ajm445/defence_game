@@ -30,7 +30,7 @@ RPG 멀티플레이 모드는 **서버 권위 모델(Server Authority Model)**�
        │                           (60fps 틱)                               │
        │                                  │                                  │
        │                           상태 브로드캐스트                         │
-       │                           (50ms / 20Hz)                            │
+       │                           (33ms / ~30Hz)                           │
        │                                  │                                  │
        └──────────────────────────────────┴──────────────────────────────────┘
                                     상태 수신
@@ -48,7 +48,7 @@ RPG 멀티플레이 모드는 **서버 권위 모델(Server Authority Model)**�
 class RPGServerGameEngine {
   // 설정
   private readonly TICK_RATE = 60;        // 60fps 게임 루프
-  private readonly BROADCAST_INTERVAL = 50; // 50ms 상태 브로드캐스트
+  private readonly BROADCAST_INTERVAL = 33; // 33ms 상태 브로드캐스트 (~30Hz)
 
   // 주요 메서드
   public start(): void;                   // 게임 루프 시작
@@ -310,11 +310,14 @@ if (dist > SNAP_THRESHOLD) {
 다른 플레이어의 움직임은 보간하여 부드럽게 표시합니다.
 
 ```typescript
-// 50ms마다 상태를 받으므로 그 사이를 보간
+// 적응형 보간: 실제 서버 업데이트 간격 기반 (33ms ~30Hz)
 function updateOtherHeroesInterpolation() {
+  const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.15);
   for (const hero of otherHeroes) {
-    hero.x = lerp(hero.x, hero.targetX, interpolationFactor);
-    hero.y = lerp(hero.y, hero.targetY, interpolationFactor);
+    const t = Math.min(1, timeSinceUpdate / interpolationDuration);
+    const easedT = easeOutCubic(t);
+    hero.x = interp.prevX + (interp.targetX - interp.prevX) * easedT;
+    hero.y = interp.prevY + (interp.targetY - interp.prevY) * easedT;
   }
 }
 ```
@@ -328,7 +331,7 @@ function updateOtherHeroesInterpolation() {
 ```typescript
 export const HOST_BASED_CONFIG = {
   // 상태 동기화 간격
-  STATE_SYNC_INTERVAL: 50,  // 50ms (20Hz)
+  STATE_SYNC_INTERVAL: 33,  // 33ms (~30Hz)
 
   // 입력 처리 간격
   INPUT_PROCESS_INTERVAL: 16,  // ~60Hz
@@ -420,3 +423,4 @@ src/
 | 2024-02 | 스킬 슬롯 key 필드 도입 (type 접미사 대신) |
 | 2024-02 | 서버 모듈 분리 (hero, skill, enemy, boss, game systems) |
 | 2025-02 | 레거시 호스트 기반 코드 제거 (HostBasedClientMessage, HostBasedServerMessage 등) |
+| 2025-02 | 브로드캐스트 50ms→33ms (~30Hz), 적응형 보간 도입 (EMA 기반) |

@@ -165,7 +165,7 @@ export class GameRoom {
 
 | 방식 | 주기 | 설명 |
 |------|------|------|
-| 상태 브로드캐스트 | 50ms (20Hz) | 전체 게임 상태 전송 |
+| 상태 브로드캐스트 | 33ms (~30Hz) | 전체 게임 상태 전송 |
 | 이벤트 업데이트 | 즉시 | 유닛 생성/공격/사망 등 |
 
 ### 메시지 타입
@@ -250,7 +250,7 @@ interface NetworkGameState {
        │                           (60fps 틱)                               │
        │                                  │                                  │
        │                           상태 브로드캐스트                         │
-       │                           (50ms / 20Hz)                            │
+       │                           (33ms / ~30Hz)                           │
        │                                  │                                  │
        └──────────────────────────────────┴──────────────────────────────────┘
                                     상태 수신
@@ -274,7 +274,7 @@ interface NetworkGameState {
 ```typescript
 // hostBasedNetwork.ts
 export const HOST_BASED_CONFIG = {
-  STATE_SYNC_INTERVAL: 50,      // 20Hz (50ms마다 상태 동기화)
+  STATE_SYNC_INTERVAL: 33,      // ~30Hz (33ms마다 상태 동기화)
   INPUT_PROCESS_INTERVAL: 16,   // ~60Hz (입력 처리)
 
   INTERPOLATION: {
@@ -414,7 +414,7 @@ public transferHostAndLeave(playerId: string): void {
 
 | 방향 | 내용 | 주기 |
 |------|------|------|
-| 서버 → 모든 클라이언트 | 전체 게임 상태 | 50ms (20Hz) |
+| 서버 → 모든 클라이언트 | 전체 게임 상태 | 33ms (~30Hz) |
 | 모든 클라이언트 → 서버 | 플레이어 입력 | 즉시 |
 
 ### 서버의 게임 루프
@@ -430,7 +430,7 @@ public transferHostAndLeave(playerId: string): void {
   - 보스 패턴
   - 넥서스 레이저
        ↓
-[50ms마다 상태 브로드캐스트]
+[33ms마다 상태 브로드캐스트]
        → COOP_GAME_STATE
          → 모든 클라이언트에게 전송
 ```
@@ -582,7 +582,7 @@ interface EnemyBase {
 재접속한 플레이어에게:
   → COOP_RECONNECT_INFO { hostPlayerId, isHost, gameState }
        ↓
-클라이언트: 서버로부터 다음 상태 브로드캐스트 대기 (50ms 이내)
+클라이언트: 서버로부터 다음 상태 브로드캐스트 대기 (33ms 이내)
 ```
 
 ---
@@ -596,7 +596,7 @@ interface EnemyBase {
 | **네트워크 방식** | 전용 서버 | 서버 권위 모델 |
 | **게임 로직 위치** | 서버 | 서버 |
 | **서버 역할** | 게임 엔진 + 상태 브로드캐스트 | 게임 엔진 + 상태 브로드캐스트 |
-| **동기화 주기** | 50ms (20Hz) | 50ms (20Hz) |
+| **동기화 주기** | 50ms (20Hz) | 33ms (~30Hz) |
 | **자원 관리** | 플레이어별 개별 | 플레이어별 개별 |
 | **부정행위 방지** | 우수 (서버 검증) | 우수 (서버 검증) |
 | **지연시간** | 중간 (클라이언트 예측) | 중간 (클라이언트 예측) |
@@ -640,7 +640,7 @@ interface EnemyBase {
     │←──GAME_EVENT────│────GAME_EVENT──────→│
     │  (UNIT_SPAWNED) │   (UNIT_SPAWNED)    │
     │                 │                     │
-    │    [50ms마다 GAME_STATE 브로드캐스트]   │
+    │    [50ms마다 GAME_STATE 브로드캐스트]   │  (RTS: 50ms)
     │←──GAME_STATE────│────GAME_STATE──────→│
     │                 │                     │
     │←──GAME_OVER─────│────GAME_OVER───────→│
@@ -678,7 +678,7 @@ interface EnemyBase {
   │                   │  [서버가 입력 처리]   │
   │                   │                      │
   │←──COOP_GAME_STATE─│───COOP_GAME_STATE───→│
-  │   (50ms 간격)     │    (50ms 간격)       │
+  │   (33ms 간격)     │    (33ms 간격)       │
   │                   │                      │
   │←──COOP_GAME_OVER──│───COOP_GAME_OVER────→│
 ```
@@ -687,7 +687,7 @@ interface EnemyBase {
 
 ## 서버 성능 최적화 (V1.22.2)
 
-RPG 모드 서버는 60fps 게임루프 + 20Hz 브로드캐스트를 실행하므로 GC 압력과 CPU 부하 최적화가 중요합니다.
+RPG 모드 서버는 60fps 게임루프 + ~30Hz 브로드캐스트를 실행하므로 GC 압력과 CPU 부하 최적화가 중요합니다.
 
 ### 브로드캐스트 최적화
 

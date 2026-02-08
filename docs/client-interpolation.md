@@ -1,7 +1,7 @@
 # 클라이언트 캐릭터 움직임 개선
 
-> 버전: V1.17.20
-> 최종 수정: 2025-01-30
+> 버전: V1.22.10
+> 최종 수정: 2025-02-09
 
 ## 개요
 
@@ -15,7 +15,7 @@
 
 **호스트 (Host)**
 - 모든 게임 로직을 처리 (충돌, 데미지, 이동 등)
-- 50ms (20Hz) 간격으로 전체 게임 상태를 직렬화하여 클라이언트에 전송
+- 33ms (~30Hz) 간격으로 전체 게임 상태를 직렬화하여 클라이언트에 전송
 - `serializeGameState()` 함수로 상태 직렬화
 
 **클라이언트 (Client)**
@@ -26,8 +26,8 @@
 ### 2. 기존 보간 구현 (개선 전)
 
 ```typescript
-// 보간 기본 설정
-const interpolationDuration = 50; // 50ms
+// 보간 기본 설정 (개선 전)
+const interpolationDuration = 50; // 50ms 고정값
 
 // 선형 보간 적용
 const t = Math.min(1, timeSinceUpdate / interpolationDuration);
@@ -37,7 +37,7 @@ const y = interp.prevY + (interp.targetY - interp.prevY) * t;
 
 **문제점:**
 - 선형 보간(linear lerp)으로 인해 움직임이 기계적이고 끊어지는 느낌
-- 50ms 보간 시간이 네트워크 전송 간격과 동일하여 버퍼 부족
+- 고정 보간 시간이 네트워크 전송 간격과 동일하여 버퍼 부족
 - 이동 방향 정보를 활용하지 않아 예측 불가
 
 ### 3. 기존 위치 보정 로직
@@ -85,20 +85,31 @@ const x = interp.prevX + (interp.targetX - interp.prevX) * easedT;
 
 ### 방안 2: 보간 시간 증가 ✅ 구현됨
 
-**기존:** 50ms (네트워크 전송과 동일)
-**개선:** 80ms (전송 간격의 1.6배)
+**기존:** 고정 50ms/60ms/80ms (네트워크 전송과 동일 또는 수동 설정)
+**최종 개선 (V1.22.10):** 적응형 보간 (실제 서버 업데이트 간격 기반)
 
 ```typescript
-const interpolationDuration = 80; // 80ms로 증가
+// 서버 업데이트 간격 실시간 추적 (EMA: 기존 70% + 새값 30%)
+let _serverUpdateInterval = 40; // 초기값 (ms)
+
+// 매 서버 업데이트 수신 시 측정
+if (_lastServerUpdateTime > 0) {
+  const actualInterval = now - _lastServerUpdateTime;
+  if (actualInterval > 10 && actualInterval < 200) {
+    _serverUpdateInterval = _serverUpdateInterval * 0.7 + actualInterval * 0.3;
+  }
+}
+
+// 보간 시간: 측정된 간격 * 1.15 (15% 여유)
+const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.15);
 ```
 
 **장점:**
-- 네트워크 지터(jitter) 흡수 가능
-- 더 부드러운 움직임
-- 간단한 수정
+- 네트워크 상태에 자동 적응
+- 지터(jitter) 자동 흡수
+- 고정값 대비 모든 환경에서 최적 동작
 
-**단점:**
-- 반응성 약간 저하 (80ms 지연)
+**현재 서버 브로드캐스트:** 33ms (~30Hz)
 
 ---
 
@@ -120,9 +131,10 @@ interface HeroInterpolation {
   lastUpdateTime: number;
 }
 
-// 속도 계산 (위치 변화 기반)
-const velocityX = (hero.x - existingInterpolation.targetX) / (50 / 1000);
-const velocityY = (hero.y - existingInterpolation.targetY) / (50 / 1000);
+// 속도 계산 (위치 변화 기반, 적응형 서버 주기)
+const velocityDivisor = _serverUpdateInterval / 1000;
+const velocityX = (hero.x - existingInterpolation.targetX) / velocityDivisor;
+const velocityY = (hero.y - existingInterpolation.targetY) / velocityDivisor;
 ```
 
 **장점:**
@@ -266,12 +278,8 @@ interface BossSkillExecutedEffect {
 
 ## 향후 개선 사항
 
-### 1. 적응형 보간 시간
-네트워크 상태에 따라 보간 시간을 동적으로 조절:
-```typescript
-// 핑이 높으면 보간 시간 증가
-const adaptiveInterpolation = baseInterpolation + (ping * 0.5);
-```
+### 1. ~~적응형 보간 시간~~ ✅ V1.22.10에서 구현됨
+EMA 기반으로 서버 업데이트 간격을 실시간 추적하여 보간 시간 자동 조절.
 
 ### 2. 스냅샷 버퍼링
 여러 상태를 버퍼에 저장하여 더 안정적인 보간:
@@ -297,7 +305,7 @@ const predictedPos = lastKnownPos + velocity * timeSinceLastUpdate;
 
 ```
 1. 호스트가 데미지 숫자 생성 (ID: dmg_123)
-2. 호스트가 50ms 간격으로 상태 브로드캐스트
+2. 서버가 33ms 간격으로 상태 브로드캐스트
 3. 클라이언트가 데미지 숫자 수신 및 렌더링
 4. 클라이언트의 로컬 타이머 (1초) 만료 → 데미지 숫자 로컬 제거
 5. 호스트가 아직 정리하지 않은 상태에서 다음 브로드캐스트

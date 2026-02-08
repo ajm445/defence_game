@@ -88,7 +88,7 @@ import {
 export class RPGServerGameEngine {
   private readonly TICK_RATE = 60;  // 60fps
   private readonly TICK_INTERVAL = 1000 / 60;  // 16.67ms
-  private readonly BROADCAST_INTERVAL = 50;  // 50ms (20Hz)
+  private readonly BROADCAST_INTERVAL = 33;  // 33ms (~30Hz)
 
   private roomId: string;
   private playerInfos: CoopPlayerInfo[];

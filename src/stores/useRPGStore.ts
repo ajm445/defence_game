@@ -94,6 +94,10 @@ interface HeroInterpolation {
   lastUpdateTime: number;
 }
 
+// 적응형 보간: 서버 업데이트 간격 실시간 추적 (EMA)
+let _serverUpdateInterval = 40; // 평균 서버 업데이트 간격 (ms), 초기값 40ms
+let _lastServerUpdateTime = 0;
+
 // 적 보간 데이터 타입 (멀티플레이 적 움직임 개선)
 interface EnemyInterpolation {
   prevX: number;
@@ -2513,6 +2517,15 @@ export const useRPGStore = create<RPGStore>()(
       let newCamera = currentState.camera;  // 클라이언트 부활 시 카메라 위치 업데이트용
       const now = performance.now();
 
+      // 서버 업데이트 간격 측정 (적응형 보간용 EMA)
+      if (_lastServerUpdateTime > 0) {
+        const actualInterval = now - _lastServerUpdateTime;
+        if (actualInterval > 10 && actualInterval < 200) {
+          _serverUpdateInterval = _serverUpdateInterval * 0.7 + actualInterval * 0.3;
+        }
+      }
+      _lastServerUpdateTime = now;
+
       // 영웅 상태 적용
       serializedState.heroes.forEach((serializedHero) => {
         const hero = deserializeHeroFromNetwork(serializedHero);
@@ -2686,8 +2699,8 @@ export const useRPGStore = create<RPGStore>()(
           if (existingHero && existingInterpolation) {
             // 기존 보간 데이터가 있으면, 현재 보간된 위치를 prevX/Y로 설정
             const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
-            // 보간 시간: 서버 상태 동기화 간격(50ms)과 일치
-            const interpolationDuration = 60; // 네트워크 지연 대비 여유 시간 (서버 50ms + 10ms 버퍼)
+            // 적응형 보간 시간: 실제 서버 업데이트 간격 기반
+            const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.15);
             const t = Math.min(1, timeSinceUpdate / interpolationDuration);
 
             // ease-out cubic 적용
@@ -2698,10 +2711,11 @@ export const useRPGStore = create<RPGStore>()(
             const currentX = existingInterpolation.prevX + (existingInterpolation.targetX - existingInterpolation.prevX) * easedT;
             const currentY = existingInterpolation.prevY + (existingInterpolation.targetY - existingInterpolation.prevY) * easedT;
 
-            // 속도 계산 (위치 변화 기반)
+            // 속도 계산 (위치 변화 기반, 적응형 서버 주기)
             const deltaTime = timeSinceUpdate / 1000;
-            const velocityX = deltaTime > 0 ? (hero.x - existingInterpolation.targetX) / (50 / 1000) : 0;
-            const velocityY = deltaTime > 0 ? (hero.y - existingInterpolation.targetY) / (50 / 1000) : 0;
+            const velocityDivisor = _serverUpdateInterval / 1000;
+            const velocityX = deltaTime > 0 ? (hero.x - existingInterpolation.targetX) / velocityDivisor : 0;
+            const velocityY = deltaTime > 0 ? (hero.y - existingInterpolation.targetY) / velocityDivisor : 0;
 
             newOtherHeroesInterpolation.set(hero.id, {
               prevX: currentX,
@@ -2765,14 +2779,16 @@ export const useRPGStore = create<RPGStore>()(
           // 기존 적이 있으면 보간 데이터 설정
           // 현재 보간 중인 위치를 시작점으로 사용
           const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
-          const t = Math.min(1, timeSinceUpdate / 60);  // 60ms 보간
+          const adaptiveDuration = Math.max(20, _serverUpdateInterval * 1.15);
+          const t = Math.min(1, timeSinceUpdate / adaptiveDuration);
 
           const currentX = existingInterpolation.prevX + (existingInterpolation.targetX - existingInterpolation.prevX) * t;
           const currentY = existingInterpolation.prevY + (existingInterpolation.targetY - existingInterpolation.prevY) * t;
 
-          // 속도 계산 (이전 목표 → 새 목표 사이 변화량 기반, 50ms 서버 주기)
-          const velocityX = (se.x - existingInterpolation.targetX) / 0.05;  // px/sec
-          const velocityY = (se.y - existingInterpolation.targetY) / 0.05;
+          // 속도 계산 (이전 목표 → 새 목표 사이 변화량 기반, 적응형 서버 주기)
+          const velocityDivisor = _serverUpdateInterval / 1000;
+          const velocityX = (se.x - existingInterpolation.targetX) / velocityDivisor;
+          const velocityY = (se.y - existingInterpolation.targetY) / velocityDivisor;
 
           newEnemiesInterpolation.set(se.id, {
             prevX: currentX,
@@ -2789,9 +2805,10 @@ export const useRPGStore = create<RPGStore>()(
           displayY = currentY;
         } else if (existingEnemy) {
           // 보간 데이터 없으면 기존 적 위치에서 시작
-          // 속도 계산 (기존 적 위치 → 새 목표)
-          const velocityX = (se.x - existingEnemy.x) / 0.05;
-          const velocityY = (se.y - existingEnemy.y) / 0.05;
+          // 속도 계산 (기존 적 위치 → 새 목표, 적응형 서버 주기)
+          const velocityDivisor = _serverUpdateInterval / 1000;
+          const velocityX = (se.x - existingEnemy.x) / velocityDivisor;
+          const velocityY = (se.y - existingEnemy.y) / velocityDivisor;
 
           newEnemiesInterpolation.set(se.id, {
             prevX: existingEnemy.x,
@@ -2922,8 +2939,8 @@ export const useRPGStore = create<RPGStore>()(
       const now = performance.now();
       const updatedHeroes = new Map<string, HeroUnit>();
       const updatedInterpolation = new Map<string, HeroInterpolation>();
-      // 보간 시간: 서버 상태 동기화 간격(50ms)과 일치
-      const interpolationDuration = 60; // 네트워크 지연 대비 여유 시간 (서버 50ms + 10ms 버퍼)
+      // 적응형 보간 시간: 실제 서버 업데이트 간격 기반
+      const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.15);
 
       // ease-out cubic 함수
       const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -2946,8 +2963,8 @@ export const useRPGStore = create<RPGStore>()(
             if (isMoving && interp.moveSpeed > 0) {
               // 보간 완료 후 추가 경과 시간
               const extraTime = timeSinceUpdate - interpolationDuration;
-              // 예측 이동 (최대 50ms까지만, 서버 업데이트 주기 고려)
-              const maxPredictTime = 50;
+              // 예측 이동 (서버 업데이트 주기만큼, 적응형)
+              const maxPredictTime = _serverUpdateInterval;
               const predictTime = Math.min(extraTime, maxPredictTime);
               // 방향 정규화 (대각선 이동 시 속도 일정하게)
               const dirLength = Math.sqrt(interp.moveDirectionX * interp.moveDirectionX + interp.moveDirectionY * interp.moveDirectionY);
@@ -2989,8 +3006,8 @@ export const useRPGStore = create<RPGStore>()(
       if (state.enemiesInterpolation.size === 0 || state.enemies.length === 0) return;
 
       const now = performance.now();
-      // 보간 시간: 서버 상태 동기화 간격(50ms)과 일치
-      const interpolationDuration = 60; // 네트워크 지연 대비 여유 시간 (서버 50ms + 10ms 버퍼)
+      // 적응형 보간 시간: 실제 서버 업데이트 간격 기반
+      const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.15);
 
       // ease-out cubic 함수
       const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -3011,8 +3028,8 @@ export const useRPGStore = create<RPGStore>()(
             if (isMoving) {
               // 보간 완료 후 추가 경과 시간
               const extraTime = timeSinceUpdate - interpolationDuration;
-              // 예측 이동 (최대 50ms까지만, 서버 업데이트 주기 고려)
-              const maxPredictTime = 50;
+              // 예측 이동 (서버 업데이트 주기만큼, 적응형)
+              const maxPredictTime = _serverUpdateInterval;
               const predictTime = Math.min(extraTime, maxPredictTime);
               // 예측 이동 거리
               const predictX = interp.velocityX * (predictTime / 1000);
