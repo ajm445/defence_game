@@ -3165,7 +3165,7 @@ export function drawSkillRange(
     range: number;
     radius?: number;
   },
-  mousePosition: { x: number; y: number }
+  _mousePosition: { x: number; y: number }
 ) {
   const screenX = hero.x - camera.x;
   const screenY = hero.y - camera.y;
