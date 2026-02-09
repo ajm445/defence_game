@@ -48,14 +48,18 @@ export const VirtualJoystick: React.FC = () => {
       knobRef.current.style.transform = `translate(${knobX}px, ${knobY}px)`;
     }
 
+    const state = useRPGStore.getState();
+    const isHeroDead = state.hero && state.hero.hp <= 0;
+
     // 데드존 (10% 이내면 무시)
     if (dist < scaledMaxDrag * 0.1) {
       if (lastDirRef.current !== null) {
         lastDirRef.current = null;
-        const state = useRPGStore.getState();
-        state.setMoveDirection(undefined);
-        if (state.multiplayer.isMultiplayer) {
-          sendMoveDirection(null);
+        if (!isHeroDead) {
+          state.setMoveDirection(undefined);
+          if (state.multiplayer.isMultiplayer) {
+            sendMoveDirection(null);
+          }
         }
       }
       return;
@@ -69,7 +73,20 @@ export const VirtualJoystick: React.FC = () => {
     const prev = lastDirRef.current;
     if (!prev || Math.abs(prev.x - normX) > 0.05 || Math.abs(prev.y - normY) > 0.05) {
       lastDirRef.current = { x: normX, y: normY };
-      const state = useRPGStore.getState();
+
+      // 사망 시 카메라 이동 (관전 모드)
+      if (isHeroDead) {
+        const camera = state.camera;
+        // followHero 해제하여 게임 루프의 카메라 추적 방지
+        if (camera.followHero) {
+          useRPGStore.setState((s) => ({
+            camera: { ...s.camera, followHero: false },
+          }));
+        }
+        const camSpeed = 8;
+        state.setCamera(camera.x + normX * camSpeed, camera.y + normY * camSpeed);
+        return;
+      }
 
       // 시전 중에는 이동 무시
       if (state.hero?.castingUntil && state.gameTime < state.hero.castingUntil) {
@@ -120,7 +137,7 @@ export const VirtualJoystick: React.FC = () => {
       const dp = defaultPosRef.current;
       baseRef.current.style.left = `${dp.x - scaledBase}px`;
       baseRef.current.style.top = `${dp.y - scaledBase}px`;
-      baseRef.current.style.opacity = '0.3';
+      baseRef.current.style.opacity = '0.6';
     }
     if (knobRef.current) {
       knobRef.current.style.transform = 'translate(0px, 0px)';
@@ -169,20 +186,20 @@ export const VirtualJoystick: React.FC = () => {
         style={{
           width: scaledBase * 2,
           height: scaledBase * 2,
-          opacity: 0.3,
+          opacity: 0.6,
           transition: 'opacity 0.15s',
         }}
       >
         {/* 외부 원 */}
         <div
-          className="absolute inset-0 rounded-full border-2 border-white/30 bg-black/20"
+          className="absolute inset-0 rounded-full border-2 border-white/60 bg-black/40"
           style={{ backdropFilter: 'blur(4px)' }}
         />
 
         {/* 노브 */}
         <div
           ref={knobRef}
-          className="absolute rounded-full bg-white/50 border-2 border-white/70"
+          className="absolute rounded-full bg-white/80 border-2 border-white/90"
           style={{
             width: scaledKnob * 2,
             height: scaledKnob * 2,

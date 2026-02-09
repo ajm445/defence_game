@@ -166,6 +166,12 @@ export function useRPGGameLoop() {
         soundManager.play('hero_death');
         useUIStore.getState().showNotification(`사망! ${RPG_CONFIG.REVIVE.BASE_TIME}초 후 부활합니다.`);
       }
+      // 클라이언트: 부활 감지 (사망→생존 전환) - 카메라 즉시 영웅에게 고정
+      if (!isClientDead && wasClientDeadRef.current && clientHero) {
+        useRPGStore.setState((s) => ({
+          camera: { ...s.camera, x: clientHero.x, y: clientHero.y, followHero: true },
+        }));
+      }
       wasClientDeadRef.current = !!isClientDead;
 
       // 사망 체크: HP가 0 이하면 카메라 추적만 (관전 모드)
@@ -2086,12 +2092,12 @@ export function useRPGGameLoop() {
  */
 function updateOtherHeroesRevive(gameTime: number) {
   const state = useRPGStore.getState();
-  const reviveTime = RPG_CONFIG.REVIVE.BASE_TIME;
 
   state.otherHeroes.forEach((hero, heroId) => {
     // 사망 상태이고 deathTime이 설정된 경우만 체크
     if (hero.hp <= 0 && hero.deathTime) {
       const timeSinceDeath = gameTime - hero.deathTime;
+      const reviveTime = RPG_CONFIG.REVIVE.BASE_TIME;
 
       if (timeSinceDeath >= reviveTime) {
         // 넥서스 근처에서 부활

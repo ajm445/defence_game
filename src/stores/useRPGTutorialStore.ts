@@ -18,6 +18,8 @@ export interface RPGTutorialStep {
   description: string;
   conditionType: RPGTutorialConditionType;
   highlight?: string; // 하이라이트할 UI 요소 (선택적)
+  touchTitle?: string; // 터치 디바이스 전용 제목
+  touchDescription?: string; // 터치 디바이스 전용 설명
 }
 
 // 7단계 튜토리얼
@@ -27,6 +29,7 @@ export const RPG_TUTORIAL_STEPS: RPGTutorialStep[] = [
     title: '환영합니다!',
     description: '넥서스 디펜스 RPG에 오신 것을 환영합니다!\n\n게임 목표:\n1. 넥서스(왼쪽 파란 건물)를 지키세요\n2. 적 기지(오른쪽 빨간 건물)를 파괴하세요\n3. 보스를 처치하면 승리!\n\n※ 튜토리얼은 적 기지 1개지만,\n실제 게임에서는 2개입니다.\n(멀티플레이 시 인원수에 따라 증가)\n\n준비가 되면 [다음] 버튼을 클릭하세요.',
     conditionType: 'none',
+    touchDescription: '넥서스 디펜스 RPG에 오신 것을 환영합니다!\n\n게임 목표:\n1. 넥서스(왼쪽 파란 건물)를 지키세요\n2. 적 기지(오른쪽 빨간 건물)를 파괴하세요\n3. 보스를 처치하면 승리!\n\n※ 튜토리얼은 적 기지 1개지만,\n실제 게임에서는 2개입니다.\n(멀티플레이 시 인원수에 따라 증가)\n\n준비가 되면 [다음] 버튼을 터치하세요.',
   },
   {
     id: 'movement',
@@ -34,6 +37,8 @@ export const RPG_TUTORIAL_STEPS: RPGTutorialStep[] = [
     description: 'WASD 키를 사용하여 영웅을 이동시킬 수 있습니다.\n\nW: 위, A: 왼쪽, S: 아래, D: 오른쪽\n\n화면에 표시된 3개의 지점을 순서대로 이동해보세요!',
     conditionType: 'hero_moved',
     highlight: 'hero',
+    touchTitle: '조이스틱으로 이동',
+    touchDescription: '왼쪽 하단을 터치하면 조이스틱이 나타납니다.\n\n조이스틱을 드래그하여 영웅을 이동시킬 수 있습니다.\n\n화면에 표시된 3개의 지점을 순서대로 이동해보세요!',
   },
   {
     id: 'combat',
@@ -41,6 +46,7 @@ export const RPG_TUTORIAL_STEPS: RPGTutorialStep[] = [
     description: '영웅은 사거리 내의 적을 자동으로 공격합니다!\n\nC 키를 누르면 공격 사거리를 확인할 수 있습니다.\n\n적에게 다가가서 자동 공격으로 적을 처치해보세요!',
     conditionType: 'enemy_killed',
     highlight: 'hero',
+    touchDescription: '영웅은 사거리 내의 적을 자동으로 공격합니다!\n\n조이스틱으로 적에게 다가가면 자동 공격이 시작됩니다.\n\n적을 처치해보세요!',
   },
   {
     id: 'skill_shift',
@@ -48,6 +54,8 @@ export const RPG_TUTORIAL_STEPS: RPGTutorialStep[] = [
     description: 'Shift 키를 눌러 일반 스킬을 사용할 수 있습니다.\n\n※ 스킬은 마우스 방향으로 발동됩니다!\n궁수의 경우: 관통 화살 - 마우스 방향으로 적을 관통!\n\n💡 팁: 하단 스킬바에 마우스를 올리면\n스킬 설명을 볼 수 있습니다.\n\nShift 키를 눌러 스킬을 사용해보세요!',
     conditionType: 'skill_w_used',
     highlight: 'skill_w',
+    touchTitle: '일반 스킬 (W)',
+    touchDescription: '오른쪽 하단의 W 버튼으로 일반 스킬을 사용할 수 있습니다.\n\n• 탭: 가장 가까운 적 방향으로 자동 발동\n• 드래그: 원하는 방향으로 발동\n\n궁수의 경우: 관통 화살 - 지정 방향으로 적을 관통!\n\nW 버튼을 탭하거나 드래그하여 스킬을 사용해보세요!',
   },
   {
     id: 'skill_ultimate',
@@ -55,6 +63,8 @@ export const RPG_TUTORIAL_STEPS: RPGTutorialStep[] = [
     description: 'R 키를 눌러 궁극기를 사용할 수 있습니다.\n\n궁극기는 강력하지만 쿨타임이 깁니다!\n궁수의 경우: 화살비 - 넓은 범위에 화살을 쏟아붓습니다!\n\n※ 궁극기도 마우스 방향으로 발동됩니다.\n\nR 키를 눌러 궁극기를 사용해보세요!',
     conditionType: 'skill_e_used',
     highlight: 'skill_e',
+    touchTitle: '궁극기 (E)',
+    touchDescription: '오른쪽 하단의 E 버튼으로 궁극기를 사용할 수 있습니다.\n\n궁극기는 강력하지만 쿨타임이 깁니다!\n궁수의 경우: 화살비 - 넓은 범위에 화살을 쏟아붓습니다!\n\n• 탭: 자동 방향 발동\n• 드래그: 원하는 방향으로 발동\n\nE 버튼을 탭하거나 드래그하여 궁극기를 사용해보세요!',
   },
   {
     id: 'upgrade',
@@ -62,6 +72,7 @@ export const RPG_TUTORIAL_STEPS: RPGTutorialStep[] = [
     description: '적을 처치하면 골드를 획득합니다.\n\n화면 하단의 업그레이드 패널에서 영웅을 강화할 수 있습니다.\n\n공격력, 이동속도, HP 등을 업그레이드해보세요!',
     conditionType: 'upgrade_purchased',
     highlight: 'upgrade_panel',
+    touchDescription: '적을 처치하면 골드를 획득합니다.\n\n오른쪽 하단의 ⬆️ 버튼을 터치하면 업그레이드 패널이 열립니다.\n\n공격력, 이동속도, HP 등을 업그레이드해보세요!',
   },
   {
     id: 'base',

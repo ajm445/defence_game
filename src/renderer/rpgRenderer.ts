@@ -6,6 +6,7 @@ import { effectManager } from '../effects';
 import { drawRPGMinimap, getMinimapConfig } from './drawRPGMinimap';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useAuthStore } from '../stores/useAuthStore';
+import { useUIStore } from '../stores/useUIStore';
 import { drawNexus, drawAllEnemyBases, drawNexusLaserBeams } from './drawNexusEntities';
 import { useRPGTutorialStore, TutorialTargetPosition } from '../stores/useRPGTutorialStore';
 
@@ -167,7 +168,11 @@ export function renderRPG(
   ctx.restore();
 
   // 미니맵 렌더링
-  const minimapConfig = getMinimapConfig(canvasWidth, canvasHeight);
+  const uiState = useUIStore.getState();
+  const minimapConfig = getMinimapConfig(canvasWidth, canvasHeight, {
+    isTouchDevice: uiState.isTouchDevice,
+    isTablet: uiState.isTablet,
+  });
   drawRPGMinimap(ctx, state, minimapConfig);
 
   // 게임 오버 오버레이

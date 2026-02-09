@@ -518,11 +518,7 @@ export class RPGServerGameEngine {
           hero.darkBladeActive = false;
           hero.buffs = [];
           hero.deathTime = this.state.gameTime;
-          const wave = Math.floor(this.state.gameTime / 60);
-          hero.reviveTimer = Math.min(
-            COOP_CONFIG.REVIVE.MAX_TIME,
-            COOP_CONFIG.REVIVE.BASE_TIME + wave * COOP_CONFIG.REVIVE.TIME_PER_WAVE
-          );
+          hero.reviveTimer = COOP_CONFIG.REVIVE.BASE_TIME;
 
           // 이펙트 제거
           for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {
@@ -549,11 +545,7 @@ export class RPGServerGameEngine {
       hero.darkBladeActive = false;
       hero.buffs = [];
       hero.deathTime = this.state.gameTime;
-      const wave = Math.floor(this.state.gameTime / 60);
-      hero.reviveTimer = Math.min(
-        COOP_CONFIG.REVIVE.MAX_TIME,
-        COOP_CONFIG.REVIVE.BASE_TIME + wave * COOP_CONFIG.REVIVE.TIME_PER_WAVE
-      );
+      hero.reviveTimer = COOP_CONFIG.REVIVE.BASE_TIME;
 
       // 다크블레이드 이펙트 제거
       for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {

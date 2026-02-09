@@ -36,7 +36,7 @@ const TouchUpgradeButton: React.FC<TouchUpgradeButtonProps> = ({
       onClick={onUpgrade}
       disabled={isDisabled}
       className={`
-        relative rounded-lg border overflow-hidden flex flex-col items-center justify-center
+        relative rounded-lg border flex flex-col items-center justify-center
         ${isDisabled
           ? 'bg-dark-700/80 border-dark-500'
           : 'bg-dark-700/60 border-neon-cyan/50 active:scale-95'
@@ -49,7 +49,7 @@ const TouchUpgradeButton: React.FC<TouchUpgradeButtonProps> = ({
 
       {/* Level badge */}
       {currentLevel > 0 && (
-        <div className="absolute top-0 right-0 bg-neon-cyan/80 text-dark-900 text-[8px] font-bold px-0.5 rounded-bl">
+        <div className="absolute -top-1.5 -left-1.5 bg-neon-cyan text-dark-900 text-[10px] font-bold min-w-[18px] h-[18px] flex items-center justify-center rounded-full shadow-sm">
           {currentLevel}
         </div>
       )}
@@ -76,11 +76,6 @@ export const TouchUpgradeToggle: React.FC = () => {
   const gold = useGold();
   const upgradeLevels = useUpgradeLevels();
   const upgradeHeroStat = useRPGStore((state) => state.upgradeHeroStat);
-  const mobileControlMode = useUIStore((s) => s.mobileControlMode);
-  const setMobileControlMode = useUIStore((s) => s.setMobileControlMode);
-  const uiScale = useUIStore((s) => s.uiScale);
-
-  const isUpgradeMode = mobileControlMode === 'upgrades';
 
   const heroClass = hero?.heroClass;
   const isRangedClass = heroClass === 'archer' || heroClass === 'mage';
@@ -107,53 +102,29 @@ export const TouchUpgradeToggle: React.FC = () => {
     soundManager.play('ui_click');
   }, [upgradeHeroStat]);
 
-  const toggleMode = useCallback(() => {
-    setMobileControlMode(isUpgradeMode ? 'skills' : 'upgrades');
-    soundManager.play('ui_click');
-  }, [isUpgradeMode, setMobileControlMode]);
+  const isTablet = useUIStore((s) => s.isTablet);
 
   if (!hero || hero.hp <= 0) return null;
 
-  const btnSize = Math.round(48 * uiScale);
-  const toggleSize = Math.round(36 * uiScale);
+  const btnSize = isTablet ? 52 : 62;
+  const gridGap = isTablet ? 6 : 10;
 
   return (
-    <div className="flex flex-col items-center" style={{ gap: Math.round(8 * uiScale) }}>
-      {/* Upgrade grid (2x3) - 토글 버튼 위에 표시 */}
-      {isUpgradeMode && (
-        <div
-          className="grid grid-cols-2 bg-dark-800/90 backdrop-blur-sm rounded-xl p-2 border border-dark-600/50"
-          style={{ gap: Math.round(4 * uiScale) }}
-        >
-          {upgradeTypes.map((type) => (
-            <TouchUpgradeButton
-              key={type}
-              type={type}
-              currentLevel={upgradeLevels[type]}
-              maxLevel={getMaxLevel(type)}
-              gold={gold}
-              onUpgrade={() => handleUpgrade(type)}
-              size={btnSize}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Toggle button */}
-      <button
-        onClick={toggleMode}
-        className={`
-          rounded-lg border-2 flex items-center justify-center
-          transition-all duration-200 active:scale-90
-          ${isUpgradeMode
-            ? 'bg-yellow-500/30 border-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.3)]'
-            : 'bg-dark-700/60 border-dark-500'
-          }
-        `}
-        style={{ width: toggleSize, height: toggleSize }}
-      >
-        <span className="text-sm">{isUpgradeMode ? '⚔️' : '⬆️'}</span>
-      </button>
+    <div
+      className="grid grid-cols-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-2 border border-dark-600/50"
+      style={{ gap: gridGap }}
+    >
+      {upgradeTypes.map((type) => (
+        <TouchUpgradeButton
+          key={type}
+          type={type}
+          currentLevel={upgradeLevels[type]}
+          maxLevel={getMaxLevel(type)}
+          gold={gold}
+          onUpgrade={() => handleUpgrade(type)}
+          size={btnSize}
+        />
+      ))}
     </div>
   );
 };

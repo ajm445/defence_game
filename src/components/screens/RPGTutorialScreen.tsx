@@ -10,6 +10,7 @@ import { RPGScreenEffects } from '../ui/RPGScreenEffects';
 import { RPGDamageNumbers } from '../ui/RPGDamageNumbers';
 import { Notification } from '../ui/Notification';
 import { RPGTutorialOverlay } from '../ui/RPGTutorialOverlay';
+import { RPGTouchControls } from '../touch/RPGTouchControls';
 import { useRPGStore, useRPGGameOver, useRPGResult } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore } from '../../stores/useAuthStore';
@@ -35,6 +36,7 @@ export const RPGTutorialScreen: React.FC = () => {
   const setSoundMuted = useUIStore((state) => state.setSoundMuted);
   const isMobile = useUIStore((s) => s.isMobile);
   const isTablet = useUIStore((s) => s.isTablet);
+  const isTouchDevice = useUIStore((s) => s.isTouchDevice);
   const saveSoundSettings = useAuthStore((state) => state.saveSoundSettings);
 
   const isActive = useTutorialActive();
@@ -311,24 +313,33 @@ export const RPGTutorialScreen: React.FC = () => {
       {/* 알림 */}
       <Notification />
 
-      {/* 하단 UI - 스킬바 + 업그레이드 패널 */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto">
-        <div className="flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
-          {/* 스킬바 */}
-          <RPGSkillBar onUseSkill={handleUseSkill} />
+      {/* 하단 UI - 스킬바 + 업그레이드 패널 (데스크톱만) */}
+      {!isTouchDevice && (
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto">
+          <div className="flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
+            {/* 스킬바 */}
+            <RPGSkillBar onUseSkill={handleUseSkill} />
 
-          {/* 구분선 */}
-          {!gameOver && <div className="w-px bg-dark-500/50 my-1" />}
+            {/* 구분선 */}
+            {!gameOver && <div className="w-px bg-dark-500/50 my-1" />}
 
-          {/* 업그레이드 패널 */}
-          {!gameOver && <RPGUpgradePanel />}
+            {/* 업그레이드 패널 */}
+            {!gameOver && <RPGUpgradePanel />}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 조작법 안내 */}
-      <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">
-        <div>자동공격 | WASD: 이동 | Shift: 스킬 | R: 궁극기 | C: 사거리 | ESC: 일시정지</div>
-      </div>
+      {/* 조작법 안내 (데스크톱만) */}
+      {!isTouchDevice && (
+        <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">
+          <div>자동공격 | WASD: 이동 | Shift: 스킬 | R: 궁극기 | C: 사거리 | ESC: 일시정지</div>
+        </div>
+      )}
+
+      {/* 터치 컨트롤 (터치 디바이스만) */}
+      {isTouchDevice && !gameOver && (
+        <RPGTouchControls requestSkill={requestSkill} onUseSkill={handleUseSkill} />
+      )}
 
       {/* 튜토리얼 일시정지 메뉴 */}
       {paused && !gameOver && (

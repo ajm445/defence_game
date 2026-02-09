@@ -9,6 +9,7 @@ import {
   useTutorialConditions,
   RPG_TUTORIAL_STEPS,
 } from '../../stores/useRPGTutorialStore';
+import { useUIStore } from '../../stores/useUIStore';
 import { soundManager } from '../../services/SoundManager';
 
 interface RPGTutorialOverlayProps {
@@ -26,6 +27,7 @@ export const RPGTutorialOverlay: React.FC<RPGTutorialOverlayProps> = ({
   const isMinimized = useTutorialMinimized();
   const isCompleted = useTutorialCompleted();
   const conditions = useTutorialConditions();
+  const isTouchDevice = useUIStore((s) => s.isTouchDevice);
 
   const nextStep = useRPGTutorialStore((state) => state.nextStep);
   const prevStep = useRPGTutorialStore((state) => state.prevStep);
@@ -64,6 +66,8 @@ export const RPGTutorialOverlay: React.FC<RPGTutorialOverlayProps> = ({
 
   if (!isActive || !currentStep) return null;
 
+  const displayTitle = (isTouchDevice && currentStep.touchTitle) || currentStep.title;
+  const displayDescription = (isTouchDevice && currentStep.touchDescription) || currentStep.description;
   const progress = ((currentStepIndex + 1) / RPG_TUTORIAL_STEPS.length) * 100;
   const isConditionMet = conditions[currentStep.conditionType];
   const canManualAdvance = currentStep.conditionType === 'none' || isConditionMet;
@@ -156,7 +160,7 @@ export const RPGTutorialOverlay: React.FC<RPGTutorialOverlayProps> = ({
         <div className="px-4 pt-3">
           <h3 className="text-lg font-bold text-white flex items-center gap-2">
             <span className="text-green-400">#{currentStepIndex + 1}</span>
-            {currentStep.title}
+            {displayTitle}
             {isConditionMet && currentStep.conditionType !== 'none' && (
               <span className="text-green-400 text-sm ml-auto animate-pulse">✓ 완료!</span>
             )}
@@ -166,7 +170,7 @@ export const RPGTutorialOverlay: React.FC<RPGTutorialOverlayProps> = ({
         {/* 설명 */}
         <div className="px-4 py-3">
           <p className="text-gray-300 text-sm leading-relaxed whitespace-pre-line">
-            {currentStep.description}
+            {displayDescription}
           </p>
         </div>
 

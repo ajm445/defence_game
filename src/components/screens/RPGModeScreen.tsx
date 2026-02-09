@@ -11,7 +11,6 @@ import { RPGScreenEffects } from '../ui/RPGScreenEffects';
 import { RPGDamageNumbers } from '../ui/RPGDamageNumbers';
 import { Notification } from '../ui/Notification';
 import { PauseButton } from '../ui/PauseButton';
-import { FullscreenButton } from '../ui/FullscreenButton';
 import { RPGTouchControls } from '../touch/RPGTouchControls';
 import { LevelUpNotification } from '../ui/LevelUpNotification';
 import { SecondEnhancementNotification } from '../ui/SecondEnhancementNotification';
@@ -308,20 +307,17 @@ export const RPGModeScreen: React.FC = () => {
         {/* 오른쪽: 웨이브 정보 + 버튼 */}
         <div className="pointer-events-auto flex items-start gap-2">
           <RPGWaveInfo />
-          <div className="flex flex-col gap-2">
-            <PauseButton onClick={() => {
-              if (!gameOver) {
-                const state = useRPGStore.getState();
-                if (state.isTutorial) {
-                  useRPGStore.getState().setPaused(!state.paused);
-                } else {
-                  useUIStore.getState().setScreen('paused');
-                  useRPGStore.getState().setPaused(true);
-                }
+          <PauseButton onClick={() => {
+            if (!gameOver) {
+              const state = useRPGStore.getState();
+              if (state.isTutorial) {
+                useRPGStore.getState().setPaused(!state.paused);
+              } else {
+                useUIStore.getState().setScreen('paused');
+                useRPGStore.getState().setPaused(true);
               }
-            }} />
-            <FullscreenButton />
-          </div>
+            }
+          }} />
         </div>
       </div>
 

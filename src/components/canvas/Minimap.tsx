@@ -14,7 +14,10 @@ export const Minimap: React.FC = () => {
   const edgeScrollEnabled = useUIStore((state) => state.edgeScrollEnabled);
   const toggleEdgeScroll = useUIStore((state) => state.toggleEdgeScroll);
   const uiScale = useUIStore((state) => state.uiScale);
-  const responsiveConfig = getResponsiveConfig(uiScale);
+  const isMobile = useUIStore((state) => state.isMobile);
+  const isTablet = useUIStore((state) => state.isTablet);
+  const isTouchDevice = useUIStore((state) => state.isTouchDevice);
+  const responsiveConfig = getResponsiveConfig(isTouchDevice ? Math.max(uiScale, 1.0) : uiScale);
   const minimapWidth = responsiveConfig.MINIMAP_WIDTH;
   const minimapHeight = responsiveConfig.MINIMAP_HEIGHT;
 
@@ -100,7 +103,10 @@ export const Minimap: React.FC = () => {
   );
 
   return (
-    <div className="absolute bottom-5 right-5">
+    <div
+      className="absolute right-5"
+      style={{ bottom: isMobile ? 28 : isTablet ? 24 : 20 }}
+    >
       {/* 사운드 컨트롤 버튼 */}
       <div className="absolute -top-1 -left-20">
         <SoundControl />

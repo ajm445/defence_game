@@ -301,12 +301,7 @@ export function applyDamageToHero(state: ServerGameState, hero: ServerHero, dama
       hero.buffs = [];
       hero.deathTime = state.gameTime;
 
-      const wave = Math.floor(state.gameTime / 60);
-      const { REVIVE } = COOP_CONFIG;
-      hero.reviveTimer = Math.min(
-        REVIVE.MAX_TIME,
-        REVIVE.BASE_TIME + wave * REVIVE.TIME_PER_WAVE
-      );
+      hero.reviveTimer = COOP_CONFIG.REVIVE.BASE_TIME;
 
       // 다크블레이드 이펙트 제거
       for (let i = state.activeSkillEffects.length - 1; i >= 0; i--) {

@@ -57,8 +57,6 @@ export const UPGRADE_CONFIG = {
 export const COOP_CONFIG = {
   REVIVE: {
     BASE_TIME: 10,
-    TIME_PER_WAVE: 2,
-    MAX_TIME: 30,
     REVIVE_HP_PERCENT: 0.5,
     SPAWN_OFFSET: 100,
   },

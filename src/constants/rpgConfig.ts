@@ -622,9 +622,7 @@ export const RPG_CONFIG = {
 
   // 부활 시스템 (싱글/멀티플레이 공통)
   REVIVE: {
-    BASE_TIME: 10,           // 기본 10초
-    TIME_PER_WAVE: 2,        // 웨이브당 +2초
-    MAX_TIME: 30,            // 최대 30초
+    BASE_TIME: 10,           // 고정 10초
     REVIVE_HP_PERCENT: 1.0,  // HP 100%로 부활 (풀피)
     SPAWN_OFFSET: 100,       // 넥서스 근처 100px 내 랜덤 위치
     INVINCIBLE_DURATION: 2.0, // 부활 후 무적 시간 (초)

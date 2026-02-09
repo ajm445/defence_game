@@ -263,7 +263,11 @@ function drawVisibleArea(
 /**
  * 미니맵 컴포넌트 설정 가져오기
  */
-export function getMinimapConfig(canvasWidth: number, canvasHeight: number): MinimapConfig {
+export function getMinimapConfig(
+  canvasWidth: number,
+  canvasHeight: number,
+  deviceInfo?: { isTouchDevice: boolean; isTablet: boolean }
+): MinimapConfig {
   const margin = 20;
 
   // 맵 비율에 맞춰 미니맵 크기 계산
@@ -272,9 +276,20 @@ export function getMinimapConfig(canvasWidth: number, canvasHeight: number): Min
   const minimapHeight = baseHeight;
   const minimapWidth = baseHeight * mapAspect;  // 180 (1.5 * 120)
 
+  let y: number;
+  if (deviceInfo?.isTouchDevice) {
+    // 태블릿: 세로가 더 넓으므로 약간 더 위에 배치
+    // 모바일: 세로가 좁으므로 적절한 중간 위치
+    y = deviceInfo.isTablet
+      ? Math.round(canvasHeight * 0.3)
+      : Math.round(canvasHeight * 0.4);
+  } else {
+    y = canvasHeight - minimapHeight - margin;
+  }
+
   return {
     x: canvasWidth - minimapWidth - margin,
-    y: canvasHeight - minimapHeight - margin,
+    y,
     width: minimapWidth,
     height: minimapHeight,
   };

@@ -13,14 +13,13 @@ interface TouchSkillButtonProps {
   maxCooldown: number;
   active?: boolean;
   disabled?: boolean;
+  size: number;
   onUse: (targetX: number, targetY: number) => void;
 }
 
 const TouchSkillButton: React.FC<TouchSkillButtonProps> = ({
-  slot: _slot, icon, label, cooldown, maxCooldown, active, disabled, onUse,
+  slot: _slot, icon, label, cooldown, maxCooldown, active, disabled, size, onUse,
 }) => {
-  const uiScale = useUIStore((s) => s.uiScale);
-  const size = Math.round(56 * uiScale);
   const isOnCooldown = cooldown > 0;
   const isDisabled = active ? false : (isOnCooldown || disabled);
   const cooldownPercent = isOnCooldown ? (cooldown / maxCooldown) * 100 : 0;
@@ -107,7 +106,7 @@ const TouchSkillButton: React.FC<TouchSkillButtonProps> = ({
             ? 'bg-gradient-to-br from-purple-600/50 to-purple-900/50 border-purple-400 shadow-[0_0_12px_rgba(147,51,234,0.5)]'
             : isDisabled
               ? 'bg-dark-700/80 border-dark-500'
-              : 'bg-dark-700/60 border-neon-cyan/50 active:scale-95'
+              : 'bg-dark-800/90 border-white/40 active:scale-95'
           }
         `}
         style={{ width: size, height: size }}
@@ -125,14 +124,14 @@ const TouchSkillButton: React.FC<TouchSkillButtonProps> = ({
         )}
 
         <div className="relative z-10 flex flex-col items-center justify-center h-full">
-          <span className="text-xl">{icon}</span>
-          <span className="text-[9px] text-white/60 font-bold">{label}</span>
+          <span className="text-3xl">{icon}</span>
+          <span className="text-[11px] text-white/60 font-bold">{label}</span>
         </div>
 
         {/* 쿨다운 텍스트 */}
         {isOnCooldown && (
           <div className="absolute inset-0 flex items-center justify-center z-20">
-            <span className="text-sm font-bold text-white drop-shadow-lg">
+            <span className="text-lg font-bold text-white drop-shadow-lg">
               {Math.ceil(cooldown)}
             </span>
           </div>
@@ -154,33 +153,30 @@ interface TouchSkillButtonsProps {
   requestSkill: (skillType: SkillType) => boolean;
 }
 
+const SKILL_ICON_MAP: Record<string, string> = {
+  warrior_w: '💨', warrior_e: '🔥',
+  archer_w: '➡️', archer_e: '🌧️',
+  knight_w: '🛡️', knight_e: '🏰',
+  mage_w: '🔥', mage_e: '☄️',
+  blood_rush: '🩸', guardian_rush: '🛡️',
+  backflip_shot: '🔙', multi_arrow: '🏹',
+  holy_charge: '✝️', heavy_strike: '⚔️',
+  inferno: '🔥', healing_light: '💚',
+  rage: '😡', shield: '🛡️',
+  snipe: '🎯', arrow_storm: '🌪️',
+  divine_light: '☀️', dark_blade: '⚫',
+  meteor_shower: '☄️', spring_of_life: '💧',
+};
+
 export const TouchSkillButtons: React.FC<TouchSkillButtonsProps> = ({ onUseSkill: _onUseSkill, requestSkill }) => {
   const hero = useHero();
-  const uiScale = useUIStore((s) => s.uiScale);
+  const isTablet = useUIStore((s) => s.isTablet);
 
-  if (!hero || hero.hp <= 0) return null;
+  const skillSize = isTablet ? 80 : 95;
+  const skillGap = isTablet ? 20 : 30;
 
-  const wSkill = hero.skills.find(s => s.key === 'W');
-  const eSkill = hero.skills.find(s => s.key === 'E');
-
-  // 스킬 아이콘 맵 (간략화)
-  const getIcon = (type: string): string => {
-    const map: Record<string, string> = {
-      warrior_w: '💨', warrior_e: '🔥',
-      archer_w: '➡️', archer_e: '🌧️',
-      knight_w: '🛡️', knight_e: '🏰',
-      mage_w: '🔥', mage_e: '☄️',
-      blood_rush: '🩸', guardian_rush: '🛡️',
-      backflip_shot: '🔙', multi_arrow: '🏹',
-      holy_charge: '✝️', heavy_strike: '⚔️',
-      inferno: '🔥', healing_light: '💚',
-      rage: '😡', shield: '🛡️',
-      snipe: '🎯', arrow_storm: '🌪️',
-      divine_light: '☀️', dark_blade: '⚫',
-      meteor_shower: '☄️', spring_of_life: '💧',
-    };
-    return map[type] || '⭐';
-  };
+  const wSkill = hero?.skills.find(s => s.key === 'W');
+  const eSkill = hero?.skills.find(s => s.key === 'E');
 
   const handleWSkill = useCallback((targetX: number, targetY: number) => {
     if (!wSkill) return;
@@ -263,30 +259,33 @@ export const TouchSkillButtons: React.FC<TouchSkillButtonsProps> = ({ onUseSkill
     }
   }, [eSkill, requestSkill]);
 
-  const gap = Math.round(12 * uiScale);
+  // early return은 모든 hooks 뒤에 위치해야 함
+  if (!hero || hero.hp <= 0) return null;
 
   return (
     <div
-      className="flex flex-col items-center"
-      style={{ gap }}
+      className="flex flex-row items-center"
+      style={{ gap: skillGap }}
     >
       {wSkill && (
         <TouchSkillButton
           slot="W"
-          icon={getIcon(wSkill.type)}
+          icon={SKILL_ICON_MAP[wSkill.type] || '⭐'}
           label="스킬"
           cooldown={wSkill.currentCooldown}
           maxCooldown={wSkill.cooldown}
+          size={skillSize}
           onUse={handleWSkill}
         />
       )}
       {eSkill && (
         <TouchSkillButton
           slot="E"
-          icon={getIcon(eSkill.type)}
+          icon={SKILL_ICON_MAP[eSkill.type] || '⭐'}
           label="궁극기"
           cooldown={eSkill.currentCooldown}
           maxCooldown={eSkill.cooldown}
+          size={skillSize}
           active={eSkill.type === 'dark_blade' && hero.darkBladeActive}
           onUse={handleESkill}
         />

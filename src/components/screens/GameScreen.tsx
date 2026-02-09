@@ -13,7 +13,6 @@ import { SelectionInfo } from '../ui/SelectionInfo';
 import { Notification } from '../ui/Notification';
 import { MassSpawnAlert } from '../ui/MassSpawnAlert';
 import { TutorialOverlay } from '../ui/TutorialOverlay';
-import { FullscreenButton } from '../ui/FullscreenButton';
 import { PauseButton } from '../ui/PauseButton';
 import { CONFIG, getResponsiveConfig } from '../../constants/config';
 import { useGameStore } from '../../stores/useGameStore';
@@ -71,7 +70,10 @@ export const GameScreen: React.FC = () => {
 
   const uiScale = useUIStore((s) => s.uiScale);
   const isMobile = useUIStore((s) => s.isMobile);
-  const responsiveConfig = getResponsiveConfig(uiScale);
+  const isTablet = useUIStore((s) => s.isTablet);
+  const isTouchDevice = useUIStore((s) => s.isTouchDevice);
+  // Prevent double-scaling on mobile: viewport meta already scales, so use at least 1.0
+  const responsiveConfig = getResponsiveConfig(isTouchDevice ? Math.max(uiScale, 1.0) : uiScale);
 
   return (
     <div className="relative w-full h-screen overflow-hidden bg-dark-900">
@@ -83,13 +85,15 @@ export const GameScreen: React.FC = () => {
       <GameTimer />
       <HPStatusPanel />
 
-      {/* 일시정지 + 풀스크린 버튼 */}
-      <div className="absolute top-4 right-4 z-20 pointer-events-auto flex gap-2">
-        {(gameMode === 'ai' || gameMode === 'tutorial') && (
+      {/* 일시정지 버튼 - 터치 기기에서는 HP패널 아래로 이동 */}
+      {(gameMode === 'ai' || gameMode === 'tutorial') && (
+        <div
+          className="absolute right-4 z-20 pointer-events-auto"
+          style={{ top: isMobile ? '10.5rem' : isTablet ? '10.5rem' : '1rem' }}
+        >
           <PauseButton onClick={() => { stopGame(); setScreen('paused'); }} />
-        )}
-        <FullscreenButton />
-      </div>
+        </div>
+      )}
 
       {/* 선택 정보 */}
       <SelectionInfo />
@@ -109,7 +113,12 @@ export const GameScreen: React.FC = () => {
                    glass-dark border-t border-dark-500/50"
         style={{
           right: responsiveConfig.MINIMAP_WIDTH + 50,
-          height: responsiveConfig.UI_PANEL_HEIGHT,
+          height: isMobile
+            ? responsiveConfig.UI_PANEL_HEIGHT + 24
+            : isTablet
+              ? responsiveConfig.UI_PANEL_HEIGHT + 12
+              : responsiveConfig.UI_PANEL_HEIGHT,
+          paddingBottom: isMobile ? 24 : isTablet ? 12 : undefined,
         }}
       >
         {/* 유닛 섹션 */}
