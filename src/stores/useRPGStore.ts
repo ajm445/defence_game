@@ -1689,14 +1689,9 @@ export const useRPGStore = create<RPGStore>()(
           },
         } : {};
 
-        // 두 기지 모두 파괴되었는지 확인
-        const allBasesDestroyed = updatedBases.every((b) => b.destroyed);
-        const phaseUpdate = allBasesDestroyed ? { gamePhase: 'boss_phase' as RPGGamePhase } : {};
-
         return {
           enemyBases: updatedBases,
           ...statsUpdate,
-          ...phaseUpdate,
         };
       });
 
