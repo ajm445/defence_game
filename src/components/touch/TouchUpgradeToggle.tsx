@@ -119,23 +119,7 @@ export const TouchUpgradeToggle: React.FC = () => {
 
   return (
     <div className="flex flex-col items-center" style={{ gap: Math.round(8 * uiScale) }}>
-      {/* Toggle button */}
-      <button
-        onClick={toggleMode}
-        className={`
-          rounded-lg border-2 flex items-center justify-center
-          transition-all duration-200 active:scale-90
-          ${isUpgradeMode
-            ? 'bg-yellow-500/30 border-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.3)]'
-            : 'bg-dark-700/60 border-dark-500'
-          }
-        `}
-        style={{ width: toggleSize, height: toggleSize }}
-      >
-        <span className="text-sm">{isUpgradeMode ? '⚔️' : '⬆️'}</span>
-      </button>
-
-      {/* Upgrade grid (2x3) */}
+      {/* Upgrade grid (2x3) - 토글 버튼 위에 표시 */}
       {isUpgradeMode && (
         <div
           className="grid grid-cols-2 bg-dark-800/90 backdrop-blur-sm rounded-xl p-2 border border-dark-600/50"
@@ -154,6 +138,22 @@ export const TouchUpgradeToggle: React.FC = () => {
           ))}
         </div>
       )}
+
+      {/* Toggle button */}
+      <button
+        onClick={toggleMode}
+        className={`
+          rounded-lg border-2 flex items-center justify-center
+          transition-all duration-200 active:scale-90
+          ${isUpgradeMode
+            ? 'bg-yellow-500/30 border-yellow-400 shadow-[0_0_8px_rgba(234,179,8,0.3)]'
+            : 'bg-dark-700/60 border-dark-500'
+          }
+        `}
+        style={{ width: toggleSize, height: toggleSize }}
+      >
+        <span className="text-sm">{isUpgradeMode ? '⚔️' : '⬆️'}</span>
+      </button>
     </div>
   );
 };

@@ -33,28 +33,30 @@ export const ProfileButton: React.FC<ProfileButtonProps> = ({ className = '' }) 
         border border-gray-600 hover:border-yellow-500/50
         rounded-xl transition-all cursor-pointer
         shadow-lg hover:shadow-yellow-500/10
-        p-4
         ${className}
       `}
+      style={{ padding: 'clamp(0.5rem, 0.85vw, 1rem)' }}
     >
       {/* 내부 컨텐츠 컨테이너 */}
-      <div className="flex items-center gap-4"
-      style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '10px', paddingBottom: '10px' }}>
+      <div className="flex items-center" style={{ gap: 'clamp(0.5rem, 0.85vw, 1rem)', padding: 'clamp(0.25rem, 0.55vw, 0.625rem)' }}>
         {/* 아바타 */}
-        <div className="w-12 h-12 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-2xl shadow-md flex-shrink-0">
+        <div
+          className="rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0"
+          style={{ width: 'clamp(1.75rem, 2.5vw, 3rem)', height: 'clamp(1.75rem, 2.5vw, 3rem)', fontSize: 'clamp(0.875rem, 1.5vw, 1.5rem)' }}
+        >
           {isGuest ? '👤' : '⭐'}
         </div>
 
         {/* 정보 영역 */}
-        <div className="flex flex-col items-start pr-2">
+        <div className="flex flex-col items-start">
           {/* 닉네임 */}
-          <span className="text-white text-base font-bold truncate max-w-[140px] mb-1">
+          <span className="text-white font-bold truncate mb-1" style={{ fontSize: 'clamp(0.625rem, 0.85vw, 1rem)', maxWidth: 'clamp(50px, 6vw, 100px)' }}>
             {profile.nickname}
           </span>
 
           {/* 레벨 + 게스트 표시 */}
-          <div className="flex items-center gap-2 mb-3">
-            <span className="text-yellow-400 text-sm font-bold">
+          <div className="flex items-center gap-2 mb-1">
+            <span className="text-yellow-400 font-bold" style={{ fontSize: 'clamp(0.5rem, 0.73vw, 0.875rem)' }}>
               Lv.{profile.playerLevel}
             </span>
             {isGuest && (
@@ -62,11 +64,9 @@ export const ProfileButton: React.FC<ProfileButtonProps> = ({ className = '' }) 
             )}
           </div>
 
-          <div style={{ height: '10px' }} />
-
           {/* 경험치 바 */}
-          <div className="w-36">
-            <div className="h-2 bg-gray-700 rounded-full overflow-hidden">
+          <div style={{ width: 'clamp(3rem, 5.5vw, 6rem)' }}>
+            <div className="h-1.5 bg-gray-700 rounded-full overflow-hidden">
               <div
                 className="h-full bg-gradient-to-r from-yellow-500 to-orange-500 transition-all duration-300"
                 style={{ width: `${expProgress.percentage}%` }}

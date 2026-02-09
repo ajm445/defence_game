@@ -16,10 +16,22 @@ export const VirtualJoystick: React.FC = () => {
   const knobRef = useRef<HTMLDivElement>(null);
   const baseRef = useRef<HTMLDivElement>(null);
   const lastDirRef = useRef<{ x: number; y: number } | null>(null);
+  const defaultPosRef = useRef({ x: 0, y: 0 });
 
   const scaledBase = Math.round(BASE_RADIUS * uiScale);
   const scaledKnob = Math.round(KNOB_RADIUS * uiScale);
   const scaledMaxDrag = Math.round(MAX_DRAG * uiScale);
+
+  // 기본 위치에 고스트 조이스틱 표시 (처음 보는 유저를 위한 힌트)
+  useEffect(() => {
+    const x = window.innerWidth * 0.15;
+    const y = window.innerHeight * 0.75;
+    defaultPosRef.current = { x, y };
+    if (baseRef.current) {
+      baseRef.current.style.left = `${x - scaledBase}px`;
+      baseRef.current.style.top = `${y - scaledBase}px`;
+    }
+  }, [scaledBase]);
 
   const updateDirection = useCallback((clientX: number, clientY: number) => {
     const dx = clientX - centerRef.current.x;
@@ -103,9 +115,12 @@ export const VirtualJoystick: React.FC = () => {
     pointerIdRef.current = null;
     lastDirRef.current = null;
 
-    // 조이스틱 숨기기
+    // 조이스틱을 기본 위치로 복귀 (고스트 표시)
     if (baseRef.current) {
-      baseRef.current.style.opacity = '0';
+      const dp = defaultPosRef.current;
+      baseRef.current.style.left = `${dp.x - scaledBase}px`;
+      baseRef.current.style.top = `${dp.y - scaledBase}px`;
+      baseRef.current.style.opacity = '0.3';
     }
     if (knobRef.current) {
       knobRef.current.style.transform = 'translate(0px, 0px)';
@@ -117,7 +132,7 @@ export const VirtualJoystick: React.FC = () => {
     if (state.multiplayer.isMultiplayer) {
       sendMoveDirection(null);
     }
-  }, []);
+  }, [scaledBase]);
 
   // 언마운트 시 이동 정지
   useEffect(() => {
@@ -154,8 +169,8 @@ export const VirtualJoystick: React.FC = () => {
         style={{
           width: scaledBase * 2,
           height: scaledBase * 2,
-          opacity: 0,
-          transition: 'opacity 0.1s',
+          opacity: 0.3,
+          transition: 'opacity 0.15s',
         }}
       >
         {/* 외부 원 */}

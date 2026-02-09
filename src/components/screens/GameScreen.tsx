@@ -14,6 +14,7 @@ import { Notification } from '../ui/Notification';
 import { MassSpawnAlert } from '../ui/MassSpawnAlert';
 import { TutorialOverlay } from '../ui/TutorialOverlay';
 import { FullscreenButton } from '../ui/FullscreenButton';
+import { PauseButton } from '../ui/PauseButton';
 import { CONFIG, getResponsiveConfig } from '../../constants/config';
 import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
@@ -82,8 +83,11 @@ export const GameScreen: React.FC = () => {
       <GameTimer />
       <HPStatusPanel />
 
-      {/* 풀스크린 버튼 */}
-      <div className="absolute top-4 right-4 z-20 pointer-events-auto">
+      {/* 일시정지 + 풀스크린 버튼 */}
+      <div className="absolute top-4 right-4 z-20 pointer-events-auto flex gap-2">
+        {(gameMode === 'ai' || gameMode === 'tutorial') && (
+          <PauseButton onClick={() => { stopGame(); setScreen('paused'); }} />
+        )}
         <FullscreenButton />
       </div>
 

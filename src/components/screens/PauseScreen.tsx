@@ -213,7 +213,7 @@ export const PauseScreen: React.FC = () => {
           <div style={{ height: '20px' }} />
 
           {/* 메인 텍스트 */}
-          <h1 className="font-game text-3xl sm:text-4xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-b from-gray-200 to-gray-400">
+          <h1 className="font-game text-4xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-b from-gray-200 to-gray-400">
             일시정지
           </h1>
 
@@ -223,7 +223,7 @@ export const PauseScreen: React.FC = () => {
           </p>
 
           {/* 설정 패널 (항상 표시) */}
-          <div className="bg-dark-800/90 rounded-xl p-4 sm:p-6 border border-gray-600 w-[80vw] sm:w-auto sm:min-w-[300px] max-w-[350px]">
+          <div className="bg-dark-800/90 rounded-xl p-6 border border-gray-600 min-w-[300px]">
             <h3 className="text-white font-bold text-lg mb-4 text-center">소리 설정</h3>
 
             {/* 음량 조절 */}
@@ -291,26 +291,26 @@ export const PauseScreen: React.FC = () => {
     <div className="fixed inset-0 bg-dark-900/90 backdrop-blur-sm z-50 flex flex-col items-center justify-center animate-fade-in">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl bg-neon-purple/10" style={{ width: 'min(25rem, 60vw)', height: 'min(25rem, 60vw)' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[400px] h-[400px] rounded-full blur-3xl bg-neon-purple/10" />
       </div>
 
-      <div className="relative z-10 flex flex-col items-center" style={{ padding: '0 clamp(1rem, 4vw, 2rem)' }}>
+      <div className="relative z-10 flex flex-col items-center">
         {/* 아이콘 */}
-        <div style={{ fontSize: 'clamp(2.5rem, 8vw, 3.75rem)', marginBottom: 'clamp(0.75rem, 2vh, 1.5rem)' }}>
+        <div className="text-6xl mb-6">
           ⏸️
         </div>
 
-        <div style={{ height: 'clamp(1rem, 3vh, 1.875rem)' }} />
+        <div style={{ height: '30px' }} />
 
         {/* 메인 텍스트 */}
-        <h1 className="font-game font-bold text-transparent bg-clip-text bg-gradient-to-b from-gray-200 to-gray-400" style={{ fontSize: 'clamp(1.5rem, 5vw, 3rem)', marginBottom: 'clamp(1rem, 3vh, 2rem)' }}>
+        <h1 className="font-game text-5xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-b from-gray-200 to-gray-400">
           일시정지
         </h1>
 
-        <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.9375rem)' }} />
+        <div style={{ height: '30px' }} />
 
         {/* 버튼들 */}
-        <div className="flex flex-col" style={{ gap: 'clamp(0.5rem, 1.5vh, 1rem)', width: 'min(80vw, 18.75rem)' }}>
+        <div className="flex flex-col gap-4 min-w-[250px]">
           <button
             onClick={handleResume}
             className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
@@ -398,7 +398,7 @@ export const PauseScreen: React.FC = () => {
 
         {/* 설정 패널 */}
         {showSettings && (
-          <div className="mt-8 bg-dark-800/90 rounded-xl p-4 sm:p-6 border border-gray-600 w-[80vw] sm:w-auto sm:min-w-[300px] max-w-[350px]">
+          <div className="mt-8 bg-dark-800/90 rounded-xl p-6 border border-gray-600 min-w-[300px]">
             <h3 className="text-white font-bold text-lg mb-4 text-center">설정</h3>
 
             {/* 음량 조절 */}

@@ -93,7 +93,7 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
       disabled={!canSpawn}
       data-tutorial-id={tutorialId}
       className={`
-        group relative w-20 h-24 rounded-xl overflow-hidden
+        group relative rounded-xl overflow-hidden
         transition-all duration-200
         ${canSpawn
           ? 'hover:scale-105 hover:-translate-y-1 cursor-pointer'
@@ -101,6 +101,7 @@ export const UnitButton: React.FC<UnitButtonProps> = ({
         }
         ${!canAfford && !isOnCooldown ? 'opacity-40' : ''}
       `}
+      style={{ width: 'clamp(4rem, 6.5vw, 5rem)', height: 'clamp(5rem, 8vw, 6rem)' }}
     >
       {/* 배경 */}
       <div className="absolute inset-0 bg-dark-700/80" />

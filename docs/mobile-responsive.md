@@ -1,8 +1,7 @@
 # 모바일/태블릿 반응형 UI 가이드
 
-> **버전**: V1.23+
-> **상태**: 진행 중 (WIP)
-> **관련 브랜치**: `develop`
+> **버전**: V1.23.0
+> **상태**: 완료
 
 ---
 
@@ -252,9 +251,10 @@ VirtualJoystick
 
 ### 동작 흐름
 
-1. **pointerDown**: 터치 위치에 조이스틱 베이스 표시 (플로팅 방식)
-2. **pointerMove**: 노브를 드래그 방향으로 이동 (최대 50px × uiScale), 정규화된 방향 벡터 계산
-3. **pointerUp**: 조이스틱 숨기기, 이동 정지 전송
+1. **초기 상태**: 기본 위치(화면 왼쪽 15%, 높이 75%)에 반투명(opacity 0.3) 고스트 조이스틱 표시 (힌트)
+2. **pointerDown**: 터치 위치에 조이스틱 베이스 이동 + 완전 불투명(opacity 1.0)
+3. **pointerMove**: 노브를 드래그 방향으로 이동 (최대 50px × uiScale), 정규화된 방향 벡터 계산
+4. **pointerUp**: 기본 위치로 복귀 + 반투명(opacity 0.3), 이동 정지 전송
 
 ### 성능 최적화
 
@@ -366,15 +366,15 @@ if (state.hero?.advancedClass === 'darkKnight') {
 
 ```
 TouchUpgradeToggle
-├── 토글 버튼 (스킬 ↔ 업그레이드 모드 전환)
-│   └── ⬆️ (업그레이드 모드) / ⚔️ (스킬 모드)
-└── 업그레이드 그리드 (2×3, 토글 시 표시)
-    ├── ⚔️ 공격
-    ├── 👟 속도
-    ├── ❤️ HP
-    ├── ⚡ 공속
-    ├── 💰 골드
-    └── 🎯 거리 (원거리 클래스만)
+├── 업그레이드 그리드 (2×3, 토글 시 위쪽에 표시)
+│   ├── ⚔️ 공격
+│   ├── 👟 속도
+│   ├── ❤️ HP
+│   ├── ⚡ 공속
+│   ├── 💰 골드
+│   └── 🎯 거리 (원거리 클래스만)
+└── 토글 버튼 (스킬 ↔ 업그레이드 모드 전환)
+    └── ⬆️ (업그레이드 모드) / ⚔️ (스킬 모드)
 ```
 
 ### 상태 관리
@@ -511,14 +511,29 @@ const minimapHeight = responsiveConfig.MINIMAP_HEIGHT;
 
 ### RPG 게임 화면 (RPGModeScreen.tsx)
 
+터치 디바이스에서는 `RPGTouchControls` 컨테이너(`src/components/touch/RPGTouchControls.tsx`)가 렌더링된다.
+
 | 요소 | 데스크톱 | 터치 디바이스 |
 |------|---------|-------------|
 | 하단 스킬바 + 업그레이드 | 일체형 패널 (중앙 하단) | 숨김 |
-| 가상 조이스틱 | 숨김 | 좌하단 (화면 40%, 높이 50%) |
-| 터치 스킬 버튼 | 숨김 | 우하단 |
-| 업그레이드 토글 | 숨김 | 우하단 (스킬 왼쪽) |
+| 가상 조이스틱 | 숨김 | 좌하단 고스트 힌트 (터치 시 플로팅) |
+| 터치 스킬 버튼 (W/E) | 숨김 | 우하단 (항상 표시) |
+| 업그레이드 토글 | 숨김 | 우하단 스킬 왼쪽 (그리드는 위로 확장) |
 | 조작법 안내 텍스트 | 표시 | 숨김 |
 | 전체화면 버튼 | 표시 | 표시 (지원 시) |
+
+#### 터치 컨트롤 레이아웃
+
+```
+[좌하단]                          [우하단]
+                           [업그레이드 그리드]  ← 토글 시에만
+  (고스트 조이스틱)           [⬆️]  [W]
+                                   [E]
+```
+
+- 스킬 버튼(W/E)은 업그레이드 모드와 관계없이 항상 표시
+- 업그레이드 토글 버튼은 스킬 버튼 왼쪽에 하단 정렬 (`flex items-end`)
+- 업그레이드 그리드는 토글 시 버튼 위쪽으로 확장
 
 ### RPG 영웅 패널 (RPGHeroPanel.tsx)
 
@@ -580,6 +595,43 @@ const minimapHeight = responsiveConfig.MINIMAP_HEIGHT;
 - `PauseScreen` (80vw, max 350px)
 - `RPGTutorialScreen` 일시정지/완료 모달 (90vw, max 400/450px)
 - `LobbyScreen` (90vw, max auto)
+
+### RPG 협동 로비 (RPGCoopLobbyScreen.tsx) - 모바일 전용 레이아웃
+
+iPhone 12 Pro(844×390) 등 모바일 가로 모드에서 콘텐츠가 CSS 뷰포트 높이(~700px)를 크게 초과하여 잘림이 발생하는 문제를 해결하기 위해 `isMobile` 분기 레이아웃을 적용했다. 태블릿은 기존 스케일링(`contentScaleRef`)으로 충분하므로 데스크톱과 동일한 레이아웃을 유지한다.
+
+#### 외부 래퍼 (모바일)
+
+| 요소 | 데스크톱/태블릿 | 모바일 |
+|------|----------------|--------|
+| 제목 | `<h1>` + 10px 스페이서 + `<p>` + 30px 스페이서 | 제목과 부제를 분리, 스페이서 축소 (10px) |
+| 콘텐츠 박스 | `px-10 py-10`, `min-h-[480px]` | `px-10 py-5`, `min-h` 제거 |
+| 뒤로 가기 | `mt-8`, 30px 스페이서 | `mt-2`, 15px 스페이서, 작은 텍스트 |
+
+#### renderLobby (모바일)
+
+공유 요소를 변수로 추출 후 `isMobile` 분기:
+
+```
+[초대코드 + 방설정]          ← 기존과 동일 (가로 배치)
+[플레이어 목록 | 채팅]       ← flex-row, 각 flex-1 min-w-0
+[직업변경 버튼 | 게임시작]    ← flex-row, 같은 줄
+[경고/에러/안내]              ← 기존과 동일
+```
+
+- 내부 컨테이너: `gap-3`, `padding: 15px` (카드 테두리와 간격 확보)
+- 플레이어 목록 + 채팅을 가로 배치하여 세로 공간 ~220px 절약
+- 직업 변경 버튼 + 액션 버튼을 같은 줄에 배치
+
+#### 기타 하위 화면 (모바일)
+
+- `renderCountdown`: `padding: 15px`
+- `renderRoomSelect`: `padding: 15px`
+- `renderJoinInput`: `padding: 15px`
+
+#### 예상 높이 (모바일)
+
+제목(~56px) + 콘텐츠 박스(~430px) + 뒤로 가기(~30px) ≈ **~520px** → 700px 내 여유있게 수용. 기존 스케일링 코드(`contentScaleRef`)는 유지하되 모바일에서는 자동으로 미적용.
 
 ### 메뉴/선택 화면 공통 변경
 
@@ -658,8 +710,9 @@ canvas {
 | `src/hooks/useFullscreen.ts` | Fullscreen API 래퍼 (진입/해제/상태) |
 | `src/components/ui/FullscreenButton.tsx` | 전체화면 토글 버튼 |
 | `src/components/ui/OrientationPrompt.tsx` | 세로 모드 회전 안내 오버레이 |
-| `src/components/touch/VirtualJoystick.tsx` | 가상 조이스틱 (이동 입력) |
+| `src/components/touch/VirtualJoystick.tsx` | 가상 조이스틱 (이동 입력, 고스트 힌트 포함) |
 | `src/components/touch/TouchSkillButtons.tsx` | 터치 스킬 버튼 (W/E 스킬) |
+| `src/components/touch/RPGTouchControls.tsx` | RPG 터치 컨트롤 컨테이너 (조이스틱+스킬+업그레이드 통합) |
 | `src/components/touch/TouchUpgradeToggle.tsx` | 터치 업그레이드 토글 패널 |
 
 ### 수정 파일
@@ -720,6 +773,7 @@ const isMobile = useUIStore((s) => s.isMobile);
 - **정보 밀도 축소**: 좁은 화면에서 덜 중요한 정보 숨기기 (예: RPGHeroPanel의 속도/사거리 스탯)
 - **완전 숨김**: 화면이 너무 좁아 기능적으로 사용 불가한 경우 (예: FriendSidebar)
 - **컴팩트 대체 표현**: 동일 정보를 다른 형태로 (예: RPGTeamPanel의 원형 HP)
+- **레이아웃 재배치**: 세로 나열이 뷰포트를 초과하는 경우 가로 배치로 전환 (예: RPGCoopLobbyScreen의 플레이어+채팅 가로 배치)
 
 ### 새 터치 컴포넌트 추가 시
 

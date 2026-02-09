@@ -24,7 +24,7 @@ export const CountdownScreen: React.FC = () => {
     <div className="fixed inset-0 bg-dark-900/70 flex items-center justify-center z-50">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 rounded-full blur-3xl bg-neon-cyan/10 animate-pulse" style={{ width: 'min(37.5rem, 80vw)', height: 'min(37.5rem, 80vw)' }} />
+        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] rounded-full blur-3xl bg-neon-cyan/10 animate-pulse" />
       </div>
 
       {/* 카운트다운 숫자 */}
@@ -34,20 +34,20 @@ export const CountdownScreen: React.FC = () => {
             key={count}
             className="animate-bounce-in"
           >
-            <span className="font-game font-bold text-transparent bg-clip-text bg-gradient-to-b from-neon-cyan to-neon-purple drop-shadow-2xl" style={{ fontSize: 'clamp(5rem, 20vw, 12.5rem)' }}>
+            <span className="font-game text-[200px] font-bold text-transparent bg-clip-text bg-gradient-to-b from-neon-cyan to-neon-purple drop-shadow-2xl">
               {count}
             </span>
           </div>
         ) : (
           <div className="animate-bounce-in">
-            <span className="font-game font-bold text-neon-cyan" style={{ fontSize: 'clamp(2.5rem, 10vw, 5rem)' }}>
+            <span className="font-game text-8xl font-bold text-neon-cyan">
               START!
             </span>
           </div>
         )}
 
         {/* 안내 텍스트 */}
-        <div className="text-gray-400" style={{ marginTop: 'clamp(1rem, 3vh, 2rem)', fontSize: 'clamp(0.875rem, 2.5vw, 1.125rem)' }}>
+        <div className="mt-8 text-gray-400 text-lg">
           게임이 곧 시작됩니다...
         </div>
       </div>

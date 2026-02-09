@@ -1,7 +1,6 @@
 import React from 'react';
 import { useResources, useGameStore } from '../../stores/useGameStore';
 import { useSmoothResources } from '../../hooks/useSmoothResources';
-import { useUIStore } from '../../stores/useUIStore';
 import { Emoji } from '../common/Emoji';
 
 const RESOURCE_CONFIG = [
@@ -16,7 +15,6 @@ export const ResourceBar: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);
   const singlePlayerResources = useResources();
   const smoothResources = useSmoothResources();
-  const isMobile = useUIStore((s) => s.isMobile);
 
   // 멀티플레이어 모드에서는 부드럽게 보간된 자원 사용
   const isMultiplayer = gameMode === 'multiplayer';
@@ -33,31 +31,25 @@ export const ResourceBar: React.FC = () => {
   };
 
   return (
-    <div className={`absolute top-4 left-4 flex ${isMobile ? 'gap-1' : 'gap-2'}`} data-tutorial-id="resource-bar">
+    <div className="absolute top-4 left-4 flex" style={{ gap: 'clamp(0.25rem, 0.6vw, 0.5rem)' }} data-tutorial-id="resource-bar">
       {RESOURCE_CONFIG.map(({ key, icon, label, color, glow, useSmooth }) => (
         <div
           key={key}
-          className={`
-            glass-dark rounded-xl ${isMobile ? 'px-2 py-1' : 'px-3 py-2'} flex items-center gap-2
-            border border-dark-500/50 hover:border-dark-400 transition-all duration-200
-            ${glow}
-          `}
+          className={`glass-dark rounded-xl flex items-center border border-dark-500/50 hover:border-dark-400 transition-all duration-200 ${glow}`}
+          style={{ padding: 'clamp(0.25rem, 0.6vw, 0.5rem) clamp(0.5rem, 1vw, 0.75rem)', gap: 'clamp(0.25rem, 0.5vw, 0.5rem)' }}
         >
-          <div className={`${isMobile ? 'w-6 h-6' : 'w-8 h-8'} rounded-lg bg-gradient-to-br ${color} flex items-center justify-center shadow-lg`}>
-            <Emoji emoji={icon} size={isMobile ? 14 : 20} />
+          <div
+            className={`rounded-lg bg-gradient-to-br ${color} flex items-center justify-center shadow-lg`}
+            style={{ width: 'clamp(1.5rem, 2.5vw, 2rem)', height: 'clamp(1.5rem, 2.5vw, 2rem)' }}
+          >
+            <Emoji emoji={icon} size={16} />
           </div>
-          {isMobile ? (
-            <span className="text-white font-bold text-xs tabular-nums">
+          <div className="flex flex-col">
+            <span className="text-[10px] text-gray-500 tracking-wider">{label}</span>
+            <span className="text-white font-bold text-sm tabular-nums">
               {Math.floor(getResourceValue(key, useSmooth))}
             </span>
-          ) : (
-            <div className="flex flex-col">
-              <span className="text-[10px] text-gray-500 tracking-wider">{label}</span>
-              <span className="text-white font-bold text-sm tabular-nums">
-                {Math.floor(getResourceValue(key, useSmooth))}
-              </span>
-            </div>
-          )}
+          </div>
         </div>
       ))}
     </div>

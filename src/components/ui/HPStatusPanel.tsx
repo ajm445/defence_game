@@ -24,7 +24,7 @@ export const HPStatusPanel: React.FC = () => {
   const enemyPercent = Math.max(0, (enemyBase.hp / enemyBase.maxHp) * 100);
 
   return (
-    <div className="absolute top-4 right-4 glass-dark rounded-xl p-4 border border-dark-500/50 min-w-[240px]">
+    <div className="absolute top-4 right-4 glass-dark rounded-xl border border-dark-500/50" style={{ padding: 'clamp(0.5rem, 1.5vw, 1rem)', minWidth: 'clamp(180px, 20vw, 240px)' }}>
       {/* 플레이어 */}
       <div className="mb-4">
         <div className="flex items-center justify-between mb-2">

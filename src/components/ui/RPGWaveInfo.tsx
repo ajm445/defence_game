@@ -1,13 +1,11 @@
 import React from 'react';
 import { useRPGEnemies, useNexus, useEnemyBases, useRPGGamePhase } from '../../stores/useRPGStore';
-import { useUIStore } from '../../stores/useUIStore';
 
 export const RPGWaveInfo: React.FC = () => {
   const enemies = useRPGEnemies();
   const nexus = useNexus();
   const enemyBases = useEnemyBases();
   const gamePhase = useRPGGamePhase();
-  const isMobile = useUIStore((s) => s.isMobile);
 
   const aliveEnemies = enemies.filter((e) => e.hp > 0).length;
   const bossEnemies = enemies.filter((e) => e.hp > 0 && e.type === 'boss').length;
@@ -19,10 +17,10 @@ export const RPGWaveInfo: React.FC = () => {
   const nexusHpPercent = nexus ? nexus.hp / nexus.maxHp : 1;
 
   return (
-    <div className={`
-      bg-dark-800/90 backdrop-blur-sm rounded-xl ${isMobile ? 'p-2' : 'p-4'} border ${isMobile ? 'min-w-[140px]' : 'min-w-[200px]'}
-      ${isBossPhase ? 'border-red-500/50' : 'border-dark-600/50'}
-    `}>
+    <div
+      className={`bg-dark-800/90 backdrop-blur-sm rounded-xl border ${isBossPhase ? 'border-red-500/50' : 'border-dark-600/50'}`}
+      style={{ padding: 'clamp(0.5rem, 1.5vw, 1rem)', minWidth: 'clamp(140px, 16vw, 200px)' }}
+    >
       {/* 게임 상태 */}
       <div className="flex items-center justify-between mb-2">
         <div className={`
@@ -168,17 +166,14 @@ export const RPGGameAlert: React.FC<{
   return (
     <div className="fixed inset-0 flex items-center justify-center pointer-events-none z-50">
       <div
-        className={`
-          bg-gradient-to-r ${config.bgColor}
-          backdrop-blur-sm rounded-2xl p-6 border ${config.borderColor}
-          animate-pulse
-        `}
+        className={`bg-gradient-to-r ${config.bgColor} backdrop-blur-sm rounded-2xl border ${config.borderColor} animate-pulse`}
+        style={{ padding: 'clamp(1rem, 3vw, 1.5rem)' }}
       >
-        <div className={`text-4xl font-bold ${config.textColor} text-center`}>
-          <span className="block text-5xl mb-2">{config.emoji}</span>
+        <div className={`font-bold ${config.textColor} text-center`} style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)' }}>
+          <span className="block mb-2" style={{ fontSize: 'clamp(2rem, 5vw, 3rem)' }}>{config.emoji}</span>
           {config.title}
         </div>
-        <div className="text-xl text-white/80 text-center mt-1">
+        <div className="text-white/80 text-center mt-1" style={{ fontSize: 'clamp(0.875rem, 2vw, 1.25rem)' }}>
           {config.subtitle}
         </div>
       </div>

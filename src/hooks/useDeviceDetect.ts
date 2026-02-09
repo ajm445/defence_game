@@ -41,8 +41,25 @@ function updateViewportMeta(deviceType: DeviceType) {
   if (!meta) return;
 
   if (deviceType === 'phone' || deviceType === 'tablet') {
+    const BASE_WIDTH = 1280;
+    const MIN_CSS_HEIGHT = 700;
+
+    // 현재 방향에 따른 물리 화면 크기 (screen.width/height는 viewport meta 무관)
+    const isPortrait = getIsPortrait();
+    const physW = isPortrait
+      ? Math.min(screen.width, screen.height)
+      : Math.max(screen.width, screen.height);
+    const physH = isPortrait
+      ? Math.max(screen.width, screen.height)
+      : Math.min(screen.width, screen.height);
+
+    // CSS 높이 = physH / (physW / viewportWidth) = physH * viewportWidth / physW
+    // MIN_CSS_HEIGHT 이상이 되려면: viewportWidth >= MIN_CSS_HEIGHT * physW / physH
+    const minWidthForHeight = Math.ceil(MIN_CSS_HEIGHT * physW / physH);
+    const viewportWidth = Math.max(BASE_WIDTH, minWidthForHeight);
+
     meta.setAttribute('content',
-      'width=1280, user-scalable=no, viewport-fit=cover');
+      `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
   } else {
     meta.setAttribute('content',
       'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');

@@ -53,21 +53,18 @@ export const GameTimer: React.FC = () => {
 
   return (
     <div className="absolute top-4 left-1/2 -translate-x-1/2">
-      <div className={`
-        glass-dark rounded-xl px-6 py-3 border transition-all duration-300
-        ${isLowTime ? 'border-neon-red/50 shadow-neon-red' : 'border-dark-500/50'}
-      `}>
+      <div
+        className={`glass-dark rounded-xl border transition-all duration-300 ${isLowTime ? 'border-neon-red/50 shadow-neon-red' : 'border-dark-500/50'}`}
+        style={{ padding: 'clamp(0.5rem, 1vw, 0.75rem) clamp(1rem, 2vw, 1.5rem)' }}
+      >
         <div className="flex items-center gap-3">
           {/* 타이머 아이콘 */}
           <div className={`w-2 h-2 rounded-full animate-pulse ${isLowTime ? 'bg-neon-red' : 'bg-neon-cyan'}`} />
 
           {/* 시간 표시 - 고정 너비 */}
           <div
-            className={`
-              font-game text-2xl tracking-wider tabular-nums text-center
-              ${isLowTime ? 'text-neon-red text-glow-red' : 'text-white'}
-            `}
-            style={{ minWidth: '5.5rem' }}
+            className={`font-game tracking-wider tabular-nums text-center ${isLowTime ? 'text-neon-red text-glow-red' : 'text-white'}`}
+            style={{ fontSize: 'clamp(1.25rem, 2vw, 1.5rem)', minWidth: 'clamp(4rem, 5vw, 5.5rem)' }}
           >
             {formatTime(time)}
           </div>
@@ -75,7 +72,6 @@ export const GameTimer: React.FC = () => {
           {/* 타이머 아이콘 */}
           <div className={`w-2 h-2 rounded-full animate-pulse ${isLowTime ? 'bg-neon-red' : 'bg-neon-cyan'}`} />
         </div>
-
       </div>
     </div>
   );

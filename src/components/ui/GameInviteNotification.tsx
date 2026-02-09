@@ -98,8 +98,8 @@ export const GameInviteNotification: React.FC<GameInviteNotificationProps> = ({ 
   const remainingSecondsInMinute = remainingSeconds % 60;
 
   return (
-    <div className="fixed top-4 right-70 z-50 animate-slide-down">
-      <div className="flex items-center gap-4 px-6 py-4 bg-gray-900/95 border border-green-500/50 rounded-xl shadow-2xl backdrop-blur-sm">
+    <div className="fixed z-50 animate-slide-down" style={{ top: 'clamp(0.5rem, 2vh, 1rem)', right: 'clamp(4rem, 18vw, 17.5rem)' }}>
+      <div className="flex items-center bg-gray-900/95 border border-green-500/50 rounded-xl shadow-2xl backdrop-blur-sm" style={{ gap: 'clamp(0.5rem, 1.5vw, 1rem)', padding: 'clamp(0.5rem, 1.5vw, 1rem) clamp(0.75rem, 2vw, 1.5rem)' }}>
         <div className="flex items-center gap-3">
           <span className="text-2xl">🎮</span>
           <div>

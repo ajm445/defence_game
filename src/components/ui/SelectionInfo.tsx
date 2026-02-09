@@ -17,7 +17,7 @@ export const SelectionInfo: React.FC = () => {
   const hpPercent = (selectedUnit.hp / selectedUnit.maxHp) * 100;
 
   return (
-    <div className="absolute top-20 left-4 glass-dark rounded-xl p-4 border border-neon-cyan/30 min-w-[180px] animate-slide-up shadow-neon-cyan">
+    <div className="absolute top-20 left-4 glass-dark rounded-xl border border-neon-cyan/30 animate-slide-up shadow-neon-cyan" style={{ padding: 'clamp(0.5rem, 1.5vw, 1rem)', minWidth: 'clamp(140px, 15vw, 180px)' }}>
       {/* 유닛 이름 */}
       <div className="flex items-center gap-2 mb-3">
         <div className="w-2 h-2 rounded-full bg-neon-cyan animate-pulse" />

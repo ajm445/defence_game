@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef, useLayoutEffect } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import {
@@ -119,6 +119,8 @@ export const ProfileScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
   const goBack = useUIStore((state) => state.goBack);
   const previousScreen = useUIStore((state) => state.previousScreen);
+  const isMobile = useUIStore((s) => s.isMobile);
+  const isTablet = useUIStore((s) => s.isTablet);
   const signOut = useAuthStore((state) => state.signOut);
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
@@ -134,6 +136,29 @@ export const ProfileScreen: React.FC = () => {
 
   // 업그레이드 모달 상태
   const [selectedClass, setSelectedClass] = useState<HeroClass | null>(null);
+
+  // 콘텐츠가 뷰포트 높이를 초과하면 비례 축소
+  const contentRef = useRef<HTMLDivElement>(null);
+  useLayoutEffect(() => {
+    const el = contentRef.current;
+    if (!el) return;
+
+    const updateScale = () => {
+      el.style.transform = '';
+      const contentHeight = el.scrollHeight;
+      const viewportHeight = window.innerHeight;
+
+      if (contentHeight > viewportHeight) {
+        const scale = (viewportHeight / contentHeight) * 0.95;
+        el.style.transform = `scale(${Math.min(1, scale)})`;
+        el.style.transformOrigin = 'top center';
+      }
+    };
+
+    updateScale();
+    window.addEventListener('resize', updateScale);
+    return () => window.removeEventListener('resize', updateScale);
+  }, [classProgress, stats, isLoading, isGuest, isFromRTS]);
 
   useEffect(() => {
     if (profile && !isGuest && !isFromRTS) {
@@ -194,29 +219,27 @@ export const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center overflow-y-auto">
+    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center overflow-hidden">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 bg-yellow-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)' }} />
-        <div className="absolute bottom-1/4 right-1/4 bg-purple-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)', animationDelay: '1s' }} />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
       </div>
 
-      <div style={{ height: 'clamp(0.5rem, 2vh, 1.875rem)' }} />
-
-      {/* 메인 컨텐츠 */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in w-full" style={{ maxWidth: 'min(56rem, 95vw)', padding: 'clamp(0.5rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem) clamp(1rem, 3vh, 2rem)' }}>
+      {/* 메인 컨텐츠 (뷰포트 초과 시 비례 축소) */}
+      <div ref={contentRef} className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-4xl px-4 pt-10 pb-8">
         {/* 타이틀 */}
-        <h1 className={`font-game ${isFromRTS ? 'text-neon-cyan' : 'text-yellow-400'}`} style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', marginBottom: 'clamp(0.75rem, 2vh, 1.5rem)' }}>
+        <h1 className={`font-game text-3xl md:text-4xl mb-6 ${isFromRTS ? 'text-neon-cyan' : 'text-yellow-400'}`}>
           {isFromRTS ? '프로필' : '프로필'}
         </h1>
 
         {isFromRTS && (
-          <p className="text-gray-400" style={{ fontSize: 'clamp(0.7rem, 1.8vw, 0.875rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)' }}>
+          <p className="text-gray-400 text-sm mb-4">
             플레이어 레벨은 RTS와 RPG 모드에서 공유됩니다
           </p>
         )}
 
-        <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.9375rem)' }} />
+        <div style={{ height: '15px' }} />
 
         {/* 프로필 카드 */}
         <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6"
@@ -371,10 +394,12 @@ export const ProfileScreen: React.FC = () => {
       </div>
 
       {/* 코너 장식 */}
-      <div className={`absolute border-l-2 border-t-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} style={{ top: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
-      <div className={`absolute border-r-2 border-t-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} style={{ top: 'clamp(0.5rem, 1vw, 1rem)', right: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
-      <div className={`absolute border-l-2 border-b-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} style={{ bottom: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
-      <div className={`absolute border-r-2 border-b-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} style={{ bottom: 'clamp(0.5rem, 1vw, 1rem)', right: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
+      {!isMobile && !isTablet && (<>
+        <div className={`absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
+        <div className={`absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
+        <div className={`absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
+        <div className={`absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
+      </>)}
 
       {/* 캐릭터 업그레이드 모달 (RPG 모드에서만) */}
       {!isFromRTS && selectedClass && (

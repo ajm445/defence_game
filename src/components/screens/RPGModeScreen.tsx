@@ -10,12 +10,11 @@ import { RPGUpgradePanel } from '../ui/RPGUpgradePanel';
 import { RPGScreenEffects } from '../ui/RPGScreenEffects';
 import { RPGDamageNumbers } from '../ui/RPGDamageNumbers';
 import { Notification } from '../ui/Notification';
+import { PauseButton } from '../ui/PauseButton';
+import { FullscreenButton } from '../ui/FullscreenButton';
+import { RPGTouchControls } from '../touch/RPGTouchControls';
 import { LevelUpNotification } from '../ui/LevelUpNotification';
 import { SecondEnhancementNotification } from '../ui/SecondEnhancementNotification';
-import { FullscreenButton } from '../ui/FullscreenButton';
-import { VirtualJoystick } from '../touch/VirtualJoystick';
-import { TouchSkillButtons } from '../touch/TouchSkillButtons';
-import { TouchUpgradeToggle } from '../touch/TouchUpgradeToggle';
 import { AdvancedHeroClass } from '../../types/rpg';
 import { useRPGStore, useRPGGameOver, useRPGResult, useSelectedClass, usePersonalKills, useSelectedDifficulty } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
@@ -37,6 +36,9 @@ export const RPGModeScreen: React.FC = () => {
   const result = useRPGResult();
   const resetGame = useRPGStore((state) => state.resetGame);
   const setScreen = useUIStore((state) => state.setScreen);
+  const isMobile = useUIStore((s) => s.isMobile);
+  const isTablet = useUIStore((s) => s.isTablet);
+  const isTouchDevice = useUIStore((s) => s.isTouchDevice);
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
   const clearLastGameResult = useProfileStore((state) => state.clearLastGameResult);
@@ -281,8 +283,6 @@ export const RPGModeScreen: React.FC = () => {
     setEnhancedClass(null);
   }, []);
 
-  const isTouchDevice = useUIStore((s) => s.isTouchDevice);
-
   return (
     <div className="relative w-full h-screen overflow-hidden bg-dark-900">
       {/* 메인 캔버스 */}
@@ -297,32 +297,41 @@ export const RPGModeScreen: React.FC = () => {
       {/* 상단 중앙 타이머 */}
       <RPGGameTimer />
 
-      {/* 풀스크린 버튼 (우상단) */}
-      <div className="absolute top-4 right-4 z-20 pointer-events-auto">
-        <FullscreenButton />
-      </div>
-
       {/* 상단 UI */}
-      <div className={`absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none`}>
+      <div className="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none">
         {/* 왼쪽: 영웅 정보 + 아군 정보 */}
         <div className="pointer-events-auto">
           <RPGHeroPanel />
           <RPGTeamPanel />
         </div>
 
-        {/* 오른쪽: 웨이브 정보 */}
-        <div className="pointer-events-auto">
+        {/* 오른쪽: 웨이브 정보 + 버튼 */}
+        <div className="pointer-events-auto flex items-start gap-2">
           <RPGWaveInfo />
+          <div className="flex flex-col gap-2">
+            <PauseButton onClick={() => {
+              if (!gameOver) {
+                const state = useRPGStore.getState();
+                if (state.isTutorial) {
+                  useRPGStore.getState().setPaused(!state.paused);
+                } else {
+                  useUIStore.getState().setScreen('paused');
+                  useRPGStore.getState().setPaused(true);
+                }
+              }
+            }} />
+            <FullscreenButton />
+          </div>
         </div>
       </div>
 
       {/* 알림 */}
       <Notification />
 
-      {/* 하단 UI - 데스크톱: 스킬바 + 업그레이드 패널 (한 줄로 통합) */}
+      {/* 하단 UI - 스킬바 + 업그레이드 패널 (데스크톱만) */}
       {!isTouchDevice && (
-        <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto`}>
-          <div className={`flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50`}>
+        <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto">
+          <div className="flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
             {/* 스킬바 */}
             <RPGSkillBar onUseSkill={handleUseSkill} />
 
@@ -335,28 +344,16 @@ export const RPGModeScreen: React.FC = () => {
         </div>
       )}
 
-      {/* 모바일 터치 컨트롤 */}
-      {isTouchDevice && (
-        <>
-          {/* 가상 조이스틱 (왼쪽 하단) */}
-          <VirtualJoystick />
-
-          {/* 스킬 버튼 + 업그레이드 토글 (오른쪽 하단) */}
-          <div className="absolute right-4 bottom-4 z-40 flex items-end safe-area-right safe-area-bottom pointer-events-auto" style={{ gap: 8 }}>
-            {/* 업그레이드 토글 (스킬 왼쪽) */}
-            {!gameOver && <TouchUpgradeToggle />}
-
-            {/* 스킬 버튼 */}
-            <TouchSkillButtons onUseSkill={handleUseSkill} requestSkill={requestSkill} />
-          </div>
-        </>
-      )}
-
-      {/* 조작법 안내 (터치 디바이스에서 숨김) */}
+      {/* 조작법 안내 (데스크톱만) */}
       {!isTouchDevice && (
         <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">
           <div>WASD: 이동 | 자동 공격 | Shift: 스킬 | R: 궁극기 | C: 사거리 | Space: 카메라</div>
         </div>
+      )}
+
+      {/* 터치 컨트롤 (터치 디바이스만) */}
+      {isTouchDevice && !gameOver && (
+        <RPGTouchControls requestSkill={requestSkill} onUseSkill={handleUseSkill} />
       )}
 
       {/* 게임 오버 모달 */}
@@ -486,7 +483,7 @@ export const RPGModeScreen: React.FC = () => {
               );
             })()}
 
-            <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.625rem)' }} />
+            <div style={{ height: '10px' }} />
 
             {/* 게스트 안내 */}
             {isGuest && (
@@ -497,7 +494,7 @@ export const RPGModeScreen: React.FC = () => {
               </div>
             )}
 
-            <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.625rem)' }} />
+            <div style={{ height: '10px' }} />
 
             {/* 버튼 */}
             {isMultiplayer ? (
@@ -590,8 +587,10 @@ export const RPGModeScreen: React.FC = () => {
       )}
 
       {/* 하단 코너 장식 */}
-      <div className="absolute bottom-0 left-0 border-l border-b border-yellow-500/20 pointer-events-none" style={{ width: 'clamp(3rem, 6vw, 6rem)', height: 'clamp(3rem, 6vw, 6rem)' }} />
-      <div className="absolute bottom-0 right-0 border-r border-b border-yellow-500/20 pointer-events-none" style={{ width: 'clamp(3rem, 6vw, 6rem)', height: 'clamp(3rem, 6vw, 6rem)' }} />
+      {!isMobile && !isTablet && (<>
+        <div className="absolute bottom-0 left-0 w-24 h-24 border-l border-b border-yellow-500/20 pointer-events-none" />
+        <div className="absolute bottom-0 right-0 w-24 h-24 border-r border-b border-yellow-500/20 pointer-events-none" />
+      </>)}
     </div>
   );
 };

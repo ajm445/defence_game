@@ -46,17 +46,18 @@ const UpgradeButton: React.FC<UpgradeButtonProps> = ({
         onClick={onUpgrade}
         disabled={isDisabled}
         className={`
-          relative w-14 h-14 rounded-lg border-2 overflow-hidden
+          relative rounded-lg border-2 overflow-hidden
           transition-all duration-200
           ${isDisabled
             ? 'bg-dark-700/80 border-dark-500 cursor-not-allowed'
             : `bg-gradient-to-br ${info.color} border-neon-cyan/50 hover:border-neon-cyan hover:scale-105 cursor-pointer`
           }
         `}
+        style={{ width: 'clamp(2.75rem, 4.5vw, 3.5rem)', height: 'clamp(2.75rem, 4.5vw, 3.5rem)' }}
       >
         {/* 아이콘 */}
         <div className="relative z-10 flex flex-col items-center justify-center h-full">
-          <span className="text-2xl">{info.icon}</span>
+          <span style={{ fontSize: 'clamp(1.25rem, 2vw, 1.5rem)' }}>{info.icon}</span>
           <span className="text-[10px] text-white/70 font-bold">{info.key}</span>
         </div>
 
@@ -77,7 +78,7 @@ const UpgradeButton: React.FC<UpgradeButtonProps> = ({
 
       {/* 툴팁 */}
       <div className="absolute bottom-full left-1/2 -translate-x-1/2 mb-2 opacity-0 group-hover:opacity-100 transition-opacity pointer-events-none z-50">
-        <div className="bg-dark-800/95 border border-dark-500 rounded-lg px-3 py-2 whitespace-nowrap text-center min-w-[100px]">
+        <div className="bg-dark-800/95 border border-dark-500 rounded-lg px-3 py-2 whitespace-nowrap text-center" style={{ minWidth: 'clamp(80px, 10vw, 100px)' }}>
           <div className="font-bold text-white">{info.label} 업그레이드</div>
           <div className="text-xs text-gray-400 mt-1">
             레벨: {currentLevel}{maxLevel !== null ? `/${maxLevel}` : ''}

@@ -10,6 +10,8 @@ import { FriendSidebar } from '../ui/FriendSidebar';
 export const LobbyScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
   const resetGameUI = useUIStore((state) => state.resetGameUI);
+  const isMobile = useUIStore((s) => s.isMobile);
+  const isTablet = useUIStore((s) => s.isTablet);
   const {
     connectionState,
     roomInfo,
@@ -363,37 +365,37 @@ export const LobbyScreen: React.FC = () => {
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex overflow-hidden">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 bg-neon-purple/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)' }} />
-        <div className="absolute bottom-1/4 right-1/4 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)', animationDelay: '1s' }} />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-neon-purple/5 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
       </div>
 
       {/* 왼쪽 상단 프로필 버튼 */}
-      <div className="absolute z-20" style={{ top: 'clamp(1rem, 3vw, 2rem)', left: 'clamp(1rem, 3vw, 2rem)' }}>
+      <div className="absolute top-8 left-8 z-20">
         <ProfileButton />
       </div>
 
       {/* 메인 컨텐츠 영역 */}
       <div className="flex-1 flex flex-col items-center justify-center">
-        <div className="relative z-10 flex flex-col items-center animate-fade-in" style={{ padding: '0 clamp(1rem, 4vw, 2rem)' }}>
+        <div className="relative z-10 flex flex-col items-center animate-fade-in">
           {/* 타이틀 */}
-          <h1 className="font-game text-neon-purple" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', marginBottom: 'clamp(1.5rem, 4vh, 3rem)' }}>
+          <h1 className="font-game text-3xl md:text-4xl text-neon-purple mb-12">
             1vs1 대전
           </h1>
 
-          <div style={{ height: 'clamp(1rem, 3vh, 1.875rem)' }} />
+          <div style={{ height: '30px' }} />
 
           {/* 연결 상태에 따른 UI */}
-          <div className="bg-gray-900/50 border border-gray-700 rounded-xl flex flex-col items-center justify-center" style={{ padding: 'clamp(1rem, 3vw, 2rem)', width: 'min(90vw, 28rem)', minHeight: 'clamp(12rem, 35vh, 18.75rem)' }}>
+          <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-8 min-w-[400px] min-h-[300px] flex flex-col items-center justify-center">
             {renderContent()}
           </div>
 
-          <div style={{ height: 'clamp(1rem, 3vh, 1.875rem)' }} />
+          <div style={{ height: '30px' }} />
 
           {/* 뒤로 가기 */}
           <button
             onClick={handleBack}
-            className="rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
-            style={{ marginTop: 'clamp(1rem, 3vh, 2rem)', padding: 'clamp(0.4rem, 1.2vh, 0.75rem) clamp(1rem, 3vw, 2rem)', fontSize: 'clamp(0.75rem, 2vw, 1rem)' }}
+            className="mt-8 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
           >
             뒤로 가기
           </button>
@@ -406,8 +408,10 @@ export const LobbyScreen: React.FC = () => {
       </div>
 
       {/* 코너 장식 */}
-      <div className="absolute border-l-2 border-t-2 border-neon-purple/30" style={{ top: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
-      <div className="absolute border-l-2 border-b-2 border-neon-purple/30" style={{ bottom: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
+      {!isMobile && !isTablet && (<>
+        <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-neon-purple/30" />
+        <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-neon-purple/30" />
+      </>)}
     </div>
   );
 };

@@ -116,7 +116,7 @@ export const FriendPanel: React.FC<FriendPanelProps> = ({ onInviteToRoom, curren
   }
 
   return (
-    <div className="fixed top-20 right-4 w-80 max-h-[calc(100vh-100px)] bg-gray-900/95 border border-gray-600 rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden">
+    <div className="fixed right-4 bg-gray-900/95 border border-gray-600 rounded-xl shadow-2xl z-50 flex flex-col overflow-hidden" style={{ top: 'clamp(3rem, 8vh, 5rem)', width: 'clamp(16rem, 25vw, 20rem)', maxHeight: 'calc(100vh - clamp(4rem, 10vh, 6.5rem))' }}>
       {/* 헤더 */}
       <div className="flex items-center justify-between px-4 py-3 border-b border-gray-700">
         <h3 className="text-white font-bold">친구</h3>

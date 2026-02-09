@@ -58,7 +58,7 @@ const ClassCard: React.FC<ClassCardProps> = ({ heroClass, isSelected, isLocked, 
       onClick={handleClick}
       disabled={isLocked}
       className={`
-        group relative w-52 h-80 max-[500px]:w-36 max-[500px]:h-56 rounded-xl overflow-hidden
+        group relative w-52 h-80 rounded-xl overflow-hidden
         transition-all duration-300
         ${isLocked
           ? 'cursor-not-allowed opacity-70'
@@ -149,6 +149,8 @@ const ClassCard: React.FC<ClassCardProps> = ({ heroClass, isSelected, isLocked, 
 
 export const RPGClassSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
+  const isMobile = useUIStore((s) => s.isMobile);
+  const isTablet = useUIStore((s) => s.isTablet);
   const selectClass = useRPGStore((state) => state.selectClass);
   const selectedClass = useRPGStore((state) => state.selectedClass);
   const profile = useAuthProfile();
@@ -281,26 +283,27 @@ export const RPGClassSelectScreen: React.FC = () => {
   }, [setScreen]);
 
   const heroClasses: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
+
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)' }} />
-        <div className="absolute bottom-1/4 right-1/4 bg-neon-purple/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)', animationDelay: '1s' }} />
+        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" />
+        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-purple/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in max-h-[90vh] overflow-y-auto" style={{ padding: '0 clamp(1rem, 4vw, 2rem)' }}>
+      <div className="relative z-10 flex flex-col items-center animate-fade-in">
         {/* 타이틀 */}
-        <h1 className="font-game text-yellow-400" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)' }}>
+        <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-4">
           직업 선택
         </h1>
-        <p className="text-gray-400" style={{ fontSize: 'clamp(0.75rem, 2vw, 1rem)', marginBottom: 'clamp(1rem, 3vh, 2rem)' }}>플레이할 영웅의 직업을 선택하세요</p>
+        <p className="text-gray-400 mb-8">플레이할 영웅의 직업을 선택하세요</p>
 
-        <div style={{ height: 'clamp(1rem, 3vh, 1.875rem)' }} />
+        <div style={{ height: '30px' }} />
 
         {/* 직업 카드들 */}
-        <div className="flex flex-wrap justify-center" style={{ gap: 'clamp(0.75rem, 2vw, 1.5rem)', marginBottom: 'clamp(1rem, 3vh, 2rem)' }}>
+        <div className="flex gap-6 mb-8">
           {heroClasses.map((heroClass) => {
             const unlockLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
             const isLocked = !isCharacterUnlocked(heroClass, playerLevel, isGuest);
@@ -317,15 +320,15 @@ export const RPGClassSelectScreen: React.FC = () => {
             );
           })}
         </div>
-
-        <div style={{ height: 'clamp(1rem, 3vh, 1.875rem)' }} />
+        
+        <div style={{ height: '30px' }} />
 
         {/* 버튼들 */}
         {!showJoinInput ? (
-          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 px-4">
+          <div className="flex gap-4">
             <button
               onClick={handleBack}
-              className="px-6 sm:px-8 py-2 sm:py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer text-sm sm:text-base"
+              className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
               style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
             >
               뒤로 가기
@@ -334,7 +337,7 @@ export const RPGClassSelectScreen: React.FC = () => {
               onClick={handleCreateRoom}
               disabled={!selectedClass || isCreatingRoom}
               className={`
-                px-6 sm:px-8 py-2 sm:py-3 rounded-lg font-bold transition-all cursor-pointer text-sm sm:text-base
+                px-8 py-3 rounded-lg font-bold transition-all cursor-pointer
                 ${selectedClass && !isCreatingRoom
                   ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-400 hover:to-orange-400'
                   : 'bg-gray-700 text-gray-500 cursor-not-allowed'
@@ -352,7 +355,7 @@ export const RPGClassSelectScreen: React.FC = () => {
               }}
               disabled={!selectedClass}
               className={`
-                px-6 sm:px-8 py-2 sm:py-3 rounded-lg font-bold transition-all cursor-pointer text-sm sm:text-base
+                px-8 py-3 rounded-lg font-bold transition-all cursor-pointer
                 ${selectedClass
                   ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400'
                   : 'bg-gray-700 text-gray-500 cursor-not-allowed'
@@ -406,7 +409,7 @@ export const RPGClassSelectScreen: React.FC = () => {
       {/* 우측 상단 프로필 버튼 */}
       <button
         onClick={handleProfile}
-        className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-800/80 hover:bg-gray-700/80 border border-gray-600 hover:border-yellow-500/50 rounded-lg transition-all cursor-pointer group"
+        className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2 bg-gray-800/80 hover:bg-gray-700/80 border border-gray-600 hover:border-yellow-500/50 rounded-lg transition-all cursor-pointer group"
       >
         <span className="text-xl">👤</span>
         <div className="text-left">
@@ -420,10 +423,12 @@ export const RPGClassSelectScreen: React.FC = () => {
       </button>
 
       {/* 코너 장식 */}
-      <div className="absolute border-l-2 border-t-2 border-yellow-500/30" style={{ top: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
-      <div className="absolute border-r-2 border-t-2 border-yellow-500/30" style={{ top: 'clamp(0.5rem, 1vw, 1rem)', right: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
-      <div className="absolute border-l-2 border-b-2 border-yellow-500/30" style={{ bottom: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
-      <div className="absolute border-r-2 border-b-2 border-yellow-500/30" style={{ bottom: 'clamp(0.5rem, 1vw, 1rem)', right: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
+      {!isMobile && !isTablet && (<>
+        <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-yellow-500/30" />
+        <div className="absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 border-yellow-500/30" />
+        <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-yellow-500/30" />
+        <div className="absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 border-yellow-500/30" />
+      </>)}
     </div>
   );
 };

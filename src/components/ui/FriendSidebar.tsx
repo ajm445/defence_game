@@ -9,7 +9,7 @@ import {
 } from '../../stores/useFriendStore';
 import { wsClient } from '../../services/WebSocketClient';
 import { soundManager } from '../../services/SoundManager';
-import { useUIStore } from '../../stores/useUIStore';
+
 import { useFriendMessages } from '../../hooks/useFriendMessages';
 import type { FriendInfo, OnlinePlayerInfo, FriendRequestInfo } from '@shared/types/friendNetwork';
 
@@ -26,13 +26,10 @@ const TAB_TITLES: Record<TabType, string> = {
 };
 
 export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) => {
-  const isMobile = useUIStore((s) => s.isMobile);
   const [activeTab, setActiveTab] = useState<TabType>('online');
   const [searchQuery, setSearchQuery] = useState('');
-  const [isCollapsed, setIsCollapsed] = useState(false);
-
-  // 모바일에서는 사이드바 숨기기
-  if (isMobile) return null;
+  // 좁은 뷰포트에서는 접힌 상태로 시작 (사이드바 w-64=256px + content min-w-900px 겹침 방지)
+  const [isCollapsed, setIsCollapsed] = useState(() => window.innerWidth < 1500);
 
   const friends = useFriends();
   const onlinePlayers = useOnlinePlayers();

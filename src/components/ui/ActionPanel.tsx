@@ -39,9 +39,10 @@ const ActionButton: React.FC<ActionButtonProps> = ({
     onClick={onClick}
     disabled={disabled && !active}
     data-tutorial-id={tutorialId}
+    style={{ minWidth: 'clamp(3rem, 5vw, 3.75rem)' }}
     className={`
       group relative p-2 rounded-lg flex flex-col items-center gap-1
-      transition-all duration-200 min-w-[60px]
+      transition-all duration-200
       ${active
         ? 'bg-neon-purple/20 ring-1 ring-neon-purple'
         : disabled

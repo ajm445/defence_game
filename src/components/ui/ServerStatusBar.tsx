@@ -64,7 +64,7 @@ export const ServerStatusBar: React.FC = () => {
   }
 
   return (
-    <div className="flex items-center gap-4 px-4 py-2 bg-gray-800/50 border border-gray-700 rounded-lg text-sm">
+    <div className="flex items-center bg-gray-800/50 border border-gray-700 rounded-lg text-sm" style={{ gap: 'clamp(0.5rem, 1.5vw, 1rem)', padding: 'clamp(0.375rem, 0.8vw, 0.5rem) clamp(0.5rem, 1.5vw, 1rem)' }}>
       {/* 온라인 플레이어 */}
       <div className="flex items-center gap-2">
         <span className="w-2 h-2 bg-green-400 rounded-full animate-pulse" />
