@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.22.11] - 2026-02-09 (WIP - 진행중)
+
+### UI/UX
+- **전체 UI 반응형 디자인 적용**: 다양한 해상도에서 요소들이 비율에 맞게 조절되도록 개선
+  - CSS `clamp()` 함수로 최소/최대 크기 제한하면서 뷰포트 비율 기반 크기 조절
+  - CSS `min()` 함수로 배경 효과 크기 제한
+  - 뷰포트 기반 단위(vw, vh) 사용하여 화면 크기에 따른 동적 조절
+
+### 적용된 스크린 컴포넌트
+- `LoginScreen.tsx`: 타이틀, 입력 필드, 버튼, 배경 효과, 코너 장식
+- `MainMenu.tsx`: 버튼, 배경 효과, 코너 장식
+- `GameOverScreen.tsx`: 아이콘, 타이틀, 버튼, 배경 효과
+- `LobbyScreen.tsx`: 컨테이너, 타이틀, 컨텐츠 박스
+- `GameTypeSelectScreen.tsx`: 모드 카드, 타이틀, 설명 텍스트
+- `ModeSelectScreen.tsx`: 모드 버튼, 타이틀, 코너 장식
+- `DifficultySelectScreen.tsx`: 난이도 버튼, 정보 패널, 코너 장식
+- `PauseScreen.tsx`: 배경 효과, 메인 컨텐츠
+- `CountdownScreen.tsx`: 카운트다운 숫자, 안내 텍스트
+- `ProfileScreen.tsx`: 상단 섹션, 코너 장식
+- `RPGClassSelectScreen.tsx`: 타이틀, 카드 레이아웃, 코너 장식
+- `RPGCoopLobbyScreen.tsx`: 타이틀, 컨테이너, 직업 선택 모달, 방 생성 모달, 비밀방 모달, 코너 장식
+- `RPGTutorialScreen.tsx`: 코너 장식
+- `RPGModeScreen.tsx`: 스페이서, 코너 장식
+- `GameScreen.tsx`: 코너 장식
+
+### 반응형 패턴
+- 배경 효과: `style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)' }}`
+- 글꼴 크기: `style={{ fontSize: 'clamp(min, vw-based, max)' }}`
+- 여백/간격: `style={{ margin/padding: 'clamp(min, vh-based, max)' }}`
+- 코너 장식: `style={{ width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }}`
+- 컨테이너: `style={{ width: 'min(95vw, 고정값)' }}`
+
+### Bug Fixes
+- `TouchSkillButtons.tsx`: 미사용 변수 경고 수정 (`slot` → `_slot`, `onUseSkill` → `_onUseSkill`)
+
+---
+
 ## [1.22.9] - 2026-02-08
 
 ### Server-Client Sync

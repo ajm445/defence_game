@@ -197,26 +197,26 @@ export const ProfileScreen: React.FC = () => {
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center overflow-y-auto">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl animate-pulse-slow" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/4 left-1/4 bg-yellow-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)' }} />
+        <div className="absolute bottom-1/4 right-1/4 bg-purple-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)', animationDelay: '1s' }} />
       </div>
 
-      <div className="h-2 sm:h-[30px]" />
+      <div style={{ height: 'clamp(0.5rem, 2vh, 1.875rem)' }} />
 
       {/* 메인 컨텐츠 */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-4xl px-4 py-4 sm:py-8">
+      <div className="relative z-10 flex flex-col items-center animate-fade-in w-full" style={{ maxWidth: 'min(56rem, 95vw)', padding: 'clamp(0.5rem, 2vw, 1rem) clamp(0.5rem, 2vw, 1rem) clamp(1rem, 3vh, 2rem)' }}>
         {/* 타이틀 */}
-        <h1 className={`font-game text-3xl md:text-4xl mb-6 ${isFromRTS ? 'text-neon-cyan' : 'text-yellow-400'}`}>
+        <h1 className={`font-game ${isFromRTS ? 'text-neon-cyan' : 'text-yellow-400'}`} style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', marginBottom: 'clamp(0.75rem, 2vh, 1.5rem)' }}>
           {isFromRTS ? '프로필' : '프로필'}
         </h1>
 
         {isFromRTS && (
-          <p className="text-gray-400 text-sm mb-4">
+          <p className="text-gray-400" style={{ fontSize: 'clamp(0.7rem, 1.8vw, 0.875rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)' }}>
             플레이어 레벨은 RTS와 RPG 모드에서 공유됩니다
           </p>
         )}
 
-        <div style={{ height: '15px' }} />
+        <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.9375rem)' }} />
 
         {/* 프로필 카드 */}
         <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6"
@@ -371,10 +371,10 @@ export const ProfileScreen: React.FC = () => {
       </div>
 
       {/* 코너 장식 */}
-      <div className={`absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
-      <div className={`absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
-      <div className={`absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
-      <div className={`absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} />
+      <div className={`absolute border-l-2 border-t-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} style={{ top: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
+      <div className={`absolute border-r-2 border-t-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} style={{ top: 'clamp(0.5rem, 1vw, 1rem)', right: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
+      <div className={`absolute border-l-2 border-b-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} style={{ bottom: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
+      <div className={`absolute border-r-2 border-b-2 ${isFromRTS ? 'border-neon-cyan/30' : 'border-yellow-500/30'}`} style={{ bottom: 'clamp(0.5rem, 1vw, 1rem)', right: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
 
       {/* 캐릭터 업그레이드 모달 (RPG 모드에서만) */}
       {!isFromRTS && selectedClass && (

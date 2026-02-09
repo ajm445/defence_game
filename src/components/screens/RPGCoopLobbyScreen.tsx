@@ -1236,12 +1236,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex overflow-hidden">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-green-500/5 rounded-full blur-3xl animate-pulse-slow" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/4 left-1/4 bg-green-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)' }} />
+        <div className="absolute bottom-1/4 right-1/4 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)', animationDelay: '1s' }} />
       </div>
 
       {/* 왼쪽 상단 프로필 버튼 */}
-      <div className={`absolute z-20 top-8 left-8`}>
+      <div className="absolute z-20" style={{ top: 'clamp(1rem, 3vw, 2rem)', left: 'clamp(1rem, 3vw, 2rem)' }}>
         <ProfileButton />
       </div>
 
@@ -1256,28 +1256,28 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         {/* 메인 컨텐츠 */}
         <div className="relative z-10 flex flex-col items-center animate-fade-in">
           {/* 타이틀 */}
-          <h1 className={`font-game text-green-400 text-3xl md:text-4xl mb-4`}>
+          <h1 className="font-game text-green-400" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)' }}>
             RPG 게임
           </h1>
 
-          <div style={{ height: '10px' }} />
+          <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.625rem)' }} />
 
-          <p className={`text-gray-400 mb-4`}>1~4명이 함께 보스를 물리치세요 (혼자 시작 가능)</p>
+          <p className="text-gray-400" style={{ fontSize: 'clamp(0.75rem, 2vw, 1rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)' }}>1~4명이 함께 보스를 물리치세요 (혼자 시작 가능)</p>
 
-          <div style={{ height: '30px' }} />
+          <div style={{ height: 'clamp(1rem, 3vh, 1.875rem)' }} />
 
           {/* 연결 상태에 따른 UI */}
-          <div className={`bg-gray-900/50 border border-gray-700 rounded-xl flex flex-col items-center justify-center px-10 py-10 w-auto min-w-[900px] min-h-[480px]`}>
+          <div className="bg-gray-900/50 border border-gray-700 rounded-xl flex flex-col items-center justify-center" style={{ padding: 'clamp(1.5rem, 3vw, 2.5rem)', width: 'min(95vw, 900px)', minHeight: 'clamp(300px, 60vh, 480px)' }}>
             {renderContent()}
           </div>
 
-          <div style={{ height: '30px' }} />
+          <div style={{ height: 'clamp(1rem, 3vh, 1.875rem)' }} />
 
           {/* 뒤로 가기 */}
           <button
             onClick={handleBack}
-            className={`px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer mt-8`}
-            style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+            className="rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+            style={{ padding: 'clamp(0.4rem, 1.2vh, 0.75rem) clamp(1rem, 3vw, 2rem)', fontSize: 'clamp(0.75rem, 2vw, 1rem)', marginTop: 'clamp(1rem, 3vh, 2rem)' }}
           >
             뒤로 가기
           </button>
@@ -1292,8 +1292,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       </div>
 
       {/* 코너 장식 */}
-      <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-green-500/30" />
-      <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-green-500/30" />
+      <div className="absolute border-l-2 border-t-2 border-green-500/30" style={{ top: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
+      <div className="absolute border-l-2 border-b-2 border-green-500/30" style={{ bottom: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
 
       {/* 직업 선택 모달 */}
       {showClassModal && (
@@ -1306,18 +1306,18 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             onClick={(e) => e.stopPropagation()}
           >
             {/* 타이틀 */}
-            <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-4">
+            <h1 className="font-game text-yellow-400" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)' }}>
               직업 선택
             </h1>
 
-            <div style={{ height: '10px' }} />
+            <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.625rem)' }} />
 
-            <p className="text-gray-400 mb-8">플레이할 영웅의 직업을 선택하세요</p>
+            <p className="text-gray-400" style={{ fontSize: 'clamp(0.75rem, 2vw, 1rem)', marginBottom: 'clamp(1rem, 3vh, 2rem)' }}>플레이할 영웅의 직업을 선택하세요</p>
 
-            <div style={{ height: '50px' }} />
+            <div style={{ height: 'clamp(1.5rem, 5vh, 3.125rem)' }} />
 
             {/* 직업 카드들 */}
-            <div className={`flex flex-wrap justify-center px-4 gap-6`}>
+            <div className="flex flex-wrap justify-center" style={{ padding: '0 clamp(0.5rem, 2vw, 1rem)', gap: 'clamp(0.75rem, 2vw, 1.5rem)' }}>
               {CLASS_LIST.map((heroClass) => {
                 const config = CLASS_CONFIGS[heroClass];
                 const isSelected = selectedClass === heroClass;
@@ -1361,13 +1361,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                     disabled={isLocked}
                     className={`
                       group relative rounded-xl overflow-hidden
-                      w-52 h-80
                       transition-all duration-300
                       ${isLocked
                         ? 'cursor-not-allowed opacity-70'
                         : 'hover:scale-105 active:scale-95 cursor-pointer'}
                       ${isSelected && !isLocked ? `${colors.glow} scale-105` : ''}
                     `}
+                    style={{ width: 'clamp(8rem, 18vw, 13rem)', height: 'clamp(12rem, 35vh, 20rem)' }}
                   >
                     {/* 배경 그라데이션 */}
                     <div className={`absolute inset-0 bg-gradient-to-b ${colors.gradient} ${!isLocked ? 'group-hover:opacity-150' : ''} transition-all duration-300`} />
@@ -1400,30 +1400,30 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                     )}
 
                     {/* 컨텐츠 */}
-                    <div className={`relative h-full flex flex-col items-center justify-center p-6 ${isLocked ? 'opacity-50' : ''}`}
-                    style={{ paddingLeft: '5px', paddingRight: '5px' }}>
+                    <div className={`relative h-full flex flex-col items-center justify-center ${isLocked ? 'opacity-50' : ''}`}
+                    style={{ padding: 'clamp(0.5rem, 1.5vw, 1.5rem)' }}>
                       {/* 이모지 아이콘 */}
-                      <div className={`text-7xl mb-4 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
+                      <div className={`transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`} style={{ fontSize: 'clamp(2.5rem, 7vw, 4.5rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)' }}>
                         {config.emoji}
                       </div>
 
-                      <div style={{ height: '30px' }} />
+                      <div style={{ height: 'clamp(0.5rem, 2vh, 1.875rem)' }} />
 
                       {/* 직업명 */}
-                      <h2 className="font-game text-2xl text-white mb-1">{config.name}</h2>
-                      <p className="text-gray-400 text-sm mb-4">{config.nameEn}</p>
+                      <h2 className="font-game text-white" style={{ fontSize: 'clamp(0.875rem, 2.5vw, 1.5rem)', marginBottom: 'clamp(0.125rem, 0.5vh, 0.25rem)' }}>{config.name}</h2>
+                      <p className="text-gray-400" style={{ fontSize: 'clamp(0.625rem, 1.5vw, 0.875rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)' }}>{config.nameEn}</p>
 
-                      <div style={{ height: '10px' }} />
+                      <div style={{ height: 'clamp(0.25rem, 1vh, 0.625rem)' }} />
 
                       {/* 설명 */}
-                      <p className="text-gray-300 text-xs text-center mb-4 px-2">
+                      <p className="text-gray-300 text-center" style={{ fontSize: 'clamp(0.5rem, 1.2vw, 0.75rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)', padding: '0 0.25rem' }}>
                         {config.description}
                       </p>
 
-                      <div style={{ height: '10px' }} />
+                      <div style={{ height: 'clamp(0.25rem, 1vh, 0.625rem)' }} />
 
                       {/* 스탯 미리보기 */}
-                      <div className="w-full space-y-1 text-xs">
+                      <div className="w-full space-y-1" style={{ fontSize: 'clamp(0.5rem, 1.2vw, 0.75rem)' }}>
                         <div className="flex justify-between px-2">
                           <span className="text-gray-400">HP</span>
                           <span className="text-white font-bold">{config.hp}</span>
@@ -1451,10 +1451,10 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               })}
             </div>
 
-            <div style={{ height: '50px' }} />
+            <div style={{ height: 'clamp(1.5rem, 5vh, 3.125rem)' }} />
 
             {/* 안내 텍스트 */}
-            <p className="text-gray-500 text-sm mt-8">카드를 클릭하여 직업을 선택하세요 (배경 클릭 시 닫기)</p>
+            <p className="text-gray-500" style={{ fontSize: 'clamp(0.75rem, 1.8vw, 0.875rem)', marginTop: 'clamp(1rem, 3vh, 2rem)' }}>카드를 클릭하여 직업을 선택하세요 (배경 클릭 시 닫기)</p>
           </div>
         </div>
       )}
@@ -1470,39 +1470,40 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           }}
         >
           <div
-            className={`animate-fade-in flex flex-col items-center bg-gray-900/90 border border-gray-700 rounded-2xl max-h-[90vh] overflow-y-auto p-8 w-auto`}
-            style={{ paddingLeft: '30px', paddingRight: '30px', paddingTop: '20px', paddingBottom: '25px' }}
+            className="animate-fade-in flex flex-col items-center bg-gray-900/90 border border-gray-700 rounded-2xl max-h-[90vh] overflow-y-auto"
+            style={{ padding: 'clamp(1rem, 3vw, 1.5rem) clamp(1.5rem, 4vw, 2rem)', width: 'min(95vw, 400px)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* 타이틀 */}
-            <h2 className="font-game text-2xl text-yellow-400 mb-6">
+            <h2 className="font-game text-yellow-400" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.5rem)', marginBottom: 'clamp(1rem, 3vh, 1.5rem)' }}>
               방 생성
             </h2>
 
-            <div style={{ height: '3px' }} />
+            <div style={{ height: 'clamp(0.125rem, 0.5vh, 0.1875rem)' }} />
 
             {/* 방 유형 선택 */}
-            <div className="mb-6">
-              <p className="text-gray-400 text-sm mb-3 text-center">방 유형</p>
+            <div style={{ marginBottom: 'clamp(1rem, 3vh, 1.5rem)' }}>
+              <p className="text-gray-400 text-center" style={{ fontSize: 'clamp(0.75rem, 1.8vw, 0.875rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 0.75rem)' }}>방 유형</p>
 
-              <div style={{ height: '10px' }} />
-              
-              <div className={`flex gap-4`}>
+              <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.625rem)' }} />
+
+              <div className="flex" style={{ gap: 'clamp(0.5rem, 2vw, 1rem)' }}>
                 {/* 공개방 */}
                 <button
                   onClick={() => {
                     soundManager.play('ui_click');
                     setSelectedRoomType('public');
                   }}
-                  className={`group flex flex-col items-center justify-center border-2 rounded-xl transition-all cursor-pointer w-36 h-28 ${
+                  className={`group flex flex-col items-center justify-center border-2 rounded-xl transition-all cursor-pointer ${
                     selectedRoomType === 'public'
                       ? 'border-green-400 bg-green-500/20'
                       : 'border-gray-600 hover:border-green-500/70 hover:bg-green-500/10'
                   }`}
+                  style={{ width: 'clamp(6rem, 15vw, 9rem)', height: 'clamp(5rem, 12vh, 7rem)' }}
                 >
-                  <span className="text-3xl mb-2">🌐</span>
-                  <span className={`font-bold ${selectedRoomType === 'public' ? 'text-green-400' : 'text-gray-400'}`}>공개방</span>
-                  <span className="text-gray-500 text-xs mt-1">누구나 참가</span>
+                  <span style={{ fontSize: 'clamp(1.5rem, 4vw, 1.875rem)', marginBottom: 'clamp(0.25rem, 1vh, 0.5rem)' }}>🌐</span>
+                  <span className={`font-bold ${selectedRoomType === 'public' ? 'text-green-400' : 'text-gray-400'}`} style={{ fontSize: 'clamp(0.75rem, 1.8vw, 1rem)' }}>공개방</span>
+                  <span className="text-gray-500" style={{ fontSize: 'clamp(0.625rem, 1.4vw, 0.75rem)', marginTop: 'clamp(0.125rem, 0.5vh, 0.25rem)' }}>누구나 참가</span>
                 </button>
 
                 {/* 비밀방 */}
@@ -1511,28 +1512,29 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                     soundManager.play('ui_click');
                     setSelectedRoomType('private');
                   }}
-                  className={`group flex flex-col items-center justify-center border-2 rounded-xl transition-all cursor-pointer w-36 h-28 ${
+                  className={`group flex flex-col items-center justify-center border-2 rounded-xl transition-all cursor-pointer ${
                     selectedRoomType === 'private'
                       ? 'border-neon-purple bg-neon-purple/20'
                       : 'border-gray-600 hover:border-neon-purple/70 hover:bg-neon-purple/10'
                   }`}
+                  style={{ width: 'clamp(6rem, 15vw, 9rem)', height: 'clamp(5rem, 12vh, 7rem)' }}
                 >
-                  <span className="text-3xl mb-2">🔒</span>
-                  <span className={`font-bold ${selectedRoomType === 'private' ? 'text-neon-purple' : 'text-gray-400'}`}>비밀방</span>
-                  <span className="text-gray-500 text-xs mt-1">코드로 참가</span>
+                  <span style={{ fontSize: 'clamp(1.5rem, 4vw, 1.875rem)', marginBottom: 'clamp(0.25rem, 1vh, 0.5rem)' }}>🔒</span>
+                  <span className={`font-bold ${selectedRoomType === 'private' ? 'text-neon-purple' : 'text-gray-400'}`} style={{ fontSize: 'clamp(0.75rem, 1.8vw, 1rem)' }}>비밀방</span>
+                  <span className="text-gray-500" style={{ fontSize: 'clamp(0.625rem, 1.4vw, 0.75rem)', marginTop: 'clamp(0.125rem, 0.5vh, 0.25rem)' }}>코드로 참가</span>
                 </button>
               </div>
             </div>
-            
-            <div style={{ height: '10px' }} />
+
+            <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.625rem)' }} />
 
             {/* 난이도 선택 */}
-            <div className="mb-6">
-              <p className="text-gray-400 text-sm mb-3 text-center">난이도</p>
+            <div style={{ marginBottom: 'clamp(1rem, 3vh, 1.5rem)' }}>
+              <p className="text-gray-400 text-center" style={{ fontSize: 'clamp(0.75rem, 1.8vw, 0.875rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 0.75rem)' }}>난이도</p>
 
-              <div style={{ height: '10px' }} />
+              <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.625rem)' }} />
 
-              <div className={`flex flex-wrap justify-center gap-3`}>
+              <div className="flex flex-wrap justify-center" style={{ gap: 'clamp(0.5rem, 1.5vw, 0.75rem)' }}>
                 {(Object.keys(DIFFICULTY_CONFIGS) as RPGDifficulty[]).map((diff) => {
                   const config = DIFFICULTY_CONFIGS[diff];
                   const colors = difficultyColors[diff];
@@ -1544,48 +1546,49 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                         soundManager.play('ui_click');
                         setSelectedModalDifficulty(diff);
                       }}
-                      className={`flex flex-col items-center justify-center w-20 h-20 border-2 rounded-xl transition-all cursor-pointer ${
+                      className={`flex flex-col items-center justify-center border-2 rounded-xl transition-all cursor-pointer ${
                         isSelected
                           ? `${colors.border} ${colors.bg}`
                           : `border-gray-600 hover:${colors.border} ${colors.hoverBg}`
                       }`}
+                      style={{ width: 'clamp(4rem, 10vw, 5rem)', height: 'clamp(4rem, 10vw, 5rem)' }}
                     >
-                      <span className={`font-bold text-sm ${isSelected ? colors.text : 'text-gray-400'}`}>
+                      <span className={`font-bold ${isSelected ? colors.text : 'text-gray-400'}`} style={{ fontSize: 'clamp(0.625rem, 1.5vw, 0.875rem)' }}>
                         {config.name}
                       </span>
-                      <span className="text-gray-500 text-xs mt-0.5">{config.nameEn}</span>
-                      <span className={`text-xs mt-0.5 ${isSelected ? colors.text : 'text-gray-500'}`} style={{ opacity: 0.7 }}>
+                      <span className="text-gray-500" style={{ fontSize: 'clamp(0.5rem, 1.2vw, 0.75rem)', marginTop: '0.125rem' }}>{config.nameEn}</span>
+                      <span className={`${isSelected ? colors.text : 'text-gray-500'}`} style={{ fontSize: 'clamp(0.5rem, 1.2vw, 0.75rem)', marginTop: '0.125rem', opacity: 0.7 }}>
                         Lv.{config.recommendedLevel}+
                       </span>
                     </button>
                   );
                 })}
               </div>
-              <div style={{ height: '10px' }} />
+              <div style={{ height: 'clamp(0.5rem, 1.5vh, 0.625rem)' }} />
             </div>
 
             {/* 버튼들 */}
-            <div className="flex gap-4 mt-4">
+            <div className="flex" style={{ gap: 'clamp(0.5rem, 2vw, 1rem)', marginTop: 'clamp(0.5rem, 2vh, 1rem)' }}>
               <button
                 onClick={() => {
                   setShowCreateRoomModal(false);
                   setSelectedRoomType(null);
                   setSelectedModalDifficulty(null);
                 }}
-                className="px-6 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
-                style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+                className="rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+                style={{ padding: 'clamp(0.3rem, 1vh, 0.5rem) clamp(0.75rem, 2vw, 1rem)', fontSize: 'clamp(0.75rem, 1.8vw, 0.875rem)' }}
               >
                 취소
               </button>
               <button
                 onClick={handleCreateRoom}
                 disabled={selectedRoomType === null || selectedModalDifficulty === null || isConnecting}
-                className={`px-6 py-2 rounded-lg font-bold transition-all cursor-pointer ${
+                className={`rounded-lg font-bold transition-all cursor-pointer ${
                   selectedRoomType !== null && selectedModalDifficulty !== null && !isConnecting
                     ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-400 hover:to-orange-400'
                     : 'bg-gray-700 text-gray-500 cursor-not-allowed'
                 }`}
-                style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
+                style={{ padding: 'clamp(0.3rem, 1vh, 0.5rem) clamp(0.75rem, 2vw, 1rem)', fontSize: 'clamp(0.75rem, 1.8vw, 0.875rem)' }}
               >
                 {isConnecting ? '생성 중...' : '생성하기'}
               </button>
@@ -1605,25 +1608,26 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           }}
         >
           <div
-            className={`animate-fade-in flex flex-col items-center bg-gray-900/90 border border-yellow-500/50 rounded-2xl max-w-[95vw] p-8 w-auto max-w-[400px]`}
+            className="animate-fade-in flex flex-col items-center bg-gray-900/90 border border-yellow-500/50 rounded-2xl"
+            style={{ padding: 'clamp(1.5rem, 4vw, 2rem)', width: 'min(95vw, 400px)' }}
             onClick={(e) => e.stopPropagation()}
           >
             {/* 타이틀 */}
-            <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">🔒</span>
-              <h2 className="font-game text-2xl text-yellow-400">비밀방</h2>
+            <div className="flex items-center" style={{ gap: 'clamp(0.5rem, 1.5vw, 0.75rem)', marginBottom: 'clamp(0.5rem, 2vh, 1rem)' }}>
+              <span style={{ fontSize: 'clamp(1.5rem, 4vw, 1.875rem)' }}>🔒</span>
+              <h2 className="font-game text-yellow-400" style={{ fontSize: 'clamp(1.25rem, 3vw, 1.5rem)' }}>비밀방</h2>
             </div>
 
             {/* 방 정보 */}
-            <div className="flex items-center gap-3 mb-6 px-4 py-3 bg-gray-800/50 rounded-lg">
-              <span className="text-2xl">{CLASS_CONFIGS[privateRoomToJoin.hostHeroClass].emoji}</span>
+            <div className="flex items-center bg-gray-800/50 rounded-lg" style={{ gap: 'clamp(0.5rem, 1.5vw, 0.75rem)', marginBottom: 'clamp(1rem, 3vh, 1.5rem)', padding: 'clamp(0.5rem, 1.5vw, 0.75rem) clamp(0.75rem, 2vw, 1rem)' }}>
+              <span style={{ fontSize: 'clamp(1.25rem, 3vw, 1.5rem)' }}>{CLASS_CONFIGS[privateRoomToJoin.hostHeroClass].emoji}</span>
               <div>
-                <p className="text-white font-bold">{privateRoomToJoin.hostName}</p>
-                <p className="text-gray-500 text-sm">{privateRoomToJoin.playerCount}/{privateRoomToJoin.maxPlayers}명</p>
+                <p className="text-white font-bold" style={{ fontSize: 'clamp(0.875rem, 2vw, 1rem)' }}>{privateRoomToJoin.hostName}</p>
+                <p className="text-gray-500" style={{ fontSize: 'clamp(0.75rem, 1.6vw, 0.875rem)' }}>{privateRoomToJoin.playerCount}/{privateRoomToJoin.maxPlayers}명</p>
               </div>
             </div>
 
-            <p className="text-gray-400 mb-4">초대 코드를 입력하세요</p>
+            <p className="text-gray-400" style={{ fontSize: 'clamp(0.75rem, 1.8vw, 0.875rem)', marginBottom: 'clamp(0.5rem, 2vh, 1rem)' }}>초대 코드를 입력하세요</p>
 
             {/* 코드 입력 */}
             <input
@@ -1632,29 +1636,32 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               onChange={(e) => setPrivateRoomCode(e.target.value.toUpperCase().replace(/[^A-Z0-9]/g, ''))}
               placeholder="6자리 코드"
               maxLength={6}
-              className="w-48 px-4 py-4 bg-gray-800/50 border border-yellow-500/50 rounded-lg text-white text-center text-2xl tracking-[0.3em] font-mono focus:border-yellow-400 focus:outline-none uppercase"
+              className="bg-gray-800/50 border border-yellow-500/50 rounded-lg text-white text-center tracking-[0.3em] font-mono focus:border-yellow-400 focus:outline-none uppercase"
+              style={{ width: 'clamp(10rem, 30vw, 12rem)', padding: 'clamp(0.75rem, 2vh, 1rem)', fontSize: 'clamp(1.25rem, 3vw, 1.5rem)' }}
               onKeyDown={(e) => e.key === 'Enter' && handleJoinPrivateRoom()}
               autoFocus
             />
 
-            {error && <p className="text-red-400 text-sm mt-3">{error}</p>}
+            {error && <p className="text-red-400" style={{ fontSize: 'clamp(0.75rem, 1.6vw, 0.875rem)', marginTop: 'clamp(0.5rem, 1.5vh, 0.75rem)' }}>{error}</p>}
 
             {/* 버튼들 */}
-            <div className="flex gap-4 mt-6">
+            <div className="flex" style={{ gap: 'clamp(0.5rem, 2vw, 1rem)', marginTop: 'clamp(1rem, 3vh, 1.5rem)' }}>
               <button
                 onClick={() => {
                   setPrivateRoomToJoin(null);
                   setPrivateRoomCode('');
                   setError(null);
                 }}
-                className="px-6 py-2 text-gray-400 hover:text-white transition-colors cursor-pointer"
+                className="text-gray-400 hover:text-white transition-colors cursor-pointer"
+                style={{ padding: 'clamp(0.3rem, 1vh, 0.5rem) clamp(1rem, 2.5vw, 1.5rem)', fontSize: 'clamp(0.75rem, 1.8vw, 0.875rem)' }}
               >
                 취소
               </button>
               <button
                 onClick={handleJoinPrivateRoom}
                 disabled={privateRoomCode.length !== 6 || isConnecting}
-                className="px-6 py-2 rounded-lg bg-yellow-500/20 border border-yellow-500 text-yellow-400 hover:bg-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                className="rounded-lg bg-yellow-500/20 border border-yellow-500 text-yellow-400 hover:bg-yellow-500/30 disabled:opacity-50 disabled:cursor-not-allowed transition-all cursor-pointer"
+                style={{ padding: 'clamp(0.3rem, 1vh, 0.5rem) clamp(1rem, 2.5vw, 1.5rem)', fontSize: 'clamp(0.75rem, 1.8vw, 0.875rem)' }}
               >
                 {isConnecting ? '연결 중...' : '참가'}
               </button>

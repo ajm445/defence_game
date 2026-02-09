@@ -285,22 +285,22 @@ export const RPGClassSelectScreen: React.FC = () => {
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
-        <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" />
-        <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-neon-purple/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
+        <div className="absolute top-1/4 left-1/4 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)' }} />
+        <div className="absolute bottom-1/4 right-1/4 bg-neon-purple/5 rounded-full blur-3xl animate-pulse-slow" style={{ width: 'min(24rem, 50vw)', height: 'min(24rem, 50vw)', animationDelay: '1s' }} />
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in max-h-[90vh] overflow-y-auto">
+      <div className="relative z-10 flex flex-col items-center animate-fade-in max-h-[90vh] overflow-y-auto" style={{ padding: '0 clamp(1rem, 4vw, 2rem)' }}>
         {/* 타이틀 */}
-        <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-4">
+        <h1 className="font-game text-yellow-400" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)', marginBottom: 'clamp(0.5rem, 1.5vh, 1rem)' }}>
           직업 선택
         </h1>
-        <p className="text-gray-400 mb-8">플레이할 영웅의 직업을 선택하세요</p>
+        <p className="text-gray-400" style={{ fontSize: 'clamp(0.75rem, 2vw, 1rem)', marginBottom: 'clamp(1rem, 3vh, 2rem)' }}>플레이할 영웅의 직업을 선택하세요</p>
 
-        <div style={{ height: '30px' }} />
+        <div style={{ height: 'clamp(1rem, 3vh, 1.875rem)' }} />
 
-        {/* 직업 카드들 - 폰: 2×2 그리드 */}
-        <div className="flex gap-6 mb-8">
+        {/* 직업 카드들 */}
+        <div className="flex flex-wrap justify-center" style={{ gap: 'clamp(0.75rem, 2vw, 1.5rem)', marginBottom: 'clamp(1rem, 3vh, 2rem)' }}>
           {heroClasses.map((heroClass) => {
             const unlockLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
             const isLocked = !isCharacterUnlocked(heroClass, playerLevel, isGuest);
@@ -317,8 +317,8 @@ export const RPGClassSelectScreen: React.FC = () => {
             );
           })}
         </div>
-        
-        <div style={{ height: '30px' }} />
+
+        <div style={{ height: 'clamp(1rem, 3vh, 1.875rem)' }} />
 
         {/* 버튼들 */}
         {!showJoinInput ? (
@@ -420,10 +420,10 @@ export const RPGClassSelectScreen: React.FC = () => {
       </button>
 
       {/* 코너 장식 */}
-      <div className="absolute top-4 left-4 w-16 h-16 border-l-2 border-t-2 border-yellow-500/30" />
-      <div className="absolute top-4 right-4 w-16 h-16 border-r-2 border-t-2 border-yellow-500/30" />
-      <div className="absolute bottom-4 left-4 w-16 h-16 border-l-2 border-b-2 border-yellow-500/30" />
-      <div className="absolute bottom-4 right-4 w-16 h-16 border-r-2 border-b-2 border-yellow-500/30" />
+      <div className="absolute border-l-2 border-t-2 border-yellow-500/30" style={{ top: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
+      <div className="absolute border-r-2 border-t-2 border-yellow-500/30" style={{ top: 'clamp(0.5rem, 1vw, 1rem)', right: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
+      <div className="absolute border-l-2 border-b-2 border-yellow-500/30" style={{ bottom: 'clamp(0.5rem, 1vw, 1rem)', left: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
+      <div className="absolute border-r-2 border-b-2 border-yellow-500/30" style={{ bottom: 'clamp(0.5rem, 1vw, 1rem)', right: 'clamp(0.5rem, 1vw, 1rem)', width: 'clamp(2rem, 4vw, 4rem)', height: 'clamp(2rem, 4vw, 4rem)' }} />
     </div>
   );
 };

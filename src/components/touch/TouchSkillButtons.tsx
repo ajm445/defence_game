@@ -17,7 +17,7 @@ interface TouchSkillButtonProps {
 }
 
 const TouchSkillButton: React.FC<TouchSkillButtonProps> = ({
-  slot, icon, label, cooldown, maxCooldown, active, disabled, onUse,
+  slot: _slot, icon, label, cooldown, maxCooldown, active, disabled, onUse,
 }) => {
   const uiScale = useUIStore((s) => s.uiScale);
   const size = Math.round(56 * uiScale);
@@ -154,7 +154,7 @@ interface TouchSkillButtonsProps {
   requestSkill: (skillType: SkillType) => boolean;
 }
 
-export const TouchSkillButtons: React.FC<TouchSkillButtonsProps> = ({ onUseSkill, requestSkill }) => {
+export const TouchSkillButtons: React.FC<TouchSkillButtonsProps> = ({ onUseSkill: _onUseSkill, requestSkill }) => {
   const hero = useHero();
   const uiScale = useUIStore((s) => s.uiScale);
 

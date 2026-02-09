@@ -468,8 +468,8 @@ export const RPGTutorialScreen: React.FC = () => {
       )}
 
       {/* 하단 코너 장식 */}
-      <div className="absolute bottom-0 left-0 w-24 h-24 border-l border-b border-green-500/20 pointer-events-none" />
-      <div className="absolute bottom-0 right-0 w-24 h-24 border-r border-b border-green-500/20 pointer-events-none" />
+      <div className="absolute bottom-0 left-0 border-l border-b border-green-500/20 pointer-events-none" style={{ width: 'clamp(3rem, 6vw, 6rem)', height: 'clamp(3rem, 6vw, 6rem)' }} />
+      <div className="absolute bottom-0 right-0 border-r border-b border-green-500/20 pointer-events-none" style={{ width: 'clamp(3rem, 6vw, 6rem)', height: 'clamp(3rem, 6vw, 6rem)' }} />
     </div>
   );
 };
