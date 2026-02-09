@@ -34,13 +34,13 @@ export const CountdownScreen: React.FC = () => {
             key={count}
             className="animate-bounce-in"
           >
-            <span className="font-game text-[200px] font-bold text-transparent bg-clip-text bg-gradient-to-b from-neon-cyan to-neon-purple drop-shadow-2xl">
+            <span className="font-game text-[100px] sm:text-[150px] md:text-[200px] font-bold text-transparent bg-clip-text bg-gradient-to-b from-neon-cyan to-neon-purple drop-shadow-2xl">
               {count}
             </span>
           </div>
         ) : (
           <div className="animate-bounce-in">
-            <span className="font-game text-8xl font-bold text-neon-cyan">
+            <span className="font-game text-5xl sm:text-6xl md:text-8xl font-bold text-neon-cyan">
               START!
             </span>
           </div>

@@ -34,6 +34,14 @@ interface UIState {
   edgeScrollEnabled: boolean; // 마우스 가장자리 스크롤 활성화 여부
   soundVolume: number; // 0.0 ~ 1.0
   soundMuted: boolean;
+  // 모바일/태블릿 지원
+  isMobile: boolean;
+  isTablet: boolean;
+  isTouchDevice: boolean;
+  isPortrait: boolean;
+  uiScale: number;
+  isFullscreen: boolean;
+  mobileControlMode: 'skills' | 'upgrades';
 }
 
 interface UIActions {
@@ -50,6 +58,10 @@ interface UIActions {
   setSoundVolume: (volume: number) => void;
   setSoundMuted: (muted: boolean) => void;
   toggleSoundMuted: () => void;
+  // 모바일/태블릿 지원
+  setDeviceInfo: (info: { isMobile: boolean; isTablet: boolean; isTouchDevice: boolean; isPortrait: boolean; uiScale: number }) => void;
+  setFullscreen: (isFullscreen: boolean) => void;
+  setMobileControlMode: (mode: 'skills' | 'upgrades') => void;
 }
 
 interface UIStore extends UIState, UIActions {}
@@ -65,6 +77,14 @@ export const useUIStore = create<UIStore>((set) => ({
   edgeScrollEnabled: false, // 기본값: 비활성화
   soundVolume: initialSoundSettings.volume, // localStorage에서 로드
   soundMuted: initialSoundSettings.muted, // localStorage에서 로드
+  // 모바일/태블릿 지원
+  isMobile: false,
+  isTablet: false,
+  isTouchDevice: false,
+  isPortrait: false,
+  uiScale: 1.0,
+  isFullscreen: false,
+  mobileControlMode: 'skills',
 
   setScreen: (screen) => set((state) => ({
     currentScreen: screen,
@@ -105,4 +125,9 @@ export const useUIStore = create<UIStore>((set) => ({
   setSoundMuted: (muted) => set({ soundMuted: muted }),
 
   toggleSoundMuted: () => set((state) => ({ soundMuted: !state.soundMuted })),
+
+  // 모바일/태블릿 지원
+  setDeviceInfo: (info) => set(info),
+  setFullscreen: (isFullscreen) => set({ isFullscreen }),
+  setMobileControlMode: (mode) => set({ mobileControlMode: mode }),
 }));

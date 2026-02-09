@@ -1,11 +1,13 @@
 import React from 'react';
 import { useRPGEnemies, useNexus, useEnemyBases, useRPGGamePhase } from '../../stores/useRPGStore';
+import { useUIStore } from '../../stores/useUIStore';
 
 export const RPGWaveInfo: React.FC = () => {
   const enemies = useRPGEnemies();
   const nexus = useNexus();
   const enemyBases = useEnemyBases();
   const gamePhase = useRPGGamePhase();
+  const isMobile = useUIStore((s) => s.isMobile);
 
   const aliveEnemies = enemies.filter((e) => e.hp > 0).length;
   const bossEnemies = enemies.filter((e) => e.hp > 0 && e.type === 'boss').length;
@@ -18,7 +20,7 @@ export const RPGWaveInfo: React.FC = () => {
 
   return (
     <div className={`
-      bg-dark-800/90 backdrop-blur-sm rounded-xl p-4 border min-w-[200px]
+      bg-dark-800/90 backdrop-blur-sm rounded-xl ${isMobile ? 'p-2' : 'p-4'} border ${isMobile ? 'min-w-[140px]' : 'min-w-[200px]'}
       ${isBossPhase ? 'border-red-500/50' : 'border-dark-600/50'}
     `}>
       {/* 게임 상태 */}

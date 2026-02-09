@@ -17,45 +17,83 @@ const keyState = {
 };
 
 interface UseRPGInputReturn {
-  handleMouseDown: (e: React.MouseEvent) => void;
-  handleMouseMove: (e: React.MouseEvent) => void;
-  handleMouseUp: (e: React.MouseEvent) => void;
+  handlePointerDown: (e: React.PointerEvent) => void;
+  handlePointerMove: (e: React.PointerEvent) => void;
+  handlePointerUp: (e: React.PointerEvent) => void;
   handleContextMenu: (e: React.MouseEvent) => void;
 }
 
 export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): UseRPGInputReturn {
   const isDraggingRef = useRef(false);
   const lastMouseRef = useRef({ x: 0, y: 0 });
+  // 터치 멀티포인터 추적 (핀치 줌용)
+  const pointersRef = useRef<Map<number, { x: number; y: number }>>(new Map());
+  const lastPinchDistRef = useRef(0);
 
-  // 마우스 클릭 처리 (카메라 드래그만)
-  const handleMouseDown = useCallback(
-    (e: React.MouseEvent) => {
+  const handlePointerDown = useCallback(
+    (e: React.PointerEvent) => {
       const state = useRPGStore.getState();
       const canvas = canvasRef.current;
       if (!canvas || !state.hero) return;
 
-      if (e.button === 1) {
+      // 포인터 추적
+      pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+
+      if (e.pointerType === 'touch') {
+        // 터치: 두 손가락 핀치 줌 시작
+        if (pointersRef.current.size === 2) {
+          const pts = Array.from(pointersRef.current.values());
+          lastPinchDistRef.current = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        }
+        // 터치: 한 손가락 카메라 팬 (사망 시에만 활성화)
+        if (pointersRef.current.size === 1 && state.hero.hp <= 0) {
+          isDraggingRef.current = true;
+          lastMouseRef.current = { x: e.clientX, y: e.clientY };
+          if (state.camera.followHero) {
+            useRPGStore.getState().toggleFollowHero();
+          }
+        }
+      } else if (e.button === 1) {
         // 중버튼: 카메라 드래그 시작
         isDraggingRef.current = true;
         lastMouseRef.current = { x: e.clientX, y: e.clientY };
-        // 카메라 추적 해제
         if (state.camera.followHero) {
           useRPGStore.getState().toggleFollowHero();
         }
       }
-      // 우클릭 이동 제거됨 - WASD로 이동
     },
     [canvasRef]
   );
 
-  const handleMouseMove = useCallback(
-    (e: React.MouseEvent) => {
+  const handlePointerMove = useCallback(
+    (e: React.PointerEvent) => {
       const canvas = canvasRef.current;
       if (!canvas) return;
+
+      // 포인터 위치 업데이트
+      if (pointersRef.current.has(e.pointerId)) {
+        pointersRef.current.set(e.pointerId, { x: e.clientX, y: e.clientY });
+      }
 
       const state = useRPGStore.getState();
       const rect = canvas.getBoundingClientRect();
       const zoom = state.camera.zoom;
+
+      // 두 손가락 핀치 줌
+      if (e.pointerType === 'touch' && pointersRef.current.size === 2) {
+        const pts = Array.from(pointersRef.current.values());
+        const dist = Math.hypot(pts[1].x - pts[0].x, pts[1].y - pts[0].y);
+        if (lastPinchDistRef.current > 0) {
+          const scale = dist / lastPinchDistRef.current;
+          const newZoom = Math.max(
+            RPG_CONFIG.CAMERA.MIN_ZOOM,
+            Math.min(RPG_CONFIG.CAMERA.MAX_ZOOM, zoom * scale)
+          );
+          useRPGStore.getState().setZoom(newZoom);
+        }
+        lastPinchDistRef.current = dist;
+        return;
+      }
 
       // 화면 좌표를 월드 좌표로 변환
       const screenX = (e.clientX - rect.left) / zoom;
@@ -83,8 +121,12 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
     [canvasRef]
   );
 
-  const handleMouseUp = useCallback((e: React.MouseEvent) => {
-    if (e.button === 1) {
+  const handlePointerUp = useCallback((e: React.PointerEvent) => {
+    pointersRef.current.delete(e.pointerId);
+    if (pointersRef.current.size < 2) {
+      lastPinchDistRef.current = 0;
+    }
+    if (e.button === 1 || e.pointerType === 'touch') {
       isDraggingRef.current = false;
     }
   }, []);
@@ -122,9 +164,9 @@ export function useRPGInput(canvasRef: RefObject<HTMLCanvasElement | null>): Use
   }, [canvasRef]);
 
   return {
-    handleMouseDown,
-    handleMouseMove,
-    handleMouseUp,
+    handlePointerDown,
+    handlePointerMove,
+    handlePointerUp,
     handleContextMenu,
   };
 }

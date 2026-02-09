@@ -383,7 +383,7 @@ export const LobbyScreen: React.FC = () => {
           <div style={{ height: '30px' }} />
 
           {/* 연결 상태에 따른 UI */}
-          <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-8 min-w-[400px] min-h-[300px] flex flex-col items-center justify-center">
+          <div className="bg-gray-900/50 border border-gray-700 rounded-xl p-4 sm:p-8 w-[90vw] sm:w-auto sm:min-w-[400px] min-h-[250px] sm:min-h-[300px] flex flex-col items-center justify-center">
             {renderContent()}
           </div>
 

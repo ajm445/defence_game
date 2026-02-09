@@ -13,7 +13,8 @@ import { SelectionInfo } from '../ui/SelectionInfo';
 import { Notification } from '../ui/Notification';
 import { MassSpawnAlert } from '../ui/MassSpawnAlert';
 import { TutorialOverlay } from '../ui/TutorialOverlay';
-import { CONFIG } from '../../constants/config';
+import { FullscreenButton } from '../ui/FullscreenButton';
+import { CONFIG, getResponsiveConfig } from '../../constants/config';
 import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
@@ -67,6 +68,10 @@ export const GameScreen: React.FC = () => {
     }
   }, [gameMode]);
 
+  const uiScale = useUIStore((s) => s.uiScale);
+  const isMobile = useUIStore((s) => s.isMobile);
+  const responsiveConfig = getResponsiveConfig(uiScale);
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-dark-900">
       {/* 메인 캔버스 */}
@@ -76,6 +81,11 @@ export const GameScreen: React.FC = () => {
       <ResourceBar />
       <GameTimer />
       <HPStatusPanel />
+
+      {/* 풀스크린 버튼 */}
+      <div className="absolute top-4 right-4 z-20 pointer-events-auto">
+        <FullscreenButton />
+      </div>
 
       {/* 선택 정보 */}
       <SelectionInfo />
@@ -94,8 +104,8 @@ export const GameScreen: React.FC = () => {
         className="absolute bottom-0 left-0 flex items-start p-3 gap-3
                    glass-dark border-t border-dark-500/50"
         style={{
-          right: CONFIG.MINIMAP_WIDTH + 50,
-          height: CONFIG.UI_PANEL_HEIGHT,
+          right: responsiveConfig.MINIMAP_WIDTH + 50,
+          height: responsiveConfig.UI_PANEL_HEIGHT,
         }}
       >
         {/* 유닛 섹션 */}
@@ -112,8 +122,12 @@ export const GameScreen: React.FC = () => {
       <Minimap />
 
       {/* 하단 코너 장식 */}
-      <div className="absolute bottom-0 left-0 w-24 h-24 border-l border-b border-neon-cyan/20 pointer-events-none" />
-      <div className="absolute bottom-0 right-[260px] w-24 h-24 border-r border-b border-neon-cyan/20 pointer-events-none" />
+      {!isMobile && (
+        <>
+          <div className="absolute bottom-0 left-0 w-24 h-24 border-l border-b border-neon-cyan/20 pointer-events-none" />
+          <div className="absolute bottom-0 right-[260px] w-24 h-24 border-r border-b border-neon-cyan/20 pointer-events-none" />
+        </>
+      )}
     </div>
   );
 };

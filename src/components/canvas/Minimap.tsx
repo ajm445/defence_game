@@ -3,7 +3,7 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { drawMinimap, drawMinimapMultiplayer } from '../../renderer';
-import { CONFIG } from '../../constants/config';
+import { CONFIG, getResponsiveConfig } from '../../constants/config';
 import { SoundControl } from '../ui/SoundControl';
 
 export const Minimap: React.FC = () => {
@@ -13,13 +13,17 @@ export const Minimap: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);
   const edgeScrollEnabled = useUIStore((state) => state.edgeScrollEnabled);
   const toggleEdgeScroll = useUIStore((state) => state.toggleEdgeScroll);
+  const uiScale = useUIStore((state) => state.uiScale);
+  const responsiveConfig = getResponsiveConfig(uiScale);
+  const minimapWidth = responsiveConfig.MINIMAP_WIDTH;
+  const minimapHeight = responsiveConfig.MINIMAP_HEIGHT;
 
   useEffect(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    canvas.width = CONFIG.MINIMAP_WIDTH;
-    canvas.height = CONFIG.MINIMAP_HEIGHT;
+    canvas.width = minimapWidth;
+    canvas.height = minimapHeight;
 
     const ctx = canvas.getContext('2d');
     if (!ctx) return;
@@ -29,7 +33,7 @@ export const Minimap: React.FC = () => {
       const zoom = state.camera.zoom;
       // 줌 비율을 적용한 실제 보이는 영역 크기
       const viewportWidth = window.innerWidth / zoom;
-      const viewportHeight = (window.innerHeight - CONFIG.UI_PANEL_HEIGHT) / zoom;
+      const viewportHeight = (window.innerHeight - responsiveConfig.UI_PANEL_HEIGHT) / zoom;
 
       if (state.gameMode === 'multiplayer') {
         // 멀티플레이어 모드
@@ -40,8 +44,8 @@ export const Minimap: React.FC = () => {
             mpState.gameState,
             mpState.mySide,
             state.camera,
-            CONFIG.MINIMAP_WIDTH,
-            CONFIG.MINIMAP_HEIGHT,
+            minimapWidth,
+            minimapHeight,
             viewportWidth,
             viewportHeight
           );
@@ -51,8 +55,8 @@ export const Minimap: React.FC = () => {
         drawMinimap(
           ctx,
           state,
-          CONFIG.MINIMAP_WIDTH,
-          CONFIG.MINIMAP_HEIGHT,
+          minimapWidth,
+          minimapHeight,
           viewportWidth,
           viewportHeight
         );
@@ -68,7 +72,7 @@ export const Minimap: React.FC = () => {
         cancelAnimationFrame(animationRef.current);
       }
     };
-  }, [gameMode]);
+  }, [gameMode, minimapWidth, minimapHeight]);
 
   const handleClick = useCallback(
     (e: React.MouseEvent<HTMLCanvasElement>) => {
@@ -79,13 +83,13 @@ export const Minimap: React.FC = () => {
       const clickX = e.clientX - rect.left;
       const clickY = e.clientY - rect.top;
 
-      const mapX = (clickX / CONFIG.MINIMAP_WIDTH) * CONFIG.MAP_WIDTH;
-      const mapY = (clickY / CONFIG.MINIMAP_HEIGHT) * CONFIG.MAP_HEIGHT;
+      const mapX = (clickX / minimapWidth) * CONFIG.MAP_WIDTH;
+      const mapY = (clickY / minimapHeight) * CONFIG.MAP_HEIGHT;
 
       const zoom = useGameStore.getState().camera.zoom;
       // 줌 비율을 적용한 실제 보이는 영역 크기
       const viewportWidth = window.innerWidth / zoom;
-      const viewportHeight = (window.innerHeight - CONFIG.UI_PANEL_HEIGHT) / zoom;
+      const viewportHeight = (window.innerHeight - responsiveConfig.UI_PANEL_HEIGHT) / zoom;
 
       setCameraPosition(
         mapX - viewportWidth / 2,
@@ -131,7 +135,7 @@ export const Minimap: React.FC = () => {
           ref={canvasRef}
           onClick={handleClick}
           className="rounded-lg cursor-pointer hover:brightness-110 transition-all duration-200"
-          style={{ width: CONFIG.MINIMAP_WIDTH, height: CONFIG.MINIMAP_HEIGHT }}
+          style={{ width: minimapWidth, height: minimapHeight }}
         />
 
         {/* 글로우 효과 */}

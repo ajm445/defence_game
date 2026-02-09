@@ -331,7 +331,7 @@ export const RPGTutorialScreen: React.FC = () => {
       {/* 튜토리얼 일시정지 메뉴 */}
       {paused && !gameOver && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-50">
-          <div className="bg-dark-800/95 backdrop-blur-sm rounded-2xl p-8 border border-neon-cyan/50 min-w-[320px]">
+          <div className="bg-dark-800/95 backdrop-blur-sm rounded-2xl p-5 sm:p-8 border border-neon-cyan/50 w-[90vw] sm:w-auto sm:min-w-[320px] max-w-[400px]">
             {/* 헤더 */}
             <div className="text-center mb-6">
               <div className="text-3xl font-bold text-neon-cyan mb-2">일시정지</div>
@@ -411,7 +411,7 @@ export const RPGTutorialScreen: React.FC = () => {
       {/* 튜토리얼 완료 모달 */}
       {(isCompleted || (gameOver && result)) && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/60 z-50">
-          <div className="bg-dark-800/95 backdrop-blur-sm rounded-2xl p-8 border border-green-500/50 min-w-[400px]">
+          <div className="bg-dark-800/95 backdrop-blur-sm rounded-2xl p-5 sm:p-8 border border-green-500/50 w-[90vw] sm:w-auto sm:min-w-[400px] max-w-[450px]">
             {/* 결과 헤더 */}
             <div className="text-center mb-6">
               <div className={`text-4xl font-bold mb-2 ${result?.victory || isCompleted ? 'text-green-400' : 'text-red-400'}`}>

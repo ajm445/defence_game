@@ -58,7 +58,7 @@ const ClassCard: React.FC<ClassCardProps> = ({ heroClass, isSelected, isLocked, 
       onClick={handleClick}
       disabled={isLocked}
       className={`
-        group relative w-52 h-80 rounded-xl overflow-hidden
+        group relative w-52 h-80 max-[500px]:w-36 max-[500px]:h-56 rounded-xl overflow-hidden
         transition-all duration-300
         ${isLocked
           ? 'cursor-not-allowed opacity-70'
@@ -281,7 +281,6 @@ export const RPGClassSelectScreen: React.FC = () => {
   }, [setScreen]);
 
   const heroClasses: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
-
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
       {/* 배경 효과 */}
@@ -291,7 +290,7 @@ export const RPGClassSelectScreen: React.FC = () => {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in">
+      <div className="relative z-10 flex flex-col items-center animate-fade-in max-h-[90vh] overflow-y-auto">
         {/* 타이틀 */}
         <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-4">
           직업 선택
@@ -300,7 +299,7 @@ export const RPGClassSelectScreen: React.FC = () => {
 
         <div style={{ height: '30px' }} />
 
-        {/* 직업 카드들 */}
+        {/* 직업 카드들 - 폰: 2×2 그리드 */}
         <div className="flex gap-6 mb-8">
           {heroClasses.map((heroClass) => {
             const unlockLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
@@ -323,10 +322,10 @@ export const RPGClassSelectScreen: React.FC = () => {
 
         {/* 버튼들 */}
         {!showJoinInput ? (
-          <div className="flex gap-4">
+          <div className="flex flex-wrap justify-center gap-3 sm:gap-4 px-4">
             <button
               onClick={handleBack}
-              className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+              className="px-6 sm:px-8 py-2 sm:py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer text-sm sm:text-base"
               style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
             >
               뒤로 가기
@@ -335,7 +334,7 @@ export const RPGClassSelectScreen: React.FC = () => {
               onClick={handleCreateRoom}
               disabled={!selectedClass || isCreatingRoom}
               className={`
-                px-8 py-3 rounded-lg font-bold transition-all cursor-pointer
+                px-6 sm:px-8 py-2 sm:py-3 rounded-lg font-bold transition-all cursor-pointer text-sm sm:text-base
                 ${selectedClass && !isCreatingRoom
                   ? 'bg-gradient-to-r from-yellow-500 to-orange-500 text-white hover:from-yellow-400 hover:to-orange-400'
                   : 'bg-gray-700 text-gray-500 cursor-not-allowed'
@@ -353,7 +352,7 @@ export const RPGClassSelectScreen: React.FC = () => {
               }}
               disabled={!selectedClass}
               className={`
-                px-8 py-3 rounded-lg font-bold transition-all cursor-pointer
+                px-6 sm:px-8 py-2 sm:py-3 rounded-lg font-bold transition-all cursor-pointer text-sm sm:text-base
                 ${selectedClass
                   ? 'bg-gradient-to-r from-cyan-500 to-blue-500 text-white hover:from-cyan-400 hover:to-blue-400'
                   : 'bg-gray-700 text-gray-500 cursor-not-allowed'
@@ -407,7 +406,7 @@ export const RPGClassSelectScreen: React.FC = () => {
       {/* 우측 상단 프로필 버튼 */}
       <button
         onClick={handleProfile}
-        className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2 bg-gray-800/80 hover:bg-gray-700/80 border border-gray-600 hover:border-yellow-500/50 rounded-lg transition-all cursor-pointer group"
+        className="absolute top-4 right-4 sm:top-6 sm:right-6 z-20 flex items-center gap-2 px-3 sm:px-4 py-1.5 sm:py-2 bg-gray-800/80 hover:bg-gray-700/80 border border-gray-600 hover:border-yellow-500/50 rounded-lg transition-all cursor-pointer group"
       >
         <span className="text-xl">👤</span>
         <div className="text-left">

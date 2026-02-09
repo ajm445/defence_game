@@ -32,7 +32,7 @@ export const ModeSelectScreen: React.FC = () => {
       </div>
 
       {/* 왼쪽 상단 프로필 버튼 */}
-      <div className="absolute top-8 left-8 z-20">
+      <div className="absolute z-20 top-8 left-8">
         <ProfileButton />
       </div>
 
@@ -40,7 +40,7 @@ export const ModeSelectScreen: React.FC = () => {
       <div className="flex-1 flex flex-col items-center justify-center">
         <div className="relative z-10 flex flex-col items-center animate-fade-in">
           {/* 타이틀 */}
-          <h1 className="font-game text-3xl md:text-4xl text-neon-cyan mb-4">
+          <h1 className="font-game text-neon-cyan text-3xl md:text-4xl mb-4">
             RTS 모드
           </h1>
           <p className="text-gray-400 mb-8">플레이할 모드를 선택하세요</p>
@@ -48,11 +48,11 @@ export const ModeSelectScreen: React.FC = () => {
           <div style={{ height: '30px' }} />
 
           {/* 모드 버튼들 */}
-          <div className="flex gap-8">
+          <div className="flex flex-wrap justify-center px-4 gap-8">
             {/* 튜토리얼 */}
             <button
               onClick={handleTutorial}
-              className="group relative w-48 h-64 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+              className="group relative rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer w-48 h-64"
             >
               <div className="absolute inset-0 bg-gradient-to-b from-green-500/20 to-emerald-600/20 group-hover:from-green-500/30 group-hover:to-emerald-600/30 transition-all duration-300" />
               <div className="absolute inset-0 border-2 border-green-500/50 rounded-lg group-hover:border-green-400 group-hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all duration-300" />
@@ -77,7 +77,7 @@ export const ModeSelectScreen: React.FC = () => {
                 soundManager.play('ui_click');
                 setScreen('difficultySelect');
               }}
-              className="group relative w-48 h-64 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+              className="group relative rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer w-48 h-64"
             >
               <div className="absolute inset-0 bg-gradient-to-b from-neon-cyan/20 to-neon-blue/20 group-hover:from-neon-cyan/30 group-hover:to-neon-blue/30 transition-all duration-300" />
               <div className="absolute inset-0 border-2 border-neon-cyan/50 rounded-lg group-hover:border-neon-cyan group-hover:shadow-neon-cyan transition-all duration-300" />
@@ -102,7 +102,7 @@ export const ModeSelectScreen: React.FC = () => {
                 soundManager.play('ui_click');
                 setScreen('lobby');
               }}
-              className="group relative w-48 h-64 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+              className="group relative rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer w-48 h-64"
             >
               <div className="absolute inset-0 bg-gradient-to-b from-neon-purple/20 to-neon-pink/20 group-hover:from-neon-purple/30 group-hover:to-neon-pink/30 transition-all duration-300" />
               <div className="absolute inset-0 border-2 border-neon-purple/50 rounded-lg group-hover:border-neon-purple group-hover:shadow-neon-purple transition-all duration-300" />
@@ -129,7 +129,7 @@ export const ModeSelectScreen: React.FC = () => {
               soundManager.play('ui_click');
               setScreen('gameTypeSelect');
             }}
-            className="mt-12 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+            className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer mt-12"
             style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
           >
             뒤로 가기

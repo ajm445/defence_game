@@ -185,7 +185,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
   return (
     <div className="fixed inset-0 bg-black/70 flex items-center justify-center z-50" onClick={handleClose}>
       <div
-        className={`bg-gray-900 rounded-xl border ${classBorderColors[heroClass]} p-6 min-w-[400px] max-w-[500px] max-h-[90vh] overflow-y-auto`}
+        className={`bg-gray-900 rounded-xl border ${classBorderColors[heroClass]} p-4 sm:p-6 w-[92vw] sm:w-auto sm:min-w-[400px] max-w-[500px] max-h-[90vh] overflow-y-auto`}
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}
@@ -391,7 +391,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
         {showJobAdvancement && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-60" onClick={handleCloseJobAdvancement}>
             <div
-              className={`bg-gray-900 rounded-xl border ${progress.advancedClass ? 'border-purple-500/50' : 'border-yellow-500/50'} p-6 min-w-[600px] max-w-[700px]`}
+              className={`bg-gray-900 rounded-xl border ${progress.advancedClass ? 'border-purple-500/50' : 'border-yellow-500/50'} p-4 sm:p-6 w-[95vw] max-w-[700px] max-h-[90vh] overflow-y-auto`}
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className={`text-2xl ${progress.advancedClass ? 'text-purple-400' : 'text-yellow-400'} font-bold text-center mb-2`}>
@@ -507,7 +507,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
         {showAdvancementConfirm && (
           <div className="fixed inset-0 bg-black/80 flex items-center justify-center z-70" onClick={handleCancelAdvancement}>
             <div
-              className={`bg-gray-900 rounded-xl border ${progress.advancedClass ? 'border-purple-500/50' : 'border-yellow-500/50'} p-6 min-w-[400px]`}
+              className={`bg-gray-900 rounded-xl border ${progress.advancedClass ? 'border-purple-500/50' : 'border-yellow-500/50'} p-4 sm:p-6 w-[90vw] sm:w-auto sm:min-w-[400px] max-w-[450px]`}
               onClick={(e) => e.stopPropagation()}
             >
               <h2 className="text-xl text-white font-bold text-center mb-4">

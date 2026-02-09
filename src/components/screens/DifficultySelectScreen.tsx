@@ -52,7 +52,7 @@ export const DifficultySelectScreen: React.FC = () => {
       </div>
 
       {/* 왼쪽 상단 프로필 버튼 */}
-      <div className="absolute top-8 left-8 z-20">
+      <div className="absolute z-20 top-8 left-8">
         <ProfileButton />
       </div>
 
@@ -60,7 +60,7 @@ export const DifficultySelectScreen: React.FC = () => {
       <div className="flex-1 flex flex-col items-center justify-center">
         <div className="relative z-10 flex flex-col items-center animate-fade-in">
           {/* 타이틀 */}
-          <h1 className="font-game text-3xl md:text-4xl text-neon-cyan mb-4">
+          <h1 className="font-game text-neon-cyan text-3xl md:text-4xl mb-4">
             AI 난이도 선택
           </h1>
           <p className="text-gray-400 mb-8">난이도를 선택하세요</p>
@@ -68,7 +68,7 @@ export const DifficultySelectScreen: React.FC = () => {
           <div style={{ height: '30px' }} />
 
           {/* 난이도 버튼들 */}
-          <div className="flex gap-4 mb-8">
+          <div className="flex flex-wrap justify-center px-4 gap-4 mb-8">
             {difficulties.map((difficulty) => {
               const config = AI_DIFFICULTY_CONFIG[difficulty];
               const colors = difficultyColors[difficulty];
@@ -79,14 +79,14 @@ export const DifficultySelectScreen: React.FC = () => {
                   key={difficulty}
                   onClick={() => handleSelectDifficulty(difficulty)}
                   onMouseEnter={() => setHoveredDifficulty(difficulty)}
-                  className={`group relative w-36 h-48 rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer`}
+                  className="group relative rounded-lg overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer w-36 h-48"
                 >
                   <div className={`absolute inset-0 bg-gradient-to-b ${colors.split(' ')[0]} ${colors.split(' ')[1]} group-hover:opacity-80 transition-all duration-300`} />
                   <div className={`absolute inset-0 border-2 ${colors.split(' ')[2]} rounded-lg group-hover:shadow-lg transition-all duration-300`} />
 
                   <div className="relative h-full flex flex-col items-center justify-center p-4">
-                    <h2 className="font-game text-xl text-white mb-2">{config.name}</h2>
-                    <div className="text-yellow-400 text-lg tracking-wider mb-3">
+                    <h2 className="font-game text-white text-xl mb-2">{config.name}</h2>
+                    <div className="text-yellow-400 tracking-wider text-lg mb-3">
                       {stars}
                     </div>
                     <div className="text-gray-300 text-xs">
@@ -101,20 +101,16 @@ export const DifficultySelectScreen: React.FC = () => {
           <div style={{ height: '30px' }} />
 
           {/* 선택된 난이도 설명 */}
-          <div className="w-full max-w-lg bg-dark-800/80 border border-neon-cyan/20 rounded-lg p-6 mb-8"
+          <div className="max-w-lg bg-dark-800/80 border border-neon-cyan/20 rounded-lg w-full p-6 mb-8"
           style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
           >
-            <h3 className="font-game text-lg text-neon-cyan mb-2">
+            <h3 className="font-game text-neon-cyan mb-2 text-lg">
               {AI_DIFFICULTY_CONFIG[hoveredDifficulty].name}
             </h3>
-
-            <div style={{ height: '10px' }} />
 
             <p className="text-gray-300 text-sm mb-4">
               {AI_DIFFICULTY_CONFIG[hoveredDifficulty].description}
             </p>
-
-            <div style={{ height: '10px' }} />
 
             <div className="grid grid-cols-2 gap-4 text-sm">
               <div className="flex justify-between">

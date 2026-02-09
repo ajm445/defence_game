@@ -349,7 +349,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       icon: '✨',
       content: (
         <div className="space-y-4">
-          <div className="grid grid-cols-3 gap-2 mb-4">
+          <div className="grid grid-cols-1 sm:grid-cols-3 gap-2 mb-4">
             <div className="bg-yellow-500/20 p-3 rounded-lg border border-yellow-500/30 text-center">
               <div className="text-yellow-300 font-bold text-xl">자동</div>
               <div className="text-gray-300 text-sm">기본 공격</div>

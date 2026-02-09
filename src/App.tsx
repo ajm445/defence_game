@@ -3,6 +3,8 @@ import { useUIStore } from './stores/useUIStore';
 import { useGameStore } from './stores/useGameStore';
 import { useAuthStore } from './stores/useAuthStore';
 import { useNetworkSync } from './hooks/useNetworkSync';
+import { useDeviceDetect } from './hooks/useDeviceDetect';
+import { OrientationPrompt } from './components/ui/OrientationPrompt';
 import { MainMenu } from './components/screens/MainMenu';
 import { GameTypeSelectScreen } from './components/screens/GameTypeSelectScreen';
 import { ModeSelectScreen } from './components/screens/ModeSelectScreen';
@@ -30,6 +32,9 @@ function App() {
   // 서버 권위 모델 네트워크 동기화 (항상 활성화)
   useNetworkSync();
 
+  // 디바이스 감지 (모바일/태블릿/데스크톱 분류, 방향 추적)
+  useDeviceDetect();
+
   // 앱 시작 시 게임에서 사용하는 이모지 및 유닛 이미지 미리 로드
   useEffect(() => {
     preloadGameEmojis();
@@ -44,6 +49,9 @@ function App() {
 
   return (
     <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900">
+      {/* 모바일 세로 모드 회전 안내 */}
+      <OrientationPrompt />
+
       {currentScreen === 'menu' && <MainMenu />}
       {currentScreen === 'gameTypeSelect' && <GameTypeSelectScreen />}
       {currentScreen === 'modeSelect' && <ModeSelectScreen />}

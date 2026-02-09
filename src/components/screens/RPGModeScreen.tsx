@@ -12,6 +12,10 @@ import { RPGDamageNumbers } from '../ui/RPGDamageNumbers';
 import { Notification } from '../ui/Notification';
 import { LevelUpNotification } from '../ui/LevelUpNotification';
 import { SecondEnhancementNotification } from '../ui/SecondEnhancementNotification';
+import { FullscreenButton } from '../ui/FullscreenButton';
+import { VirtualJoystick } from '../touch/VirtualJoystick';
+import { TouchSkillButtons } from '../touch/TouchSkillButtons';
+import { TouchUpgradeToggle } from '../touch/TouchUpgradeToggle';
 import { AdvancedHeroClass } from '../../types/rpg';
 import { useRPGStore, useRPGGameOver, useRPGResult, useSelectedClass, usePersonalKills, useSelectedDifficulty } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
@@ -277,6 +281,8 @@ export const RPGModeScreen: React.FC = () => {
     setEnhancedClass(null);
   }, []);
 
+  const isTouchDevice = useUIStore((s) => s.isTouchDevice);
+
   return (
     <div className="relative w-full h-screen overflow-hidden bg-dark-900">
       {/* 메인 캔버스 */}
@@ -291,8 +297,13 @@ export const RPGModeScreen: React.FC = () => {
       {/* 상단 중앙 타이머 */}
       <RPGGameTimer />
 
+      {/* 풀스크린 버튼 (우상단) */}
+      <div className="absolute top-4 right-4 z-20 pointer-events-auto">
+        <FullscreenButton />
+      </div>
+
       {/* 상단 UI */}
-      <div className="absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none">
+      <div className={`absolute top-4 left-4 right-4 flex justify-between items-start pointer-events-none`}>
         {/* 왼쪽: 영웅 정보 + 아군 정보 */}
         <div className="pointer-events-auto">
           <RPGHeroPanel />
@@ -308,24 +319,45 @@ export const RPGModeScreen: React.FC = () => {
       {/* 알림 */}
       <Notification />
 
-      {/* 하단 UI - 스킬바 + 업그레이드 패널 (한 줄로 통합) */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto">
-        <div className="flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50">
-          {/* 스킬바 */}
-          <RPGSkillBar onUseSkill={handleUseSkill} />
+      {/* 하단 UI - 데스크톱: 스킬바 + 업그레이드 패널 (한 줄로 통합) */}
+      {!isTouchDevice && (
+        <div className={`absolute bottom-8 left-1/2 -translate-x-1/2 pointer-events-auto`}>
+          <div className={`flex gap-3 bg-dark-800/90 backdrop-blur-sm rounded-xl p-3 border border-dark-600/50`}>
+            {/* 스킬바 */}
+            <RPGSkillBar onUseSkill={handleUseSkill} />
 
-          {/* 구분선 */}
-          {!gameOver && <div className="w-px bg-dark-500/50 my-1" />}
+            {/* 구분선 */}
+            {!gameOver && <div className="w-px bg-dark-500/50 my-1" />}
 
-          {/* 업그레이드 패널 */}
-          {!gameOver && <RPGUpgradePanel />}
+            {/* 업그레이드 패널 */}
+            {!gameOver && <RPGUpgradePanel />}
+          </div>
         </div>
-      </div>
+      )}
 
-      {/* 조작법 안내 */}
-      <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">
-        <div>WASD: 이동 | 자동 공격 | Shift: 스킬 | R: 궁극기 | C: 사거리 | Space: 카메라</div>
-      </div>
+      {/* 모바일 터치 컨트롤 */}
+      {isTouchDevice && (
+        <>
+          {/* 가상 조이스틱 (왼쪽 하단) */}
+          <VirtualJoystick />
+
+          {/* 스킬 버튼 + 업그레이드 토글 (오른쪽 하단) */}
+          <div className="absolute right-4 bottom-4 z-40 flex items-end safe-area-right safe-area-bottom pointer-events-auto" style={{ gap: 8 }}>
+            {/* 업그레이드 토글 (스킬 왼쪽) */}
+            {!gameOver && <TouchUpgradeToggle />}
+
+            {/* 스킬 버튼 */}
+            <TouchSkillButtons onUseSkill={handleUseSkill} requestSkill={requestSkill} />
+          </div>
+        </>
+      )}
+
+      {/* 조작법 안내 (터치 디바이스에서 숨김) */}
+      {!isTouchDevice && (
+        <div className="absolute bottom-4 left-4 text-xs text-gray-500 pointer-events-none">
+          <div>WASD: 이동 | 자동 공격 | Shift: 스킬 | R: 궁극기 | C: 사거리 | Space: 카메라</div>
+        </div>
+      )}
 
       {/* 게임 오버 모달 */}
       {gameOver && result && (

@@ -201,10 +201,10 @@ export const ProfileScreen: React.FC = () => {
         <div className="absolute bottom-1/4 right-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse-slow" style={{ animationDelay: '1s' }} />
       </div>
 
-      <div style={{ height: '30px' }} />
+      <div className="h-2 sm:h-[30px]" />
 
       {/* 메인 컨텐츠 */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-4xl px-4 py-8">
+      <div className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-4xl px-4 py-4 sm:py-8">
         {/* 타이틀 */}
         <h1 className={`font-game text-3xl md:text-4xl mb-6 ${isFromRTS ? 'text-neon-cyan' : 'text-yellow-400'}`}>
           {isFromRTS ? '프로필' : '프로필'}

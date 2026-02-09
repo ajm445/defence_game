@@ -5,8 +5,9 @@ import { useRPGStore } from '../../stores/useRPGStore';
 import { renderRPG } from '../../renderer/rpgRenderer';
 
 export const RPGCanvas: React.FC = () => {
-  const { canvasRef, dimensions, getContext } = useCanvas();
-  const { handleMouseDown, handleMouseMove, handleMouseUp, handleContextMenu } =
+  // RPG: 모바일에서는 캔버스 전체 화면 (터치 컨트롤이 오버레이)
+  const { canvasRef, dimensions, getContext } = useCanvas(undefined, undefined, true);
+  const { handlePointerDown, handlePointerMove, handlePointerUp, handleContextMenu } =
     useRPGInput(canvasRef);
   const animationRef = useRef<number>(0);
 
@@ -33,10 +34,12 @@ export const RPGCanvas: React.FC = () => {
     <canvas
       ref={canvasRef}
       className="block bg-dark-900 cursor-crosshair"
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      style={{ touchAction: 'none' }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       onContextMenu={handleContextMenu}
     />
   );

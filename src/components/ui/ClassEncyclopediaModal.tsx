@@ -118,7 +118,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
       onClick={onClose}
     >
       <div
-        className="relative w-[900px] max-h-[85vh] bg-gray-900/95 border border-gray-700 rounded-2xl overflow-hidden animate-fade-in"
+        className="relative w-[95vw] max-w-[900px] max-h-[85vh] bg-gray-900/95 border border-gray-700 rounded-2xl overflow-hidden animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}

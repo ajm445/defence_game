@@ -112,7 +112,7 @@ export const RPGTutorialOverlay: React.FC<RPGTutorialOverlayProps> = ({
   }
 
   return (
-    <div className="fixed top-4 right-4 z-50 w-[360px]">
+    <div className="fixed top-4 right-4 z-50 w-[90vw] sm:w-[360px] max-w-[360px]">
       {/* 메인 패널 */}
       <div className="bg-gradient-to-br from-slate-900/95 via-slate-800/95 to-slate-900/95 rounded-xl border-2 border-green-500/50 shadow-2xl backdrop-blur-sm">
         {/* 헤더 */}

@@ -147,9 +147,9 @@ export const MainMenu: React.FC = () => {
       </div>
 
       {/* 메인 컨텐츠 */}
-      <div className="relative z-10 flex flex-col items-center animate-fade-in">
+      <div className={`relative z-10 flex flex-col items-center animate-fade-in`}>
         {/* 서브 타이틀 */}
-        <div className="text-neon-cyan/70 text-sm tracking-[0.5em] uppercase font-game">
+        <div className={`text-neon-cyan/70 tracking-[0.5em] uppercase font-game text-sm`}>
           Defense Strategy
         </div>
 
@@ -158,11 +158,11 @@ export const MainMenu: React.FC = () => {
 
         {/* 메인 타이틀 */}
         <div className="relative mb-2">
-          <h1 className="font-game text-4xl md:text-5xl font-bold text-transparent bg-clip-text bg-gradient-to-b from-white via-neon-cyan to-neon-blue animate-float">
+          <h1 className={`font-game font-bold text-transparent bg-clip-text bg-gradient-to-b from-white via-neon-cyan to-neon-blue animate-float text-4xl md:text-5xl`}>
             막아라! 무너트려라!
           </h1>
           {/* 타이틀 글로우 효과 */}
-          <div className="absolute inset-0 font-game text-4xl md:text-5xl font-bold text-neon-cyan/20 blur-2xl pointer-events-none flex items-center justify-center">
+          <div className={`absolute inset-0 font-game font-bold text-neon-cyan/20 blur-2xl pointer-events-none flex items-center justify-center text-4xl md:text-5xl`}>
             막아라! 무너트려라!
           </div>
         </div>
@@ -170,12 +170,12 @@ export const MainMenu: React.FC = () => {
         <div style={{ height: '10px' }} />
 
         {/* 구분선 */}
-        <div className="w-64 h-px bg-gradient-to-r from-transparent via-neon-cyan/50 to-transparent my-8" />
+        <div className={`h-px bg-gradient-to-r from-transparent via-neon-cyan/50 to-transparent w-64 my-8`} />
 
         <div style={{ height: '30px' }} />
 
         {/* 버튼 그룹 */}
-        <div className="flex flex-col gap-4 mt-4">
+        <div className={`flex flex-col gap-4 mt-4`}>
           {/* 게임 시작 버튼 */}
           <button
             onClick={handleStartGame}
@@ -190,7 +190,7 @@ export const MainMenu: React.FC = () => {
             <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-[scanline_2s_linear_infinite] pointer-events-none" />
 
             {/* 버튼 텍스트 */}
-            <span className="relative font-game text-xl tracking-wider text-neon-cyan group-hover:text-white transition-colors duration-300">
+            <span className={`relative font-game tracking-wider text-neon-cyan group-hover:text-white transition-colors duration-300 text-xl`}>
               게임 시작
             </span>
           </button>
@@ -211,7 +211,7 @@ export const MainMenu: React.FC = () => {
                   <div className="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-xs">
                     {profile.isGuest ? '👤' : '⭐'}
                   </div>
-                  <span className="font-game text-xl tracking-wider text-yellow-400 group-hover:text-white transition-colors duration-300">
+                  <span className={`font-game tracking-wider text-yellow-400 group-hover:text-white transition-colors duration-300 text-xl`}>
                     {profile.nickname}
                   </span>
                   <span className="text-yellow-500/70 text-sm">Lv.{profile.playerLevel}</span>
@@ -270,7 +270,7 @@ export const MainMenu: React.FC = () => {
       </div>
 
       {/* 하단 정보 - 메인 컨테이너 기준으로 배치 */}
-      <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none z-10">
+      <div className={`absolute left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none z-10 bottom-8`}>
         <div className="text-gray-400 text-xs tracking-widest uppercase">
           Press a button to start
         </div>
@@ -280,7 +280,7 @@ export const MainMenu: React.FC = () => {
       {isAuthenticated && (
         <button
           onClick={handleOpenSettings}
-          className="absolute top-6 right-6 z-20 w-12 h-12 rounded-full bg-dark-700/80 border border-gray-600 hover:border-yellow-500 hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group"
+          className={`absolute z-20 rounded-full bg-dark-700/80 border border-gray-600 hover:border-yellow-500 hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group top-6 right-6 w-12 h-12`}
         >
           <span className="text-2xl group-hover:rotate-90 transition-transform duration-300">⚙️</span>
         </button>
@@ -289,7 +289,7 @@ export const MainMenu: React.FC = () => {
       {/* 설정 패널 */}
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 flex items-center justify-center">
-          <div className="bg-dark-800/95 rounded-xl p-6 border border-gray-600 min-w-[380px] max-w-[420px] animate-fade-in">
+          <div className="bg-dark-800/95 rounded-xl p-4 sm:p-6 border border-gray-600 w-[90vw] sm:w-auto sm:min-w-[380px] max-w-[90vw] animate-fade-in">
             <h3 className="text-white font-bold text-xl mb-4 text-center">⚙️ 설정</h3>
 
             {/* 탭 버튼 - 일반 회원만 표시 */}

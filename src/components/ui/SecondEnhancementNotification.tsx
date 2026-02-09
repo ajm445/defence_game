@@ -15,7 +15,7 @@ export const SecondEnhancementNotification: React.FC<SecondEnhancementNotificati
 
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-black/80 z-[60] animate-fade-in">
-      <div className="bg-gradient-to-b from-purple-900/90 to-dark-800/95 backdrop-blur-sm rounded-2xl p-8 border-2 border-purple-500/50 min-w-[400px] text-center">
+      <div className="bg-gradient-to-b from-purple-900/90 to-dark-800/95 backdrop-blur-sm rounded-2xl p-5 sm:p-8 border-2 border-purple-500/50 w-[90vw] sm:w-auto sm:min-w-[400px] max-w-[450px] text-center">
         {/* 2차 강화 아이콘 */}
         <div className="text-6xl mb-4 animate-pulse">
           ✨🔮✨

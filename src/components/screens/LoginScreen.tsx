@@ -140,7 +140,7 @@ export const LoginScreen: React.FC = () => {
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-md px-6">
         {/* 타이틀 */}
-        <h1 className="font-game text-3xl md:text-4xl text-yellow-400 mb-3 text-center">
+        <h1 className="font-game text-yellow-400 text-center text-3xl md:text-4xl mb-3">
           막아라! 무너트려라!
         </h1>
 
@@ -152,10 +152,10 @@ export const LoginScreen: React.FC = () => {
 
         {/* 탭 버튼 */}
         {apiEnabled && (
-          <div className="flex gap-4 mb-8 w-full">
+          <div className="flex w-full gap-4 mb-8">
             <button
               onClick={() => handleModeChange('login')}
-              className={`flex-1 flex flex-col items-center gap-2 py-4 px-4 rounded-lg border-2 transition-all duration-300 cursor-pointer ${
+              className={`flex-1 flex flex-col items-center rounded-lg border-2 transition-all duration-300 cursor-pointer gap-2 py-4 px-4 ${
                 mode === 'login'
                   ? 'bg-purple-600/20 border-purple-500 text-white'
                   : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
@@ -166,7 +166,7 @@ export const LoginScreen: React.FC = () => {
             </button>
             <button
               onClick={() => handleModeChange('signup')}
-              className={`flex-1 flex flex-col items-center gap-2 py-4 px-4 rounded-lg border-2 transition-all duration-300 cursor-pointer ${
+              className={`flex-1 flex flex-col items-center rounded-lg border-2 transition-all duration-300 cursor-pointer gap-2 py-4 px-4 ${
                 mode === 'signup'
                   ? 'bg-purple-600/20 border-purple-500 text-white'
                   : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
@@ -177,7 +177,7 @@ export const LoginScreen: React.FC = () => {
             </button>
             <button
               onClick={() => handleModeChange('guest')}
-              className={`flex-1 flex flex-col items-center gap-2 py-4 px-4 rounded-lg border-2 transition-all duration-300 cursor-pointer ${
+              className={`flex-1 flex flex-col items-center rounded-lg border-2 transition-all duration-300 cursor-pointer gap-2 py-4 px-4 ${
                 mode === 'guest'
                   ? 'bg-gray-600/20 border-gray-500 text-white'
                   : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
@@ -196,23 +196,18 @@ export const LoginScreen: React.FC = () => {
           </div>
         )}
 
-        <div style={{ height: '10px' }} />
-        
         {/* 에러 메시지 */}
         {error && (
-          <div className="w-full mb-6 p-4 bg-red-500/20 border border-red-500/50 rounded-md text-red-300 text-sm text-center">
+          <div className="w-full bg-red-500/20 border border-red-500/50 rounded-md text-red-300 text-sm text-center mb-6 p-4">
             {error}
           </div>
         )}
-
-        <div style={{ height: '20px' }} />
 
         {/* 로그인 폼 */}
         {apiEnabled && mode === 'login' && (
           <form onSubmit={handleLogin} className="w-full space-y-5">
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">아이디</label>
-              <div style={{ height: '3px' }} />
               <input
                 type="text"
                 value={username}
@@ -223,11 +218,8 @@ export const LoginScreen: React.FC = () => {
               />
             </div>
 
-            <div style={{ height: '10px' }} />
-
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">비밀번호</label>
-              <div style={{ height: '3px' }} />
               <input
                 type="password"
                 value={password}
@@ -238,9 +230,7 @@ export const LoginScreen: React.FC = () => {
               />
             </div>
 
-            <div style={{ height: '20px' }} />
-
-            <div className="flex justify-center mt-4">
+            <div className="flex justify-center pt-4">
               <button
                 type="submit"
                 disabled={isLoading}
@@ -258,7 +248,6 @@ export const LoginScreen: React.FC = () => {
           <form onSubmit={handleSignUp} className="w-full space-y-5">
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">아이디</label>
-              <div style={{ height: '3px' }} />
               <input
                 type="text"
                 value={username}
@@ -270,11 +259,8 @@ export const LoginScreen: React.FC = () => {
               />
             </div>
 
-            <div style={{ height: '10px' }} />
-
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">닉네임</label>
-              <div style={{ height: '3px' }} />
               <input
                 type="text"
                 value={nickname}
@@ -286,11 +272,8 @@ export const LoginScreen: React.FC = () => {
               />
             </div>
 
-            <div style={{ height: '10px' }} />
-
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">비밀번호</label>
-              <div style={{ height: '3px' }} />
               <input
                 type="password"
                 value={password}
@@ -300,8 +283,6 @@ export const LoginScreen: React.FC = () => {
                 disabled={isLoading}
               />
             </div>
-
-            <div style={{ height: '10px' }} />
 
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">비밀번호 확인</label>
@@ -315,9 +296,7 @@ export const LoginScreen: React.FC = () => {
               />
             </div>
 
-            <div style={{ height: '20px' }} />
-
-            <div className="flex justify-center mt-4">
+            <div className="flex justify-center pt-4">
               <button
                 type="submit"
                 disabled={isLoading}
@@ -334,17 +313,14 @@ export const LoginScreen: React.FC = () => {
         {(mode === 'guest' || !apiEnabled) && (
           <div className="w-full space-y-5">
             <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-md p-5">
-              <p className="text-yellow-300 text-sm text-center leading-relaxed">
+              <p className="text-yellow-300 text-center leading-relaxed text-sm">
                 ⚠️ 게스트 모드에서는 진행 상황이 저장되지 않으며,<br />
                 RPG 모드에서 <span className="font-bold">궁수만</span> 사용할 수 있습니다.
               </p>
             </div>
 
-            <div style={{ height: '10px' }} />
-
             <div>
               <label className="block text-gray-300 text-sm font-medium mb-2">닉네임 (선택)</label>
-              <div style={{ height: '3px' }} />
               <input
                 type="text"
                 value={nickname}
@@ -356,9 +332,7 @@ export const LoginScreen: React.FC = () => {
               />
             </div>
 
-            <div style={{ height: '20px' }} />
-
-            <div className="flex justify-center mt-4">
+            <div className="flex justify-center pt-4">
               <button
                 onClick={handleGuestLogin}
                 disabled={isLoading}
@@ -371,12 +345,10 @@ export const LoginScreen: React.FC = () => {
           </div>
         )}
 
-        <div style={{ height: '10px' }} />
-
         {/* 뒤로 가기 */}
         <button
           onClick={handleBack}
-          className="mt-10 px-10 py-3 rounded-md border border-gray-600 text-gray-400 font-medium hover:border-gray-400 hover:text-white hover:bg-gray-800/30 transition-all cursor-pointer"
+          className="px-10 py-3 rounded-md border border-gray-600 text-gray-400 font-medium hover:border-gray-400 hover:text-white hover:bg-gray-800/30 transition-all cursor-pointer mt-10"
           style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
         >
           뒤로 가기

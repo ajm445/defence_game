@@ -10,7 +10,7 @@ interface LevelUpNotificationProps {
 export const LevelUpNotification: React.FC<LevelUpNotificationProps> = ({ result, onClose }) => {
   return (
     <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-[60] animate-fade-in">
-      <div className="bg-gradient-to-b from-yellow-900/90 to-dark-800/95 backdrop-blur-sm rounded-2xl p-8 border-2 border-yellow-500/50 min-w-[350px] text-center">
+      <div className="bg-gradient-to-b from-yellow-900/90 to-dark-800/95 backdrop-blur-sm rounded-2xl p-5 sm:p-8 border-2 border-yellow-500/50 w-[90vw] sm:w-auto sm:min-w-[350px] max-w-[400px] text-center">
         {/* 레벨업 아이콘 */}
         <div className="text-6xl mb-4 animate-bounce">
           {result.playerLeveledUp ? '🌟' : '⬆️'}

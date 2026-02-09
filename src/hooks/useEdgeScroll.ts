@@ -20,9 +20,11 @@ export const useEdgeScroll = () => {
       const running = useGameStore.getState().running;
       const currentScreen = useUIStore.getState().currentScreen;
       const edgeScrollEnabled = useUIStore.getState().edgeScrollEnabled;
+      const isTouchDevice = useUIStore.getState().isTouchDevice;
 
+      // 터치 디바이스에서는 가장자리 스크롤 비활성화
       // 게임이 실행 중이고, 게임 화면이며, 가장자리 스크롤이 활성화되어 있을 때만 스크롤
-      if (running && currentScreen === 'game' && edgeScrollEnabled) {
+      if (running && currentScreen === 'game' && edgeScrollEnabled && !isTouchDevice) {
         const { x, y } = mousePositionRef.current;
         const { innerWidth, innerHeight } = window;
         const moveCamera = useGameStore.getState().moveCamera;

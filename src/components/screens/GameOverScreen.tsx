@@ -141,7 +141,7 @@ export const GameOverScreen: React.FC = () => {
       {/* 결과 */}
       <div className="relative z-10 flex flex-col items-center">
         {/* 아이콘 */}
-        <div className={`text-8xl mb-6 ${victory ? 'animate-float' : ''}`}>
+        <div className={`text-5xl sm:text-8xl mb-6 ${victory ? 'animate-float' : ''}`}>
           {isDraw ? '🤝' : victory ? '🏆' : '💀'}
         </div>
 
@@ -149,7 +149,7 @@ export const GameOverScreen: React.FC = () => {
 
         {/* 메인 텍스트 */}
         <h1 className={`
-          font-game text-6xl md:text-7xl font-bold mb-4
+          font-game text-4xl sm:text-6xl md:text-7xl font-bold mb-4
           ${isDraw
             ? 'text-transparent bg-clip-text bg-gradient-to-b from-yellow-400 to-orange-500'
             : victory

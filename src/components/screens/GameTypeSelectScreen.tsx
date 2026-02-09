@@ -44,7 +44,7 @@ export const GameTypeSelectScreen: React.FC = () => {
       {/* 메인 컨텐츠 */}
       <div className="relative z-10 flex flex-col items-center animate-fade-in">
         {/* 타이틀 */}
-        <h1 className="font-game text-3xl md:text-4xl text-neon-cyan mb-4">
+        <h1 className="font-game text-neon-cyan text-3xl md:text-4xl mb-4">
           게임 모드 선택
         </h1>
         <p className="text-gray-400 mb-12">플레이할 게임 유형을 선택하세요</p>
@@ -52,11 +52,11 @@ export const GameTypeSelectScreen: React.FC = () => {
         <div style={{ height: '30px' }} />
 
         {/* 모드 카드들 */}
-        <div className="flex gap-12">
+        <div className="flex flex-wrap justify-center px-4 gap-12">
           {/* RTS 모드 */}
           <button
             onClick={handleRTSMode}
-            className="group relative w-72 h-96 rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            className="group relative rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer w-72 h-96"
           >
             {/* 배경 그라데이션 */}
             <div className="absolute inset-0 bg-gradient-to-b from-neon-cyan/20 via-neon-blue/15 to-dark-800 group-hover:from-neon-cyan/30 group-hover:via-neon-blue/25 transition-all duration-300" />
@@ -65,17 +65,17 @@ export const GameTypeSelectScreen: React.FC = () => {
             {/* 컨텐츠 */}
             <div className="relative h-full flex flex-col items-center justify-center p-8">
               {/* 아이콘 */}
-              <div className="text-7xl mb-6 group-hover:scale-110 transition-transform duration-300">
+              <div className="group-hover:scale-110 transition-transform duration-300 text-7xl mb-6">
                 🏰
               </div>
 
               <div style={{ height: '30px' }} />
 
               {/* 타이틀 */}
-              <h2 className="font-game text-2xl text-white mb-3">RTS 모드</h2>
+              <h2 className="font-game text-white text-2xl mb-3">RTS 모드</h2>
 
               {/* 구분선 */}
-              <div className="w-24 h-0.5 bg-gradient-to-r from-transparent via-neon-cyan to-transparent mb-4" />
+              <div className="h-0.5 bg-gradient-to-r from-transparent via-neon-cyan to-transparent w-24 mb-4" />
 
               <div style={{ height: '10px' }} />
 
@@ -94,7 +94,7 @@ export const GameTypeSelectScreen: React.FC = () => {
               </div>
 
               {/* 하단 태그 */}
-              <div className="absolute bottom-4 px-3 py-1 bg-neon-cyan/20 rounded-full border border-neon-cyan/50"
+              <div className="absolute px-3 py-1 bg-neon-cyan/20 rounded-full border border-neon-cyan/50 bottom-4"
               style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}>
                 <span className="text-neon-cyan text-xs font-bold">전략 시뮬레이션</span>
               </div>
@@ -104,7 +104,7 @@ export const GameTypeSelectScreen: React.FC = () => {
           {/* RPG 모드 */}
           <button
             onClick={handleRPGMode}
-            className="group relative w-72 h-96 rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer"
+            className="group relative rounded-xl overflow-hidden transition-all duration-300 hover:scale-105 active:scale-95 cursor-pointer w-72 h-96"
           >
             {/* 배경 그라데이션 */}
             <div className="absolute inset-0 bg-gradient-to-b from-purple-500/20 via-orange-500/15 to-dark-800 group-hover:from-purple-500/30 group-hover:via-orange-500/25 transition-all duration-300" />
@@ -113,17 +113,17 @@ export const GameTypeSelectScreen: React.FC = () => {
             {/* 컨텐츠 */}
             <div className="relative h-full flex flex-col items-center justify-center p-8">
               {/* 아이콘 */}
-              <div className="text-7xl mb-6 group-hover:scale-110 transition-transform duration-300">
+              <div className="group-hover:scale-110 transition-transform duration-300 text-7xl mb-6">
                 ⚔️
               </div>
 
               <div style={{ height: '30px' }} />
 
               {/* 타이틀 */}
-              <h2 className="font-game text-2xl text-white mb-3">RPG 모드</h2>
+              <h2 className="font-game text-white text-2xl mb-3">RPG 모드</h2>
 
               {/* 구분선 */}
-              <div className="w-24 h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent mb-4" />
+              <div className="h-0.5 bg-gradient-to-r from-transparent via-purple-400 to-transparent w-24 mb-4" />
 
               <div style={{ height: '10px' }} />
 
@@ -142,7 +142,7 @@ export const GameTypeSelectScreen: React.FC = () => {
               </div>
 
               {/* 하단 태그 */}
-              <div className="absolute bottom-4 px-3 py-1 bg-purple-500/20 rounded-full border border-purple-500/50"
+              <div className="absolute px-3 py-1 bg-purple-500/20 rounded-full border border-purple-500/50 bottom-4"
               style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}>
                 <span className="text-purple-400 text-xs font-bold">액션 서바이벌</span>
               </div>
@@ -160,7 +160,7 @@ export const GameTypeSelectScreen: React.FC = () => {
             wsClient.notifyModeChange(null);
             setScreen('menu');
           }}
-          className="mt-12 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+          className="px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer mt-12"
           style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}>
           뒤로 가기
         </button>

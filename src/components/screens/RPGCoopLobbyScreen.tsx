@@ -731,7 +731,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         <div style={{ height: '5px' }} />
         {/* 초대 코드 및 방 설정 */}
         {multiplayer.roomCode && (
-          <div className="mb-4 flex items-start gap-6">
+          <div className={`mb-4 flex flex-wrap items-start justify-center gap-6`}>
             {/* 초대 코드 */}
             <div>
               <p className="text-neon-cyan text-sm mb-1 text-center">초대 코드</p>
@@ -830,7 +830,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         )}
 
         {/* 플레이어 목록 */}
-        <div className="w-[20rem] bg-gray-800/30 rounded-lg p-4">
+        <div className={`bg-gray-800/30 rounded-lg p-4 w-[20rem]`}>
           <p className="text-gray-400 text-sm mb-3">플레이어 ({players.length}/4)</p>
           <div className="space-y-2">
             {players.map((player) => {
@@ -888,7 +888,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         </div>
 
         {/* 로비 채팅 */}
-        <div className="w-[20rem]">
+        <div className={`w-[20rem]`}>
           <LobbyChat />
         </div>
 
@@ -1014,14 +1014,14 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         {error && <p className="text-red-400 text-sm mb-2">{error}</p>}
 
         {/* 대기방 목록 헤더 */}
-        <div className="w-full flex items-center justify-between mb-2">
+        <div className="w-full flex flex-wrap items-center justify-between gap-2 mb-2">
           <div className="flex items-center gap-3">
-            <h2 className="text-xl font-bold text-white">대기방 목록</h2>
+            <h2 className={`font-bold text-white text-xl`}>대기방 목록</h2>
             {isLoadingRooms && (
               <span className="text-xs text-gray-500 animate-pulse">갱신 중...</span>
             )}
           </div>
-          <div className="flex items-center gap-2">
+          <div className="flex flex-wrap items-center gap-2">
             <button
               onClick={() => {
                 soundManager.play('ui_click');
@@ -1063,7 +1063,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         </div>
 
         {/* 대기방 그리드 */}
-        <div className="w-full grid grid-cols-3 gap-5">
+        <div className={`w-full grid grid-cols-2 lg:grid-cols-3 gap-5`}>
           {/* 방 생성 카드 */}
           <button
             onClick={() => {
@@ -1241,7 +1241,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       </div>
 
       {/* 왼쪽 상단 프로필 버튼 */}
-      <div className="absolute top-8 left-8 z-20">
+      <div className={`absolute z-20 top-8 left-8`}>
         <ProfileButton />
       </div>
 
@@ -1256,18 +1256,18 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         {/* 메인 컨텐츠 */}
         <div className="relative z-10 flex flex-col items-center animate-fade-in">
           {/* 타이틀 */}
-          <h1 className="font-game text-3xl md:text-4xl text-green-400 mb-4">
+          <h1 className={`font-game text-green-400 text-3xl md:text-4xl mb-4`}>
             RPG 게임
           </h1>
 
           <div style={{ height: '10px' }} />
 
-          <p className="text-gray-400 mb-4">1~4명이 함께 보스를 물리치세요 (혼자 시작 가능)</p>
+          <p className={`text-gray-400 mb-4`}>1~4명이 함께 보스를 물리치세요 (혼자 시작 가능)</p>
 
           <div style={{ height: '30px' }} />
 
           {/* 연결 상태에 따른 UI */}
-          <div className="bg-gray-900/50 border border-gray-700 rounded-xl px-10 py-10 min-w-[900px] min-h-[480px] flex flex-col items-center justify-center">
+          <div className={`bg-gray-900/50 border border-gray-700 rounded-xl flex flex-col items-center justify-center px-10 py-10 w-auto min-w-[900px] min-h-[480px]`}>
             {renderContent()}
           </div>
 
@@ -1276,7 +1276,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           {/* 뒤로 가기 */}
           <button
             onClick={handleBack}
-            className="mt-8 px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
+            className={`px-8 py-3 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer mt-8`}
             style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
           >
             뒤로 가기
@@ -1317,7 +1317,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             <div style={{ height: '50px' }} />
 
             {/* 직업 카드들 */}
-            <div className="flex gap-6">
+            <div className={`flex flex-wrap justify-center px-4 gap-6`}>
               {CLASS_LIST.map((heroClass) => {
                 const config = CLASS_CONFIGS[heroClass];
                 const isSelected = selectedClass === heroClass;
@@ -1360,7 +1360,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                     }}
                     disabled={isLocked}
                     className={`
-                      group relative w-52 h-80 rounded-xl overflow-hidden
+                      group relative rounded-xl overflow-hidden
+                      w-52 h-80
                       transition-all duration-300
                       ${isLocked
                         ? 'cursor-not-allowed opacity-70'
@@ -1469,7 +1470,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           }}
         >
           <div
-            className="animate-fade-in flex flex-col items-center bg-gray-900/90 border border-gray-700 rounded-2xl p-8"
+            className={`animate-fade-in flex flex-col items-center bg-gray-900/90 border border-gray-700 rounded-2xl max-h-[90vh] overflow-y-auto p-8 w-auto`}
             style={{ paddingLeft: '30px', paddingRight: '30px', paddingTop: '20px', paddingBottom: '25px' }}
             onClick={(e) => e.stopPropagation()}
           >
@@ -1486,14 +1487,14 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
               <div style={{ height: '10px' }} />
               
-              <div className="flex gap-4">
+              <div className={`flex gap-4`}>
                 {/* 공개방 */}
                 <button
                   onClick={() => {
                     soundManager.play('ui_click');
                     setSelectedRoomType('public');
                   }}
-                  className={`group flex flex-col items-center justify-center w-36 h-28 border-2 rounded-xl transition-all cursor-pointer ${
+                  className={`group flex flex-col items-center justify-center border-2 rounded-xl transition-all cursor-pointer w-36 h-28 ${
                     selectedRoomType === 'public'
                       ? 'border-green-400 bg-green-500/20'
                       : 'border-gray-600 hover:border-green-500/70 hover:bg-green-500/10'
@@ -1510,7 +1511,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                     soundManager.play('ui_click');
                     setSelectedRoomType('private');
                   }}
-                  className={`group flex flex-col items-center justify-center w-36 h-28 border-2 rounded-xl transition-all cursor-pointer ${
+                  className={`group flex flex-col items-center justify-center border-2 rounded-xl transition-all cursor-pointer w-36 h-28 ${
                     selectedRoomType === 'private'
                       ? 'border-neon-purple bg-neon-purple/20'
                       : 'border-gray-600 hover:border-neon-purple/70 hover:bg-neon-purple/10'
@@ -1531,7 +1532,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
               <div style={{ height: '10px' }} />
 
-              <div className="flex gap-3">
+              <div className={`flex flex-wrap justify-center gap-3`}>
                 {(Object.keys(DIFFICULTY_CONFIGS) as RPGDifficulty[]).map((diff) => {
                   const config = DIFFICULTY_CONFIGS[diff];
                   const colors = difficultyColors[diff];
@@ -1604,7 +1605,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           }}
         >
           <div
-            className="animate-fade-in flex flex-col items-center bg-gray-900/90 border border-yellow-500/50 rounded-2xl p-8"
+            className={`animate-fade-in flex flex-col items-center bg-gray-900/90 border border-yellow-500/50 rounded-2xl max-w-[95vw] p-8 w-auto max-w-[400px]`}
             onClick={(e) => e.stopPropagation()}
           >
             {/* 타이틀 */}

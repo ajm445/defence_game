@@ -213,7 +213,7 @@ export const PauseScreen: React.FC = () => {
           <div style={{ height: '20px' }} />
 
           {/* 메인 텍스트 */}
-          <h1 className="font-game text-4xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-b from-gray-200 to-gray-400">
+          <h1 className="font-game text-3xl sm:text-4xl font-bold mb-4 text-transparent bg-clip-text bg-gradient-to-b from-gray-200 to-gray-400">
             일시정지
           </h1>
 
@@ -223,7 +223,7 @@ export const PauseScreen: React.FC = () => {
           </p>
 
           {/* 설정 패널 (항상 표시) */}
-          <div className="bg-dark-800/90 rounded-xl p-6 border border-gray-600 min-w-[300px]">
+          <div className="bg-dark-800/90 rounded-xl p-4 sm:p-6 border border-gray-600 w-[80vw] sm:w-auto sm:min-w-[300px] max-w-[350px]">
             <h3 className="text-white font-bold text-lg mb-4 text-center">소리 설정</h3>
 
             {/* 음량 조절 */}
@@ -303,14 +303,14 @@ export const PauseScreen: React.FC = () => {
         <div style={{ height: '30px' }} />
 
         {/* 메인 텍스트 */}
-        <h1 className="font-game text-5xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-b from-gray-200 to-gray-400">
+        <h1 className="font-game text-3xl sm:text-5xl font-bold mb-8 text-transparent bg-clip-text bg-gradient-to-b from-gray-200 to-gray-400">
           일시정지
         </h1>
 
-        <div style={{ height: '30px' }} />
+        <div style={{ height: '15px' }} />
 
         {/* 버튼들 */}
-        <div className="flex flex-col gap-4 min-w-[250px]">
+        <div className="flex flex-col gap-4 w-[80vw] sm:w-auto sm:min-w-[250px] max-w-[300px]">
           <button
             onClick={handleResume}
             className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
@@ -398,7 +398,7 @@ export const PauseScreen: React.FC = () => {
 
         {/* 설정 패널 */}
         {showSettings && (
-          <div className="mt-8 bg-dark-800/90 rounded-xl p-6 border border-gray-600 min-w-[300px]">
+          <div className="mt-8 bg-dark-800/90 rounded-xl p-4 sm:p-6 border border-gray-600 w-[80vw] sm:w-auto sm:min-w-[300px] max-w-[350px]">
             <h3 className="text-white font-bold text-lg mb-4 text-center">설정</h3>
 
             {/* 음량 조절 */}

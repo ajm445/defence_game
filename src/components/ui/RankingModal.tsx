@@ -85,7 +85,7 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
       onClick={onClose}
     >
       <div
-        className="relative w-[700px] max-h-[85vh] bg-gray-900/95 border border-gray-700 rounded-2xl overflow-hidden animate-fade-in"
+        className="relative w-[95vw] max-w-[700px] max-h-[85vh] bg-gray-900/95 border border-gray-700 rounded-2xl overflow-hidden animate-fade-in"
         onClick={(e) => e.stopPropagation()}
       >
         {/* 헤더 */}

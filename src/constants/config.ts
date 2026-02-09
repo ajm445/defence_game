@@ -287,6 +287,15 @@ export const AI_DIFFICULTY_CONFIG: Record<AIDifficulty, AIDifficultyConfig> = {
 
 export type Config = typeof CONFIG;
 
+// 모바일/태블릿 반응형 설정값
+export function getResponsiveConfig(uiScale: number) {
+  return {
+    UI_PANEL_HEIGHT: Math.round(120 * uiScale),
+    MINIMAP_WIDTH: Math.round(200 * uiScale),
+    MINIMAP_HEIGHT: Math.round(150 * uiScale),
+  };
+}
+
 // 업그레이드 레벨에 따른 비용 계산
 // 레벨 0→1: 골드만 필요 (150)
 // 레벨 1→2 이상: 골드 + 나무 + 돌 필요

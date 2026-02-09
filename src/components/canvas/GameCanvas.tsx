@@ -14,7 +14,7 @@ import {
 
 export const GameCanvas: React.FC = () => {
   const { canvasRef, dimensions, getContext } = useCanvas();
-  const { handleMouseDown, handleMouseMove, handleMouseUp, handleContextMenu } =
+  const { handlePointerDown, handlePointerMove, handlePointerUp, handleContextMenu } =
     useMouseInput(canvasRef);
   const animationRef = useRef<number>(0);
   const gameMode = useGameStore((state) => state.gameMode);
@@ -96,10 +96,12 @@ export const GameCanvas: React.FC = () => {
     <canvas
       ref={canvasRef}
       className="block bg-green-800 cursor-crosshair"
-      onMouseDown={handleMouseDown}
-      onMouseMove={handleMouseMove}
-      onMouseUp={handleMouseUp}
-      onMouseLeave={handleMouseUp}
+      style={{ touchAction: 'none' }}
+      onPointerDown={handlePointerDown}
+      onPointerMove={handlePointerMove}
+      onPointerUp={handlePointerUp}
+      onPointerLeave={handlePointerUp}
+      onPointerCancel={handlePointerUp}
       onContextMenu={handleContextMenu}
     />
   );
