@@ -38,14 +38,14 @@ const TouchUpgradeButton: React.FC<TouchUpgradeButtonProps> = ({
       className={`
         relative rounded-lg border flex flex-col items-center justify-center
         ${isDisabled
-          ? 'bg-dark-700/80 border-dark-500'
-          : 'bg-dark-700/60 border-neon-cyan/50 active:scale-95'
+          ? 'bg-dark-900/90 border-dark-600/40'
+          : 'bg-gradient-to-br from-cyan-900/30 to-dark-700/60 border-neon-cyan/50 shadow-[0_0_6px_rgba(0,245,255,0.15)] active:scale-95'
         }
       `}
       style={{ width: size, height: size }}
     >
-      <span className="text-lg">{info.icon}</span>
-      <span className="text-[8px] text-white/60 font-bold">{info.label}</span>
+      <span className={`text-lg ${isDisabled ? 'opacity-40' : ''}`}>{info.icon}</span>
+      <span className={`text-[8px] font-bold ${isDisabled ? 'text-white/30' : 'text-white/60'}`}>{info.label}</span>
 
       {/* Level badge */}
       {currentLevel > 0 && (

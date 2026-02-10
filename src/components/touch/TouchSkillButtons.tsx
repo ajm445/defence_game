@@ -105,8 +105,8 @@ const TouchSkillButton: React.FC<TouchSkillButtonProps> = ({
           ${active
             ? 'bg-gradient-to-br from-purple-600/50 to-purple-900/50 border-purple-400 shadow-[0_0_12px_rgba(147,51,234,0.5)]'
             : isDisabled
-              ? 'bg-dark-700/80 border-dark-500'
-              : 'bg-dark-800/90 border-white/40 active:scale-95'
+              ? 'bg-dark-900/90 border-dark-600/40'
+              : 'bg-gradient-to-br from-blue-800/40 to-indigo-900/50 border-sky-400/60 shadow-[0_0_8px_rgba(56,189,248,0.2)] active:scale-95'
           }
         `}
         style={{ width: size, height: size }}
@@ -123,7 +123,7 @@ const TouchSkillButton: React.FC<TouchSkillButtonProps> = ({
           />
         )}
 
-        <div className="relative z-10 flex flex-col items-center justify-center h-full">
+        <div className={`relative z-10 flex flex-col items-center justify-center h-full ${isDisabled && !active ? 'opacity-40' : ''}`}>
           <span className="text-3xl">{icon}</span>
           <span className="text-[11px] text-white/60 font-bold">{label}</span>
         </div>
