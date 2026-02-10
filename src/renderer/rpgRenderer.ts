@@ -111,6 +111,15 @@ export function renderRPG(
         continue;
       }
     }
+    // targetId가 있는 이펙트는 타겟 적의 현재 위치를 따라감 (저격 등)
+    if (effect.targetId) {
+      const targetEnemy = state.enemies.find(e => e.id === effect.targetId);
+      if (targetEnemy && targetEnemy.hp > 0) {
+        const updatedEffect = { ...effect, targetPosition: { x: targetEnemy.x, y: targetEnemy.y } };
+        drawSkillEffect(ctx, updatedEffect, camera, state.gameTime);
+        continue;
+      }
+    }
     drawSkillEffect(ctx, effect, camera, state.gameTime);
   }
 

@@ -76,24 +76,21 @@ export const GameScreen: React.FC = () => {
   const responsiveConfig = getResponsiveConfig(isTouchDevice ? Math.max(uiScale, 1.0) : uiScale);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-dark-900">
+    <div className="relative w-full h-full overflow-hidden bg-dark-900">
       {/* 메인 캔버스 */}
       <GameCanvas />
 
       {/* 상단 UI */}
       <ResourceBar />
       <GameTimer />
-      <HPStatusPanel />
 
-      {/* 일시정지 버튼 - 터치 기기에서만 표시 */}
-      {isTouchDevice && (gameMode === 'ai' || gameMode === 'tutorial') && (
-        <div
-          className="absolute right-4 z-20 pointer-events-auto"
-          style={{ top: '10.5rem' }}
-        >
+      {/* HP 상태 패널 + 일시정지 버튼 */}
+      <div className="absolute top-4 right-4 flex items-start gap-3 z-20">
+        {isTouchDevice && (gameMode === 'ai' || gameMode === 'tutorial') && (
           <PauseButton onClick={() => { stopGame(); setScreen('paused'); }} />
-        </div>
-      )}
+        )}
+        <HPStatusPanel />
+      </div>
 
       {/* 선택 정보 */}
       <SelectionInfo />

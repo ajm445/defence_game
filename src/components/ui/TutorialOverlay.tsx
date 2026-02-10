@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useTutorialStore, TUTORIAL_STEPS, TutorialConditionType, HighlightTarget } from '../../stores/useTutorialStore';
 import { useGameStore } from '../../stores/useGameStore';
+import { useUIStore } from '../../stores/useUIStore';
 
 // 하이라이트 요소의 위치 정보
 interface HighlightRect {
@@ -8,6 +9,19 @@ interface HighlightRect {
   left: number;
   width: number;
   height: number;
+}
+
+// 터치 환경용 설명 변환
+function adaptForTouch(description: string, stepId: string): string {
+  if (stepId === 'camera') {
+    return '넓은 전장을 살펴보세요!\n\n• 한 손가락 드래그: 화면 이동\n• 두 손가락 핀치: 확대/축소';
+  }
+
+  return description
+    .replace(/\(Q\)/g, '')
+    .replace(/\(W\)/g, '')
+    .replace(/\(E\)/g, '')
+    .replace(/클릭/g, '터치');
 }
 
 export const TutorialOverlay: React.FC = () => {
@@ -19,6 +33,7 @@ export const TutorialOverlay: React.FC = () => {
   const endTutorial = useTutorialStore((state) => state.endTutorial);
   const herbSold = useTutorialStore((state) => state.herbSold);
   const mineExploded = useTutorialStore((state) => state.mineExploded);
+  const isTouchDevice = useUIStore((state) => state.isTouchDevice);
 
   // 게임 상태 구독
   const units = useGameStore((state) => state.units);
@@ -335,7 +350,7 @@ export const TutorialOverlay: React.FC = () => {
 
           {/* 설명 */}
           <div className="text-gray-300 text-sm whitespace-pre-line leading-relaxed mb-4 max-h-[200px] overflow-y-auto">
-            {currentStep.description}
+            {isTouchDevice ? adaptForTouch(currentStep.description, currentStep.id) : currentStep.description}
           </div>
 
           {/* 조건 힌트 */}
@@ -343,7 +358,7 @@ export const TutorialOverlay: React.FC = () => {
             <div className="bg-neon-cyan/10 border border-neon-cyan/30 rounded-lg px-3 py-2 mb-4">
               <div className="flex items-center gap-2 text-neon-cyan text-sm">
                 <span className="animate-pulse">👆</span>
-                <span>{currentStep.conditionHint}</span>
+                <span>{isTouchDevice ? currentStep.conditionHint.replace(/클릭/g, '터치') : currentStep.conditionHint}</span>
               </div>
             </div>
           )}

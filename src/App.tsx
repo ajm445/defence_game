@@ -48,7 +48,7 @@ function App() {
   }, [initializeAuth]);
 
   return (
-    <div className="min-h-screen bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900">
+    <div className="h-full overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900">
       {/* 모바일 세로 모드 회전 안내 */}
       <OrientationPrompt />
 

@@ -278,7 +278,7 @@ export const RPGTutorialScreen: React.FC = () => {
   }, [setPaused, resetGame, endTutorial, resetTutorial, setScreen]);
 
   return (
-    <div className="relative w-full h-screen overflow-hidden bg-dark-900">
+    <div className="relative w-full h-full overflow-hidden bg-dark-900">
       {/* 메인 캔버스 */}
       <RPGCanvas />
 

@@ -1253,7 +1253,7 @@ function executeAdvancedESkill(
         targetId: targetEnemy.id,
       });
 
-      // 시전 이펙트 (조준선 표시, heroId로 영웅 추적)
+      // 시전 이펙트 (조준선 표시, heroId로 영웅 추적, targetId로 타겟 추적)
       state.activeSkillEffects.push({
         type: 'snipe' as any,
         position: { x: hero.x, y: hero.y },
@@ -1262,6 +1262,7 @@ function executeAdvancedESkill(
         duration: chargeTime,
         startTime: gameTime,
         heroId: hero.id,
+        targetId: targetEnemy.id,
       });
 
       hero.skillCooldowns.E = 30.0;

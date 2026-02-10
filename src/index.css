@@ -9,12 +9,23 @@
   box-sizing: border-box;
 }
 
+html {
+  height: 100vh;
+  height: 100dvh; /* 모바일 브라우저 주소창 높이 보정 */
+  overflow: hidden;
+}
+
 body {
   font-family: 'Noto Sans KR', sans-serif;
+  height: 100%;
   overflow: hidden;
   background: #0a0a0f;
   -webkit-user-select: none;
   user-select: none;
+}
+
+#root {
+  height: 100%;
 }
 
 /* 모바일 터치 최적화 */
