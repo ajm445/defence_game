@@ -81,7 +81,7 @@ export const TouchUpgradeToggle: React.FC = () => {
   const isRangedClass = heroClass === 'archer' || heroClass === 'mage';
   const rangeMaxLevel = getRangeMaxLevel();
 
-  const isAttackSpeedCapped = hero?.config.attackSpeed !== undefined && hero.config.attackSpeed <= 0.3;
+  const isAttackSpeedCapped = hero?.config.attackSpeed !== undefined && hero.config.attackSpeed < 0.31;
 
   const upgradeTypes = useMemo(() => {
     const baseTypes: UpgradeType[] = ['attack', 'speed', 'hp', 'attackSpeed', 'goldRate'];

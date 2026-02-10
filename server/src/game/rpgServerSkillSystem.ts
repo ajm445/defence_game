@@ -1639,20 +1639,12 @@ export function updatePendingSkills(ctx: SkillContext): void {
           startTime: state.gameTime,
         });
       } else if (skill.type === 'snipe') {
-        // 저격: targetId로 단일 적 타격
+        // 저격: targetId로 단일 적 타격 (이펙트는 시전 시 이미 생성됨, 중복 생성 금지)
         const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
         if (skill.targetId) {
           const targetEnemy = state.enemies.find(e => e.id === skill.targetId && e.hp > 0);
           if (targetEnemy) {
             applyDamageToEnemy(ctx, targetEnemy.id, skill.damage, caster);
-            state.activeSkillEffects.push({
-              type: 'snipe' as any,
-              position: { x: caster?.x || skill.position.x, y: caster?.y || skill.position.y },
-              targetPosition: { x: targetEnemy.x, y: targetEnemy.y },
-              damage: skill.damage,
-              duration: 0.5,
-              startTime: state.gameTime,
-            });
           }
         }
       } else {

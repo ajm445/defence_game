@@ -1244,17 +1244,8 @@ export function useRPGGameLoop() {
             if (killed) {
               useRPGStore.getState().removeEnemy(targetEnemy.id);
             }
-            // 저격 이펙트
+            // 저격은 시전 시 이미 이펙트 생성됨 (중복 생성 금지), 사운드만 재생
             if (skill.type === 'snipe') {
-              const snipeEffect: SkillEffect = {
-                type: 'snipe' as SkillType,
-                position: { x: targetEnemy.x, y: targetEnemy.y },
-                damage: skill.damage,
-                duration: 0.5,
-                startTime: currentGameTime,
-                heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
-              };
-              useRPGStore.getState().addSkillEffect(snipeEffect);
               soundManager.play('attack_ranged');
             } else {
               effectManager.createEffect('attack_melee', targetEnemy.x, targetEnemy.y);

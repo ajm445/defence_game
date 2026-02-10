@@ -163,7 +163,7 @@ export const RPGUpgradePanel: React.FC = () => {
   }, [handleUpgrade, isRangedClass]);
 
   // 공격속도 0.3초 캡 체크
-  const isAttackSpeedCapped = hero?.config.attackSpeed !== undefined && hero.config.attackSpeed <= 0.3;
+  const isAttackSpeedCapped = hero?.config.attackSpeed !== undefined && hero.config.attackSpeed < 0.31;
 
   // 업그레이드별 최대 레벨 결정
   const getMaxLevel = (type: UpgradeType): number | null => {

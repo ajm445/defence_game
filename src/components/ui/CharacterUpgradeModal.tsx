@@ -615,7 +615,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
 
               // 공격속도 0.3초 캡 체크
               const isAttackSpeedCapped = statType === 'attackSpeed' &&
-                (displayConfig.attackSpeed - getStatBonus('attackSpeed', safeStatUpgrades.attackSpeed ?? 0, progress.tier)) <= 0.3;
+                (displayConfig.attackSpeed - getStatBonus('attackSpeed', safeStatUpgrades.attackSpeed ?? 0, progress.tier)) < 0.31;
               const isTier2 = progress.tier === 2;
               const isMaxed = isAttackSpeedCapped || (!isTier2 && currentLevel >= statConfig.maxLevel);
               const canUpgrade = isAttackSpeedCapped ? false : canUpgradeStat(heroClass, statType);

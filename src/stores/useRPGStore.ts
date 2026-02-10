@@ -1157,7 +1157,7 @@ export const useRPGStore = create<RPGStore>()(
       const heroClass = state.hero?.heroClass;
 
       // 공격속도 0.3초 캡 체크 (더 이상 업그레이드 불가)
-      if (stat === 'attackSpeed' && state.hero?.config.attackSpeed !== undefined && state.hero.config.attackSpeed <= 0.3) {
+      if (stat === 'attackSpeed' && state.hero?.config.attackSpeed !== undefined && state.hero.config.attackSpeed < 0.31) {
         return false;
       }
 
@@ -2550,7 +2550,7 @@ export const useRPGStore = create<RPGStore>()(
             if (forceHostPosition) {
               // 시전 중: 위치 차이가 작으면 로컬 위치 유지 (스킬 시작 시 뒤로 밀림 방지)
               // 시전 중에는 이동 불가이므로 로컬 위치를 그대로 유지해도 안전
-              if (isCasting && !isDashing && !isStunned && positionDiff < 50) {
+              if (isCasting && !isDashing && !isStunned && positionDiff < 30) {
                 syncX = localHero.x;
                 syncY = localHero.y;
               } else {
@@ -2573,13 +2573,13 @@ export const useRPGStore = create<RPGStore>()(
               syncY = localHero.y;
             } else {
               // 양쪽 모두 정지: 작은 차이는 무시하여 슬라이딩 방지
-              if (positionDiff < 15) {
-                // 15px 미만: 로컬 위치 유지 (정지 후 안정화)
+              if (positionDiff < 8) {
+                // 8px 미만: 로컬 위치 유지 (정지 후 안정화)
                 syncX = localHero.x;
                 syncY = localHero.y;
               } else {
-                // 15px 이상: 부드럽게 서버 위치로 수렴 (15%)
-                const alpha = 0.15;
+                // 8px 이상: 부드럽게 서버 위치로 수렴 (30%)
+                const alpha = 0.3;
                 syncX = localHero.x + (hero.x - localHero.x) * alpha;
                 syncY = localHero.y + (hero.y - localHero.y) * alpha;
               }
@@ -2695,7 +2695,7 @@ export const useRPGStore = create<RPGStore>()(
             // 기존 보간 데이터가 있으면, 현재 보간된 위치를 prevX/Y로 설정
             const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
             // 적응형 보간 시간: 실제 서버 업데이트 간격 기반
-            const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.15);
+            const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.0);
             const t = Math.min(1, timeSinceUpdate / interpolationDuration);
 
             // ease-out cubic 적용
@@ -2774,7 +2774,7 @@ export const useRPGStore = create<RPGStore>()(
           // 기존 적이 있으면 보간 데이터 설정
           // 현재 보간 중인 위치를 시작점으로 사용
           const timeSinceUpdate = now - existingInterpolation.lastUpdateTime;
-          const adaptiveDuration = Math.max(20, _serverUpdateInterval * 1.15);
+          const adaptiveDuration = Math.max(20, _serverUpdateInterval * 1.0);
           const t = Math.min(1, timeSinceUpdate / adaptiveDuration);
 
           const currentX = existingInterpolation.prevX + (existingInterpolation.targetX - existingInterpolation.prevX) * t;
@@ -2935,7 +2935,7 @@ export const useRPGStore = create<RPGStore>()(
       const updatedHeroes = new Map<string, HeroUnit>();
       const updatedInterpolation = new Map<string, HeroInterpolation>();
       // 적응형 보간 시간: 실제 서버 업데이트 간격 기반
-      const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.15);
+      const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.0);
 
       // ease-out cubic 함수
       const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
@@ -3002,7 +3002,7 @@ export const useRPGStore = create<RPGStore>()(
 
       const now = performance.now();
       // 적응형 보간 시간: 실제 서버 업데이트 간격 기반
-      const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.15);
+      const interpolationDuration = Math.max(20, _serverUpdateInterval * 1.0);
 
       // ease-out cubic 함수
       const easeOutCubic = (x: number) => 1 - Math.pow(1 - x, 3);
