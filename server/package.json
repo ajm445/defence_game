@@ -1,6 +1,6 @@
 {
   "name": "defence-game-server",
-  "version": "1.22.9",
+  "version": "1.23.5",
   "type": "module",
   "engines": {
     "node": ">=18.0.0"
@@ -16,6 +16,7 @@
     "cors": "^2.8.5",
     "dotenv": "^16.4.5",
     "express": "^4.21.0",
+    "helmet": "^8.1.0",
     "jsonwebtoken": "^9.0.3",
     "tsx": "^4.19.0",
     "uuid": "^11.1.0",

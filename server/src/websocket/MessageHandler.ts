@@ -3,6 +3,8 @@ import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOf
 import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { getSupabaseAdmin } from '../services/supabaseAdmin';
+import { rateLimiters } from '../middleware/rateLimiter';
+import { isValidDirection, isValidSkillSlot, isValidUpgradeType, isValidRPGCoordinate, isValidRTSCoordinate } from '../middleware/inputValidator';
 import {
   createCoopRoom,
   joinCoopRoom,
@@ -616,6 +618,11 @@ function handleSpawnUnit(playerId: string, unitType: string): void {
 }
 
 function handlePlaceMine(playerId: string, x: number, y: number): void {
+  if (!isValidRTSCoordinate(x, y)) {
+    console.warn(`[Security] Invalid mine coordinates from ${playerId}: (${x}, ${y})`);
+    return;
+  }
+
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
 
@@ -668,6 +675,8 @@ const DIFFICULTY_NAMES: Record<string, string> = {
 };
 
 function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean, difficulty?: string, advancedClass?: string, tier?: 1 | 2): void {
+  if (!rateLimiters.roomCreate.checkAndUpdate(playerId)) return;
+
   const player = players.get(playerId);
   if (!player) return;
 
@@ -679,6 +688,8 @@ function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: a
 }
 
 function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, advancedClass?: string, tier?: 1 | 2): void {
+  if (!rateLimiters.roomJoin.checkAndUpdate(playerId)) return;
+
   const player = players.get(playerId);
   if (!player) return;
 
@@ -688,6 +699,8 @@ function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: stri
 }
 
 function handleJoinCoopRoomById(playerId: string, roomId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, advancedClass?: string, tier?: 1 | 2): void {
+  if (!rateLimiters.roomJoin.checkAndUpdate(playerId)) return;
+
   const player = players.get(playerId);
   if (!player) return;
 
@@ -841,6 +854,12 @@ function handleUpdateCoopRoomSettings(hostPlayerId: string, isPrivate?: boolean,
 }
 
 function handleCoopHeroMove(playerId: string, direction: { x: number; y: number } | null): void {
+  if (!rateLimiters.move.checkAndUpdate(playerId)) return;
+  if (!isValidDirection(direction)) {
+    console.warn(`[Security] Invalid direction from ${playerId}`);
+    return;
+  }
+
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
 
@@ -851,6 +870,16 @@ function handleCoopHeroMove(playerId: string, direction: { x: number; y: number 
 }
 
 function handleCoopUseSkill(playerId: string, skillType: any, targetX: number, targetY: number): void {
+  if (!rateLimiters.skill.checkAndUpdate(playerId)) return;
+  if (!isValidSkillSlot(skillType)) {
+    console.warn(`[Security] Invalid skillType from ${playerId}: ${skillType}`);
+    return;
+  }
+  if (targetX !== undefined && targetY !== undefined && !isValidRPGCoordinate(targetX, targetY)) {
+    console.warn(`[Security] Invalid skill coordinates from ${playerId}: (${targetX}, ${targetY})`);
+    return;
+  }
+
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
 
@@ -861,6 +890,12 @@ function handleCoopUseSkill(playerId: string, skillType: any, targetX: number, t
 }
 
 function handleCoopUpgradeHeroStat(playerId: string, upgradeType: 'attack' | 'speed' | 'hp' | 'goldRate'): void {
+  if (!rateLimiters.upgrade.checkAndUpdate(playerId)) return;
+  if (!isValidUpgradeType(upgradeType)) {
+    console.warn(`[Security] Invalid upgradeType from ${playerId}: ${upgradeType}`);
+    return;
+  }
+
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
 
@@ -900,12 +935,33 @@ export function handleCoopDisconnect(playerId: string): void {
  * 모든 클라이언트가 입력을 서버로 전송하고, 서버 게임 엔진이 처리
  */
 function handlePlayerInput(playerId: string, input: any): void {
+  if (!rateLimiters.playerInput.checkAndUpdate(playerId)) return;
+
+  // 입력 필드 검증
+  if (input) {
+    if (input.direction !== undefined && !isValidDirection(input.direction)) {
+      console.warn(`[Security] Invalid input direction from ${playerId}`);
+      return;
+    }
+    if (input.position && !isValidRPGCoordinate(input.position.x, input.position.y)) {
+      console.warn(`[Security] Invalid input position from ${playerId}`);
+      return;
+    }
+    if (input.skillUsed && !isValidSkillSlot(input.skillUsed.skillSlot)) {
+      console.warn(`[Security] Invalid input skillSlot from ${playerId}`);
+      return;
+    }
+    if (input.upgradeRequested && !isValidUpgradeType(input.upgradeRequested)) {
+      console.warn(`[Security] Invalid input upgradeType from ${playerId}`);
+      return;
+    }
+  }
+
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
 
   const room = coopGameRooms.get(player.roomId);
   if (room) {
-    // 스킬 사용이나 업그레이드 같은 중요 액션만 로그 출력 (이동은 너무 빈번)
     if (input.skillUsed) {
       console.log(`[ServerAuth] 플레이어 입력: ${playerId} 스킬 ${input.skillUsed.skillSlot}`);
     } else if (input.upgradeRequested) {

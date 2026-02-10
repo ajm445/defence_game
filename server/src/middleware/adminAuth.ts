@@ -1,7 +1,15 @@
 import { Request, Response, NextFunction } from 'express';
 import jwt from 'jsonwebtoken';
 
-const JWT_SECRET = process.env.JWT_SECRET || 'your-super-secret-jwt-key-change-in-production';
+const JWT_SECRET = process.env.JWT_SECRET;
+if (!JWT_SECRET && process.env.NODE_ENV === 'production') {
+  console.error('[FATAL] JWT_SECRET 환경 변수 필수!');
+  process.exit(1);
+}
+if (!JWT_SECRET) {
+  console.warn('[Security] JWT_SECRET 미설정 - 개발 환경 기본값 사용');
+}
+const EFFECTIVE_JWT_SECRET = JWT_SECRET || 'dev-only-default-jwt-secret-key';
 
 export interface AdminTokenPayload {
   adminId: string;
@@ -15,13 +23,13 @@ export interface AuthenticatedRequest extends Request {
 
 // JWT 토큰 생성
 export function generateAdminToken(payload: AdminTokenPayload): string {
-  return jwt.sign(payload, JWT_SECRET, { expiresIn: '24h' });
+  return jwt.sign(payload, EFFECTIVE_JWT_SECRET, { expiresIn: '24h' });
 }
 
 // JWT 토큰 검증
 export function verifyAdminToken(token: string): AdminTokenPayload | null {
   try {
-    return jwt.verify(token, JWT_SECRET) as AdminTokenPayload;
+    return jwt.verify(token, EFFECTIVE_JWT_SECRET) as AdminTokenPayload;
   } catch {
     return null;
   }

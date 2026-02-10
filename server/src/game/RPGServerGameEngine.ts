@@ -289,6 +289,7 @@ export class RPGServerGameEngine {
   public handlePlayerInput(playerId: string, input: PlayerInput): void {
     const queue = this.inputQueues.get(playerId);
     if (queue) {
+      if (queue.length >= 120) return; // 2초분 (60fps×2), DoS 방지
       queue.push(input);
     }
   }

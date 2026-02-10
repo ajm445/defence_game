@@ -2,11 +2,13 @@ import { WebSocketServer, WebSocket } from 'ws';
 import { createServer } from 'http';
 import express from 'express';
 import cors from 'cors';
+import helmet from 'helmet';
 import { v4 as uuidv4 } from 'uuid';
 import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect, handleAdminDisconnect, broadcastToAdmins, getServerStatus, cleanupAllRooms } from './MessageHandler';
 import { handlePlayerDisconnect } from '../room/RoomManager';
 import { players, sendMessage, Player, registerUserOffline } from '../state/players';
 import { gameInviteManager } from '../friend/GameInviteManager';
+import { cleanupPlayerRateLimits } from '../middleware/rateLimiter';
 import authRouter from '../api/authRouter';
 import profileRouter from '../api/profileRouter';
 import adminRouter from '../api/admin/adminRouter';
@@ -21,8 +23,16 @@ export function createWebSocketServer(port: number) {
   const app = express();
 
   // 미들웨어 설정
+  app.use(helmet({ contentSecurityPolicy: false }));
+
+  const allowedOrigins = process.env.CORS_ORIGIN
+    ? process.env.CORS_ORIGIN.split(',').map(s => s.trim())
+    : ['http://localhost:5173', 'http://localhost:4173'];
   app.use(cors({
-    origin: process.env.CORS_ORIGIN || '*',
+    origin: (origin, callback) => {
+      if (!origin || allowedOrigins.includes(origin)) callback(null, true);
+      else callback(new Error('CORS policy violation'));
+    },
     credentials: true,
   }));
   app.use(express.json());
@@ -46,7 +56,7 @@ export function createWebSocketServer(port: number) {
   const httpServer = createServer(app);
 
   // WebSocket 서버를 HTTP 서버에 연결
-  const wss = new WebSocketServer({ server: httpServer });
+  const wss = new WebSocketServer({ server: httpServer, maxPayload: 64 * 1024 });
 
   // WebSocket 서버 에러 핸들러 (HTTP 서버 에러 전파 방지)
   wss.on('error', (err: NodeJS.ErrnoException) => {
@@ -220,6 +230,7 @@ export function createWebSocketServer(port: number) {
       // 관리자 구독 해제
       handleAdminDisconnect(playerId);
 
+      cleanupPlayerRateLimits(playerId);
       players.delete(playerId);
       console.log(`현재 접속자: ${players.size}명`);
 

@@ -4,7 +4,7 @@
 
 **RTS 모드**와 **RPG 모드**를 모두 즐길 수 있는 종합 전략 게임입니다.
 
-**Version: 1.23.4**
+**Version: 1.23.5**
 
 ---
 
@@ -54,6 +54,7 @@
 | Node.js | 22.x | 런타임 |
 | Express | 4.x | REST API 서버 |
 | ws | 8.x | WebSocket 서버 |
+| helmet | 8.x | HTTP 보안 헤더 |
 | Supabase | 2.x | 인증 및 데이터베이스 (Admin API) |
 | TypeScript | 5.x | 타입 안정성 |
 
@@ -422,12 +423,68 @@ defence_game/
 │       ├── api/             # REST API 라우터 (인증 등)
 │       ├── game/            # 서버 게임 로직 (RTS GameRoom, RPG ServerGameEngine)
 │       ├── room/            # 방 관리 (RoomManager)
+│       ├── middleware/       # 보안 미들웨어 (Rate Limiter, 입력 검증, 인증)
 │       ├── services/        # Supabase Admin 클라이언트
 │       ├── state/           # 서버 상태 관리
 │       └── websocket/       # WebSocket + Express 서버
 └── shared/                   # 공유 타입
     └── types/               # 네트워크 메시지 및 게임 타입
 ```
+
+---
+
+## 환경 변수 (서버)
+
+서버 실행에 필요한 환경 변수 목록. `server/.env` 파일 또는 배포 플랫폼(Railway 등)에서 설정.
+
+| 변수 | 필수 | 설명 |
+|------|:----:|------|
+| `PORT` | - | 서버 포트 (기본값: 8080) |
+| `NODE_ENV` | 프로덕션 | `production` 설정 시 보안 강화 적용 |
+| `CORS_ORIGIN` | 프로덕션 | 허용할 클라이언트 도메인 (쉼표 구분). 미설정 시 `localhost:5173,4173`만 허용 |
+| `JWT_SECRET` | 프로덕션 | 관리자 패널 JWT 서명 키. **프로덕션 미설정 시 서버 시작 거부** |
+| `SUPABASE_URL` | O | Supabase 프로젝트 URL |
+| `SUPABASE_ANON_KEY` | O | Supabase 익명 키 |
+| `SUPABASE_SERVICE_ROLE_KEY` | O | Supabase 서비스 롤 키 |
+
+> `JWT_SECRET`은 Supabase JWT와 별개. `node -e "console.log(require('crypto').randomBytes(32).toString('hex'))"` 로 생성 권장.
+
+---
+
+## 서버 보안
+
+### Rate Limiting (플레이어별)
+악의적 패킷 스팸 방지. 정상 플레이에는 영향 없으며, 초과 시 조용히 무시.
+
+| 대상 | 최소 간격 |
+|------|----------|
+| 이동 (COOP_HERO_MOVE) | 15ms |
+| 플레이어 입력 (PLAYER_INPUT) | 15ms |
+| 스킬 사용 (COOP_USE_SKILL) | 100ms |
+| 업그레이드 (COOP_UPGRADE_HERO_STAT) | 200ms |
+| 방 생성 (CREATE_COOP_ROOM) | 3초 |
+| 방 참가 (JOIN_COOP_ROOM) | 1초 |
+
+### 입력 검증
+- **좌표 범위**: RPG 0~3000×0~2000, RTS 0~4000×0~2400
+- **방향 벡터**: `null` 또는 길이 ≤ 1.5 (정규화 오차 허용)
+- **스킬 슬롯**: `Q`, `W`, `E`만 허용
+- **업그레이드 타입**: `attack`, `speed`, `hp`, `attackSpeed`, `goldRate`, `range`만 허용
+- 검증 실패 시 `[Security]` 로그 출력 후 무시
+
+### 기타 보안 설정
+- **Helmet**: HTTP 보안 헤더 자동 설정 (CSP 제외)
+- **CORS 화이트리스트**: `CORS_ORIGIN` 환경 변수 기반, 허용되지 않은 origin 차단
+- **WebSocket maxPayload**: 64KB 제한
+- **입력 큐 크기 제한**: 플레이어당 최대 120개 (2초분), DoS 방지
+- **JWT_SECRET 프로덕션 필수**: 미설정 시 서버 시작 거부
+
+### 기존 서버 검증 (변경 없음)
+- 스킬 쿨다운 서버 검증 (`rpgServerSkillSystem.ts`)
+- 업그레이드 골드/캡 검증 (`rpgServerGameSystems.ts`)
+- RTS 자원 비용/쿨타임/개수 검증 (`GameRoom.ts`)
+- 영웅 생존 상태 체크 (`RPGServerGameEngine.ts`)
+- 채팅 500ms rate limiting (`CoopRoomManager.ts`)
 
 ---
 
@@ -487,7 +544,17 @@ defence_game/
 
 ## 버전 히스토리
 
-### V1.23.4 (현재)
+### V1.23.5 (현재)
+- **서버 보안 강화**
+  - Rate Limiting: 이동/스킬/업그레이드/방 생성·참가에 플레이어별 속도 제한 적용
+  - 입력 검증: 좌표 범위, 방향 벡터, 스킬슬롯, 업그레이드 타입 서버 검증 추가
+  - Helmet 미들웨어: HTTP 보안 헤더 자동 설정
+  - CORS 화이트리스트: `CORS_ORIGIN` 환경 변수 기반 origin 필터링 (`*` → 허용 목록)
+  - WebSocket maxPayload 64KB 제한
+  - 입력 큐 크기 제한: 플레이어당 120개 (DoS 방지)
+  - JWT_SECRET 프로덕션 필수화: 미설정 시 서버 시작 거부
+
+### V1.23.4
 - **RPG 이동 보간 튜닝**
   - 데드존 15px → 8px, 보정 lerp 15% → 30%, 시전 스냅 임계 50px → 30px
   - 보간 지속시간 `_serverUpdateInterval × 1.15` → `× 1.0` (과보간 제거)
