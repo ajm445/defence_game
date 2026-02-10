@@ -34,15 +34,12 @@ export interface NetworkUnit {
   side: PlayerSide;
 }
 
-// 네트워크 전송용 벽
-export interface NetworkWall {
+// 네트워크 전송용 지뢰
+export interface NetworkMine {
   id: string;
   x: number;
   y: number;
-  hp: number;
-  maxHp: number;
   side: PlayerSide;
-  createdAt: number; // 생성 시간 (게임 시간 기준)
 }
 
 // 네트워크 전송용 자원 노드
@@ -75,7 +72,7 @@ export interface NetworkGameState {
   leftPlayer: PlayerState;
   rightPlayer: PlayerState;
   units: NetworkUnit[];
-  walls: NetworkWall[];
+  mines: NetworkMine[];
   resourceNodes: NetworkResourceNode[];
 }
 

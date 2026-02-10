@@ -85,11 +85,11 @@ export const GameScreen: React.FC = () => {
       <GameTimer />
       <HPStatusPanel />
 
-      {/* 일시정지 버튼 - 터치 기기에서는 HP패널 아래로 이동 */}
-      {(gameMode === 'ai' || gameMode === 'tutorial') && (
+      {/* 일시정지 버튼 - 터치 기기에서만 표시 */}
+      {isTouchDevice && (gameMode === 'ai' || gameMode === 'tutorial') && (
         <div
           className="absolute right-4 z-20 pointer-events-auto"
-          style={{ top: isMobile ? '10.5rem' : isTablet ? '10.5rem' : '1rem' }}
+          style={{ top: '10.5rem' }}
         >
           <PauseButton onClick={() => { stopGame(); setScreen('paused'); }} />
         </div>

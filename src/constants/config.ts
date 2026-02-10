@@ -149,10 +149,12 @@ export const CONFIG = {
   DIRECT_GATHER_RANGE: 500, // 본진에서 직접 채집 가능 거리
   DIRECT_GATHER_AMOUNT: 5,  // 클릭당 채집량
 
-  // 건설 비용
-  WALL_COST: { wood: 40, stone: 20 },
-  WALL_HP: 150,
-  WALL_DURATION: 30, // 벽 지속 시간 (초)
+  // 지뢰 설정
+  MINE_COST: { wood: 30, stone: 15 },
+  MINE_DAMAGE: 80,
+  MINE_AOE_RADIUS: 80,
+  MINE_TRIGGER_RADIUS: 50,
+  MINE_MAX_PER_PLAYER: 5,
   BASE_UPGRADE: {
     BASE_COST: { gold: 100, wood: 50, stone: 50 }, // 기본 비용 (레벨 1)
     COST_MULTIPLIER: 1.5, // 레벨당 비용 증가 배율
@@ -164,6 +166,9 @@ export const CONFIG = {
   // 약초 판매
   HERB_SELL_COST: 30,   // 필요 약초 수
   HERB_SELL_GOLD: 70,   // 획득 골드
+
+  // 튜토리얼 지뢰 데모
+  TUTORIAL_MINE_ENEMY_HP: 50,
 } as const;
 
 // AI 난이도별 설정

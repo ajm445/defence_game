@@ -421,42 +421,23 @@ function handleGameEvent(
       break;
     }
 
-    case 'WALL_BUILT':
-      // 내 벽을 지을 때만 사운드 재생
-      if (event.wall.side === mySide) {
-        soundManager.play('build_wall');
-      }
+    case 'MINE_PLACED':
+      soundManager.play('place_mine');
       set({
         gameState: {
           ...gameState,
-          walls: [...gameState.walls, event.wall],
+          mines: [...gameState.mines, event.mine],
         },
       });
       break;
 
-    case 'WALL_DAMAGED': {
-      // 벽 피격 이펙트
-      const wall = gameState.walls.find((w) => w.id === event.wallId);
-      if (wall) {
-        effectManager.createEffect('attack_melee', wall.x, wall.y);
-      }
-
+    case 'MINE_EXPLODED':
+      soundManager.play('mine_explosion');
+      effectManager.createEffect('mine_explosion', event.x, event.y);
       set({
         gameState: {
           ...gameState,
-          walls: gameState.walls.map((w) =>
-            w.id === event.wallId ? { ...w, hp: event.hp } : w
-          ),
-        },
-      });
-      break;
-    }
-
-    case 'WALL_DESTROYED':
-      set({
-        gameState: {
-          ...gameState,
-          walls: gameState.walls.filter((w) => w.id !== event.wallId),
+          mines: gameState.mines.filter((m) => m.id !== event.mineId),
         },
       });
       break;

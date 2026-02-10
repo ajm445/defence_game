@@ -18,6 +18,7 @@ export const useGameLoop = () => {
   const animationIdRef = useRef<number>(0);
   const aiTimerRef = useRef<number>(0);
   const lastMassSpawnTimeRef = useRef<number>(-1); // 마지막 대량 발생 시간 (-1: 아직 없음)
+  const tutorialMineSpawnTimerRef = useRef<number>(0); // 튜토리얼 지뢰 데모 적 소환 타이머
 
   const running = useGameStore((state) => state.running);
   const gameMode = useGameStore((state) => state.gameMode);
@@ -29,8 +30,7 @@ export const useGameLoop = () => {
   const updateResourceNode = useGameStore((state) => state.updateResourceNode);
   const respawnResourceNodes = useGameStore((state) => state.respawnResourceNodes);
   const damageBase = useGameStore((state) => state.damageBase);
-  const damageWall = useGameStore((state) => state.damageWall);
-  const removeExpiredWalls = useGameStore((state) => state.removeExpiredWalls);
+  const removeMine = useGameStore((state) => state.removeMine);
   const spawnUnit = useGameStore((state) => state.spawnUnit);
   const aiSellHerb = useGameStore((state) => state.aiSellHerb);
   const updateSpawnCooldowns = useGameStore((state) => state.updateSpawnCooldowns);
@@ -67,8 +67,44 @@ export const useGameLoop = () => {
       // 소환 쿨타임 업데이트
       updateSpawnCooldowns(deltaTime);
 
-      // 만료된 벽 제거
-      removeExpiredWalls();
+      // 지뢰 트리거 체크
+      {
+        const minesToDetonate: { id: string; x: number; y: number }[] = [];
+        for (const mine of state.mines) {
+          for (const enemy of state.enemyUnits) {
+            if (enemy.hp <= 0) continue;
+            const dx = enemy.x - mine.x;
+            const dy = enemy.y - mine.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= CONFIG.MINE_TRIGGER_RADIUS) {
+              minesToDetonate.push(mine);
+              break;
+            }
+          }
+        }
+        for (const mine of minesToDetonate) {
+          // AoE 피해 (거리 감쇠: 중심 100% → 가장자리 50%)
+          for (const enemy of state.enemyUnits) {
+            if (enemy.hp <= 0) continue;
+            const dx = enemy.x - mine.x;
+            const dy = enemy.y - mine.y;
+            const dist = Math.sqrt(dx * dx + dy * dy);
+            if (dist <= CONFIG.MINE_AOE_RADIUS) {
+              const damageMultiplier = 1 - (dist / CONFIG.MINE_AOE_RADIUS) * 0.5;
+              const damage = Math.floor(CONFIG.MINE_DAMAGE * damageMultiplier);
+              enemy.hp -= damage;
+              // 튜토리얼: 지뢰로 적 처치 시 조건 충족
+              if (state.gameMode === 'tutorial' && enemy.hp <= 0) {
+                useTutorialStore.getState().setMineExploded(true);
+              }
+            }
+          }
+          // 폭발 이펙트 + 사운드
+          effectManager.createEffect('mine_explosion', mine.x, mine.y);
+          soundManager.play('mine_explosion');
+          removeMine(mine.id);
+        }
+      }
 
       // 골드 자동 획득 (플레이어는 업그레이드 레벨에 따라, AI는 난이도별 골드 수입)
       const difficultyConfig = AI_DIFFICULTY_CONFIG[difficulty];
@@ -268,18 +304,15 @@ export const useGameLoop = () => {
             unit,
             deltaTime,
             state.playerBase,
-            playerUnitsCopy,
-            state.walls
+            playerUnitsCopy
           );
           updatedEnemyUnits.push(result.unit);
 
           if (result.baseDamage) {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
-            // 마법 공격 이펙트 (본진 공격)
             effectsToCreate.push({ type: 'attack_mage', x: state.playerBase.x, y: state.playerBase.y });
           }
           if (result.aoeDamage && result.aoeDamage.length > 0) {
-            // 첫 번째 타겟 위치에 AOE 마법 이펙트
             const firstTarget = playerUnitsCopy.find(u => u.id === result.aoeDamage![0].targetId);
             if (firstTarget) {
               effectsToCreate.push({ type: 'attack_mage', x: firstTarget.x, y: firstTarget.y });
@@ -292,9 +325,6 @@ export const useGameLoop = () => {
                 attackerId: dmg.attackerId
               });
             }
-          }
-          if (result.wallDamage) {
-            damageWall(result.wallDamage.wallId, result.wallDamage.damage);
           }
         }
         // 보스 유닛 처리 (AOE 공격 + 일반 전투)
@@ -303,8 +333,7 @@ export const useGameLoop = () => {
             unit,
             deltaTime,
             state.playerBase,
-            playerUnitsCopy,
-            state.walls
+            playerUnitsCopy
           );
           updatedEnemyUnits.push(result.unit);
 
@@ -326,9 +355,6 @@ export const useGameLoop = () => {
               });
             }
           }
-          if (result.wallDamage) {
-            damageWall(result.wallDamage.wallId, result.wallDamage.damage);
-          }
         }
         // 일반 전투 유닛 처리
         else if (unit.config.type === 'combat') {
@@ -336,14 +362,12 @@ export const useGameLoop = () => {
             unit,
             deltaTime,
             state.playerBase,
-            playerUnitsCopy,
-            state.walls
+            playerUnitsCopy
           );
           updatedEnemyUnits.push(result.unit);
 
           if (result.baseDamage) {
             damageBase(result.baseDamage.team, result.baseDamage.damage);
-            // 근접/원거리 공격 이펙트 (본진 공격)
             const effectType: EffectType = unit.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
             effectsToCreate.push({ type: effectType, x: state.playerBase.x, y: state.playerBase.y, targetX: state.playerBase.x, targetY: state.playerBase.y });
           }
@@ -354,15 +378,11 @@ export const useGameLoop = () => {
               damage: newDamage,
               attackerId: result.unitDamage.attackerId
             });
-            // 근접/원거리 공격 이펙트
             const target = playerUnitsCopy.find(u => u.id === result.unitDamage!.targetId);
             if (target) {
               const effectType: EffectType = unit.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
               effectsToCreate.push({ type: effectType, x: target.x, y: target.y, targetX: target.x, targetY: target.y });
             }
-          }
-          if (result.wallDamage) {
-            damageWall(result.wallDamage.wallId, result.wallDamage.damage);
           }
         } else {
           const result = updateSupportUnit(unit, deltaTime, state.resourceNodes, playerUnitsCopy);
@@ -517,8 +537,40 @@ export const useGameLoop = () => {
         }
       }
 
-      // AI 업데이트 (난이도별 행동 주기) - 튜토리얼 모드에서는 AI 매우 느리게
+      // 튜토리얼 지뢰 데모: place_mine 스텝에서 적 소환 + 자원 보장
       const isTutorial = state.gameMode === 'tutorial';
+      if (isTutorial) {
+        const tutorialState = useTutorialStore.getState();
+        const placeMineStepIndex = TUTORIAL_STEPS.findIndex(s => s.id === 'place_mine');
+        if (tutorialState.currentStepIndex === placeMineStepIndex) {
+          // 자원 보장 (지뢰 비용: 🪵30 + 🪨15)
+          const currentRes = useGameStore.getState().resources;
+          if (currentRes.wood < 30 || currentRes.stone < 15) {
+            useGameStore.setState((s) => ({
+              resources: {
+                ...s.resources,
+                wood: Math.max(s.resources.wood, 30),
+                stone: Math.max(s.resources.stone, 15),
+              },
+            }));
+          }
+
+          // 3초마다 약한 적 1마리 소환 (동시 최대 1마리)
+          tutorialMineSpawnTimerRef.current += deltaTime;
+          if (tutorialMineSpawnTimerRef.current >= 3) {
+            tutorialMineSpawnTimerRef.current = 0;
+            const currentEnemies = useGameStore.getState().enemyUnits;
+            if (currentEnemies.length < 1) {
+              spawnUnit('melee', 'enemy', true, CONFIG.TUTORIAL_MINE_ENEMY_HP);
+            }
+          }
+        } else {
+          // 다른 스텝에서는 타이머 리셋
+          tutorialMineSpawnTimerRef.current = 0;
+        }
+      }
+
+      // AI 업데이트 (난이도별 행동 주기) - 튜토리얼 모드에서는 AI 매우 느리게
       const aiInterval = isTutorial ? 10 : difficultyConfig.actionInterval; // 튜토리얼: 10초마다
 
       aiTimerRef.current += deltaTime;
@@ -588,8 +640,7 @@ export const useGameLoop = () => {
       updateResourceNode,
       respawnResourceNodes,
       damageBase,
-      damageWall,
-      removeExpiredWalls,
+      removeMine,
       spawnUnit,
       aiSellHerb,
       checkGameEnd,

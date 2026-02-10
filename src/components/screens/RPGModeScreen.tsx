@@ -304,20 +304,22 @@ export const RPGModeScreen: React.FC = () => {
           <RPGTeamPanel />
         </div>
 
-        {/* 오른쪽: 웨이브 정보 + 버튼 */}
+        {/* 오른쪽: 웨이브 정보 + 일시정지 버튼 (터치 기기만) */}
         <div className="pointer-events-auto flex items-start gap-2">
           <RPGWaveInfo />
-          <PauseButton onClick={() => {
-            if (!gameOver) {
-              const state = useRPGStore.getState();
-              if (state.isTutorial) {
-                useRPGStore.getState().setPaused(!state.paused);
-              } else {
-                useUIStore.getState().setScreen('paused');
-                useRPGStore.getState().setPaused(true);
+          {isTouchDevice && (
+            <PauseButton onClick={() => {
+              if (!gameOver) {
+                const state = useRPGStore.getState();
+                if (state.isTutorial) {
+                  useRPGStore.getState().setPaused(!state.paused);
+                } else {
+                  useUIStore.getState().setScreen('paused');
+                  useRPGStore.getState().setPaused(true);
+                }
               }
-            }
-          }} />
+            }} />
+          )}
         </div>
       </div>
 

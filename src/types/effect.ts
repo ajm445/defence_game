@@ -22,7 +22,9 @@ export type EffectType =
   | 'boss_charge'
   | 'boss_heal'
   // 보스 기본 공격 이펙트
-  | 'boss_basic_attack';
+  | 'boss_basic_attack'
+  // RTS 지뢰 이펙트
+  | 'mine_explosion';
 
 export type ParticleShape = 'circle' | 'square' | 'star' | 'emoji' | 'cross';
 

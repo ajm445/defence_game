@@ -17,7 +17,7 @@ export const useKeyboardInput = () => {
   const resources = useGameStore((state) => state.resources);
   const upgradePlayerBase = useGameStore((state) => state.upgradePlayerBase);
   const sellHerb = useGameStore((state) => state.sellHerb);
-  const canBuildWall = useGameStore((state) => state.canBuildWall);
+  const canPlaceMine = useGameStore((state) => state.canPlaceMine);
   const canUpgradeBase = useGameStore((state) => state.canUpgradeBase);
   const canSellHerb = useGameStore((state) => state.canSellHerb);
   const setScreen = useUIStore((state) => state.setScreen);
@@ -75,16 +75,16 @@ export const useKeyboardInput = () => {
             playerBase.y - (window.innerHeight - 120) / 2
           );
           break;
-        // Q: 벽 배치 모드 토글
+        // Q: 지뢰 배치 모드 토글
         case 'q':
-          if (placementMode === 'wall') {
+          if (placementMode === 'mine') {
             setPlacementMode('none');
-            showNotification('벽 배치 취소');
-          } else if (canBuildWall()) {
-            setPlacementMode('wall');
-            showNotification('벽을 배치할 위치를 클릭하세요!');
+            showNotification('지뢰 배치 취소');
+          } else if (canPlaceMine()) {
+            setPlacementMode('mine');
+            showNotification('지뢰를 배치할 위치를 클릭하세요!');
           } else {
-            showNotification('자원이 부족합니다!');
+            showNotification('자원이 부족하거나 최대 개수에 도달했습니다!');
           }
           break;
         // W: 본진 강화
@@ -137,7 +137,7 @@ export const useKeyboardInput = () => {
           break;
       }
     },
-    [running, gameMode, currentScreen, moveCamera, setCameraPosition, playerBase, stopGame, startGame, setScreen, placementMode, setPlacementMode, showNotification, canBuildWall, canUpgradeBase, canSellHerb, upgradePlayerBase, sellHerb, resources, edgeScrollEnabled, toggleEdgeScroll, soundMuted, toggleSoundMuted, setHerbSold]
+    [running, gameMode, currentScreen, moveCamera, setCameraPosition, playerBase, stopGame, startGame, setScreen, placementMode, setPlacementMode, showNotification, canPlaceMine, canUpgradeBase, canSellHerb, upgradePlayerBase, sellHerb, resources, edgeScrollEnabled, toggleEdgeScroll, soundMuted, toggleSoundMuted, setHerbSold]
   );
 
   useEffect(() => {

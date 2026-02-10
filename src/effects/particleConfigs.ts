@@ -327,6 +327,21 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     spread: Math.PI * 2,
   },
 
+  // 지뢰 폭발 - 주황/빨강/노랑 폭발 파티클
+  mine_explosion: {
+    count: 30,
+    colors: ['#ff6600', '#ff4400', '#ff9900', '#ffcc00', '#ff0000'],
+    sizeMin: 4,
+    sizeMax: 12,
+    speedMin: 100,
+    speedMax: 250,
+    lifeMin: 0.3,
+    lifeMax: 0.6,
+    gravity: 100,
+    shape: 'circle',
+    spread: Math.PI * 2,
+  },
+
   // 보스 기본 공격 - 어두운 빨간색/검은색 충격파
   boss_basic_attack: {
     count: 15,

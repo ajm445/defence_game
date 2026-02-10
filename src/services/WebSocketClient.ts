@@ -203,8 +203,8 @@ class WebSocketClient {
     this.send({ type: 'SPAWN_UNIT', unitType });
   }
 
-  public buildWall(x: number, y: number): void {
-    this.send({ type: 'BUILD_WALL', x, y });
+  public placeMine(x: number, y: number): void {
+    this.send({ type: 'PLACE_MINE', x, y });
   }
 
   public upgradeBase(): void {

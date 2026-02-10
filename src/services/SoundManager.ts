@@ -11,7 +11,8 @@ export type SoundType =
   | 'attack_mage'
   | 'unit_death'
   | 'resource_collect'
-  | 'build_wall'
+  | 'place_mine'
+  | 'mine_explosion'
   | 'upgrade'
   | 'victory'
   | 'defeat'
@@ -42,7 +43,10 @@ class SoundManager {
 
   // 사운드 쿨다운 (동시 재생 방지)
   private lastPlayTime: Map<SoundType, number> = new Map();
-  private readonly COOLDOWN_MS = 50; // 50ms 쿨다운
+  private readonly COOLDOWN_MS = 50; // 50ms 기본 쿨다운
+  private readonly COOLDOWN_OVERRIDES: Partial<Record<SoundType, number>> = {
+    heal: 2000, // 힐 사운드는 2초 쿨다운
+  };
 
   // BGM 관련
   private bgmGain: GainNode | null = null;
@@ -415,10 +419,11 @@ class SoundManager {
   public play(soundId: SoundType): void {
     if (!this.audioContext || !this.masterGain || this.muted) return;
 
-    // 쿨다운 체크
+    // 쿨다운 체크 (사운드별 개별 쿨다운 지원)
     const now = performance.now();
     const lastTime = this.lastPlayTime.get(soundId) || 0;
-    if (now - lastTime < this.COOLDOWN_MS) return;
+    const cooldown = this.COOLDOWN_OVERRIDES[soundId] ?? this.COOLDOWN_MS;
+    if (now - lastTime < cooldown) return;
     this.lastPlayTime.set(soundId, now);
 
     // Resume if suspended (브라우저 정책)
@@ -448,8 +453,11 @@ class SoundManager {
       case 'resource_collect':
         this.playResourceCollect();
         break;
-      case 'build_wall':
-        this.playBuildWall();
+      case 'place_mine':
+        this.playPlaceMine();
+        break;
+      case 'mine_explosion':
+        this.playMineExplosion();
         break;
       case 'upgrade':
         this.playUpgrade();
@@ -696,18 +704,57 @@ class SoundManager {
   }
 
   /**
-   * 벽 건설 - 돌 부딪히는 소리
+   * 지뢰 설치 - 짧은 비프/클릭 설치음
    */
-  private playBuildWall(): void {
+  private playPlaceMine(): void {
     const ctx = this.audioContext!;
     const now = ctx.currentTime;
 
+    // 설치 클릭음
+    const osc = ctx.createOscillator();
+    const gain = ctx.createGain();
+
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(600, now);
+    osc.frequency.exponentialRampToValueAtTime(400, now + 0.08);
+
+    gain.gain.setValueAtTime(0.2, now);
+    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.08);
+
+    osc.connect(gain);
+    gain.connect(this.masterGain!);
+
+    osc.start(now);
+    osc.stop(now + 0.08);
+  }
+
+  /**
+   * 지뢰 폭발 - 저주파 폭발음 + 노이즈
+   */
+  private playMineExplosion(): void {
+    const ctx = this.audioContext!;
+    const now = ctx.currentTime;
+
+    // 저주파 폭발 임팩트
+    const osc = ctx.createOscillator();
+    const oscGain = ctx.createGain();
+    osc.type = 'sine';
+    osc.frequency.setValueAtTime(120, now);
+    osc.frequency.exponentialRampToValueAtTime(30, now + 0.2);
+    oscGain.gain.setValueAtTime(0.3, now);
+    oscGain.gain.exponentialRampToValueAtTime(0.01, now + 0.2);
+
+    osc.connect(oscGain);
+    oscGain.connect(this.masterGain!);
+    osc.start(now);
+    osc.stop(now + 0.2);
+
     // 노이즈 버스트
-    const bufferSize = ctx.sampleRate * 0.1;
+    const bufferSize = ctx.sampleRate * 0.15;
     const buffer = ctx.createBuffer(1, bufferSize, ctx.sampleRate);
     const data = buffer.getChannelData(0);
     for (let i = 0; i < bufferSize; i++) {
-      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 2);
+      data[i] = (Math.random() * 2 - 1) * Math.pow(1 - i / bufferSize, 1.5);
     }
 
     const noise = ctx.createBufferSource();
@@ -715,15 +762,15 @@ class SoundManager {
 
     const filter = ctx.createBiquadFilter();
     filter.type = 'lowpass';
-    filter.frequency.value = 800;
+    filter.frequency.value = 500;
 
-    const gain = ctx.createGain();
-    gain.gain.setValueAtTime(0.25, now);
-    gain.gain.exponentialRampToValueAtTime(0.01, now + 0.1);
+    const noiseGain = ctx.createGain();
+    noiseGain.gain.setValueAtTime(0.25, now);
+    noiseGain.gain.exponentialRampToValueAtTime(0.01, now + 0.15);
 
     noise.connect(filter);
-    filter.connect(gain);
-    gain.connect(this.masterGain!);
+    filter.connect(noiseGain);
+    noiseGain.connect(this.masterGain!);
 
     noise.start(now);
   }

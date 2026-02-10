@@ -110,21 +110,28 @@ export const ActionPanel: React.FC = () => {
 
   const upgradeCost = myPlayerState ? getUpgradeCost(currentBaseLevel) : getNextUpgradeCost();
   const isMaxLevel = currentBaseLevel >= CONFIG.BASE_UPGRADE.MAX_LEVEL;
-  const canBuildWall = resources.wood >= CONFIG.WALL_COST.wood && resources.stone >= CONFIG.WALL_COST.stone;
+  const mineCount = gameMode === 'multiplayer' && gameState
+    ? gameState.mines.length
+    : useGameStore.getState().mines.length;
+  const canPlaceMine = resources.wood >= CONFIG.MINE_COST.wood &&
+    resources.stone >= CONFIG.MINE_COST.stone &&
+    mineCount < CONFIG.MINE_MAX_PER_PLAYER;
   const canUpgrade = !isMaxLevel &&
     resources.gold >= upgradeCost.gold &&
     (!upgradeCost.wood || resources.wood >= upgradeCost.wood) &&
     (!upgradeCost.stone || resources.stone >= upgradeCost.stone);
   const canSellHerb = resources.herb >= CONFIG.HERB_SELL_COST;
 
-  const handleBuildWall = () => {
+  const handlePlaceMine = () => {
     soundManager.play('ui_click');
-    if (placementMode === 'wall') {
+    if (placementMode === 'mine') {
       setPlacementMode('none');
-      showNotification('벽 배치 취소');
-    } else if (canBuildWall) {
-      setPlacementMode('wall');
-      showNotification('벽을 배치할 위치를 클릭하세요!');
+      showNotification('지뢰 배치 취소');
+    } else if (canPlaceMine) {
+      setPlacementMode('mine');
+      showNotification('지뢰를 배치할 위치를 클릭하세요!');
+    } else if (mineCount >= CONFIG.MINE_MAX_PER_PLAYER) {
+      showNotification(`최대 ${CONFIG.MINE_MAX_PER_PLAYER}개까지 설치 가능합니다!`);
     } else {
       showNotification('자원이 부족합니다!');
     }
@@ -189,17 +196,17 @@ export const ActionPanel: React.FC = () => {
 
       <div className="flex gap-2">
         <ActionButton
-          icon="🧱"
-          label={placementMode === 'wall' ? '취소' : '벽'}
+          icon="💣"
+          label={placementMode === 'mine' ? '취소' : `지뢰(${mineCount}/${CONFIG.MINE_MAX_PER_PLAYER})`}
           shortcut="Q"
           costs={[
-            { amount: CONFIG.WALL_COST.wood, icon: '🪵', hasEnough: resources.wood >= CONFIG.WALL_COST.wood },
-            { amount: CONFIG.WALL_COST.stone, icon: '🪨', hasEnough: resources.stone >= CONFIG.WALL_COST.stone },
+            { amount: CONFIG.MINE_COST.wood, icon: '🪵', hasEnough: resources.wood >= CONFIG.MINE_COST.wood },
+            { amount: CONFIG.MINE_COST.stone, icon: '🪨', hasEnough: resources.stone >= CONFIG.MINE_COST.stone },
           ]}
-          onClick={handleBuildWall}
-          disabled={!canBuildWall}
-          active={placementMode === 'wall'}
-          tutorialId="action-wall"
+          onClick={handlePlaceMine}
+          disabled={!canPlaceMine}
+          active={placementMode === 'mine'}
+          tutorialId="action-mine"
         />
 
         <ActionButton

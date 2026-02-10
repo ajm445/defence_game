@@ -25,7 +25,7 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
   const playerBase = useGameStore((state) => state.playerBase);
   const addResource = useGameStore((state) => state.addResource);
   const updateResourceNode = useGameStore((state) => state.updateResourceNode);
-  const buildWall = useGameStore((state) => state.buildWall);
+  const placeMine = useGameStore((state) => state.placeMine);
   const showNotification = useUIStore((state) => state.showNotification);
   const setPlacementMode = useUIStore((state) => state.setPlacementMode);
 
@@ -42,8 +42,8 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
       const clickX = (e.clientX - rect.left) / zoom + state.camera.x;
       const clickY = (e.clientY - rect.top) / zoom + state.camera.y;
 
-      // 벽 배치 모드
-      if (uiState.placementMode === 'wall') {
+      // 지뢰 배치 모드
+      if (uiState.placementMode === 'mine') {
         if (state.gameMode === 'multiplayer') {
           const mySide = mpState.mySide;
           const isMyTerritory = mySide === 'left'
@@ -51,23 +51,23 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
             : clickX > CONFIG.MAP_WIDTH / 2;
 
           if (isMyTerritory) {
-            wsClient.buildWall(clickX, clickY);
-            soundManager.play('build_wall');
-            showNotification('벽 건설 요청!');
+            wsClient.placeMine(clickX, clickY);
+            soundManager.play('place_mine');
+            showNotification('지뢰 설치 요청!');
           } else {
-            showNotification('내 진영에만 건설할 수 있습니다!');
+            showNotification('내 진영에만 설치할 수 있습니다!');
           }
         } else {
           if (clickX < CONFIG.MAP_WIDTH / 2) {
-            const success = buildWall(clickX, clickY);
+            const success = placeMine(clickX, clickY);
             if (success) {
-              soundManager.play('build_wall');
-              showNotification('벽 건설 완료!');
+              soundManager.play('place_mine');
+              showNotification('지뢰 설치 완료!');
             } else {
-              showNotification('자원이 부족합니다!');
+              showNotification('자원이 부족하거나 최대 개수에 도달했습니다!');
             }
           } else {
-            showNotification('플레이어 진영에만 건설할 수 있습니다!');
+            showNotification('플레이어 진영에만 설치할 수 있습니다!');
           }
         }
         setPlacementMode('none');
@@ -90,7 +90,7 @@ export const useMouseInput = (canvasRef: RefObject<HTMLCanvasElement | null>) =>
         }
       }
     },
-    [canvasRef, selectUnit, addResource, updateResourceNode, buildWall, showNotification, setPlacementMode]
+    [canvasRef, selectUnit, addResource, updateResourceNode, placeMine, showNotification, setPlacementMode]
   );
 
   const handlePointerDown = useCallback(

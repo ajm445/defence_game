@@ -1,7 +1,7 @@
 import { useGameStore } from '../stores/useGameStore';
 import { useMultiplayerStore } from '../stores/useMultiplayerStore';
-import type { GameState, Camera, Base, Resources, ResourceNode, Wall, Unit } from '../types';
-import type { NetworkGameState, NetworkUnit, NetworkWall, NetworkResourceNode, PlayerSide } from '@shared/types/game';
+import type { GameState, Camera, Base, Resources, ResourceNode, Mine, Unit } from '../types';
+import type { NetworkGameState, NetworkUnit, NetworkMine, NetworkResourceNode, PlayerSide } from '@shared/types/game';
 import { CONFIG } from '../constants/config';
 
 // 멀티플레이어 상태를 싱글플레이어 GameState 형식으로 변환하는 훅
@@ -15,7 +15,7 @@ export interface MultiplayerGameState {
   units: Unit[];
   enemyUnits: Unit[];
   resourceNodes: ResourceNode[];
-  walls: Wall[];
+  mines: Mine[];
   selectedUnit: Unit | null;
   mySide: PlayerSide;
 }
@@ -37,15 +37,12 @@ function convertNetworkUnit(nu: NetworkUnit, mySide: PlayerSide): Unit {
   };
 }
 
-// NetworkWall을 Wall로 변환
-function convertNetworkWall(nw: NetworkWall): Wall {
+// NetworkMine을 Mine으로 변환
+function convertNetworkMine(nm: NetworkMine): Mine {
   return {
-    id: nw.id,
-    x: nw.x,
-    y: nw.y,
-    hp: nw.hp,
-    maxHp: nw.maxHp,
-    createdAt: (nw as NetworkWall & { createdAt?: number }).createdAt ?? 0,
+    id: nm.id,
+    x: nm.x,
+    y: nm.y,
   };
 }
 
@@ -106,7 +103,7 @@ export function useMultiplayerGameState(): MultiplayerGameState | null {
     units: myUnits.map((u) => convertNetworkUnit(u, mySide)),
     enemyUnits: enemyUnitsRaw.map((u) => convertNetworkUnit(u, mySide)),
     resourceNodes: gameState.resourceNodes.map(convertNetworkResourceNode),
-    walls: gameState.walls.map(convertNetworkWall),
+    mines: gameState.mines.map(convertNetworkMine),
     selectedUnit,
     mySide,
   };

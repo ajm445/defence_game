@@ -57,10 +57,10 @@ export function drawMinimap(
     }
   }
 
-  // 벽
-  ctx.fillStyle = '#a855f7';
-  for (const wall of state.walls) {
-    ctx.fillRect(wall.x * scaleX - 2, wall.y * scaleY - 2, 4, 4);
+  // 지뢰
+  ctx.fillStyle = '#ff6400';
+  for (const mine of state.mines) {
+    ctx.fillRect(mine.x * scaleX - 2, mine.y * scaleY - 2, 4, 4);
   }
 
   // 플레이어 본진
@@ -165,10 +165,10 @@ export function drawMinimapMultiplayer(
     }
   }
 
-  // 벽
-  for (const wall of gameState.walls) {
-    ctx.fillStyle = wall.side === mySide ? '#00f5ff' : '#ef4444';
-    ctx.fillRect(wall.x * scaleX - 2, wall.y * scaleY - 2, 4, 4);
+  // 지뢰 (내 것만 보임, 서버에서 필터링됨)
+  ctx.fillStyle = '#ff6400';
+  for (const mine of gameState.mines) {
+    ctx.fillRect(mine.x * scaleX - 2, mine.y * scaleY - 2, 4, 4);
   }
 
   // 본진

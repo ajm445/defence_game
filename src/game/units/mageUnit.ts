@@ -1,19 +1,17 @@
-import { Unit, Base, Wall } from '../../types';
+import { Unit, Base } from '../../types';
 import { distance } from '../../utils/math';
 
 export interface MageUpdateResult {
   unit: Unit;
   baseDamage?: { team: 'player' | 'enemy'; damage: number };
   aoeDamage?: { targetId: string; damage: number; attackerId: string }[];
-  wallDamage?: { wallId: string; damage: number };
 }
 
 export function updateMageUnit(
   unit: Unit,
   deltaTime: number,
   enemyBase: Base,
-  enemies: Unit[],
-  enemyWalls: Wall[] = []
+  enemies: Unit[]
 ): MageUpdateResult {
   const config = unit.config;
   const range = config.range || 180;
@@ -24,7 +22,6 @@ export function updateMageUnit(
   let updatedUnit = { ...unit };
   let baseDamage: { team: 'player' | 'enemy'; damage: number } | undefined;
   let aoeDamage: { targetId: string; damage: number; attackerId: string }[] | undefined;
-  let wallDamage: { wallId: string; damage: number } | undefined;
 
   // 쿨다운 감소
   if (updatedUnit.attackCooldown > 0) {
@@ -42,15 +39,13 @@ export function updateMageUnit(
   if (attacker) {
     const attackerDist = distance(unit.x, unit.y, attacker.x, attacker.y);
     if (attackerDist <= range) {
-      // 사거리 내: AOE 반격
       if (updatedUnit.attackCooldown <= 0) {
         aoeDamage = calculateAoeDamage(unit, attacker, enemies, attack, aoeRadius);
         updatedUnit.attackCooldown = attackSpeed;
         updatedUnit.state = 'attacking';
       }
-      return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
+      return { unit: updatedUnit, baseDamage, aoeDamage };
     }
-    // 사거리 밖이면 반격하지 않고 아래 로직으로 진행 (가장 가까운 적 우선)
   }
 
   // 1. 가장 가까운 적 유닛 찾기
@@ -67,68 +62,24 @@ export function updateMageUnit(
     }
   }
 
-  // 2. 경로상에 있는 벽 찾기 (본진 방향에 있고 본진보다 가까운 벽)
-  let targetWall: Wall | null = null;
-  let minWallDist = Infinity;
-
-  for (const wall of enemyWalls) {
-    if (wall.hp > 0) {
-      const wallDist = distance(unit.x, unit.y, wall.x, wall.y);
-      // 벽이 본진보다 가깝고, 본진 방향에 있는지 확인
-      if (wallDist < distToBase) {
-        const toWallX = wall.x - unit.x;
-        const toBaseX = enemyBase.x - unit.x;
-        // 같은 방향인지 확인 (부호가 같은지)
-        if ((toWallX > 0 && toBaseX > 0) || (toWallX < 0 && toBaseX < 0)) {
-          if (wallDist < minWallDist) {
-            minWallDist = wallDist;
-            targetWall = wall;
-          }
-        }
-      }
-    }
-  }
-
-  // 우선순위: 가장 가까운 적 유닛 > 경로상 벽 > 본진
-  const wallOrBaseDist = targetWall ? minWallDist : distToBase;
-
-  // 1순위: 가장 가까운 적 유닛 (벽/본진보다 가까운 경우, AOE 공격)
-  if (nearestEnemy && minEnemyDist <= wallOrBaseDist) {
+  // 우선순위: 적 유닛 > 기지
+  if (nearestEnemy && minEnemyDist <= distToBase) {
     if (minEnemyDist <= range) {
-      // 사거리 내: AOE 공격
       if (updatedUnit.attackCooldown <= 0) {
         aoeDamage = calculateAoeDamage(unit, nearestEnemy, enemies, attack, aoeRadius);
         updatedUnit.attackCooldown = attackSpeed;
         updatedUnit.state = 'attacking';
       }
     } else {
-      // 사거리 밖: 적에게 이동
       const angle = Math.atan2(nearestEnemy.y - unit.y, nearestEnemy.x - unit.x);
       updatedUnit.x += Math.cos(angle) * config.speed;
       updatedUnit.y += Math.sin(angle) * config.speed;
       updatedUnit.state = 'moving';
     }
-    return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
+    return { unit: updatedUnit, baseDamage, aoeDamage };
   }
 
-  // 2순위: 벽 (본진보다 가까운 경우, 단일 타겟)
-  if (targetWall && minWallDist < distToBase) {
-    if (minWallDist <= range) {
-      if (updatedUnit.attackCooldown <= 0) {
-        wallDamage = { wallId: targetWall.id, damage: attack };
-        updatedUnit.attackCooldown = attackSpeed;
-        updatedUnit.state = 'attacking';
-      }
-    } else {
-      const angle = Math.atan2(targetWall.y - unit.y, targetWall.x - unit.x);
-      updatedUnit.x += Math.cos(angle) * config.speed;
-      updatedUnit.y += Math.sin(angle) * config.speed;
-      updatedUnit.state = 'moving';
-    }
-    return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
-  }
-
-  // 3순위: 본진으로 이동/공격 (단일 타겟)
+  // 기지로 이동/공격
   if (distToBase > range) {
     const angle = Math.atan2(enemyBase.y - unit.y, enemyBase.x - unit.x);
     updatedUnit.x += Math.cos(angle) * config.speed;
@@ -145,7 +96,7 @@ export function updateMageUnit(
     }
   }
 
-  return { unit: updatedUnit, baseDamage, aoeDamage, wallDamage };
+  return { unit: updatedUnit, baseDamage, aoeDamage };
 }
 
 // AOE 데미지 계산: 타겟 중심으로 범위 내 모든 적에게 피해

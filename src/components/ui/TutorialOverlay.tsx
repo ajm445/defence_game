@@ -18,11 +18,12 @@ export const TutorialOverlay: React.FC = () => {
   const setShowOverlay = useTutorialStore((state) => state.setShowOverlay);
   const endTutorial = useTutorialStore((state) => state.endTutorial);
   const herbSold = useTutorialStore((state) => state.herbSold);
+  const mineExploded = useTutorialStore((state) => state.mineExploded);
 
   // 게임 상태 구독
   const units = useGameStore((state) => state.units);
   const resources = useGameStore((state) => state.resources);
-  const walls = useGameStore((state) => state.walls);
+  const mines = useGameStore((state) => state.mines);
   const playerBase = useGameStore((state) => state.playerBase);
   const enemyBase = useGameStore((state) => state.enemyBase);
 
@@ -31,6 +32,9 @@ export const TutorialOverlay: React.FC = () => {
 
   // 중복 진행 방지를 위한 ref
   const lastCompletedStepRef = useRef<number>(-1);
+
+  // 스텝 진입 시간 추적 (minDisplayTime 구현용)
+  const stepEnteredAtRef = useRef<number>(Date.now());
 
   // 하이라이트 요소 위치 상태
   const [highlightRect, setHighlightRect] = useState<HighlightRect | null>(null);
@@ -104,8 +108,10 @@ export const TutorialOverlay: React.FC = () => {
         return resources.herb >= 5;
       case 'has_herb_30':
         return resources.herb >= 30;
-      case 'has_wall':
-        return walls.length > 0;
+      case 'has_mine':
+        return mines.length > 0;
+      case 'mine_exploded':
+        return mineExploded;
       case 'has_upgrade':
         return (playerBase.upgradeLevel ?? 0) >= 1;
       case 'sold_herb':
@@ -126,13 +132,31 @@ export const TutorialOverlay: React.FC = () => {
     if (lastCompletedStepRef.current >= currentStepIndex) return;
 
     if (checkCondition(currentStep.conditionType)) {
+      // minDisplayTime이 있으면 최소 표시 시간만큼 대기
+      const minTime = currentStep.minDisplayTime;
+      if (minTime) {
+        const elapsed = (Date.now() - stepEnteredAtRef.current) / 1000;
+        if (elapsed < minTime) {
+          // 남은 시간 후 재체크
+          const remaining = (minTime - elapsed) * 1000;
+          const timer = setTimeout(() => {
+            // 다시 조건 확인 후 진행
+            if (lastCompletedStepRef.current < currentStepIndex) {
+              lastCompletedStepRef.current = currentStepIndex;
+              nextStep();
+            }
+          }, remaining + 500);
+          return () => clearTimeout(timer);
+        }
+      }
+
       lastCompletedStepRef.current = currentStepIndex;
       // 약간의 딜레이 후 다음 단계로
       setTimeout(() => {
         nextStep();
       }, 500);
     }
-  }, [isActive, currentStep, currentStepIndex, isLastStep, units, resources, walls, playerBase.upgradeLevel, enemyBase.hp, herbSold, nextStep]);
+  }, [isActive, currentStep, currentStepIndex, isLastStep, units, resources, mines, playerBase.upgradeLevel, enemyBase.hp, herbSold, mineExploded, nextStep]);
 
   // 튜토리얼 시작 시 ref 리셋
   useEffect(() => {
@@ -140,6 +164,11 @@ export const TutorialOverlay: React.FC = () => {
       lastCompletedStepRef.current = -1;
     }
   }, [isActive, currentStepIndex]);
+
+  // 스텝 변경 시 진입 시간 기록
+  useEffect(() => {
+    stepEnteredAtRef.current = Date.now();
+  }, [currentStepIndex]);
 
   if (!isActive || !currentStep) return null;
 

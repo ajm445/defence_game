@@ -5,11 +5,11 @@ import { drawGrid } from './drawGrid';
 import { drawResourceNode } from './drawResourceNode';
 import { drawBase } from './drawBase';
 import { drawUnit, drawNetworkUnit } from './drawUnit';
-import { drawWall, drawNetworkWall } from './drawWall';
+import { drawMine, drawNetworkMine } from './drawMine';
 import { effectManager } from '../effects';
 
-// 벽 설치 가능 영역 표시
-function drawWallPlacementZone(
+// 지뢰 설치 가능 영역 표시
+function drawMinePlacementZone(
   ctx: CanvasRenderingContext2D,
   camera: Camera,
   scaledWidth: number,
@@ -26,12 +26,12 @@ function drawWallPlacementZone(
   const screenEndY = Math.min(CONFIG.MAP_HEIGHT - camera.y, scaledHeight);
 
   if (screenEndX > screenStartX && screenEndY > screenStartY) {
-    // 설치 가능 영역 - 연한 초록색 오버레이
-    ctx.fillStyle = 'rgba(0, 255, 100, 0.08)';
+    // 설치 가능 영역 - 연한 주황색 오버레이
+    ctx.fillStyle = 'rgba(255, 150, 0, 0.08)';
     ctx.fillRect(screenStartX, screenStartY, screenEndX - screenStartX, screenEndY - screenStartY);
 
     // 경계선 - 점선
-    ctx.strokeStyle = 'rgba(0, 255, 100, 0.4)';
+    ctx.strokeStyle = 'rgba(255, 150, 0, 0.4)';
     ctx.lineWidth = 2;
     ctx.setLineDash([10, 10]);
 
@@ -74,9 +74,9 @@ export function render(
   const scaledHeight = canvasHeight / zoom;
   drawGrid(ctx, state.camera, scaledWidth, scaledHeight);
 
-  // 벽 설치 가능 영역 표시 (싱글플레이어: 왼쪽 절반만)
-  if (placementMode === 'wall') {
-    drawWallPlacementZone(ctx, state.camera, scaledWidth, scaledHeight, true);
+  // 지뢰 설치 가능 영역 표시 (싱글플레이어: 왼쪽 절반만)
+  if (placementMode === 'mine') {
+    drawMinePlacementZone(ctx, state.camera, scaledWidth, scaledHeight, true);
   }
 
   // 자원 노드 그리기
@@ -84,9 +84,9 @@ export function render(
     drawResourceNode(ctx, node, state.camera, scaledWidth, scaledHeight);
   }
 
-  // 벽 그리기
-  for (const wall of state.walls) {
-    drawWall(ctx, wall, state.camera, scaledWidth, scaledHeight);
+  // 지뢰 그리기
+  for (const mine of state.mines) {
+    drawMine(ctx, mine, state.camera, scaledWidth, scaledHeight);
   }
 
   // 본진 그리기
@@ -170,9 +170,9 @@ export function renderMultiplayer(
   // 배경 그리드
   drawGrid(ctx, camera, scaledWidth, scaledHeight);
 
-  // 벽 설치 가능 영역 표시 (내 진영만)
-  if (placementMode === 'wall') {
-    drawWallPlacementZone(ctx, camera, scaledWidth, scaledHeight, mySide === 'left');
+  // 지뢰 설치 가능 영역 표시 (내 진영만)
+  if (placementMode === 'mine') {
+    drawMinePlacementZone(ctx, camera, scaledWidth, scaledHeight, mySide === 'left');
   }
 
   // 자원 노드 그리기
@@ -180,11 +180,9 @@ export function renderMultiplayer(
     drawResourceNode(ctx, node, camera, scaledWidth, scaledHeight);
   }
 
-  // 벽 그리기
-  for (const wall of gameState.walls) {
-    // 내 벽은 시안, 적 벽은 빨강
-    const color = wall.side === mySide ? '#00f5ff' : '#ef4444';
-    drawNetworkWall(ctx, wall, camera, color, scaledWidth, scaledHeight);
+  // 지뢰 그리기 (서버에서 이미 내 지뢰만 필터링해서 보냄)
+  for (const mine of gameState.mines) {
+    drawNetworkMine(ctx, mine, camera, scaledWidth, scaledHeight);
   }
 
   // 본진 그리기 - 내 진영 기준으로 색상 결정

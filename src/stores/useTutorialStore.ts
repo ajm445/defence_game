@@ -16,7 +16,8 @@ export type TutorialConditionType =
   | 'has_herb' // 약초 보유 (5개 이상)
   | 'has_herb_30' // 약초 보유 (30개 이상)
   | 'has_gold_from_mine' // 금광에서 골드 획득
-  | 'has_wall' // 벽 건설됨
+  | 'has_mine' // 지뢰 설치됨
+  | 'mine_exploded' // 지뢰로 적 처치됨
   | 'has_upgrade' // 기지 업그레이드됨
   | 'sold_herb' // 약초 판매함
   | 'enemy_destroyed'; // 적 본진 파괴
@@ -32,7 +33,7 @@ export type HighlightTarget =
   | 'unit-gatherer'
   | 'unit-goldminer'
   | 'unit-healer'
-  | 'action-wall'
+  | 'action-mine'
   | 'action-upgrade'
   | 'action-sell-herb'
   | 'resource-bar'
@@ -45,6 +46,7 @@ export interface TutorialStep {
   highlight?: HighlightTarget; // 하이라이트할 UI 요소
   conditionType: TutorialConditionType; // 완료 조건 타입
   conditionHint?: string; // 조건 힌트 (선택적)
+  minDisplayTime?: number; // 최소 표시 시간 (초) - 조건 충족되어도 이 시간만큼 대기
 }
 
 interface TutorialState {
@@ -53,6 +55,7 @@ interface TutorialState {
   completedSteps: string[];
   showOverlay: boolean;
   herbSold: boolean; // 약초 판매 여부 추적
+  mineExploded: boolean; // 지뢰로 적 처치 여부
   tutorialSkipped: boolean; // 건너뛰기 눌렀는지 여부
 }
 
@@ -66,6 +69,7 @@ interface TutorialActions {
   getCurrentStep: () => TutorialStep | null;
   setShowOverlay: (show: boolean) => void;
   setHerbSold: (sold: boolean) => void;
+  setMineExploded: (val: boolean) => void;
 }
 
 // 튜토리얼 단계 정의 - 지원 유닛 우선, 공격 유닛은 후반
@@ -86,7 +90,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'resources_intro',
     title: '💎 자원 시스템',
-    description: '유닛을 소환하려면 자원이 필요합니다.\n\n💰 골드: 기본 자원, 모든 유닛에 필요\n🪵 나무: 궁수, 기사, 벽 건설에 필요\n🪨 돌: 기사, 벽 건설에 필요\n🌿 약초: 힐러 고용, 판매하여 골드 획득\n💎 수정: 마법사 고용 (맵 중앙에서 획득)\n\n먼저 자원 수집 유닛부터 배치해봅시다!',
+    description: '유닛을 소환하려면 자원이 필요합니다.\n\n💰 골드: 기본 자원, 모든 유닛에 필요\n🪵 나무: 궁수, 기사, 지뢰 설치에 필요\n🪨 돌: 기사, 지뢰 설치에 필요\n🌿 약초: 힐러 고용, 판매하여 골드 획득\n💎 수정: 마법사 고용 (맵 중앙에서 획득)\n\n먼저 자원 수집 유닛부터 배치해봅시다!',
     highlight: 'resource-bar',
     conditionType: 'none',
   },
@@ -129,11 +133,12 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     description: '나무꾼이 나무를 채집하고 있습니다!\n\n나무는 맵 곳곳에 있는 나무에서 수집됩니다. 나무꾼이 자동으로 가장 가까운 나무로 이동하여 채집합니다.\n\n⏳ 상단 자원 바에서 나무 🪵가 10개 이상 모일 때까지 기다려주세요.',
     conditionType: 'has_wood',
     conditionHint: '나무 10개 수집 대기 중...',
+    minDisplayTime: 3,
   },
   {
     id: 'spawn_miner',
     title: '⛏️ 광부 - 돌 수집',
-    description: '광부는 돌을 채집합니다.\n\n📊 스펙:\n• 체력 70 / 공격력 6\n• 비용: 💰40 + 🪵5\n• 돌 🪨 채집\n\n💡 전략 팁:\n돌은 기사와 벽 건설에 필요합니다. 안정적인 돌 수급을 위해 배치하세요.\n\n👆 광부 버튼을 클릭하세요!',
+    description: '광부는 돌을 채집합니다.\n\n📊 스펙:\n• 체력 70 / 공격력 6\n• 비용: 💰40 + 🪵5\n• 돌 🪨 채집\n\n💡 전략 팁:\n돌은 기사와 지뢰 설치에 필요합니다. 안정적인 돌 수급을 위해 배치하세요.\n\n👆 광부 버튼을 클릭하세요!',
     highlight: 'unit-miner',
     conditionType: 'has_miner',
     conditionHint: '광부 버튼을 클릭하여 소환하세요',
@@ -144,6 +149,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     description: '광부가 돌을 채집하고 있습니다!\n\n돌은 맵에 있는 바위에서 수집됩니다.\n\n⏳ 상단 자원 바에서 돌 🪨이 10개 이상 모일 때까지 기다려주세요.',
     conditionType: 'has_stone',
     conditionHint: '돌 10개 수집 대기 중...',
+    minDisplayTime: 3,
   },
   {
     id: 'spawn_goldminer',
@@ -153,16 +159,8 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     conditionType: 'has_goldminer',
     conditionHint: '금광부 버튼을 클릭하여 소환하세요',
   },
-  {
-    id: 'spawn_healer',
-    title: '💚 힐러 - 아군 치료',
-    description: '힐러는 주변 아군 유닛을 치료합니다.\n\n📊 스펙:\n• 체력 60 / 회복량 5HP/초\n• 비용: 💰70 + 🌿15\n• 치료 범위 130\n\n💡 전략 팁:\n탱커인 기사와 함께 운용하면 전투 지속력이 크게 올라갑니다!\n\n👆 힐러 버튼을 클릭하세요!',
-    highlight: 'unit-healer',
-    conditionType: 'has_healer',
-    conditionHint: '힐러 버튼을 클릭하여 소환하세요',
-  },
 
-  // === Phase 3: 액션 (13~15) ===
+  // === Phase 3: 액션 ===
   {
     id: 'upgrade_base',
     title: '🏰 본진 강화 - 영구 버프',
@@ -172,21 +170,21 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     conditionHint: '본진 강화 버튼을 클릭하세요',
   },
   {
-    id: 'build_wall',
-    title: '🧱 벽 건설 - 방어 시설',
-    description: '벽을 건설하여 적의 진격을 막으세요!\n\n📊 스펙:\n• 체력 150\n• 비용: 🪵40 + 🪨20\n• 지속시간: 30초\n\n💡 전략 팁:\n벽으로 적의 진격을 차단하고, 뒤에 있는 자원 유닛을 보호하세요!\n\n👆 벽 버튼(Q)을 클릭한 후, 맵에서 건설 위치를 클릭하세요!',
-    highlight: 'action-wall',
-    conditionType: 'has_wall',
-    conditionHint: '벽 버튼 클릭 → 맵에서 위치 클릭',
+    id: 'place_mine',
+    title: '💣 지뢰 설치 - 적을 폭파하라!',
+    description: '⚠️ 적이 접근하고 있습니다!\n\n적의 이동 경로에 지뢰를 설치하여 폭파하세요!\n\n📊 지뢰 스펙:\n• 피해량 80 (범위 공격)\n• 비용: 🪵30 + 🪨15\n• 적이 접근하면 자동 폭발!\n\n💡 사용법:\n1. 지뢰 버튼(Q)을 클릭\n2. 적이 오는 길목에 설치\n3. 적이 지뢰를 밟으면 폭발!\n\n👆 지뢰 버튼(Q)을 클릭한 후, 적의 경로에 설치하세요!',
+    highlight: 'action-mine',
+    conditionType: 'mine_exploded',
+    conditionHint: '지뢰로 적을 처치하세요!',
   },
   {
     id: 'enemy_incoming',
     title: '⚠️ 적 출격 예고!',
-    description: '경제 기반이 갖춰졌습니다!\n\n이제 공격 유닛을 고용하면, 적 기지에서 적이 출격합니다!\n\n💡 전투 준비:\n• 벽을 전방에 배치하여 방어선 구축\n• 힐러가 전투 유닛 근처에 있도록 배치\n• 자원 유닛은 안전한 후방에 유지\n\n준비가 되었다면 다음으로 넘어가세요!',
+    description: '경제 기반이 갖춰졌습니다!\n\n이제 공격 유닛을 고용하면, 적 기지에서 적이 출격합니다!\n\n💡 전투 준비:\n• 지뢰를 적 이동 경로에 설치하여 방어\n• 자원 유닛은 안전한 후방에 유지\n\n준비가 되었다면 다음으로 넘어가세요!',
     conditionType: 'none',
   },
 
-  // === Phase 4: 공격 유닛 (16~20) — 이 시점부터 적 소환 시작 ===
+  // === Phase 4: 공격 유닛 — 이 시점부터 적 소환 시작 ===
   {
     id: 'spawn_melee',
     title: '⚔️ 검병 - 기본 전투 유닛',
@@ -219,6 +217,16 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
     conditionType: 'has_mage',
     conditionHint: '마법사 버튼을 클릭하여 소환하세요',
   },
+
+  // === Phase 5: 힐러 (공격 유닛 소환 후) ===
+  {
+    id: 'spawn_healer',
+    title: '💚 힐러 - 아군 치료',
+    description: '힐러는 주변 아군 유닛을 치료합니다.\n\n📊 스펙:\n• 체력 60 / 회복량 5HP/초\n• 비용: 💰70 + 🌿15\n• 치료 범위 130\n\n💡 전략 팁:\n탱커인 기사와 함께 운용하면 전투 지속력이 크게 올라갑니다!\n\n👆 힐러 버튼을 클릭하세요!',
+    highlight: 'unit-healer',
+    conditionType: 'has_healer',
+    conditionHint: '힐러 버튼을 클릭하여 소환하세요',
+  },
   {
     id: 'combat_tip',
     title: '💡 전투 전략 팁',
@@ -230,7 +238,7 @@ export const TUTORIAL_STEPS: TutorialStep[] = [
   {
     id: 'combat',
     title: '⚔️ 최종 목표: 적 본진 파괴!',
-    description: '축하합니다! 모든 유닛과 기능을 배웠습니다.\n\n🎯 전략 가이드:\n1. 자원 유닛으로 경제력 확보\n2. 전투 유닛 조합 (탱커 + 딜러)\n3. 힐러로 유닛 유지\n4. 벽으로 방어선 구축\n5. 본진 강화로 지속 성장\n\n이제 적 본진을 파괴하여 승리하세요! 💪',
+    description: '축하합니다! 모든 유닛과 기능을 배웠습니다.\n\n🎯 전략 가이드:\n1. 자원 유닛으로 경제력 확보\n2. 전투 유닛 조합 (탱커 + 딜러)\n3. 힐러로 유닛 유지\n4. 지뢰로 적 이동 경로 방어\n5. 본진 강화로 지속 성장\n\n이제 적 본진을 파괴하여 승리하세요! 💪',
     conditionType: 'enemy_destroyed',
     conditionHint: '적 본진을 파괴하세요!',
   },
@@ -242,6 +250,7 @@ export const useTutorialStore = create<TutorialState & TutorialActions>((set, ge
   completedSteps: [],
   showOverlay: true,
   herbSold: false,
+  mineExploded: false,
   tutorialSkipped: false,
 
   startTutorial: () => {
@@ -251,6 +260,7 @@ export const useTutorialStore = create<TutorialState & TutorialActions>((set, ge
       completedSteps: [],
       showOverlay: true,
       herbSold: false,
+      mineExploded: false,
       tutorialSkipped: false,
     });
   },
@@ -262,6 +272,7 @@ export const useTutorialStore = create<TutorialState & TutorialActions>((set, ge
       completedSteps: [],
       showOverlay: false,
       herbSold: false,
+      mineExploded: false,
       tutorialSkipped: true, // 건너뛰기 표시
     });
   },
@@ -308,5 +319,9 @@ export const useTutorialStore = create<TutorialState & TutorialActions>((set, ge
 
   setHerbSold: (sold: boolean) => {
     set({ herbSold: sold });
+  },
+
+  setMineExploded: (val: boolean) => {
+    set({ mineExploded: val });
   },
 }));

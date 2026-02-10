@@ -156,8 +156,8 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleSpawnUnit(playerId, message.unitType);
       break;
 
-    case 'BUILD_WALL':
-      handleBuildWall(playerId, message.x, message.y);
+    case 'PLACE_MINE':
+      handlePlaceMine(playerId, message.x, message.y);
       break;
 
     case 'UPGRADE_BASE':
@@ -615,13 +615,13 @@ function handleSpawnUnit(playerId: string, unitType: string): void {
   }
 }
 
-function handleBuildWall(playerId: string, x: number, y: number): void {
+function handlePlaceMine(playerId: string, x: number, y: number): void {
   const player = players.get(playerId);
   if (!player || !player.roomId) return;
 
   const room = gameRooms.get(player.roomId);
   if (room) {
-    room.handleBuildWall(playerId, x, y);
+    room.handlePlaceMine(playerId, x, y);
   }
 }
 

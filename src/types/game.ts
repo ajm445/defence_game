@@ -16,11 +16,9 @@ export interface Base extends Position {
   upgradeLevel?: number; // 업그레이드 레벨 (0부터 시작, 멀티플레이어 호환을 위해 선택적)
 }
 
-export interface Wall extends Position {
+export interface Mine extends Position {
   id: string;
-  hp: number;
-  maxHp: number;
-  createdAt: number; // 생성 시간 (게임 시간 기준)
+  side?: 'player' | 'enemy'; // 싱글플레이어에서는 항상 'player'
 }
 
 export interface GameState {
@@ -33,7 +31,7 @@ export interface GameState {
   units: Unit[];
   enemyUnits: Unit[];
   resourceNodes: ResourceNode[];
-  walls: Wall[];
+  mines: Mine[];
   selectedUnit: Unit | null;
   aiResources: Resources;
   spawnCooldowns: Partial<Record<UnitType, number>>; // 유닛별 소환 쿨타임 (남은 시간)

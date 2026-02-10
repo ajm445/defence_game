@@ -90,7 +90,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             <Emoji emoji="🪨" size={28} />
             <div>
               <span className="text-gray-300 font-bold">돌</span>
-              <span className="text-gray-200 ml-2">- 광부가 채집, 기사/벽/업그레이드에 필요</span>
+              <span className="text-gray-200 ml-2">- 광부가 채집, 기사/지뢰/업그레이드에 필요</span>
             </div>
           </div>
           <div className="flex items-center gap-3 bg-dark-700/50 p-3 rounded-lg">
@@ -178,10 +178,10 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
       content: (
         <div className="space-y-4">
           <div className="bg-dark-700/70 p-4 rounded-lg border border-dark-500">
-            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🧱" size={20} /> 벽 건설</div>
-            <div className="text-yellow-300">비용: 40나무 + 20돌</div>
-            <div className="text-gray-200">HP 150 방어벽 생성 (30초 후 소멸)</div>
-            <div className="text-gray-400 text-sm mt-1">내 진영에만 설치 가능 (설치 가능 영역이 표시됨)</div>
+            <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="💣" size={20} /> 지뢰 설치</div>
+            <div className="text-yellow-300">비용: 30나무 + 15돌 (최대 5개)</div>
+            <div className="text-gray-200">피해 80 범위 공격 (적 접근 시 자동 폭발)</div>
+            <div className="text-gray-400 text-sm mt-1">내 진영에만 설치 가능, 소유자만 볼 수 있음</div>
           </div>
           <div className="bg-dark-700/70 p-4 rounded-lg border border-dark-500">
             <div className="text-white font-bold text-lg mb-1 flex items-center gap-2"><Emoji emoji="🏰" size={20} /> 기지 업그레이드</div>
@@ -256,7 +256,7 @@ export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
             </li>
             <li className="flex items-start gap-3 bg-dark-700/50 p-3 rounded-lg">
               <Emoji emoji="💡" size={20} />
-              <span>벽으로 적의 공격을 지연시킬 수 있습니다</span>
+              <span>지뢰로 적의 이동 경로를 방어할 수 있습니다</span>
             </li>
           </ul>
         </div>

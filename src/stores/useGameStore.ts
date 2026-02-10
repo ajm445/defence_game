@@ -1,6 +1,6 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { GameState, Base, Camera, Wall, Resources, ResourceNode, Unit, UnitType, Team, AIDifficulty, GameMode, GamePhase } from '../types';
+import { GameState, Base, Camera, Mine, Resources, ResourceNode, Unit, UnitType, Team, AIDifficulty, GameMode, GamePhase } from '../types';
 import { CONFIG, AI_DIFFICULTY_CONFIG, getUpgradeCost } from '../constants/config';
 import { generateId, clamp } from '../utils/math';
 import { useTutorialStore, TUTORIAL_STEPS } from './useTutorialStore';
@@ -21,7 +21,7 @@ interface GameActions {
   spendResources: (cost: Partial<Resources>, team: Team) => boolean;
 
   // 유닛 관리
-  spawnUnit: (type: UnitType, team: Team, forceSpawn?: boolean) => boolean;
+  spawnUnit: (type: UnitType, team: Team, forceSpawn?: boolean, hpOverride?: number) => boolean;
   updateUnits: (playerUnits: Unit[], enemyUnits: Unit[]) => void;
   selectUnit: (unit: Unit | null) => void;
 
@@ -42,11 +42,10 @@ interface GameActions {
   getNextUpgradeCost: () => { gold: number; wood?: number; stone?: number };
   canUpgradeBase: () => boolean;
 
-  // 벽
-  buildWall: (x: number, y: number) => boolean;
-  canBuildWall: () => boolean;
-  damageWall: (wallId: string, damage: number) => void;
-  removeExpiredWalls: () => void;
+  // 지뢰
+  placeMine: (x: number, y: number) => boolean;
+  canPlaceMine: () => boolean;
+  removeMine: (mineId: string) => void;
 
   // 자원 노드
   updateResourceNode: (nodeId: string, amount: number) => void;
@@ -192,7 +191,7 @@ const createInitialState = (): GameState & { playerGoldPerSecond: number } => ({
   units: [],
   enemyUnits: [],
   resourceNodes: generateResourceNodes(),
-  walls: [],
+  mines: [],
   selectedUnit: null,
   aiResources: { ...initialResources },
   playerGoldPerSecond: CONFIG.GOLD_PER_SECOND, // 초기 골드 수입
@@ -211,12 +210,12 @@ export const useGameStore = create<GameStore>()(
       const state = createInitialState();
 
       if (mode === 'tutorial') {
-        // 튜토리얼 모드: 자원 유닛의 필요성을 강조하기 위해 최소한의 자원
-        state.resources.gold = 300;     // 약초 판매로 골드 수급 유도
-        state.resources.wood = 20;      // 나무꾼 필요성 강조
-        state.resources.stone = 10;     // 광부 필요성 강조
-        state.resources.herb = 0;       // 채집꾼으로 직접 모아야 함
-        state.resources.crystal = 10;   // 마법사 소환 가능하도록 (비용 10)
+        // 튜토리얼 모드: 충분한 자원으로 시작하여 유닛 소환에 집중
+        state.resources.gold = 300;
+        state.resources.wood = 200;
+        state.resources.stone = 200;
+        state.resources.herb = 10;      // 채집꾼이 약초 모으는 시간 필요
+        state.resources.crystal = 50;
         state.aiResources.gold = 30;
         state.enemyBase.hp = 300;
         state.enemyBase.maxHp = 300;
@@ -306,7 +305,7 @@ export const useGameStore = create<GameStore>()(
       return true;
     },
 
-    spawnUnit: (type, team, forceSpawn = false) => {
+    spawnUnit: (type, team, forceSpawn = false, hpOverride?: number) => {
       const state = get();
       const unitConfig = CONFIG.UNITS[type];
       const resources = team === 'player' ? state.resources : state.aiResources;
@@ -335,14 +334,15 @@ export const useGameStore = create<GameStore>()(
         }
       }
 
+      const unitHp = hpOverride ?? unitConfig.hp;
       const unit: Unit = {
         id: generateId(),
         type,
         config: unitConfig,
         x: base.x + (team === 'player' ? 50 : -50),
         y: base.y + (Math.random() - 0.5) * 100,
-        hp: unitConfig.hp,
-        maxHp: unitConfig.hp,
+        hp: unitHp,
+        maxHp: unitHp,
         state: 'idle',
         attackCooldown: 0,
         team,
@@ -542,18 +542,21 @@ export const useGameStore = create<GameStore>()(
       return hasGold && hasWood && hasStone;
     },
 
-    buildWall: (x: number, y: number) => {
+    placeMine: (x: number, y: number) => {
       const state = get();
-      const cost = CONFIG.WALL_COST;
+      const cost = CONFIG.MINE_COST;
+
+      // 최대 개수 확인
+      if (state.mines.length >= CONFIG.MINE_MAX_PER_PLAYER) {
+        return false;
+      }
 
       if (state.resources.wood >= cost.wood && state.resources.stone >= cost.stone) {
-        const wall: Wall = {
+        const mine: Mine = {
           id: generateId(),
           x,
           y,
-          hp: CONFIG.WALL_HP,
-          maxHp: CONFIG.WALL_HP,
-          createdAt: state.time,
+          side: 'player',
         };
 
         set({
@@ -562,34 +565,24 @@ export const useGameStore = create<GameStore>()(
             wood: state.resources.wood - cost.wood,
             stone: state.resources.stone - cost.stone,
           },
-          walls: [...state.walls, wall],
+          mines: [...state.mines, mine],
         });
         return true;
       }
       return false;
     },
 
-    canBuildWall: () => {
+    canPlaceMine: () => {
       const state = get();
-      const cost = CONFIG.WALL_COST;
-      return state.resources.wood >= cost.wood && state.resources.stone >= cost.stone;
+      const cost = CONFIG.MINE_COST;
+      return state.resources.wood >= cost.wood &&
+        state.resources.stone >= cost.stone &&
+        state.mines.length < CONFIG.MINE_MAX_PER_PLAYER;
     },
 
-    damageWall: (wallId: string, damage: number) =>
+    removeMine: (mineId: string) =>
       set((state) => ({
-        walls: state.walls
-          .map((wall) =>
-            wall.id === wallId ? { ...wall, hp: wall.hp - damage } : wall
-          )
-          .filter((wall) => wall.hp > 0),
-      })),
-
-    removeExpiredWalls: () =>
-      set((state) => ({
-        // 게임 시간은 감소하므로 (600→0), createdAt - time >= WALL_DURATION이면 만료
-        walls: state.walls.filter(
-          (wall) => wall.createdAt - state.time < CONFIG.WALL_DURATION
-        ),
+        mines: state.mines.filter((mine) => mine.id !== mineId),
       })),
 
     updateResourceNode: (nodeId, amount) =>

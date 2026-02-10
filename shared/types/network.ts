@@ -4,7 +4,7 @@ import type {
   UnitType,
   NetworkGameState,
   NetworkUnit,
-  NetworkWall,
+  NetworkMine,
   Resources,
   PlayerSide
 } from './game';
@@ -27,7 +27,7 @@ export type ClientMessage =
   // 게임 액션 메시지
   | { type: 'GAME_READY' }
   | { type: 'SPAWN_UNIT'; unitType: UnitType }
-  | { type: 'BUILD_WALL'; x: number; y: number }
+  | { type: 'PLACE_MINE'; x: number; y: number }
   | { type: 'UPGRADE_BASE' }
   | { type: 'SELL_HERB' }
   | { type: 'COLLECT_RESOURCE'; nodeId: string }
@@ -107,9 +107,8 @@ export type GameEvent =
   | { event: 'RESOURCE_GATHERED'; unitId: string; unitType: string; x: number; y: number }
   | { event: 'UNIT_STATE_CHANGED'; unitId: string; state: string }
   | { event: 'BASE_DAMAGED'; side: PlayerSide; damage: number; hp: number }
-  | { event: 'WALL_BUILT'; wall: NetworkWall }
-  | { event: 'WALL_DAMAGED'; wallId: string; damage: number; hp: number }
-  | { event: 'WALL_DESTROYED'; wallId: string }
+  | { event: 'MINE_PLACED'; mine: NetworkMine }
+  | { event: 'MINE_EXPLODED'; mineId: string; x: number; y: number }
   | { event: 'RESOURCE_UPDATED'; side: PlayerSide; resources: Resources }
   | { event: 'NODE_DEPLETED'; nodeId: string }
   | { event: 'NODE_REGENERATED'; nodeId: string; amount: number }

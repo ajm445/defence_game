@@ -1,6 +1,6 @@
 import { useRef, useCallback, useEffect } from 'react';
 import { useMultiplayerStore } from '../stores/useMultiplayerStore';
-import type { NetworkGameState, NetworkUnit, NetworkWall, Resources } from '@shared/types/game';
+import type { NetworkGameState, NetworkUnit, NetworkMine, Resources } from '@shared/types/game';
 
 // 보간 설정
 const INTERPOLATION_DELAY = 50; // ms - 서버 업데이트 간격에 맞춤
@@ -16,7 +16,7 @@ interface InterpolatedUnit extends NetworkUnit {
 
 interface InterpolatedState {
   units: Map<string, InterpolatedUnit>;
-  walls: Map<string, NetworkWall>;
+  mines: Map<string, NetworkMine>;
   leftResources: Resources & { lastGoldUpdate: number; predictedGold: number };
   rightResources: Resources & { lastGoldUpdate: number; predictedGold: number };
   leftBaseHp: number;
@@ -64,14 +64,14 @@ export function initInterpolatedState(serverState: NetworkGameState): void {
     });
   }
 
-  const walls = new Map<string, NetworkWall>();
-  for (const wall of serverState.walls) {
-    walls.set(wall.id, { ...wall });
+  const mines = new Map<string, NetworkMine>();
+  for (const mine of serverState.mines) {
+    mines.set(mine.id, { ...mine });
   }
 
   interpolatedState = {
     units,
-    walls,
+    mines,
     leftResources: {
       ...serverState.leftPlayer.resources,
       lastGoldUpdate: now,
@@ -145,16 +145,16 @@ export function updateFromServer(serverState: NetworkGameState): void {
     }
   }
 
-  // 벽 업데이트
-  const serverWallIds = new Set(serverState.walls.map(w => w.id));
+  // 지뢰 업데이트
+  const serverMineIds = new Set(serverState.mines.map(m => m.id));
 
-  for (const serverWall of serverState.walls) {
-    state.walls.set(serverWall.id, { ...serverWall });
+  for (const serverMine of serverState.mines) {
+    state.mines.set(serverMine.id, { ...serverMine });
   }
 
-  for (const wallId of state.walls.keys()) {
-    if (!serverWallIds.has(wallId)) {
-      state.walls.delete(wallId);
+  for (const mineId of state.mines.keys()) {
+    if (!serverMineIds.has(mineId)) {
+      state.mines.delete(mineId);
     }
   }
 
@@ -270,7 +270,7 @@ export function interpolateFrame(): NetworkGameState | null {
       goldPerSecond: state.rightGoldPerSecond,
     },
     units: interpolatedUnits,
-    walls: Array.from(state.walls.values()),
+    mines: Array.from(state.mines.values()),
     resourceNodes: [], // 자원 노드는 메인 상태에서 가져옴
   };
 }

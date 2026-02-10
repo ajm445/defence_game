@@ -1,7 +1,7 @@
 import { create } from 'zustand';
 import { GameScreen, AIDifficulty } from '../types';
 
-export type PlacementMode = 'none' | 'wall';
+export type PlacementMode = 'none' | 'mine';
 
 // localStorage에서 사운드 설정 로드
 const SOUND_SETTINGS_KEY = 'defence_game_sound_settings';
