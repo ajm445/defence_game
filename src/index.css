@@ -7,6 +7,12 @@
   margin: 0;
   padding: 0;
   box-sizing: border-box;
+  -webkit-tap-highlight-color: transparent;
+}
+
+/* 터치 환경: 더블탭 줌 방지 (canvas, joystick 등 touch-action: none 요소는 개별 설정) */
+button, a, div, span, input, select, textarea, label {
+  touch-action: manipulation;
 }
 
 html {
