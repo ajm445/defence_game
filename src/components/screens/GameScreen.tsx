@@ -20,6 +20,7 @@ import { useMultiplayerStore } from '../../stores/useMultiplayerStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
+import { tryExitFullscreen, tryEnterFullscreen, setTabletGameActive } from '../../hooks/useDeviceDetect';
 
 export const GameScreen: React.FC = () => {
   // 게임 루프 시작
@@ -74,6 +75,18 @@ export const GameScreen: React.FC = () => {
   const isTouchDevice = useUIStore((s) => s.isTouchDevice);
   // Prevent double-scaling on mobile: viewport meta already scales, so use at least 1.0
   const responsiveConfig = getResponsiveConfig(isTouchDevice ? Math.max(uiScale, 1.0) : uiScale);
+
+  // 태블릿 인게임: 전체화면 해제 (캔버스 레이아웃 호환성)
+  // 언마운트 시 (게임 종료 → 결과 화면) 전체화면 복원
+  useEffect(() => {
+    if (!isTablet) return;
+    setTabletGameActive(true);
+    tryExitFullscreen();
+    return () => {
+      setTabletGameActive(false);
+      tryEnterFullscreen();
+    };
+  }, [isTablet]);
 
   return (
     <div className="relative w-full h-full overflow-hidden bg-dark-900">

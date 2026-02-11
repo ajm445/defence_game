@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
+import { isTabletGameActive } from '../../hooks/useDeviceDetect';
 
 function isFullscreenSupported(): boolean {
   const isIPhone = /iPhone/.test(navigator.userAgent) && !(window as any).MSStream;
@@ -24,9 +25,9 @@ export const OrientationPrompt: React.FC = () => {
     if (!isTouchDevice) return;
 
     if (wasPortraitRef.current && !isPortrait) {
-      // 가로 전환 감지 → 잠시 후 전체화면 여부 확인
+      // 가로 전환 감지 → 잠시 후 전체화면 여부 확인 (태블릿 인게임 시 억제)
       const timer = setTimeout(() => {
-        if (!useUIStore.getState().isFullscreen && isFullscreenSupported()) {
+        if (!useUIStore.getState().isFullscreen && isFullscreenSupported() && !isTabletGameActive()) {
           setShowFullscreenPrompt(true);
         }
       }, 500);
@@ -54,8 +55,8 @@ export const OrientationPrompt: React.FC = () => {
       return;
     }
 
-    // 전체화면 → 비전체화면 전환 감지 (가로 모드에서만)
-    if (wasFullscreenRef.current && !isFullscreen && !isPortrait) {
+    // 전체화면 → 비전체화면 전환 감지 (가로 모드에서만, 태블릿 인게임 시 억제)
+    if (wasFullscreenRef.current && !isFullscreen && !isPortrait && !isTabletGameActive()) {
       const activeEl = document.activeElement;
       const isInputActive = activeEl instanceof HTMLElement &&
         (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');

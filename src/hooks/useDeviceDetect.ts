@@ -107,6 +107,18 @@ function updateViewportMeta(deviceType: DeviceType) {
   }
 }
 
+// --- 태블릿 인게임 전체화면 억제 ---
+// 태블릿에서 인게임(캔버스) 화면일 때 전체화면을 비활성화하기 위한 플래그
+let _tabletGameActive = false;
+
+export function setTabletGameActive(active: boolean) {
+  _tabletGameActive = active;
+}
+
+export function isTabletGameActive(): boolean {
+  return _tabletGameActive;
+}
+
 // --- 전체화면 유틸리티 ---
 
 function isFullscreenSupported(): boolean {
@@ -123,7 +135,7 @@ function isFullscreenActive(): boolean {
   return !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
 }
 
-async function tryEnterFullscreen() {
+export async function tryEnterFullscreen() {
   if (!isFullscreenSupported() || isFullscreenActive()) return;
   // 태블릿(iPad): body를 전체화면 대상 (html 전체화면 시 Safari가 viewport meta 리셋)
   // 핸드폰/기타: html을 전체화면 대상 (더 안정적)
@@ -140,7 +152,7 @@ async function tryEnterFullscreen() {
   }
 }
 
-async function tryExitFullscreen() {
+export async function tryExitFullscreen() {
   if (!isFullscreenActive()) return;
   try {
     if (document.exitFullscreen) {
@@ -180,8 +192,10 @@ export function useDeviceDetect() {
       // 터치 디바이스에서 방향 변경 시 자동 전체화면
       if (isTouchDevice && prevIsPortrait !== null && prevIsPortrait !== isPortrait) {
         if (!isPortrait) {
-          // 가로로 전환 → 전체화면 진입
-          tryEnterFullscreen();
+          // 가로로 전환 → 전체화면 진입 (태블릿 인게임 시 억제)
+          if (!_tabletGameActive) {
+            tryEnterFullscreen();
+          }
         } else {
           // 세로로 전환 → 전체화면 해제
           tryExitFullscreen();

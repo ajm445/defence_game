@@ -25,6 +25,7 @@ import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
 import { saveExtremeRanking, RankingPlayer } from '../../services/rankingService';
+import { tryExitFullscreen, tryEnterFullscreen, setTabletGameActive } from '../../hooks/useDeviceDetect';
 
 export const RPGModeScreen: React.FC = () => {
   // 게임 루프 시작
@@ -57,6 +58,18 @@ export const RPGModeScreen: React.FC = () => {
   // 2차 강화 알림 상태
   const [showSecondEnhancement, setShowSecondEnhancement] = useState(false);
   const [enhancedClass, setEnhancedClass] = useState<AdvancedHeroClass | null>(null);
+
+  // 태블릿 인게임: 전체화면 해제 (캔버스 레이아웃 호환성)
+  // RPG는 결과 화면이 이 컴포넌트 내 오버레이이므로, 사용자가 나갈 때까지 전체화면 비활성화 유지
+  useEffect(() => {
+    if (!isTablet) return;
+    setTabletGameActive(true);
+    tryExitFullscreen();
+    return () => {
+      setTabletGameActive(false);
+      tryEnterFullscreen();
+    };
+  }, [isTablet]);
 
   // 게임 초기화 (이미 실행 중이면 초기화하지 않음)
   useEffect(() => {
