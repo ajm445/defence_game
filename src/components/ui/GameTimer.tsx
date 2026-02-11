@@ -52,7 +52,7 @@ export const GameTimer: React.FC = () => {
   const isLowTime = time < 60; // 1분 미만
 
   return (
-    <div className="absolute top-4 left-1/2 -translate-x-1/2">
+    <div className="absolute left-1/2 -translate-x-1/2" style={{ top: 'max(1rem, env(safe-area-inset-top, 0px))' }}>
       <div
         className={`glass-dark rounded-xl border transition-all duration-300 ${isLowTime ? 'border-neon-red/50 shadow-neon-red' : 'border-dark-500/50'}`}
         style={{ padding: 'clamp(0.5rem, 1vw, 0.75rem) clamp(1rem, 2vw, 1.5rem)' }}

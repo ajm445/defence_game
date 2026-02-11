@@ -190,33 +190,35 @@ function executeQSkill(
     totalDamageDealt += hit.damage;
   }
 
-  // 기지 데미지 처리
-  const { enemyBases } = ctx.state;
-  const baseRangeSq = (attackRange + 50) * (attackRange + 50);
-  for (const base of enemyBases) {
-    if (base.destroyed) continue;
-    const baseDistSq = distanceSquared(hero.x, hero.y, base.x, base.y);
-    if (baseDistSq > baseRangeSq) continue; // 기지는 크기가 크므로 추가 반경
-    if (baseDistSq === 0) continue;
+  // 기지 데미지 처리 (적을 타격하지 않았을 때만 - 기지는 대체 타겟)
+  if (hitEnemies.length === 0) {
+    const { enemyBases } = ctx.state;
+    const baseRangeSq = (attackRange + 50) * (attackRange + 50);
+    for (const base of enemyBases) {
+      if (base.destroyed) continue;
+      const baseDistSq = distanceSquared(hero.x, hero.y, base.x, base.y);
+      if (baseDistSq > baseRangeSq) continue; // 기지는 크기가 크므로 추가 반경
+      if (baseDistSq === 0) continue;
 
-    const baseDx = base.x - hero.x;
-    const baseDy = base.y - hero.y;
-    const baseDistNorm = Math.sqrt(baseDistSq);
+      const baseDx = base.x - hero.x;
+      const baseDy = base.y - hero.y;
+      const baseDistNorm = Math.sqrt(baseDistSq);
 
-    const baseDirX = baseDx / baseDistNorm;
-    const baseDirY = baseDy / baseDistNorm;
-    const dot = dirX * baseDirX + dirY * baseDirY;
+      const baseDirX = baseDx / baseDistNorm;
+      const baseDirY = baseDy / baseDistNorm;
+      const dot = dirX * baseDirX + dirY * baseDirY;
 
-    // 기지는 방향 조건이 더 관대 (-0.5)
-    if (dot < -0.5) continue;
+      // 기지는 방향 조건이 더 관대 (-0.5)
+      if (dot < -0.5) continue;
 
-    let baseDamage = damage;
-    if (isCriticalHit) {
-      baseDamage = Math.floor(baseDamage * criticalMultiplier);
+      let baseDamage = damage;
+      if (isCriticalHit) {
+        baseDamage = Math.floor(baseDamage * criticalMultiplier);
+      }
+
+      damageBase(ctx.state, base.id, baseDamage, ctx.difficulty, hero.id);
+      totalDamageDealt += baseDamage;
     }
-
-    damageBase(ctx.state, base.id, baseDamage, ctx.difficulty, hero.id);
-    totalDamageDealt += baseDamage;
   }
 
   // 피해흡혈 적용

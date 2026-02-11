@@ -104,8 +104,8 @@ export const Minimap: React.FC = () => {
 
   return (
     <div
-      className="absolute right-5"
-      style={{ bottom: isMobile ? 28 : isTablet ? 24 : 20 }}
+      className="absolute"
+      style={{ right: 'max(1.25rem, env(safe-area-inset-right, 0px))', bottom: `max(${isMobile ? 28 : isTablet ? 24 : 20}px, env(safe-area-inset-bottom, 0px))` }}
     >
       {/* 사운드 컨트롤 버튼 */}
       <div className="absolute -top-1 -left-20">

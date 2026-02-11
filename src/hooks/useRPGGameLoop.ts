@@ -221,17 +221,10 @@ export function useRPGGameLoop() {
         // OS가 다른 키(Shift 등) 입력 시 기존 키의 repeat를 중단하므로
         // 키 이벤트에 의존하지 않고 게임 루프에서 직접 체크
         if (wasCastingRef.current && !isCasting && !isDashing && !isStunned) {
-          // 키보드: 눌려있는 키로 이동 재개
           const heldDirection = calculateMoveDirection();
           if (heldDirection) {
             useRPGStore.getState().setMoveDirection(heldDirection);
             sendMoveDirection(heldDirection);
-          } else {
-            // 조이스틱: 키보드 입력이 없으면 저장된 moveDirection으로 이동 재개
-            const storedDir = useRPGStore.getState().hero?.moveDirection;
-            if (storedDir) {
-              sendMoveDirection(storedDir);
-            }
           }
         }
         wasCastingRef.current = isCasting;

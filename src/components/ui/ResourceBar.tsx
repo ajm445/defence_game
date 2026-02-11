@@ -31,7 +31,7 @@ export const ResourceBar: React.FC = () => {
   };
 
   return (
-    <div className="absolute top-4 left-4 flex" style={{ gap: 'clamp(0.25rem, 0.6vw, 0.5rem)' }} data-tutorial-id="resource-bar">
+    <div className="absolute flex" style={{ top: 'max(1rem, env(safe-area-inset-top, 0px))', left: 'max(1rem, env(safe-area-inset-left, 0px))', gap: 'clamp(0.25rem, 0.6vw, 0.5rem)' }} data-tutorial-id="resource-bar">
       {RESOURCE_CONFIG.map(({ key, icon, label, color, glow, useSmooth }) => (
         <div
           key={key}

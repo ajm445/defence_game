@@ -85,7 +85,7 @@ export const GameScreen: React.FC = () => {
       <GameTimer />
 
       {/* HP 상태 패널 + 일시정지 버튼 */}
-      <div className="absolute top-4 right-4 flex items-start gap-3 z-20">
+      <div className="absolute flex items-start gap-3 z-20" style={{ top: 'max(1rem, env(safe-area-inset-top, 0px))', right: 'max(1rem, env(safe-area-inset-right, 0px))' }}>
         {isTouchDevice && (gameMode === 'ai' || gameMode === 'tutorial') && (
           <PauseButton onClick={() => { stopGame(); setScreen('paused'); }} />
         )}
@@ -106,10 +106,12 @@ export const GameScreen: React.FC = () => {
 
       {/* 하단 UI 패널 */}
       <div
-        className="absolute bottom-0 left-0 flex items-start p-3 gap-3
+        className="absolute flex items-start p-3 gap-3
                    glass-dark border-t border-dark-500/50"
         style={{
-          right: responsiveConfig.MINIMAP_WIDTH + 50,
+          bottom: 'env(safe-area-inset-bottom, 0px)',
+          left: 'env(safe-area-inset-left, 0px)',
+          right: `calc(${responsiveConfig.MINIMAP_WIDTH + 50}px + env(safe-area-inset-right, 0px))`,
           height: isMobile
             ? responsiveConfig.UI_PANEL_HEIGHT + 24
             : isTablet
@@ -134,8 +136,8 @@ export const GameScreen: React.FC = () => {
       {/* 하단 코너 장식 */}
       {!isMobile && (
         <>
-          <div className="absolute bottom-0 left-0 border-l border-b border-neon-cyan/20 pointer-events-none" style={{ width: 'clamp(3rem, 6vw, 6rem)', height: 'clamp(3rem, 6vw, 6rem)' }} />
-          <div className="absolute bottom-0 border-r border-b border-neon-cyan/20 pointer-events-none" style={{ right: 'clamp(200px, 20vw, 260px)', width: 'clamp(3rem, 6vw, 6rem)', height: 'clamp(3rem, 6vw, 6rem)' }} />
+          <div className="absolute border-l border-b border-neon-cyan/20 pointer-events-none" style={{ bottom: 'env(safe-area-inset-bottom, 0px)', left: 'env(safe-area-inset-left, 0px)', width: 'clamp(3rem, 6vw, 6rem)', height: 'clamp(3rem, 6vw, 6rem)' }} />
+          <div className="absolute border-r border-b border-neon-cyan/20 pointer-events-none" style={{ bottom: 'env(safe-area-inset-bottom, 0px)', right: `calc(clamp(200px, 20vw, 260px) + env(safe-area-inset-right, 0px))`, width: 'clamp(3rem, 6vw, 6rem)', height: 'clamp(3rem, 6vw, 6rem)' }} />
         </>
       )}
     </div>

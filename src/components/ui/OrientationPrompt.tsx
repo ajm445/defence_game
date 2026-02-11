@@ -16,6 +16,7 @@ export const OrientationPrompt: React.FC = () => {
   const isFullscreen = useUIStore((s) => s.isFullscreen);
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
   const wasPortraitRef = useRef(true);
+  const wasFullscreenRef = useRef(false);
 
   // Portrait → Landscape 전환 시 자동 전체화면 실패하면 프롬프트 표시
   useEffect(() => {
@@ -44,6 +45,48 @@ export const OrientationPrompt: React.FC = () => {
       setShowFullscreenPrompt(false);
     }
   }, [isFullscreen]);
+
+  // 전체화면이 해제되면 (키보드, 시스템 제스처 등) 재진입 프롬프트 표시
+  useEffect(() => {
+    if (!isTouchDevice || !isFullscreenSupported()) {
+      wasFullscreenRef.current = isFullscreen;
+      return;
+    }
+
+    // 전체화면 → 비전체화면 전환 감지 (가로 모드에서만)
+    if (wasFullscreenRef.current && !isFullscreen && !isPortrait) {
+      const activeEl = document.activeElement;
+      const isInputActive = activeEl instanceof HTMLElement &&
+        (activeEl.tagName === 'INPUT' || activeEl.tagName === 'TEXTAREA' || activeEl.tagName === 'SELECT');
+
+      if (isInputActive) {
+        // 키보드가 열려서 전체화면이 해제된 경우: 입력 완료 후 프롬프트 표시
+        const handleBlur = () => {
+          setTimeout(() => {
+            const state = useUIStore.getState();
+            if (!state.isFullscreen && !state.isPortrait) {
+              setShowFullscreenPrompt(true);
+            }
+          }, 500);
+        };
+        activeEl.addEventListener('blur', handleBlur, { once: true });
+        wasFullscreenRef.current = isFullscreen;
+        return () => activeEl.removeEventListener('blur', handleBlur);
+      } else {
+        // 기타 이유로 전체화면 해제: 500ms 후 프롬프트 표시
+        const timer = setTimeout(() => {
+          const state = useUIStore.getState();
+          if (!state.isFullscreen && !state.isPortrait) {
+            setShowFullscreenPrompt(true);
+          }
+        }, 500);
+        wasFullscreenRef.current = isFullscreen;
+        return () => clearTimeout(timer);
+      }
+    }
+
+    wasFullscreenRef.current = isFullscreen;
+  }, [isFullscreen, isTouchDevice, isPortrait]);
 
   const handleEnterFullscreen = useCallback(async () => {
     const el = document.documentElement;

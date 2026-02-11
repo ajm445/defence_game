@@ -376,6 +376,14 @@ export const useAuthStore = create<AuthStore>()(
               classProgress: classProgressData,
               isLoading: false,
             });
+
+            // 세션 복원 시 WebSocket 재연결 + 온라인 상태 등록
+            wsClient.notifyLogin(
+              storedSession.user.id,
+              profile.nickname,
+              !!storedSession.user.isGuest,
+              profile.playerLevel,
+            );
           } else {
             // 프로필이 없거나 타임아웃 → 세션 무효
             console.log('Session invalid or timeout - clearing session');
