@@ -52,58 +52,32 @@ function getTargetViewportWidth(): number {
   return Math.max(BASE_WIDTH, minWidthForHeight);
 }
 
+function clearCssZoom() {
+  const rootEl = document.getElementById('root');
+  if (rootEl) {
+    rootEl.style.zoom = '';
+    rootEl.style.width = '';
+    rootEl.style.height = '';
+  }
+  document.documentElement.style.zoom = '';
+  document.documentElement.style.width = '';
+  document.documentElement.style.height = '';
+}
+
 function updateViewportMeta(deviceType: DeviceType) {
   const meta = document.querySelector('meta[name="viewport"]');
   if (!meta) return;
 
+  // CSS zoom은 사용하지 않음: Safari에서 overflow:hidden + zoom 조합 시 하단 클리핑 발생
+  // viewport meta 스케일링만 사용 (vh/vw 단위를 올바르게 스케일링)
+  clearCssZoom();
+
   if (deviceType === 'phone' || deviceType === 'tablet') {
     const viewportWidth = getTargetViewportWidth();
-
-    const rootEl = document.getElementById('root');
-
-    if (isFullscreenActive()) {
-      // 전체화면: 모바일 브라우저가 viewport meta를 무시하므로 CSS zoom으로 스케일링
-      const isPortrait = getIsPortrait();
-      const physW = isPortrait
-        ? Math.min(screen.width, screen.height)
-        : Math.max(screen.width, screen.height);
-      const zoom = physW / viewportWidth;
-
-      meta.setAttribute('content',
-        'width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover');
-      // #root에 zoom 적용 (html에 적용하면 overflow:hidden과 충돌하여 하단 잘림)
-      if (rootEl) {
-        rootEl.style.zoom = String(zoom);
-        const inversePercent = 100 / zoom;
-        rootEl.style.width = `${inversePercent}vw`;
-        rootEl.style.height = `${inversePercent}vh`;
-      }
-      document.documentElement.style.zoom = '';
-      document.documentElement.style.width = '';
-      document.documentElement.style.height = '';
-    } else {
-      // 일반 모드: viewport meta로 스케일링
-      if (rootEl) {
-        rootEl.style.zoom = '';
-        rootEl.style.width = '';
-        rootEl.style.height = '';
-      }
-      document.documentElement.style.zoom = '';
-      document.documentElement.style.width = '';
-      document.documentElement.style.height = '';
-      meta.setAttribute('content',
-        `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
-    }
+    // 전체화면/일반 모드 모두 동일한 viewport meta 사용
+    meta.setAttribute('content',
+      `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
   } else {
-    const rootEl = document.getElementById('root');
-    if (rootEl) {
-      rootEl.style.zoom = '';
-      rootEl.style.width = '';
-      rootEl.style.height = '';
-    }
-    document.documentElement.style.zoom = '';
-    document.documentElement.style.width = '';
-    document.documentElement.style.height = '';
     meta.setAttribute('content',
       'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
   }
@@ -189,20 +163,23 @@ export function useDeviceDetect() {
       prevIsPortrait = isPortrait;
     };
 
-    // fullscreenchange 이벤트로 상태 추적 + 스케일링 전환
+    // fullscreenchange 이벤트로 상태 추적 + viewport meta 재적용
     const onFullscreenChange = () => {
       useUIStore.getState().setFullscreen(isFullscreenActive());
       const deviceType = getDeviceType();
-      // 전체화면 ↔ 일반 모드 전환 시 스케일링 방식 전환
-      // (전체화면: CSS zoom, 일반: viewport meta)
+      // 전체화면 전환 시 viewport meta 재적용 (브라우저가 리셋할 수 있음)
       updateViewportMeta(deviceType);
-      // 브라우저 전환 완료 후 재적용 + 캔버스 리사이즈 트리거
       if (deviceType === 'phone' || deviceType === 'tablet') {
+        // 브라우저 전환 완료 후 재적용 + 캔버스 리사이즈 트리거
         setTimeout(() => {
           updateViewportMeta(deviceType);
-          // CSS zoom 변경 후 캔버스가 새 크기로 재측정하도록 resize 이벤트 발송
           window.dispatchEvent(new Event('resize'));
         }, 150);
+        // 추가 재적용 (일부 브라우저에서 전체화면 전환이 느릴 수 있음)
+        setTimeout(() => {
+          updateViewportMeta(deviceType);
+          window.dispatchEvent(new Event('resize'));
+        }, 500);
       }
     };
 
