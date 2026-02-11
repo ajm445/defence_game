@@ -65,18 +65,27 @@ function updateViewportMeta(deviceType: DeviceType) {
       const physW = isPortrait
         ? Math.min(screen.width, screen.height)
         : Math.max(screen.width, screen.height);
+      const zoom = physW / viewportWidth;
 
       meta.setAttribute('content',
         'width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover');
-      document.documentElement.style.zoom = String(physW / viewportWidth);
+      document.documentElement.style.zoom = String(zoom);
+      // CSS zoom이 html의 100vh/100vw도 축소하므로 역수로 확대하여 화면 채움
+      const inversePercent = 100 / zoom;
+      document.documentElement.style.width = `${inversePercent}vw`;
+      document.documentElement.style.height = `${inversePercent}vh`;
     } else {
       // 일반 모드: viewport meta로 스케일링
       document.documentElement.style.zoom = '';
+      document.documentElement.style.width = '';
+      document.documentElement.style.height = '';
       meta.setAttribute('content',
         `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
     }
   } else {
     document.documentElement.style.zoom = '';
+    document.documentElement.style.width = '';
+    document.documentElement.style.height = '';
     meta.setAttribute('content',
       'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
   }

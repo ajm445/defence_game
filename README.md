@@ -575,6 +575,7 @@ defence_game/
   - `updateViewportMeta()`에서 `isFullscreenActive()` 체크 후 자동 전환
   - 전체화면 해제 시 CSS zoom 제거 + viewport meta 복원
   - 캔버스 CSS zoom 보상: `useCanvas`에서 `window.innerWidth / zoom`으로 버퍼 크기 확대 (RPG/RTS 공통)
+  - html 크기 zoom 역수 보상: `width: ${100/zoom}vw`, `height: ${100/zoom}vh`로 h-full 체인이 화면 채우도록 확대
   - 전체화면 전환 후 `resize` 이벤트 발송으로 캔버스 재측정 트리거
 
 ### V1.23.6
