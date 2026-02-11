@@ -68,27 +68,40 @@ function updateViewportMeta(deviceType: DeviceType) {
   const meta = document.querySelector('meta[name="viewport"]');
   if (!meta) return;
 
-  // CSS zoom은 사용하지 않음: Safari에서 overflow:hidden + zoom 조합 시 하단 클리핑 발생
-  // viewport meta 스케일링만 사용 (vh/vw 단위를 올바르게 스케일링)
-  clearCssZoom();
-
   if (deviceType === 'phone' || deviceType === 'tablet') {
     const viewportWidth = getTargetViewportWidth();
 
     if (isFullscreenActive()) {
-      // 전체화면: initial-scale 명시하여 Safari가 viewport 리셋해도 스케일 유지
       const isPortrait = getIsPortrait();
       const physW = isPortrait
         ? Math.min(screen.width, screen.height)
         : Math.max(screen.width, screen.height);
-      const scale = Math.round((physW / viewportWidth) * 1000) / 1000;
-      meta.setAttribute('content',
-        `width=${viewportWidth}, initial-scale=${scale}, minimum-scale=${scale}, maximum-scale=${scale}, user-scalable=no, viewport-fit=cover`);
+
+      if (deviceType === 'tablet') {
+        // 태블릿(iPad): body 전체화면 + viewport meta initial-scale (CSS zoom 사용 안함)
+        // Safari iPad에서 html 전체화면 시 viewport meta 리셋 + CSS zoom은 overflow:hidden과 충돌
+        clearCssZoom();
+        const scale = Math.round((physW / viewportWidth) * 1000) / 1000;
+        meta.setAttribute('content',
+          `width=${viewportWidth}, initial-scale=${scale}, minimum-scale=${scale}, maximum-scale=${scale}, user-scalable=no, viewport-fit=cover`);
+      } else {
+        // 핸드폰: html 전체화면 + CSS zoom (V1.23.7 방식, 모바일 브라우저가 viewport meta 무시)
+        meta.setAttribute('content',
+          'width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover');
+        const zoom = physW / viewportWidth;
+        document.documentElement.style.zoom = String(zoom);
+        const inversePercent = 100 / zoom;
+        document.documentElement.style.width = `${inversePercent}vw`;
+        document.documentElement.style.height = `${inversePercent}vh`;
+      }
     } else {
+      // 일반 모드: viewport meta만 사용
+      clearCssZoom();
       meta.setAttribute('content',
         `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
     }
   } else {
+    clearCssZoom();
     meta.setAttribute('content',
       'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
   }
