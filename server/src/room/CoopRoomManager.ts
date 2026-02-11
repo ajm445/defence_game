@@ -6,6 +6,7 @@ import { gameInviteManager } from '../friend/GameInviteManager';
 import type { HeroClass } from '../../../src/types/rpg';
 import type { CoopPlayerInfo, WaitingCoopRoomInfo, LobbyChatMessage, LOBBY_CHAT_CONFIG } from '../../../shared/types/rpgNetwork';
 import type { CharacterStatUpgrades } from '../../../src/types/auth';
+import { filterProfanity } from '../utils/profanityFilter';
 
 // 로비 채팅 설정 (shared에서 가져온 값과 동일하게 유지)
 const CHAT_CONFIG = {
@@ -901,12 +902,15 @@ export function sendLobbyChatMessage(playerId: string, content: string): void {
     return;
   }
 
+  // 비속어 필터링
+  const filteredContent = filterProfanity(trimmedContent);
+
   // 메시지 생성
   const message: LobbyChatMessage = {
     id: uuidv4(),
     playerId,
     playerName: playerInfo.name,
-    content: trimmedContent,
+    content: filteredContent,
     timestamp: now,
   };
 

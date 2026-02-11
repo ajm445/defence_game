@@ -149,11 +149,25 @@ export function useDeviceDetect() {
     // fullscreenchange 이벤트로 상태 추적 + 뷰포트 재적용
     const onFullscreenChange = () => {
       useUIStore.getState().setFullscreen(isFullscreenActive());
-      // 전체화면 전환 시 브라우저가 뷰포트를 리셋할 수 있으므로 재적용
       const deviceType = getDeviceType();
-      updateViewportMeta(deviceType);
-      // 브라우저 전환 완료 후 한 번 더 적용 (일부 브라우저 대응)
-      setTimeout(() => updateViewportMeta(deviceType), 150);
+
+      if (deviceType === 'phone' || deviceType === 'tablet') {
+        // 전체화면 전환 시 일부 모바일 브라우저가 viewport meta를 무시하므로
+        // 먼저 device-width로 리셋 후 다시 적용하여 브라우저가 재평가하도록 강제
+        const meta = document.querySelector('meta[name="viewport"]');
+        if (meta) {
+          meta.setAttribute('content', 'width=device-width, initial-scale=1.0');
+        }
+        requestAnimationFrame(() => {
+          updateViewportMeta(deviceType);
+          // 브라우저마다 전체화면 전환 완료 타이밍이 다르므로 여러 번 재적용
+          setTimeout(() => updateViewportMeta(deviceType), 100);
+          setTimeout(() => updateViewportMeta(deviceType), 300);
+          setTimeout(() => updateViewportMeta(deviceType), 600);
+        });
+      } else {
+        updateViewportMeta(deviceType);
+      }
     };
 
     update();
