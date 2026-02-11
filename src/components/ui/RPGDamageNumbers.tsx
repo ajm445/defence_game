@@ -117,9 +117,10 @@ export const RPGDamageNumbers: React.FC = () => {
     return () => clearInterval(interval);
   }, [cleanDamageNumbers, isMultiplayer]);
 
-  // 화면 크기 가져오기
-  const screenWidth = typeof window !== 'undefined' ? window.innerWidth : 1920;
-  const screenHeight = typeof window !== 'undefined' ? window.innerHeight : 1080;
+  // 화면 크기 가져오기 (CSS zoom 보상: 캔버스 좌표계와 일치시킴)
+  const cssZoom = parseFloat(document.documentElement.style.zoom) || 1;
+  const screenWidth = typeof window !== 'undefined' ? Math.round(window.innerWidth / cssZoom) : 1920;
+  const screenHeight = typeof window !== 'undefined' ? Math.round(window.innerHeight / cssZoom) : 1080;
 
   if (damageNumbers.length === 0) return null;
 

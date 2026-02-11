@@ -3,9 +3,9 @@ import { useRPGStore } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { sendMoveDirection } from '../../hooks/useNetworkSync';
 
-const BASE_RADIUS = 50;
-const KNOB_RADIUS = 20;
-const MAX_DRAG = 50;
+const BASE_RADIUS = 60;
+const KNOB_RADIUS = 25;
+const MAX_DRAG = 60;
 
 export const VirtualJoystick: React.FC = () => {
   const uiScale = useUIStore((s) => s.uiScale);
@@ -24,8 +24,9 @@ export const VirtualJoystick: React.FC = () => {
 
   // 기본 위치에 고스트 조이스틱 표시 (처음 보는 유저를 위한 힌트)
   useEffect(() => {
-    const x = window.innerWidth * 0.15;
-    const y = window.innerHeight * 0.75;
+    const cssZoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const x = (window.innerWidth / cssZoom) * 0.15;
+    const y = (window.innerHeight / cssZoom) * 0.82;
     defaultPosRef.current = { x, y };
     if (baseRef.current) {
       baseRef.current.style.left = `${x - scaledBase}px`;
@@ -34,8 +35,10 @@ export const VirtualJoystick: React.FC = () => {
   }, [scaledBase]);
 
   const updateDirection = useCallback((clientX: number, clientY: number) => {
-    const dx = clientX - centerRef.current.x;
-    const dy = clientY - centerRef.current.y;
+    // CSS zoom 보정: centerRef는 줌 보정된 좌표이므로 clientX/Y도 보정
+    const cssZoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const dx = clientX / cssZoom - centerRef.current.x;
+    const dy = clientY / cssZoom - centerRef.current.y;
     const dist = Math.hypot(dx, dy);
 
     // 노브 위치 업데이트 (DOM 직접 조작 - 성능 최적화)
@@ -103,14 +106,19 @@ export const VirtualJoystick: React.FC = () => {
   const handlePointerDown = useCallback((e: React.PointerEvent) => {
     if (activeRef.current) return;
 
+    // CSS zoom 보정: clientX/Y는 디바이스 픽셀, CSS left/top은 줌된 좌표계
+    const cssZoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const cx = e.clientX / cssZoom;
+    const cy = e.clientY / cssZoom;
+
     activeRef.current = true;
     pointerIdRef.current = e.pointerId;
-    centerRef.current = { x: e.clientX, y: e.clientY };
+    centerRef.current = { x: cx, y: cy };
 
     // 조이스틱을 터치 위치에 표시 (플로팅 방식)
     if (baseRef.current) {
-      baseRef.current.style.left = `${e.clientX - scaledBase}px`;
-      baseRef.current.style.top = `${e.clientY - scaledBase}px`;
+      baseRef.current.style.left = `${cx - scaledBase}px`;
+      baseRef.current.style.top = `${cy - scaledBase}px`;
       baseRef.current.style.opacity = '1';
     }
     if (knobRef.current) {
