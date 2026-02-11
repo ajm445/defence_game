@@ -86,8 +86,25 @@ const TouchSkillButton: React.FC<TouchSkillButtonProps> = ({
         targetX = nearest.x;
         targetY = nearest.y;
       } else {
-        targetX = hero.x + (hero.facingRight ? 200 : -200);
-        targetY = hero.y;
+        // 적이 없으면 적 기지 방향으로 자동 타겟
+        const bases = state.enemyBases;
+        let nearestBase: { x: number; y: number } | null = null;
+        let nearestBaseDist = Infinity;
+        for (const base of bases) {
+          if (base.hp <= 0) continue;
+          const d = Math.hypot(base.x - hero.x, base.y - hero.y);
+          if (d < nearestBaseDist) {
+            nearestBase = base;
+            nearestBaseDist = d;
+          }
+        }
+        if (nearestBase) {
+          targetX = nearestBase.x;
+          targetY = nearestBase.y;
+        } else {
+          targetX = hero.x + (hero.facingRight ? 200 : -200);
+          targetY = hero.y;
+        }
       }
     }
 

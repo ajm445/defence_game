@@ -64,7 +64,8 @@ export const RPGScreenEffects: React.FC = () => {
   const damageFlashIntensity = useMemo(() => {
     const FLASH_DURATION = 0.15;
     const timeSinceDamage = gameTime - lastDamageTime;
-    if (lastDamageTime <= 0 || timeSinceDamage >= FLASH_DURATION) return 0;
+    // timeSinceDamage < 0: 게임 재시작 시 이전 게임의 lastDamageTime이 남아있는 경우 방지
+    if (lastDamageTime <= 0 || timeSinceDamage < 0 || timeSinceDamage >= FLASH_DURATION) return 0;
     // 빠르게 감소하는 플래시
     return (1 - timeSinceDamage / FLASH_DURATION) * 0.25;
   }, [gameTime, lastDamageTime]);

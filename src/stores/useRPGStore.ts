@@ -2509,6 +2509,10 @@ export const useRPGStore = create<RPGStore>()(
       let myUpgrades = createInitialUpgradeLevels();
       let myKills = 0;
       let newLastDamageTime = currentState.lastDamageTime;  // 클라이언트 피격 시간 업데이트용
+      // 게임 재시작 감지: gameTime이 lastDamageTime보다 크게 작으면 리셋
+      if (serializedState.gameTime < newLastDamageTime - 1) {
+        newLastDamageTime = 0;
+      }
       let newCamera = currentState.camera;  // 클라이언트 부활 시 카메라 위치 업데이트용
       const now = performance.now();
 
@@ -2563,9 +2567,16 @@ export const useRPGStore = create<RPGStore>()(
               syncX = hero.x;
               syncY = hero.y;
             } else if (isLocalMoving) {
-              // 클라이언트 이동 중: 로컬 예측 100% 신뢰 (부드러운 움직임)
-              syncX = localHero.x;
-              syncY = localHero.y;
+              // 클라이언트 이동 중: 로컬 예측 우선, 서버와 차이 클 때 미세 보정
+              // 보정 없이 100% 로컬 신뢰 시 네트워크 지연으로 >150px 누적 → 순간이동 발생
+              if (positionDiff > 30) {
+                const alpha = 0.08; // 8% 미세 보정 (30Hz × 8% = 초당 ~92% 수렴)
+                syncX = localHero.x + dx * alpha;
+                syncY = localHero.y + dy * alpha;
+              } else {
+                syncX = localHero.x;
+                syncY = localHero.y;
+              }
             } else if (isServerMoving) {
               // 클라이언트 정지, 서버 아직 이동 중: 서버가 따라잡을 때까지 로컬 유지 (뒤로 밀림 방지)
               // 단, 서버가 로컬보다 앞서면 서버 따라감

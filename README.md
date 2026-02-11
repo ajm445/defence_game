@@ -581,6 +581,16 @@ defence_game/
   - 가상 조이스틱 CSS zoom 보상: `handlePointerDown`/`updateDirection`에서 `clientX/Y / cssZoom` 보정
   - 가상 조이스틱 크기 증가 (BASE_RADIUS 50→60, KNOB_RADIUS 20→25, MAX_DRAG 50→60)
   - 가상 조이스틱 기본 위치 하향 (Y 75%→82%)
+- **게임 재시작 시 붉은 피격 플래시 잔존 버그 수정**
+  - `damageFlashIntensity`에서 `timeSinceDamage < 0` 체크 추가 (이전 게임 데이터 방지)
+  - `applySerializedState`에서 게임 재시작 감지: `gameTime < lastDamageTime - 1`이면 리셋
+- **터치 스킬 자동 타겟에 적 기지 추가**
+  - 탭으로 스킬 사용 시 적이 없으면 가장 가까운 적 기지 방향으로 발사
+  - 기존: 적 없을 때 `facingRight` 방향(오른쪽) 고정 → 적 기지 무시됨
+- **멀티플레이어 이동 보간 개선 (순간이동 방지)**
+  - 이동 중 서버 위치 100% 무시 → 30px 이상 차이 시 8% 미세 보정 적용
+  - 150px 누적 → 순간이동 스냅 현상 완화 (네트워크 지연·프레임 드랍 대응)
+  - 시전 종료 후 조이스틱 방향 서버 재전송 추가 (키보드만 재전송되던 문제 수정)
 
 ### V1.23.6
 - **모바일 터치 환경 개선**
