@@ -574,6 +574,8 @@ defence_game/
   - 이중 스케일링 전략: 일반 모드는 viewport meta(`width=1280+`), 전체화면은 CSS zoom(`physW / viewportWidth`)
   - `updateViewportMeta()`에서 `isFullscreenActive()` 체크 후 자동 전환
   - 전체화면 해제 시 CSS zoom 제거 + viewport meta 복원
+  - 캔버스 CSS zoom 보상: `useCanvas`에서 `window.innerWidth / zoom`으로 버퍼 크기 확대 (RPG/RTS 공통)
+  - 전체화면 전환 후 `resize` 이벤트 발송으로 캔버스 재측정 트리거
 
 ### V1.23.6
 - **모바일 터치 환경 개선**

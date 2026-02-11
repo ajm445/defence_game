@@ -169,9 +169,13 @@ export function useDeviceDetect() {
       // 전체화면 ↔ 일반 모드 전환 시 스케일링 방식 전환
       // (전체화면: CSS zoom, 일반: viewport meta)
       updateViewportMeta(deviceType);
-      // 브라우저 전환 완료 후 재적용 (타이밍 보정)
+      // 브라우저 전환 완료 후 재적용 + 캔버스 리사이즈 트리거
       if (deviceType === 'phone' || deviceType === 'tablet') {
-        setTimeout(() => updateViewportMeta(deviceType), 150);
+        setTimeout(() => {
+          updateViewportMeta(deviceType);
+          // CSS zoom 변경 후 캔버스가 새 크기로 재측정하도록 resize 이벤트 발송
+          window.dispatchEvent(new Event('resize'));
+        }, 150);
       }
     };
 

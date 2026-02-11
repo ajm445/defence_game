@@ -12,17 +12,23 @@ export const useCanvas = (fixedWidth?: number, fixedHeight?: number, fullscreen?
     return getResponsiveConfig(uiScale).UI_PANEL_HEIGHT;
   }, [uiScale, fullscreen]);
 
-  const [dimensions, setDimensions] = useState({
-    width: fixedWidth ?? window.innerWidth,
-    height: fixedHeight ?? window.innerHeight - (fullscreen ? 0 : CONFIG.UI_PANEL_HEIGHT),
+  const [dimensions, setDimensions] = useState(() => {
+    const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+    return {
+      width: fixedWidth ?? Math.round(window.innerWidth / zoom),
+      height: fixedHeight ?? Math.round(window.innerHeight / zoom) - (fullscreen ? 0 : CONFIG.UI_PANEL_HEIGHT),
+    };
   });
 
   const resize = useCallback(() => {
     const canvas = canvasRef.current;
     if (!canvas) return;
 
-    const width = fixedWidth ?? window.innerWidth;
-    const height = fixedHeight ?? window.innerHeight - getPanelHeight();
+    // CSS zoom이 html에 적용된 경우 (모바일 전체화면) 캔버스 버퍼 크기 보상
+    // HTML 요소는 zoom이 자동 보상되지만 canvas pixel buffer는 수동 보상 필요
+    const zoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const width = fixedWidth ?? Math.round(window.innerWidth / zoom);
+    const height = fixedHeight ?? Math.round(window.innerHeight / zoom) - getPanelHeight();
 
     canvas.width = width;
     canvas.height = height;
