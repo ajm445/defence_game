@@ -570,8 +570,10 @@ defence_game/
   - 영어 단어 경계(`\b`) 매칭으로 오탐 방지 (class→ass 등)
   - 로비 채팅 `sendLobbyChatMessage()`에서 서버 측 필터링 후 브로드캐스트
 - **모바일 전체화면 viewport 스케일링 수정**
-  - 전체화면 진입 시 일부 모바일 브라우저가 viewport meta를 무시하는 문제 대응
-  - viewport를 `device-width`로 리셋 후 `requestAnimationFrame` + 다단계 타이머(100/300/600ms)로 재적용
+  - 전체화면 진입 시 모바일 브라우저가 viewport meta를 무시하는 문제 대응
+  - 이중 스케일링 전략: 일반 모드는 viewport meta(`width=1280+`), 전체화면은 CSS zoom(`physW / viewportWidth`)
+  - `updateViewportMeta()`에서 `isFullscreenActive()` 체크 후 자동 전환
+  - 전체화면 해제 시 CSS zoom 제거 + viewport meta 복원
 
 ### V1.23.6
 - **모바일 터치 환경 개선**

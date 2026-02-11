@@ -36,31 +36,47 @@ function getIsPortrait(): boolean {
   return window.matchMedia('(orientation: portrait)').matches;
 }
 
+function getTargetViewportWidth(): number {
+  const BASE_WIDTH = 1280;
+  const MIN_CSS_HEIGHT = 700;
+
+  const isPortrait = getIsPortrait();
+  const physW = isPortrait
+    ? Math.min(screen.width, screen.height)
+    : Math.max(screen.width, screen.height);
+  const physH = isPortrait
+    ? Math.max(screen.width, screen.height)
+    : Math.min(screen.width, screen.height);
+
+  const minWidthForHeight = Math.ceil(MIN_CSS_HEIGHT * physW / physH);
+  return Math.max(BASE_WIDTH, minWidthForHeight);
+}
+
 function updateViewportMeta(deviceType: DeviceType) {
   const meta = document.querySelector('meta[name="viewport"]');
   if (!meta) return;
 
   if (deviceType === 'phone' || deviceType === 'tablet') {
-    const BASE_WIDTH = 1280;
-    const MIN_CSS_HEIGHT = 700;
+    const viewportWidth = getTargetViewportWidth();
 
-    // 현재 방향에 따른 물리 화면 크기 (screen.width/height는 viewport meta 무관)
-    const isPortrait = getIsPortrait();
-    const physW = isPortrait
-      ? Math.min(screen.width, screen.height)
-      : Math.max(screen.width, screen.height);
-    const physH = isPortrait
-      ? Math.max(screen.width, screen.height)
-      : Math.min(screen.width, screen.height);
+    if (isFullscreenActive()) {
+      // 전체화면: 모바일 브라우저가 viewport meta를 무시하므로 CSS zoom으로 스케일링
+      const isPortrait = getIsPortrait();
+      const physW = isPortrait
+        ? Math.min(screen.width, screen.height)
+        : Math.max(screen.width, screen.height);
 
-    // CSS 높이 = physH / (physW / viewportWidth) = physH * viewportWidth / physW
-    // MIN_CSS_HEIGHT 이상이 되려면: viewportWidth >= MIN_CSS_HEIGHT * physW / physH
-    const minWidthForHeight = Math.ceil(MIN_CSS_HEIGHT * physW / physH);
-    const viewportWidth = Math.max(BASE_WIDTH, minWidthForHeight);
-
-    meta.setAttribute('content',
-      `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
+      meta.setAttribute('content',
+        'width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover');
+      document.documentElement.style.zoom = String(physW / viewportWidth);
+    } else {
+      // 일반 모드: viewport meta로 스케일링
+      document.documentElement.style.zoom = '';
+      meta.setAttribute('content',
+        `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
+    }
   } else {
+    document.documentElement.style.zoom = '';
     meta.setAttribute('content',
       'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
   }
@@ -146,27 +162,16 @@ export function useDeviceDetect() {
       prevIsPortrait = isPortrait;
     };
 
-    // fullscreenchange 이벤트로 상태 추적 + 뷰포트 재적용
+    // fullscreenchange 이벤트로 상태 추적 + 스케일링 전환
     const onFullscreenChange = () => {
       useUIStore.getState().setFullscreen(isFullscreenActive());
       const deviceType = getDeviceType();
-
+      // 전체화면 ↔ 일반 모드 전환 시 스케일링 방식 전환
+      // (전체화면: CSS zoom, 일반: viewport meta)
+      updateViewportMeta(deviceType);
+      // 브라우저 전환 완료 후 재적용 (타이밍 보정)
       if (deviceType === 'phone' || deviceType === 'tablet') {
-        // 전체화면 전환 시 일부 모바일 브라우저가 viewport meta를 무시하므로
-        // 먼저 device-width로 리셋 후 다시 적용하여 브라우저가 재평가하도록 강제
-        const meta = document.querySelector('meta[name="viewport"]');
-        if (meta) {
-          meta.setAttribute('content', 'width=device-width, initial-scale=1.0');
-        }
-        requestAnimationFrame(() => {
-          updateViewportMeta(deviceType);
-          // 브라우저마다 전체화면 전환 완료 타이밍이 다르므로 여러 번 재적용
-          setTimeout(() => updateViewportMeta(deviceType), 100);
-          setTimeout(() => updateViewportMeta(deviceType), 300);
-          setTimeout(() => updateViewportMeta(deviceType), 600);
-        });
-      } else {
-        updateViewportMeta(deviceType);
+        setTimeout(() => updateViewportMeta(deviceType), 150);
       }
     };
 
