@@ -74,9 +74,20 @@ function updateViewportMeta(deviceType: DeviceType) {
 
   if (deviceType === 'phone' || deviceType === 'tablet') {
     const viewportWidth = getTargetViewportWidth();
-    // 전체화면/일반 모드 모두 동일한 viewport meta 사용
-    meta.setAttribute('content',
-      `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
+
+    if (isFullscreenActive()) {
+      // 전체화면: initial-scale 명시하여 Safari가 viewport 리셋해도 스케일 유지
+      const isPortrait = getIsPortrait();
+      const physW = isPortrait
+        ? Math.min(screen.width, screen.height)
+        : Math.max(screen.width, screen.height);
+      const scale = Math.round((physW / viewportWidth) * 1000) / 1000;
+      meta.setAttribute('content',
+        `width=${viewportWidth}, initial-scale=${scale}, minimum-scale=${scale}, maximum-scale=${scale}, user-scalable=no, viewport-fit=cover`);
+    } else {
+      meta.setAttribute('content',
+        `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
+    }
   } else {
     meta.setAttribute('content',
       'width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover');
@@ -101,7 +112,8 @@ function isFullscreenActive(): boolean {
 
 async function tryEnterFullscreen() {
   if (!isFullscreenSupported() || isFullscreenActive()) return;
-  const el = document.documentElement;
+  // body를 전체화면 대상으로 사용: html을 대상으로 하면 Safari가 viewport meta를 리셋
+  const el = document.body;
   try {
     if (el.requestFullscreen) {
       await el.requestFullscreen();

@@ -568,11 +568,13 @@ defence_game/
   - `currentLogin` 영구 저장: 재연결 시 `onopen`에서 `USER_LOGIN` 자동 재전송
   - 탭 복귀 시 `reconnectAttempts` 리셋 (백그라운드 실패 후에도 재시도 가능)
   - `pendingConnect` 플래그로 동시 연결 시도 중복 방지
-- **전체화면 하단 UI 잘림 수정 (iPad/Phone)**
-  - CSS zoom 방식 완전 제거 → 전체화면에서도 viewport meta `width=1280` 통일
-  - CSS zoom은 `vh`/`vw` 단위를 스케일링하지 않아 Safari에서 `overflow:hidden`과 충돌 → 하단 클리핑
-  - viewport meta 스케일링은 뷰포트 단위를 올바르게 조정하여 전체화면/일반 모드 동일 동작
-  - `fullscreenchange` 시 viewport meta 재적용 (150ms + 500ms 리트라이)
+- **전체화면 하단 UI 잘림/스크롤 수정 (iPad/Phone)**
+  - CSS zoom 방식 완전 제거 → viewport meta `width=1280` 통일
+  - 전체화면 대상을 `document.documentElement` → `document.body`로 변경
+  - html을 전체화면으로 하면 Safari가 viewport meta를 device-width로 리셋 → 스케일링 해제 → 스크롤 발생
+  - body를 전체화면으로 하면 viewport meta가 유지되어 정상 스케일링
+  - 전체화면 시 `initial-scale` 명시적 설정으로 추가 보강
+  - body `:fullscreen` CSS 규칙 추가 (전체화면 시 body가 화면 채우도록)
 
 ### V1.23.7
 - **재시작 시 붉은 모서리 이펙트 버그 수정**

@@ -89,7 +89,8 @@ export const OrientationPrompt: React.FC = () => {
   }, [isFullscreen, isTouchDevice, isPortrait]);
 
   const handleEnterFullscreen = useCallback(async () => {
-    const el = document.documentElement;
+    // body를 전체화면 대상으로 사용: html을 대상으로 하면 Safari가 viewport meta를 리셋
+    const el = document.body;
     try {
       if (el.requestFullscreen) {
         await el.requestFullscreen();

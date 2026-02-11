@@ -34,6 +34,14 @@ body {
   height: 100%;
 }
 
+/* body 전체화면: Safari에서 html 대신 body를 fullscreen 대상으로 사용 */
+body:fullscreen,
+body:-webkit-full-screen {
+  width: 100%;
+  height: 100%;
+  overflow: hidden;
+}
+
 /* 모바일 터치 최적화 */
 canvas {
   -webkit-tap-highlight-color: transparent;
