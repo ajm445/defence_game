@@ -12,6 +12,7 @@ function isFullscreenSupported(): boolean {
 
 export const OrientationPrompt: React.FC = () => {
   const isTouchDevice = useUIStore((s) => s.isTouchDevice);
+  const isTablet = useUIStore((s) => s.isTablet);
   const isPortrait = useUIStore((s) => s.isPortrait);
   const isFullscreen = useUIStore((s) => s.isFullscreen);
   const [showFullscreenPrompt, setShowFullscreenPrompt] = useState(false);
@@ -89,8 +90,9 @@ export const OrientationPrompt: React.FC = () => {
   }, [isFullscreen, isTouchDevice, isPortrait]);
 
   const handleEnterFullscreen = useCallback(async () => {
-    // body를 전체화면 대상으로 사용: html을 대상으로 하면 Safari가 viewport meta를 리셋
-    const el = document.body;
+    // 태블릿(iPad): body를 전체화면 대상 (html 시 Safari가 viewport meta 리셋)
+    // 핸드폰/기타: html을 전체화면 대상 (더 안정적)
+    const el = isTablet ? document.body : document.documentElement;
     try {
       if (el.requestFullscreen) {
         await el.requestFullscreen();
@@ -101,7 +103,7 @@ export const OrientationPrompt: React.FC = () => {
       // 실패 시 프롬프트 닫기
       setShowFullscreenPrompt(false);
     }
-  }, []);
+  }, [isTablet]);
 
   // 세로 모드 회전 안내
   if (isTouchDevice && isPortrait) {

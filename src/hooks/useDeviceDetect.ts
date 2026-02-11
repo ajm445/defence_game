@@ -112,8 +112,10 @@ function isFullscreenActive(): boolean {
 
 async function tryEnterFullscreen() {
   if (!isFullscreenSupported() || isFullscreenActive()) return;
-  // body를 전체화면 대상으로 사용: html을 대상으로 하면 Safari가 viewport meta를 리셋
-  const el = document.body;
+  // 태블릿(iPad): body를 전체화면 대상 (html 전체화면 시 Safari가 viewport meta 리셋)
+  // 핸드폰/기타: html을 전체화면 대상 (더 안정적)
+  const deviceType = getDeviceType();
+  const el = deviceType === 'tablet' ? document.body : document.documentElement;
   try {
     if (el.requestFullscreen) {
       await el.requestFullscreen();
