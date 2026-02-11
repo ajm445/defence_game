@@ -568,6 +568,11 @@ defence_game/
   - `currentLogin` 영구 저장: 재연결 시 `onopen`에서 `USER_LOGIN` 자동 재전송
   - 탭 복귀 시 `reconnectAttempts` 리셋 (백그라운드 실패 후에도 재시도 가능)
   - `pendingConnect` 플래그로 동시 연결 시도 중복 방지
+- **전체화면 CSS zoom 하단 UI 잘림 수정 (iPad)**
+  - CSS zoom을 `html` 대신 `#root`에 적용하여 `overflow:hidden` 충돌 해결
+  - `html`에 zoom 적용 시 레이아웃 크기(107vh)가 뷰포트(100vh)를 초과 → 하단 ~7% 클리핑
+  - `#root`에 적용하면 부모(body)가 보는 실효 크기가 100vh → 오버플로우 없음
+  - zoom 읽기 코드 4개 파일 일괄 업데이트: `useCanvas`, `VirtualJoystick`, `RPGDamageNumbers`
 
 ### V1.23.7
 - **재시작 시 붉은 모서리 이펙트 버그 수정**

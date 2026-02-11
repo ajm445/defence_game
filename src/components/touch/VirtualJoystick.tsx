@@ -24,7 +24,7 @@ export const VirtualJoystick: React.FC = () => {
 
   // 기본 위치에 고스트 조이스틱 표시 (처음 보는 유저를 위한 힌트)
   useEffect(() => {
-    const cssZoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const cssZoom = parseFloat(document.getElementById('root')?.style.zoom || '') || 1;
     const x = (window.innerWidth / cssZoom) * 0.15;
     const y = (window.innerHeight / cssZoom) * 0.82;
     defaultPosRef.current = { x, y };
@@ -36,7 +36,7 @@ export const VirtualJoystick: React.FC = () => {
 
   const updateDirection = useCallback((clientX: number, clientY: number) => {
     // CSS zoom 보정: centerRef는 줌 보정된 좌표이므로 clientX/Y도 보정
-    const cssZoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const cssZoom = parseFloat(document.getElementById('root')?.style.zoom || '') || 1;
     const dx = clientX / cssZoom - centerRef.current.x;
     const dy = clientY / cssZoom - centerRef.current.y;
     const dist = Math.hypot(dx, dy);
@@ -107,7 +107,7 @@ export const VirtualJoystick: React.FC = () => {
     if (activeRef.current) return;
 
     // CSS zoom 보정: clientX/Y는 디바이스 픽셀, CSS left/top은 줌된 좌표계
-    const cssZoom = parseFloat(document.documentElement.style.zoom) || 1;
+    const cssZoom = parseFloat(document.getElementById('root')?.style.zoom || '') || 1;
     const cx = e.clientX / cssZoom;
     const cy = e.clientY / cssZoom;
 

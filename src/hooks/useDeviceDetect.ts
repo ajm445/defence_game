@@ -59,6 +59,8 @@ function updateViewportMeta(deviceType: DeviceType) {
   if (deviceType === 'phone' || deviceType === 'tablet') {
     const viewportWidth = getTargetViewportWidth();
 
+    const rootEl = document.getElementById('root');
+
     if (isFullscreenActive()) {
       // 전체화면: 모바일 브라우저가 viewport meta를 무시하므로 CSS zoom으로 스케일링
       const isPortrait = getIsPortrait();
@@ -69,13 +71,23 @@ function updateViewportMeta(deviceType: DeviceType) {
 
       meta.setAttribute('content',
         'width=device-width, initial-scale=1.0, user-scalable=no, viewport-fit=cover');
-      document.documentElement.style.zoom = String(zoom);
-      // CSS zoom이 html의 100vh/100vw도 축소하므로 역수로 확대하여 화면 채움
-      const inversePercent = 100 / zoom;
-      document.documentElement.style.width = `${inversePercent}vw`;
-      document.documentElement.style.height = `${inversePercent}vh`;
+      // #root에 zoom 적용 (html에 적용하면 overflow:hidden과 충돌하여 하단 잘림)
+      if (rootEl) {
+        rootEl.style.zoom = String(zoom);
+        const inversePercent = 100 / zoom;
+        rootEl.style.width = `${inversePercent}vw`;
+        rootEl.style.height = `${inversePercent}vh`;
+      }
+      document.documentElement.style.zoom = '';
+      document.documentElement.style.width = '';
+      document.documentElement.style.height = '';
     } else {
       // 일반 모드: viewport meta로 스케일링
+      if (rootEl) {
+        rootEl.style.zoom = '';
+        rootEl.style.width = '';
+        rootEl.style.height = '';
+      }
       document.documentElement.style.zoom = '';
       document.documentElement.style.width = '';
       document.documentElement.style.height = '';
@@ -83,6 +95,12 @@ function updateViewportMeta(deviceType: DeviceType) {
         `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
     }
   } else {
+    const rootEl = document.getElementById('root');
+    if (rootEl) {
+      rootEl.style.zoom = '';
+      rootEl.style.width = '';
+      rootEl.style.height = '';
+    }
     document.documentElement.style.zoom = '';
     document.documentElement.style.width = '';
     document.documentElement.style.height = '';
