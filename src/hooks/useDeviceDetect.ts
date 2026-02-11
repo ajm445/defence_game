@@ -66,8 +66,53 @@ function updateViewportMeta(deviceType: DeviceType) {
   }
 }
 
+// --- 전체화면 유틸리티 ---
+
+function isFullscreenSupported(): boolean {
+  const isIPhone = /iPhone/.test(navigator.userAgent) && !(window as any).MSStream;
+  if (isIPhone) return false;
+
+  return !!(
+    document.documentElement.requestFullscreen ||
+    (document.documentElement as any).webkitRequestFullscreen
+  );
+}
+
+function isFullscreenActive(): boolean {
+  return !!(document.fullscreenElement || (document as any).webkitFullscreenElement);
+}
+
+async function tryEnterFullscreen() {
+  if (!isFullscreenSupported() || isFullscreenActive()) return;
+  const el = document.documentElement;
+  try {
+    if (el.requestFullscreen) {
+      await el.requestFullscreen();
+    } else if ((el as any).webkitRequestFullscreen) {
+      await (el as any).webkitRequestFullscreen();
+    }
+  } catch {
+    // 전체화면 진입 실패 시 무시 (user gesture 필요할 수 있음)
+  }
+}
+
+async function tryExitFullscreen() {
+  if (!isFullscreenActive()) return;
+  try {
+    if (document.exitFullscreen) {
+      await document.exitFullscreen();
+    } else if ((document as any).webkitExitFullscreen) {
+      await (document as any).webkitExitFullscreen();
+    }
+  } catch {
+    // 전체화면 해제 실패 시 무시
+  }
+}
+
 export function useDeviceDetect() {
   useEffect(() => {
+    let prevIsPortrait: boolean | null = null;
+
     const update = () => {
       const deviceType = getDeviceType();
       const isTouchDevice = detectTouchDevice();
@@ -87,12 +132,36 @@ export function useDeviceDetect() {
         isPortrait,
         uiScale,
       });
+
+      // 터치 디바이스에서 방향 변경 시 자동 전체화면
+      if (isTouchDevice && prevIsPortrait !== null && prevIsPortrait !== isPortrait) {
+        if (!isPortrait) {
+          // 가로로 전환 → 전체화면 진입
+          tryEnterFullscreen();
+        } else {
+          // 세로로 전환 → 전체화면 해제
+          tryExitFullscreen();
+        }
+      }
+      prevIsPortrait = isPortrait;
+    };
+
+    // fullscreenchange 이벤트로 상태 추적 + 뷰포트 재적용
+    const onFullscreenChange = () => {
+      useUIStore.getState().setFullscreen(isFullscreenActive());
+      // 전체화면 전환 시 브라우저가 뷰포트를 리셋할 수 있으므로 재적용
+      const deviceType = getDeviceType();
+      updateViewportMeta(deviceType);
+      // 브라우저 전환 완료 후 한 번 더 적용 (일부 브라우저 대응)
+      setTimeout(() => updateViewportMeta(deviceType), 150);
     };
 
     update();
 
     window.addEventListener('resize', update);
     window.addEventListener('orientationchange', update);
+    document.addEventListener('fullscreenchange', onFullscreenChange);
+    document.addEventListener('webkitfullscreenchange', onFullscreenChange);
 
     const mql = window.matchMedia('(orientation: portrait)');
     mql.addEventListener('change', update);
@@ -100,6 +169,8 @@ export function useDeviceDetect() {
     return () => {
       window.removeEventListener('resize', update);
       window.removeEventListener('orientationchange', update);
+      document.removeEventListener('fullscreenchange', onFullscreenChange);
+      document.removeEventListener('webkitfullscreenchange', onFullscreenChange);
       mql.removeEventListener('change', update);
     };
   }, []);

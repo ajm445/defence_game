@@ -27,13 +27,6 @@ async function enterFullscreen() {
     } else if ((el as any).webkitRequestFullscreen) {
       await (el as any).webkitRequestFullscreen();
     }
-
-    // Android Chrome: 가로 고정 시도
-    try {
-      await (screen.orientation as any).lock('landscape');
-    } catch {
-      // orientation lock 미지원 시 무시
-    }
   } catch {
     // fullscreen 진입 실패 시 무시
   }

@@ -19,6 +19,7 @@ export const RPGScreenEffects: React.FC = () => {
 
   // 비네팅 강도 계산 (HP 100%: 0, HP 50%: 0.3, HP 30%: 0.6, HP 0%: 1)
   const vignetteIntensity = useMemo(() => {
+    if (hpRatio <= 0) return 0; // 영웅 없음/사망 시 비네팅 표시 안함
     if (hpRatio >= 1) return 0;
     if (hpRatio >= 0.5) {
       // HP 50~100%: 0 ~ 0.3

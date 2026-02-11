@@ -11,6 +11,7 @@ import {
   updateSoundSettings,
   updateNickname as authUpdateNickname,
   deleteAccount as authDeleteAccount,
+  changePassword as authChangePassword,
 } from '../services/authService';
 import { getClassProgress } from '../services/profileService';
 import { useProfileStore } from './useProfileStore';
@@ -52,6 +53,7 @@ interface AuthActions {
   updateLocalProfile: (updates: Partial<PlayerProfile>) => void;
   updateClassProgress: (progress: ClassProgress) => void;
   updateNickname: (newNickname: string) => Promise<{ success: boolean; error?: string }>;
+  changePassword: (currentPassword: string, newPassword: string) => Promise<{ success: boolean; error?: string }>;
   deleteAccount: () => Promise<{ success: boolean; error?: string }>;
 
   // 사운드 설정
@@ -529,6 +531,26 @@ export const useAuthStore = create<AuthStore>()(
       } else {
         set({ isLoading: false, error: result.error });
       }
+
+      return result;
+    },
+
+    // 비밀번호 변경
+    changePassword: async (currentPassword: string, newPassword: string) => {
+      const { user, profile } = get();
+      if (!user || !profile) {
+        return { success: false, error: '로그인이 필요합니다.' };
+      }
+
+      if (profile.isGuest) {
+        return { success: false, error: '게스트는 비밀번호를 변경할 수 없습니다.' };
+      }
+
+      set({ isLoading: true, error: null });
+
+      const result = await authChangePassword(user.id, currentPassword, newPassword);
+
+      set({ isLoading: false });
 
       return result;
     },

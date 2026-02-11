@@ -248,6 +248,59 @@ export const updateNickname = async (
   }
 };
 
+// 닉네임 중복 확인
+export const checkNicknameAvailability = async (
+  nickname: string
+): Promise<{ available: boolean; error?: string }> => {
+  try {
+    const data = await apiRequest<{ available: boolean; error?: string }>(
+      `/api/auth/check-nickname?nickname=${encodeURIComponent(nickname)}`
+    );
+    return data;
+  } catch (err) {
+    return { available: false, error: '확인 중 오류가 발생했습니다.' };
+  }
+};
+
+// 아이디 중복 확인
+export const checkUsernameAvailability = async (
+  username: string
+): Promise<{ available: boolean; error?: string }> => {
+  try {
+    const data = await apiRequest<{ available: boolean; error?: string }>(
+      `/api/auth/check-username?username=${encodeURIComponent(username)}`
+    );
+    return data;
+  } catch (err) {
+    return { available: false, error: '확인 중 오류가 발생했습니다.' };
+  }
+};
+
+// 비밀번호 변경
+export const changePassword = async (
+  userId: string,
+  currentPassword: string,
+  newPassword: string
+): Promise<{ success: boolean; error?: string }> => {
+  try {
+    const data = await apiRequest<{ success: boolean; error?: string }>(
+      '/api/auth/password',
+      {
+        method: 'PATCH',
+        body: JSON.stringify({ userId, currentPassword, newPassword }),
+      }
+    );
+
+    return data;
+  } catch (err) {
+    console.error('Change password error:', err);
+    return {
+      success: false,
+      error: err instanceof Error ? err.message : '비밀번호 변경 중 오류가 발생했습니다.'
+    };
+  }
+};
+
 // 회원 탈퇴
 export const deleteAccount = async (
   userId: string

@@ -10,7 +10,7 @@ export const MainMenu: React.FC = () => {
   const isGuest = useAuthIsGuest();
   const signOut = useAuthStore((state) => state.signOut);
   const saveSoundSettings = useAuthStore((state) => state.saveSoundSettings);
-  const updateNickname = useAuthStore((state) => state.updateNickname);
+  const changePassword = useAuthStore((state) => state.changePassword);
   const deleteAccount = useAuthStore((state) => state.deleteAccount);
   const soundVolume = useUIStore((state) => state.soundVolume);
   const soundMuted = useUIStore((state) => state.soundMuted);
@@ -21,7 +21,9 @@ export const MainMenu: React.FC = () => {
 
   const [showSettings, setShowSettings] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'sound' | 'profile' | 'danger'>('sound');
-  const [newNickname, setNewNickname] = useState('');
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
   const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
@@ -87,7 +89,9 @@ export const MainMenu: React.FC = () => {
     soundManager.init();
     soundManager.play('ui_click');
     setSettingsTab('sound');
-    setNewNickname(profile?.nickname || '');
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
     setSettingsError(null);
     setSettingsSuccess(null);
     setShowDeleteConfirm(false);
@@ -101,27 +105,38 @@ export const MainMenu: React.FC = () => {
     setShowDeleteConfirm(false);
   };
 
-  const handleUpdateNickname = async () => {
-    if (!newNickname.trim()) {
-      setSettingsError('닉네임을 입력해주세요.');
+  const handleChangePassword = async () => {
+    if (!currentPassword) {
+      setSettingsError('현재 비밀번호를 입력해주세요.');
       return;
     }
-    if (newNickname.trim().length < 2) {
-      setSettingsError('닉네임은 2자 이상이어야 합니다.');
+    if (!newPassword) {
+      setSettingsError('새 비밀번호를 입력해주세요.');
       return;
     }
-    if (newNickname.trim() === profile?.nickname) {
-      setSettingsError('현재 닉네임과 동일합니다.');
+    if (newPassword.length < 6) {
+      setSettingsError('새 비밀번호는 6자 이상이어야 합니다.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setSettingsError('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setSettingsError('현재 비밀번호와 다른 비밀번호를 입력해주세요.');
       return;
     }
 
     soundManager.play('ui_click');
-    const result = await updateNickname(newNickname.trim());
+    const result = await changePassword(currentPassword, newPassword);
     if (result.success) {
-      setSettingsSuccess('닉네임이 변경되었습니다.');
+      setSettingsSuccess('비밀번호가 변경되었습니다.');
       setSettingsError(null);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
     } else {
-      setSettingsError(result.error || '닉네임 변경에 실패했습니다.');
+      setSettingsError(result.error || '비밀번호 변경에 실패했습니다.');
     }
   };
 
@@ -308,14 +323,14 @@ export const MainMenu: React.FC = () => {
                   🔊 소리
                 </button>
                 <button
-                  onClick={() => { setSettingsTab('profile'); setSettingsError(null); setSettingsSuccess(null); setNewNickname(profile?.nickname || ''); }}
+                  onClick={() => { setSettingsTab('profile'); setSettingsError(null); setSettingsSuccess(null); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }}
                   className={`flex-1 py-2 px-3 rounded-lg text-sm transition-all cursor-pointer ${
                     settingsTab === 'profile'
                       ? 'bg-yellow-500/20 border border-yellow-500 text-yellow-400'
                       : 'bg-dark-600 border border-gray-600 text-gray-400 hover:border-gray-500'
                   }`}
                 >
-                  ✏️ 프로필
+                  🔒 보안
                 </button>
                 <button
                   onClick={() => { setSettingsTab('danger'); setSettingsError(null); setSettingsSuccess(null); setShowDeleteConfirm(false); }}
@@ -392,23 +407,41 @@ export const MainMenu: React.FC = () => {
               </div>
             )}
 
-            {/* 프로필 설정 탭 - 일반 회원만 */}
+            {/* 보안 설정 탭 (비밀번호 변경) - 일반 회원만 */}
             {settingsTab === 'profile' && !isGuest && (
-              <div className="space-y-6">
+              <div className="space-y-4">
                 <div>
-                  <label className="block text-gray-300 mb-2">닉네임</label>
+                  <label className="block text-gray-300 mb-2">현재 비밀번호</label>
                   <input
-                    type="text"
-                    value={newNickname}
-                    onChange={(e) => setNewNickname(e.target.value)}
-                    placeholder="새 닉네임 입력..."
-                    maxLength={20}
+                    type="password"
+                    value={currentPassword}
+                    onChange={(e) => setCurrentPassword(e.target.value)}
+                    placeholder="현재 비밀번호 입력..."
                     className="w-full px-4 py-3 bg-dark-600 border border-gray-600 rounded-lg text-white focus:border-yellow-500 focus:outline-none"
                   />
-                  <p className="text-gray-500 text-xs mt-2">현재: {profile?.nickname}</p>
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-2">새 비밀번호</label>
+                  <input
+                    type="password"
+                    value={newPassword}
+                    onChange={(e) => setNewPassword(e.target.value)}
+                    placeholder="새 비밀번호 입력 (6자 이상)..."
+                    className="w-full px-4 py-3 bg-dark-600 border border-gray-600 rounded-lg text-white focus:border-yellow-500 focus:outline-none"
+                  />
+                </div>
+                <div>
+                  <label className="block text-gray-300 mb-2">새 비밀번호 확인</label>
+                  <input
+                    type="password"
+                    value={confirmPassword}
+                    onChange={(e) => setConfirmPassword(e.target.value)}
+                    placeholder="새 비밀번호 다시 입력..."
+                    className="w-full px-4 py-3 bg-dark-600 border border-gray-600 rounded-lg text-white focus:border-yellow-500 focus:outline-none"
+                  />
                 </div>
 
-                <div className="pt-4 flex gap-3">
+                <div className="pt-2 flex gap-3">
                   <button
                     onClick={handleCloseSettings}
                     className="flex-1 py-3 bg-dark-600 hover:bg-dark-500 text-gray-300 rounded-lg transition-colors cursor-pointer"
@@ -416,7 +449,7 @@ export const MainMenu: React.FC = () => {
                     취소
                   </button>
                   <button
-                    onClick={handleUpdateNickname}
+                    onClick={handleChangePassword}
                     className="flex-1 py-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/50 hover:border-yellow-500 rounded-lg transition-all cursor-pointer"
                   >
                     변경

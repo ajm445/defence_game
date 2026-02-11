@@ -1,7 +1,8 @@
-import React, { useState, useCallback } from 'react';
+import React, { useState, useCallback, useEffect, useRef } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthError, useAuthIsLoading } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
+import { checkNicknameAvailability, checkUsernameAvailability } from '../../services/authService';
 
 type AuthMode = 'login' | 'signup' | 'guest';
 
@@ -34,6 +35,80 @@ export const LoginScreen: React.FC = () => {
   const [nickname, setNickname] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
 
+  // 닉네임 중복 확인 상태
+  const [nicknameChecked, setNicknameChecked] = useState(false);
+  const [nicknameAvailable, setNicknameAvailable] = useState(false);
+  const [nicknameChecking, setNicknameChecking] = useState(false);
+
+  // 아이디 중복 확인 상태
+  const [usernameStatus, setUsernameStatus] = useState<'idle' | 'checking' | 'available' | 'taken'>('idle');
+  const usernameCheckTimer = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  // 닉네임 변경 시 확인 상태 초기화
+  const handleNicknameChange = useCallback((value: string) => {
+    setNickname(value);
+    setNicknameChecked(false);
+    setNicknameAvailable(false);
+  }, []);
+
+  // 아이디 변경 시 디바운스 중복 확인
+  const handleUsernameChange = useCallback((value: string) => {
+    setUsername(value);
+    setUsernameStatus('idle');
+
+    if (usernameCheckTimer.current) {
+      clearTimeout(usernameCheckTimer.current);
+    }
+
+    if (value.length < 4 || !/^[a-zA-Z0-9_]+$/.test(value)) {
+      return;
+    }
+
+    setUsernameStatus('checking');
+    usernameCheckTimer.current = setTimeout(async () => {
+      const result = await checkUsernameAvailability(value);
+      // 현재 입력값이 변경되지 않았을 때만 적용
+      setUsername((current) => {
+        if (current === value) {
+          setUsernameStatus(result.available ? 'available' : 'taken');
+        }
+        return current;
+      });
+    }, 500);
+  }, []);
+
+  // 닉네임 중복 확인 핸들러
+  const handleCheckNickname = useCallback(async () => {
+    if (!nickname.trim() || nickname.trim().length < 2) {
+      setError('닉네임은 2자 이상이어야 합니다.');
+      return;
+    }
+
+    soundManager.play('ui_click');
+    setNicknameChecking(true);
+    const result = await checkNicknameAvailability(nickname.trim());
+    setNicknameChecking(false);
+
+    if (result.available) {
+      setNicknameChecked(true);
+      setNicknameAvailable(true);
+      setSuccessMessage(null);
+    } else {
+      setNicknameChecked(true);
+      setNicknameAvailable(false);
+      setError('이미 사용 중인 닉네임입니다.');
+    }
+  }, [nickname, setError]);
+
+  // 컴포넌트 언마운트 시 타이머 정리
+  useEffect(() => {
+    return () => {
+      if (usernameCheckTimer.current) {
+        clearTimeout(usernameCheckTimer.current);
+      }
+    };
+  }, []);
+
   const apiEnabled = isApiConfigured();
 
   const handleModeChange = useCallback((newMode: AuthMode) => {
@@ -42,6 +117,9 @@ export const LoginScreen: React.FC = () => {
     setMode(newMode);
     clearError();
     setSuccessMessage(null);
+    setNicknameChecked(false);
+    setNicknameAvailable(false);
+    setUsernameStatus('idle');
   }, [clearError]);
 
   const handleLogin = useCallback(async (e: React.FormEvent) => {
@@ -96,6 +174,21 @@ export const LoginScreen: React.FC = () => {
 
     if (nickname.length < 2 || nickname.length > 20) {
       setError('닉네임은 2~20자 사이여야 합니다.');
+      return;
+    }
+
+    if (!nicknameChecked || !nicknameAvailable) {
+      setError('닉네임 중복 확인을 해주세요.');
+      return;
+    }
+
+    if (usernameStatus === 'taken') {
+      setError('사용중인 아이디입니다. 다른 아이디를 입력해주세요.');
+      return;
+    }
+
+    if (usernameStatus !== 'available') {
+      setError('아이디 중복 확인이 완료되지 않았습니다.');
       return;
     }
 
@@ -259,33 +352,63 @@ export const LoginScreen: React.FC = () => {
         {apiEnabled && mode === 'signup' && (
           <form onSubmit={handleSignUp} className="w-full space-y-5">
             <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">아이디</label>
+              <label className="block text-gray-300 text-sm font-medium mb-2">닉네임</label>
               <div style={{ height: '3px' }} />
-              <input
-                type="text"
-                value={username}
-                onChange={(e) => setUsername(e.target.value)}
-                className="w-full px-4 py-4 bg-gray-800/60 border border-gray-600 rounded-md text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all"
-                placeholder="4~20자, 영문/숫자/밑줄"
-                maxLength={20}
-                disabled={isLoading}
-              />
+              <div className="flex gap-2">
+                <input
+                  type="text"
+                  value={nickname}
+                  onChange={(e) => handleNicknameChange(e.target.value)}
+                  className="flex-1 px-4 py-4 bg-gray-800/60 border border-gray-600 rounded-md text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all"
+                  placeholder="게임에서 표시될 이름 (2~20자)"
+                  maxLength={20}
+                  disabled={isLoading}
+                />
+                <button
+                  type="button"
+                  onClick={handleCheckNickname}
+                  disabled={isLoading || nicknameChecking || nickname.trim().length < 2}
+                  className={`px-4 py-2 rounded-md text-sm font-medium whitespace-nowrap transition-all cursor-pointer disabled:cursor-not-allowed disabled:opacity-50 ${
+                    nicknameChecked && nicknameAvailable
+                      ? 'bg-green-600/30 border border-green-500 text-green-400'
+                      : 'bg-purple-600/30 border border-purple-500 text-purple-300 hover:bg-purple-600/50'
+                  }`}
+                >
+                  {nicknameChecking ? '확인중...' : nicknameChecked && nicknameAvailable ? '확인완료' : '중복확인'}
+                </button>
+              </div>
+              {nicknameChecked && (
+                <p className={`text-xs mt-2 ${nicknameAvailable ? 'text-green-400' : 'text-red-400'}`}>
+                  {nicknameAvailable ? '사용 가능한 닉네임입니다.' : '이미 사용 중인 닉네임입니다.'}
+                </p>
+              )}
             </div>
 
             <div style={{ height: '10px' }} />
 
             <div>
-              <label className="block text-gray-300 text-sm font-medium mb-2">닉네임</label>
+              <label className="block text-gray-300 text-sm font-medium mb-2">아이디</label>
               <div style={{ height: '3px' }} />
               <input
                 type="text"
-                value={nickname}
-                onChange={(e) => setNickname(e.target.value)}
+                value={username}
+                onChange={(e) => handleUsernameChange(e.target.value)}
                 className="w-full px-4 py-4 bg-gray-800/60 border border-gray-600 rounded-md text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all"
-                placeholder="게임에서 표시될 이름 (2~20자)"
+                placeholder="4~20자, 영문/숫자/밑줄"
                 maxLength={20}
                 disabled={isLoading}
               />
+              {username.length >= 4 && /^[a-zA-Z0-9_]+$/.test(username) && (
+                <p className={`text-xs mt-2 ${
+                  usernameStatus === 'available' ? 'text-green-400' :
+                  usernameStatus === 'taken' ? 'text-red-400' :
+                  'text-gray-400'
+                }`}>
+                  {usernameStatus === 'checking' && '확인 중...'}
+                  {usernameStatus === 'available' && '사용 가능한 아이디입니다.'}
+                  {usernameStatus === 'taken' && '사용중인 아이디입니다.'}
+                </p>
+              )}
             </div>
 
             <div style={{ height: '10px' }} />
