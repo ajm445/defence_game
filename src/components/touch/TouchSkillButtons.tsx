@@ -126,7 +126,7 @@ const TouchSkillButton: React.FC<TouchSkillButtonProps> = ({
               : 'bg-gradient-to-br from-blue-800/40 to-indigo-900/50 border-sky-400/60 shadow-[0_0_8px_rgba(56,189,248,0.2)] active:scale-95'
           }
         `}
-        style={{ width: size, height: size }}
+        style={{ width: size, height: size, touchAction: 'none' }}
         onPointerDown={handlePointerDown}
         onPointerMove={handlePointerMove}
         onPointerUp={handlePointerUp}

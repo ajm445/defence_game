@@ -401,7 +401,7 @@ export function processHeroMovement(hero: ServerHero, deltaTime: number, gameTim
   // 이동 처리
   if (!isCasting && !isStunned && hero.moveDirection && (hero.moveDirection.x !== 0 || hero.moveDirection.y !== 0)) {
     const dir = hero.moveDirection;
-    let speed = hero.config?.speed || hero.baseSpeed || 200;
+    let speed = hero.config?.speed || hero.baseSpeed || 3;
 
     // 이동속도 버프 적용 (swiftness)
     const swiftnessBuff = hero.buffs?.find(b => b.type === 'swiftness' && b.duration > 0);

@@ -48,7 +48,7 @@ export function updateHeroUnit(
   }
 
   const config = updatedHero.config;
-  let speed = config.speed || updatedHero.baseSpeed || 200;
+  let speed = config.speed || updatedHero.baseSpeed || 3;
 
   // 이동속도 버프 적용 (swiftness) - duration > 0인 경우만 유효
   const swiftnessBuff = updatedHero.buffs?.find(b => b.type === 'swiftness' && b.duration > 0 && b.moveSpeedBonus);

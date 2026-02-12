@@ -234,7 +234,7 @@ export function useRPGGameLoop() {
           const dir = clientHeroForMove.moveDirection;
 
           // 이동속도 계산 (싱글플레이와 동일)
-          let moveSpeed = clientHeroForMove.config?.speed || clientHeroForMove.baseSpeed || 200;
+          let moveSpeed = clientHeroForMove.config?.speed || clientHeroForMove.baseSpeed || 3;
 
           // 이동속도 버프 적용 (swiftness)
           const swiftnessBuff = clientHeroForMove.buffs?.find(b => b.type === 'swiftness' && b.duration > 0 && b.moveSpeedBonus);
@@ -2172,7 +2172,7 @@ function updateOtherHeroesMovement(deltaTime: number) {
     if (!hero.moveDirection) return;
 
     const { x: dirX, y: dirY } = hero.moveDirection;
-    let speed = hero.config.speed || hero.baseSpeed || 200;
+    let speed = hero.config.speed || hero.baseSpeed || 3;
 
     // 이동속도 버프 적용 (swiftness) - duration > 0인 경우만 유효
     const swiftnessBuff = hero.buffs?.find(b => b.type === 'swiftness' && b.duration > 0);

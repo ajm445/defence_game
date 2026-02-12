@@ -95,10 +95,21 @@ function updateViewportMeta(deviceType: DeviceType) {
         document.documentElement.style.height = `${inversePercent}vh`;
       }
     } else {
-      // 일반 모드: viewport meta만 사용
+      // 일반 모드: viewport meta + initial-scale 고정
+      // initial-scale 없으면 일부 브라우저에서 스케일을 잘못 계산하거나 불안정하게 처리
       clearCssZoom();
-      meta.setAttribute('content',
-        `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
+      if (deviceType === 'tablet') {
+        const isPortrait = getIsPortrait();
+        const physW = isPortrait
+          ? Math.min(screen.width, screen.height)
+          : Math.max(screen.width, screen.height);
+        const scale = Math.round((physW / viewportWidth) * 1000) / 1000;
+        meta.setAttribute('content',
+          `width=${viewportWidth}, initial-scale=${scale}, minimum-scale=${scale}, maximum-scale=${scale}, user-scalable=no, viewport-fit=cover`);
+      } else {
+        meta.setAttribute('content',
+          `width=${viewportWidth}, user-scalable=no, viewport-fit=cover`);
+      }
     }
   } else {
     clearCssZoom();
@@ -211,16 +222,30 @@ export function useDeviceDetect() {
       // 전체화면 전환 시 viewport meta 재적용 (브라우저가 리셋할 수 있음)
       updateViewportMeta(deviceType);
       if (deviceType === 'phone' || deviceType === 'tablet') {
-        // 브라우저 전환 완료 후 재적용 + 캔버스 리사이즈 트리거
-        setTimeout(() => {
+        // 전체화면 전환 직전의 뷰포트 높이 기록
+        const prevHeight = window.innerHeight;
+
+        // 뷰포트 크기가 실제로 변경될 때까지 폴링 (최대 1초)
+        // 고정 타임아웃(150ms/500ms)만 사용하면 전체화면 애니메이션이 느린 기기에서
+        // window.innerHeight가 아직 갱신되지 않아 캔버스가 스테일 크기로 남을 수 있음
+        let retryCount = 0;
+        const maxRetries = 10;
+        const retryInterval = 100;
+
+        const ensureResize = () => {
           updateViewportMeta(deviceType);
           window.dispatchEvent(new Event('resize'));
-        }, 150);
-        // 추가 재적용 (일부 브라우저에서 전체화면 전환이 느릴 수 있음)
-        setTimeout(() => {
-          updateViewportMeta(deviceType);
-          window.dispatchEvent(new Event('resize'));
-        }, 500);
+
+          retryCount++;
+          // 뷰포트 높이가 변경되었거나 최대 재시도 횟수 도달 시 중단
+          if (window.innerHeight !== prevHeight || retryCount >= maxRetries) {
+            return;
+          }
+          setTimeout(ensureResize, retryInterval);
+        };
+
+        // 첫 시도: 150ms 후 (대부분의 브라우저에서 충분)
+        setTimeout(ensureResize, 150);
       }
     };
 

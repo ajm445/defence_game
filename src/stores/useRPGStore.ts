@@ -2562,17 +2562,26 @@ export const useRPGStore = create<RPGStore>()(
                 syncX = hero.x;
                 syncY = hero.y;
               }
-            } else if (positionDiff > 150) {
-              // 매우 큰 차이 (> 150px): 즉시 스냅 (텔레포트/사망/부활 등)
+            } else if (positionDiff > 200) {
+              // 매우 큰 차이 (> 200px): 즉시 스냅 (텔레포트/사망/부활 등)
               syncX = hero.x;
               syncY = hero.y;
             } else if (isLocalMoving) {
-              // 클라이언트 이동 중: 로컬 예측 100% 신뢰 (부드러운 움직임)
-              syncX = localHero.x;
-              syncY = localHero.y;
+              // 클라이언트 이동 중: 로컬 예측 우선 + 드리프트 보정
+              // 서버/클라이언트 한쪽의 프레임/틱 드롭 시 deltaTime 클램핑(0.05s)으로
+              // 양쪽 이동 속도가 달라져 위치 차이가 누적됨
+              // 보정 없으면 200px 스냅 임계치에 도달하여 순간이동 발생
+              // → 30px 초과 시 점진적 보정으로 드리프트 누적 방지
+              if (positionDiff > 30) {
+                const alpha = Math.min(0.3, (positionDiff - 30) / 400);
+                syncX = localHero.x + dx * alpha;
+                syncY = localHero.y + dy * alpha;
+              } else {
+                syncX = localHero.x;
+                syncY = localHero.y;
+              }
             } else if (isServerMoving) {
               // 클라이언트 정지, 서버 아직 이동 중: 서버가 따라잡을 때까지 로컬 유지 (뒤로 밀림 방지)
-              // 단, 서버가 로컬보다 앞서면 서버 따라감
               syncX = localHero.x;
               syncY = localHero.y;
             } else {
@@ -2692,7 +2701,7 @@ export const useRPGStore = create<RPGStore>()(
 
           // 이동 방향 및 속도 추출
           const moveDir = hero.moveDirection || { x: 0, y: 0 };
-          const heroMoveSpeed = hero.config?.speed || 200;
+          const heroMoveSpeed = hero.config?.speed || hero.baseSpeed || 3;
 
           // 보간 데이터 업데이트
           if (existingHero && existingInterpolation) {
