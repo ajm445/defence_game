@@ -365,13 +365,13 @@ export class RPGServerGameEngine {
     }
 
     // 위치 보정: 클라이언트 로컬 예측과 서버 위치 차이 최소화
-    // 서버-클라이언트 타이밍 차이로 인한 드리프트를 경량 보정
+    // 네트워크 지연으로 클라이언트 위치가 과거 시점이므로 보수적으로 보정
     if (input.position) {
       const dist = distance(hero.x, hero.y, input.position.x, input.position.y);
-      if (dist > 5 && dist < 200) {
-        // 5~200px 범위에서 30% 비율로 클라이언트 위치로 보간
-        hero.x = hero.x + (input.position.x - hero.x) * 0.3;
-        hero.y = hero.y + (input.position.y - hero.y) * 0.3;
+      if (dist > 10 && dist < 200) {
+        // 10~200px 범위에서 20% 비율로 클라이언트 위치로 보간
+        hero.x = hero.x + (input.position.x - hero.x) * 0.2;
+        hero.y = hero.y + (input.position.y - hero.y) * 0.2;
       }
     }
 

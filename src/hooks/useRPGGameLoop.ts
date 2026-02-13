@@ -268,10 +268,11 @@ export function useRPGGameLoop() {
               facingRight: dir.x >= 0,
             });
 
-            // 지속 이동 중 주기적 위치 보고 (500ms 간격)
+            // 지속 이동 중 주기적 위치 보고 (1초 간격)
             // sendMoveDirection은 키 이벤트 시에만 호출되므로,
             // 계속 같은 방향으로 이동 중일 때 서버에 위치를 알려줘야 드리프트 방지
-            if (clientNow - lastPositionSyncRef.current > 500) {
+            // 너무 자주 보내면 네트워크 지연으로 stale 위치가 서버를 역방향으로 끌어당김
+            if (clientNow - lastPositionSyncRef.current > 1000) {
               lastPositionSyncRef.current = clientNow;
               sendMoveDirection(dir);
             }

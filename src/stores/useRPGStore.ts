@@ -2578,9 +2578,30 @@ export const useRPGStore = create<RPGStore>()(
               syncY = hero.y;
             } else if (isLocalMoving) {
               // 클라이언트 이동 중: 점진적 보정 (차이에 비례)
-              // 프레임당 최대 8px 보정으로 순간이동 방지하면서 수렴
+              // 네트워크 지연으로 서버 위치가 클라이언트 뒤에 있으므로
+              // 이동 방향 역방향 보정(drag)을 제거하여 체감 속도 저하 방지
               const alpha = Math.min(0.5, Math.max(0.08, positionDiff / 200));
-              const corr = capCorrection(dx * alpha, dy * alpha, 8);
+              let corrX = dx * alpha;
+              let corrY = dy * alpha;
+
+              // 이동 방향 역방향 보정 제거 (레이턴시 드래그 방지)
+              // 수직 성분(좌우 드리프트)만 유지하여 정확한 경로 보정
+              if (localHero.moveDirection) {
+                const mdir = localHero.moveDirection;
+                const mdirLen = Math.sqrt(mdir.x * mdir.x + mdir.y * mdir.y);
+                if (mdirLen > 0) {
+                  const ndx = mdir.x / mdirLen;
+                  const ndy = mdir.y / mdirLen;
+                  const dot = corrX * ndx + corrY * ndy;
+                  if (dot < 0) {
+                    // 보정이 이동 반대 방향 → 수직 성분만 유지
+                    corrX -= dot * ndx;
+                    corrY -= dot * ndy;
+                  }
+                }
+              }
+
+              const corr = capCorrection(corrX, corrY, 8);
               syncX = localHero.x + corr.x;
               syncY = localHero.y + corr.y;
             } else if (isServerMoving) {
