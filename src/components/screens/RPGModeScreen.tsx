@@ -20,7 +20,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import { useProfileStore, useClassProgress } from '../../stores/useProfileStore';
 import { SkillType } from '../../types/rpg';
-import { LevelUpResult, calculatePlayerExp, calculateClassExp, createDefaultStatUpgrades, VIP_EXP_MULTIPLIER } from '../../types/auth';
+import { LevelUpResult, calculatePlayerExp, calculateClassExp, VIP_EXP_MULTIPLIER } from '../../types/auth';
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
@@ -45,7 +45,6 @@ export const RPGModeScreen: React.FC = () => {
   const selectedClass = useSelectedClass();
   const classProgressList = useClassProgress();
   const multiplayer = useRPGStore((state) => state.multiplayer);
-  const isMultiplayer = multiplayer.isMultiplayer;
   const isHost = multiplayer.isHost;
   const personalKills = usePersonalKills();
   const selectedDifficulty = useSelectedDifficulty();
@@ -71,28 +70,9 @@ export const RPGModeScreen: React.FC = () => {
     };
   }, [isTablet]);
 
-  // 게임 초기화 (이미 실행 중이면 초기화하지 않음)
-  useEffect(() => {
-    const state = useRPGStore.getState();
-    // 멀티플레이어 모드면 initMultiplayerGame이 이미 호출됨 - 초기화 스킵
-    // 이미 영웅이 있고 게임이 실행 중이면 (일시정지에서 돌아온 경우) 초기화하지 않음
-    if (!state.hero && !state.multiplayer.isMultiplayer) {
-      // 싱글플레이어 모드: 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드, 전직 정보 가져오기
-      const heroClass = state.selectedClass || 'warrior';
-      const classProgress = classProgressList.find(p => p.className === heroClass);
-      const characterLevel = classProgress?.classLevel ?? 1;
-      const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
-      const advancedClass = classProgress?.advancedClass;
-      const tier = classProgress?.tier;
-
-      useRPGStore.getState().initGame(characterLevel, statUpgrades, undefined, advancedClass, tier);
-      // 게임 시작 시에만 레퍼런스 초기화 (새 게임일 때만)
-      expSavedRef.current = false;
-    }
-    // classProgressList 변경 시 expSavedRef를 초기화하지 않음 (중복 경험치 저장 방지)
-
-    // 언마운트 시 정리하지 않음 - 메인 메뉴로 돌아갈 때만 PauseScreen에서 resetGame 호출
-  }, [classProgressList]);
+  // 게임 초기화: 멀티플레이어 모드에서는 initMultiplayerGame이 useNetworkSync에서 호출됨
+  // 이 컴포넌트는 이미 초기화된 상태에서 마운트됨
+  // 언마운트 시 정리하지 않음 - 메인 메뉴로 돌아갈 때만 PauseScreen에서 resetGame 호출
 
   // 게임 오버 시 경험치 저장
   useEffect(() => {
@@ -104,50 +84,30 @@ export const RPGModeScreen: React.FC = () => {
     if (gameOver && result && currentProfile && !currentProfile.isGuest && !expSavedRef.current) {
       expSavedRef.current = true;
 
-      // 멀티플레이어에서는 개인 처치 수 사용
       const rpgState = useRPGStore.getState();
-      const killsForExp = rpgState.multiplayer.isMultiplayer ? rpgState.personalKills : result.totalKills;
+      const killsForExp = rpgState.personalKills;
 
-      // 극한 난이도 승리 시 랭킹 저장 (호스트 또는 싱글플레이)
-      if (result.victory && rpgState.selectedDifficulty === 'extreme') {
-        const isMultiplayer = rpgState.multiplayer.isMultiplayer;
-        const isHost = rpgState.multiplayer.isHost;
+      // 극한 난이도 승리 시 랭킹 저장 (호스트만)
+      if (result.victory && rpgState.selectedDifficulty === 'extreme' && rpgState.multiplayer.isHost) {
+        const rankingPlayers: RankingPlayer[] = rpgState.multiplayer.players.map(p => {
+          const playerClassProgress = useProfileStore.getState().classProgress.find(cp => cp.className === p.heroClass);
+          const advClass = p.advancedClass as AdvancedHeroClass | undefined;
+          return {
+            playerId: p.id,
+            nickname: p.name,
+            heroClass: p.heroClass,
+            advancedClass: advClass,
+            characterLevel: p.characterLevel || playerClassProgress?.classLevel || 1,
+          } as RankingPlayer;
+        });
 
-        // 싱글플레이 또는 멀티플레이 호스트만 랭킹 저장
-        if (!isMultiplayer || isHost) {
-          let rankingPlayers: RankingPlayer[];
-
-          if (isMultiplayer) {
-            rankingPlayers = rpgState.multiplayer.players.map(p => {
-              const playerClassProgress = useProfileStore.getState().classProgress.find(cp => cp.className === p.heroClass);
-              const advClass = p.advancedClass as AdvancedHeroClass | undefined;
-              return {
-                playerId: p.id,
-                nickname: p.name,
-                heroClass: p.heroClass,
-                advancedClass: advClass,
-                characterLevel: p.characterLevel || playerClassProgress?.classLevel || 1,
-              } as RankingPlayer;
-            });
-          } else {
-            const myClassProgress = classProgressList.find(p => p.className === result.heroClass);
-            rankingPlayers = [{
-              playerId: currentProfile.id,
-              nickname: currentProfile.nickname,
-              heroClass: result.heroClass,
-              advancedClass: myClassProgress?.advancedClass as AdvancedHeroClass | undefined,
-              characterLevel: myClassProgress?.classLevel || 1,
-            }];
-          }
-
-          const playerCount = rankingPlayers.length;
-          saveExtremeRanking(playerCount, result.timePlayed, rankingPlayers);
-        }
+        const playerCount = rankingPlayers.length;
+        saveExtremeRanking(playerCount, result.timePlayed, rankingPlayers);
       }
 
       // 경험치 저장 (난이도 배율 적용)
       useProfileStore.getState().handleGameEnd({
-        mode: rpgState.multiplayer.isMultiplayer ? 'coop' : 'single',
+        mode: 'coop',
         classUsed: result.heroClass,
         basesDestroyed: result.basesDestroyed,
         bossesKilled: result.bossesKilled,
@@ -219,34 +179,6 @@ export const RPGModeScreen: React.FC = () => {
     },
     [requestSkill]
   );
-
-  // 게임 오버 시 대기방 로비로 이동
-  const handleBackToMenu = useCallback(() => {
-    resetGame();
-    clearLastGameResult();
-    setLevelUpResult(null);
-    setShowLevelUp(false);
-    setScreen('rpgCoopLobby');
-  }, [resetGame, clearLastGameResult, setScreen]);
-
-  const handleRetry = useCallback(() => {
-    resetGame();
-    clearLastGameResult();
-    setLevelUpResult(null);
-    setShowLevelUp(false);
-    expSavedRef.current = false;
-
-    // 선택된 클래스의 캐릭터 레벨과 SP 스탯 업그레이드, 전직 정보 가져오기
-    const state = useRPGStore.getState();
-    const heroClass = state.selectedClass || 'warrior';
-    const classProgress = classProgressList.find(p => p.className === heroClass);
-    const characterLevel = classProgress?.classLevel ?? 1;
-    const statUpgrades = classProgress?.statUpgrades ?? createDefaultStatUpgrades();
-    const advancedClass = classProgress?.advancedClass;
-    const tier = classProgress?.tier;
-
-    useRPGStore.getState().initGame(characterLevel, statUpgrades, undefined, advancedClass, tier);
-  }, [resetGame, clearLastGameResult, classProgressList]);
 
   // 멀티플레이어: 로비로 돌아가기 (호스트만)
   const handleReturnToLobby = useCallback(() => {
@@ -397,15 +329,13 @@ export const RPGModeScreen: React.FC = () => {
                 <span className="text-purple-400 font-bold">{result.bossesKilled}/{result.totalBosses}</span>
               </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
-                <span className="text-gray-400">{isMultiplayer ? '개인 처치' : '총 처치'}</span>
-                <span className="text-red-400 font-bold">{isMultiplayer ? personalKills : result.totalKills}</span>
+                <span className="text-gray-400">개인 처치</span>
+                <span className="text-red-400 font-bold">{personalKills}</span>
               </div>
-              {isMultiplayer && (
-                <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
-                  <span className="text-gray-400">팀 처치</span>
-                  <span className="text-orange-400 font-bold">{result.totalKills}</span>
-                </div>
-              )}
+              <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
+                <span className="text-gray-400">팀 처치</span>
+                <span className="text-orange-400 font-bold">{result.totalKills}</span>
+              </div>
               <div className="flex justify-between bg-dark-700/50 rounded-lg p-3">
                 <span className="text-gray-400">획득 골드</span>
                 <span className="text-yellow-400 font-bold">{result.totalGoldEarned}</span>
@@ -425,17 +355,17 @@ export const RPGModeScreen: React.FC = () => {
               const basePlayerExp = calculatePlayerExp(
                 result.basesDestroyed,
                 result.bossesKilled,
-                isMultiplayer ? personalKills : result.totalKills,
+                personalKills,
                 result.timePlayed,
                 result.victory,
-                isMultiplayer ? 'coop' : 'single',
+                'coop',
                 selectedDifficulty,
                 false  // VIP 보너스 미적용
               );
               const baseClassExp = calculateClassExp(
                 result.basesDestroyed,
                 result.bossesKilled,
-                isMultiplayer ? personalKills : result.totalKills,
+                personalKills,
                 selectedDifficulty,
                 result.victory,
                 false  // VIP 보너스 미적용
@@ -508,63 +438,44 @@ export const RPGModeScreen: React.FC = () => {
             <div style={{ height: '10px' }} />
 
             {/* 버튼 */}
-            {isMultiplayer ? (
-              // 멀티플레이어 버튼
-              <div className="flex flex-col gap-3">
-                {isHost ? (
-                  // 호스트 버튼
-                  <>
-                    <button
-                      onClick={handleRestartGame}
-                      className="w-full px-6 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan rounded-lg font-bold transition-colors cursor-pointer"
-                    >
-                      게임 재시작
-                    </button>
-                    <button
-                      onClick={handleReturnToLobby}
-                      className="w-full px-6 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold transition-colors cursor-pointer"
-                    >
-                      로비로 돌아가기
-                    </button>
-                    <button
-                      onClick={handleDestroyRoom}
-                      className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
-                    >
-                      나가기
-                    </button>
-                  </>
-                ) : (
-                  // 클라이언트 버튼
-                  <>
-                    <div className="text-center text-gray-400 py-2">
-                      방장의 결정을 기다리는 중...
-                    </div>
-                    <button
-                      onClick={handleLeaveRoom}
-                      className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
-                    >
-                      방 나가기
-                    </button>
-                  </>
-                )}
-              </div>
-            ) : (
-              // 싱글플레이어 버튼
-              <div className="flex gap-3">
-                <button
-                  onClick={handleRetry}
-                  className="flex-1 px-6 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan rounded-lg font-bold transition-colors cursor-pointer"
-                >
-                  다시 시작
-                </button>
-                <button
-                  onClick={handleBackToMenu}
-                  className="flex-1 px-6 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold transition-colors cursor-pointer"
-                >
-                  메뉴로
-                </button>
-              </div>
-            )}
+            <div className="flex flex-col gap-3">
+              {isHost ? (
+                // 호스트 버튼
+                <>
+                  <button
+                    onClick={handleRestartGame}
+                    className="w-full px-6 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan rounded-lg font-bold transition-colors cursor-pointer"
+                  >
+                    게임 재시작
+                  </button>
+                  <button
+                    onClick={handleReturnToLobby}
+                    className="w-full px-6 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold transition-colors cursor-pointer"
+                  >
+                    로비로 돌아가기
+                  </button>
+                  <button
+                    onClick={handleDestroyRoom}
+                    className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
+                  >
+                    나가기
+                  </button>
+                </>
+              ) : (
+                // 클라이언트 버튼
+                <>
+                  <div className="text-center text-gray-400 py-2">
+                    방장의 결정을 기다리는 중...
+                  </div>
+                  <button
+                    onClick={handleLeaveRoom}
+                    className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
+                  >
+                    방 나가기
+                  </button>
+                </>
+              )}
+            </div>
           </div>
         </div>
       )}
@@ -585,8 +496,8 @@ export const RPGModeScreen: React.FC = () => {
         />
       )}
 
-      {/* 게임 재시작 카운트다운 오버레이 (멀티플레이어) */}
-      {isMultiplayer && multiplayer.connectionState === 'countdown' && (
+      {/* 게임 재시작 카운트다운 오버레이 */}
+      {multiplayer.connectionState === 'countdown' && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/70 z-[60]">
           <div className="text-center">
             <p className="text-2xl text-gray-300 mb-4">게임 재시작</p>

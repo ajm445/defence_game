@@ -60,9 +60,7 @@ export const VirtualJoystick: React.FC = () => {
         lastDirRef.current = null;
         if (!isHeroDead) {
           state.setMoveDirection(undefined);
-          if (state.multiplayer.isMultiplayer) {
-            sendMoveDirection(null);
-          }
+          sendMoveDirection(null);
         }
       }
       return;
@@ -97,9 +95,7 @@ export const VirtualJoystick: React.FC = () => {
       }
 
       state.setMoveDirection({ x: normX, y: normY });
-      if (state.multiplayer.isMultiplayer) {
-        sendMoveDirection({ x: normX, y: normY });
-      }
+      sendMoveDirection({ x: normX, y: normY });
     }
   }, [scaledMaxDrag]);
 
@@ -154,9 +150,7 @@ export const VirtualJoystick: React.FC = () => {
     // 이동 정지
     const state = useRPGStore.getState();
     state.setMoveDirection(undefined);
-    if (state.multiplayer.isMultiplayer) {
-      sendMoveDirection(null);
-    }
+    sendMoveDirection(null);
   }, [scaledBase]);
 
   // 언마운트 시 이동 정지
@@ -164,9 +158,7 @@ export const VirtualJoystick: React.FC = () => {
     return () => {
       const state = useRPGStore.getState();
       state.setMoveDirection(undefined);
-      if (state.multiplayer.isMultiplayer) {
-        sendMoveDirection(null);
-      }
+      sendMoveDirection(null);
     };
   }, []);
 

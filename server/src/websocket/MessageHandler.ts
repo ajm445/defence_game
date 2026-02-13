@@ -935,7 +935,10 @@ export function handleCoopDisconnect(playerId: string): void {
  * 모든 클라이언트가 입력을 서버로 전송하고, 서버 게임 엔진이 처리
  */
 function handlePlayerInput(playerId: string, input: any): void {
-  if (!rateLimiters.playerInput.checkAndUpdate(playerId)) return;
+  // 스킬/업그레이드 입력은 rate limit 제외 (서버에 자체 쿨다운/골드 검증 있음)
+  // 이동/위치만 포함된 입력만 rate limit 적용
+  const isImportantInput = input?.skillUsed || input?.upgradeRequested;
+  if (!isImportantInput && !rateLimiters.playerInput.checkAndUpdate(playerId)) return;
 
   // 입력 필드 검증
   if (input) {

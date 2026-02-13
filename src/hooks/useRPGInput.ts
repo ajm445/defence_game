@@ -210,10 +210,8 @@ function updateMoveDirection() {
   state.setMoveDirection(direction);
 
   // 서버 권위 모델: 모든 클라이언트가 서버로 입력 전송 (호스트 포함)
-  const { isMultiplayer } = state.multiplayer;
-  if (isMultiplayer) {
-    sendMoveDirection(direction || null);
-  }
+  // sendMoveDirection 내부에 튜토리얼 모드 가드 있음
+  sendMoveDirection(direction || null);
 }
 
 /**
@@ -324,11 +322,14 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
                     // 서버에도 이동 정지 전송
                     sendMoveDirection(null);
                   }
+                } else {
+                  // 다크나이트 외: 로컬 쿨다운 즉시 시작 (중복 전송 방지)
+                  useRPGStore.getState().useSkill(wSkill.type);
                 }
 
                 soundManager.play('attack_melee');
               } else if (requestSkill?.(wSkill.type)) {
-                // 싱글플레이: 로컬에서 스킬 실행
+                // 튜토리얼 모드: 로컬에서 스킬 실행
                 soundManager.play('attack_melee');
               }
             }
@@ -344,13 +345,15 @@ export function useRPGKeyboard(requestSkill?: (skillType: SkillType) => boolean)
               if (isMultiplayer) {
                 // 서버 권위 모델: 서버로 스킬 요청 전송 (모든 클라이언트)
                 sendSkillUse('E', state.mousePosition.x, state.mousePosition.y);
+                // 로컬 쿨다운 즉시 시작 (중복 전송 방지)
+                useRPGStore.getState().useSkill(eSkill.type);
                 if (heroClass === 'knight' || heroClass === 'warrior') {
                   soundManager.play('heal');
                 } else {
                   soundManager.play('attack_ranged');
                 }
               } else if (requestSkill?.(eSkill.type)) {
-                // 싱글플레이: 로컬에서 스킬 실행
+                // 튜토리얼 모드: 로컬에서 스킬 실행
                 if (heroClass === 'knight' || heroClass === 'warrior') {
                   soundManager.play('heal');
                 } else {

@@ -185,7 +185,7 @@ const SKILL_ICON_MAP: Record<string, string> = {
   meteor_shower: '☄️', spring_of_life: '💧',
 };
 
-export const TouchSkillButtons: React.FC<TouchSkillButtonsProps> = ({ onUseSkill: _onUseSkill, requestSkill }) => {
+export const TouchSkillButtons: React.FC<TouchSkillButtonsProps> = ({ onUseSkill: _onUseSkill, requestSkill: _requestSkill }) => {
   const hero = useHero();
   const isTablet = useUIStore((s) => s.isTablet);
 
@@ -198,83 +198,69 @@ export const TouchSkillButtons: React.FC<TouchSkillButtonsProps> = ({ onUseSkill
   const handleWSkill = useCallback((targetX: number, targetY: number) => {
     if (!wSkill) return;
     const state = useRPGStore.getState();
-    const { isMultiplayer } = state.multiplayer;
 
     // 마우스 위치를 타겟으로 설정
     useRPGStore.getState().setMousePosition(targetX, targetY);
 
-    if (isMultiplayer) {
-      sendSkillUse('W', targetX, targetY);
+    sendSkillUse('W', targetX, targetY);
 
-      // 다크나이트 W스킬 로컬 예측
-      if (state.hero?.advancedClass === 'darkKnight') {
-        const hpCost = Math.floor(state.hero.maxHp * 0.20);
-        if (state.hero.hp > hpCost) {
-          const dx = targetX - state.hero.x;
-          const dy = targetY - state.hero.y;
-          const dist = Math.sqrt(dx * dx + dy * dy);
-          const dirX = dist > 0 ? dx / dist : (state.hero.facingRight ? 1 : -1);
-          const dirY = dist > 0 ? dy / dist : 0;
+    // 다크나이트 W스킬 로컬 예측
+    if (state.hero?.advancedClass === 'darkKnight') {
+      const hpCost = Math.floor(state.hero.maxHp * 0.20);
+      if (state.hero.hp > hpCost) {
+        const dx = targetX - state.hero.x;
+        const dy = targetY - state.hero.y;
+        const dist = Math.sqrt(dx * dx + dy * dy);
+        const dirX = dist > 0 ? dx / dist : (state.hero.facingRight ? 1 : -1);
+        const dirY = dist > 0 ? dy / dist : 0;
 
-          useRPGStore.setState((s) => {
-            if (!s.hero) return s;
-            return {
-              hero: {
-                ...s.hero,
-                hp: s.hero.hp - hpCost,
-                castingUntil: s.gameTime + 1.0,
-                facingRight: dirX >= 0,
-                moveDirection: undefined,
-                state: 'idle' as const,
-              },
-              activeSkillEffects: [...s.activeSkillEffects, {
-                type: 'heavy_strike' as any,
-                position: { x: s.hero.x, y: s.hero.y },
-                direction: { x: dirX, y: dirY },
-                duration: 1.0,
-                startTime: s.gameTime,
-                heroId: s.hero.id,
-              }],
-            };
-          });
-          useRPGStore.getState().useSkill(wSkill.type);
-        }
+        useRPGStore.setState((s) => {
+          if (!s.hero) return s;
+          return {
+            hero: {
+              ...s.hero,
+              hp: s.hero.hp - hpCost,
+              castingUntil: s.gameTime + 1.0,
+              facingRight: dirX >= 0,
+              moveDirection: undefined,
+              state: 'idle' as const,
+            },
+            activeSkillEffects: [...s.activeSkillEffects, {
+              type: 'heavy_strike' as any,
+              position: { x: s.hero.x, y: s.hero.y },
+              direction: { x: dirX, y: dirY },
+              duration: 1.0,
+              startTime: s.gameTime,
+              heroId: s.hero.id,
+            }],
+          };
+        });
+        useRPGStore.getState().useSkill(wSkill.type);
       }
-
-      soundManager.play('attack_melee');
     } else {
-      if (requestSkill(wSkill.type)) {
-        soundManager.play('attack_melee');
-      }
+      // 다크나이트 외: 로컬 쿨다운 즉시 시작 (중복 전송 방지)
+      useRPGStore.getState().useSkill(wSkill.type);
     }
-  }, [wSkill, requestSkill]);
+
+    soundManager.play('attack_melee');
+  }, [wSkill]);
 
   const handleESkill = useCallback((targetX: number, targetY: number) => {
     if (!eSkill) return;
     const state = useRPGStore.getState();
-    const { isMultiplayer } = state.multiplayer;
 
     useRPGStore.getState().setMousePosition(targetX, targetY);
 
-    if (isMultiplayer) {
-      sendSkillUse('E', targetX, targetY);
-      const heroClass = state.hero?.heroClass;
-      if (heroClass === 'knight' || heroClass === 'warrior') {
-        soundManager.play('heal');
-      } else {
-        soundManager.play('attack_ranged');
-      }
+    sendSkillUse('E', targetX, targetY);
+    // 로컬 쿨다운 즉시 시작 (중복 전송 방지)
+    useRPGStore.getState().useSkill(eSkill.type);
+    const heroClass = state.hero?.heroClass;
+    if (heroClass === 'knight' || heroClass === 'warrior') {
+      soundManager.play('heal');
     } else {
-      if (requestSkill(eSkill.type)) {
-        const heroClass = state.hero?.heroClass;
-        if (heroClass === 'knight' || heroClass === 'warrior') {
-          soundManager.play('heal');
-        } else {
-          soundManager.play('attack_ranged');
-        }
-      }
+      soundManager.play('attack_ranged');
     }
-  }, [eSkill, requestSkill]);
+  }, [eSkill]);
 
   // early return은 모든 hooks 뒤에 위치해야 함
   if (!hero || hero.hp <= 0) return null;

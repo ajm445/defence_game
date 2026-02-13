@@ -288,7 +288,7 @@ const createInitialNexus = (): Nexus => ({
 });
 
 // 적 기지 초기 상태 생성 (플레이어 수에 따라 기지 수 결정)
-// - 싱글플레이 / 2인: 좌, 우 (2개)
+// - 1~2인: 좌, 우 (2개)
 // - 3인: 좌, 우, 상 (3개)
 // - 4인: 좌, 우, 상, 하 (4개)
 const createInitialEnemyBases = (playerCount: number = 1, difficulty: RPGDifficulty = 'easy'): EnemyBase[] => {
@@ -1184,7 +1184,7 @@ export const useRPGStore = create<RPGStore>()(
         return true;  // 요청 전송 성공 (실제 결과는 서버에서 처리)
       }
 
-      // 싱글플레이: 로컬에서 바로 처리
+      // 튜토리얼/로컬 모드: 로컬에서 바로 처리
       const currentLevel = state.upgradeLevels[stat];
       const characterLevel = state.hero?.characterLevel || 1;
 
@@ -1574,7 +1574,7 @@ export const useRPGStore = create<RPGStore>()(
             // 다른 플레이어가 일반 적 처치
             state.addGoldToOtherPlayer(killerHeroId, goldReward);
           } else {
-            // 호스트가 처치하거나 싱글플레이어
+            // 호스트가 처치하거나 로컬 모드(튜토리얼)
             get().addGold(goldReward);
           }
         }
@@ -1608,7 +1608,7 @@ export const useRPGStore = create<RPGStore>()(
             }
           }
         } else if (!isMultiplayer) {
-          // 싱글플레이어: 기존처럼 totalKills 증가
+          // 로컬 모드(튜토리얼): 기존처럼 totalKills 증가
           get().incrementKills();
         }
 
@@ -1721,7 +1721,7 @@ export const useRPGStore = create<RPGStore>()(
             goldReceived = 0;
           }
         } else {
-          // 싱글플레이 또는 공격자가 없는 경우: 호스트에게 전체 골드 지급
+          // 로컬 모드 또는 공격자가 없는 경우: 호스트에게 전체 골드 지급
           get().addGold(baseReward);
           goldReceived = baseReward;
         }
@@ -2551,6 +2551,16 @@ export const useRPGStore = create<RPGStore>()(
             let syncX: number;
             let syncY: number;
 
+            // 보정 크기 제한 헬퍼: 프레임당 최대 px 제한으로 순간이동 방지
+            const capCorrection = (cx: number, cy: number, maxPx: number) => {
+              const mag = Math.sqrt(cx * cx + cy * cy);
+              if (mag > maxPx) {
+                const scale = maxPx / mag;
+                return { x: cx * scale, y: cy * scale };
+              }
+              return { x: cx, y: cy };
+            };
+
             if (forceHostPosition) {
               // 시전 중: 위치 차이가 작으면 로컬 위치 유지 (스킬 시작 시 뒤로 밀림 방지)
               // 시전 중에는 이동 불가이므로 로컬 위치를 그대로 유지해도 안전
@@ -2562,39 +2572,30 @@ export const useRPGStore = create<RPGStore>()(
                 syncX = hero.x;
                 syncY = hero.y;
               }
-            } else if (positionDiff > 200) {
-              // 매우 큰 차이 (> 200px): 즉시 스냅 (텔레포트/사망/부활 등)
+            } else if (positionDiff > 400) {
+              // 극단적 차이 (> 400px): 즉시 스냅 (부활/초기 생성 등)
               syncX = hero.x;
               syncY = hero.y;
             } else if (isLocalMoving) {
-              // 클라이언트 이동 중: 로컬 예측 우선 + 드리프트 보정
-              // 서버/클라이언트 한쪽의 프레임/틱 드롭 시 deltaTime 클램핑(0.05s)으로
-              // 양쪽 이동 속도가 달라져 위치 차이가 누적됨
-              // 보정 없으면 200px 스냅 임계치에 도달하여 순간이동 발생
-              // → 30px 초과 시 점진적 보정으로 드리프트 누적 방지
-              if (positionDiff > 30) {
-                const alpha = Math.min(0.3, (positionDiff - 30) / 400);
-                syncX = localHero.x + dx * alpha;
-                syncY = localHero.y + dy * alpha;
-              } else {
-                syncX = localHero.x;
-                syncY = localHero.y;
-              }
+              // 클라이언트 이동 중: 점진적 보정 (차이에 비례)
+              // 프레임당 최대 8px 보정으로 순간이동 방지하면서 수렴
+              const alpha = Math.min(0.5, Math.max(0.08, positionDiff / 200));
+              const corr = capCorrection(dx * alpha, dy * alpha, 8);
+              syncX = localHero.x + corr.x;
+              syncY = localHero.y + corr.y;
             } else if (isServerMoving) {
               // 클라이언트 정지, 서버 아직 이동 중: 서버가 따라잡을 때까지 로컬 유지 (뒤로 밀림 방지)
               syncX = localHero.x;
               syncY = localHero.y;
             } else {
-              // 양쪽 모두 정지: 작은 차이는 무시하여 슬라이딩 방지
-              if (positionDiff < 8) {
-                // 8px 미만: 로컬 위치 유지 (정지 후 안정화)
+              // 양쪽 모두 정지: 작은 차이 무시, 큰 차이 수렴 (프레임당 최대 12px)
+              if (positionDiff < 3) {
                 syncX = localHero.x;
                 syncY = localHero.y;
               } else {
-                // 8px 이상: 부드럽게 서버 위치로 수렴 (30%)
-                const alpha = 0.3;
-                syncX = localHero.x + (hero.x - localHero.x) * alpha;
-                syncY = localHero.y + (hero.y - localHero.y) * alpha;
+                const corr = capCorrection(dx * 0.4, dy * 0.4, 12);
+                syncX = localHero.x + corr.x;
+                syncY = localHero.y + corr.y;
               }
             }
 

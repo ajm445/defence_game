@@ -31,22 +31,22 @@ export const PauseScreen: React.FC = () => {
   const isRPG = gameMode === 'rpg';
 
   // 멀티플레이어 상태 확인
-  const { isMultiplayer, isHost } = useRPGStore.getState().multiplayer;
+  const { isHost } = useRPGStore.getState().multiplayer;
 
-  // 멀티플레이어 클라이언트인지 확인
-  const isMultiplayerClient = isRPG && isMultiplayer && !isHost;
+  // RPG 모드에서 클라이언트(비호스트)인지 확인
+  const isMultiplayerClient = isRPG && !isHost;
 
   // 호스트가 일시정지 화면에 진입하면 서버에 알림
   useEffect(() => {
-    if (isRPG && isMultiplayer && isHost) {
+    if (isRPG && isHost) {
       wsClient.pauseCoopGame();
     }
-  }, [isRPG, isMultiplayer, isHost]);
+  }, [isRPG, isHost]);
 
   const handleResume = useCallback(() => {
     if (isRPG) {
       // 호스트인 경우 서버에 재개 알림
-      if (isMultiplayer && isHost) {
+      if (isHost) {
         wsClient.resumeCoopGame();
       }
       // RPG 모드: 일시정지 해제
@@ -57,7 +57,7 @@ export const PauseScreen: React.FC = () => {
       startGame();
       setScreen('game');
     }
-  }, [isRPG, isMultiplayer, isHost, startGame, setScreen]);
+  }, [isRPG, isHost, startGame, setScreen]);
 
   // 클라이언트용 설정 닫기 (게임으로 돌아가기)
   const handleCloseClientSettings = useCallback(() => {
@@ -83,7 +83,7 @@ export const PauseScreen: React.FC = () => {
 
   const handleRestart = () => {
     // 호스트인 경우 서버에 재개 알림 (일시정지 해제 후 재시작)
-    if (isRPG && isMultiplayer && isHost) {
+    if (isRPG && isHost) {
       wsClient.resumeCoopGame();
     }
 
@@ -118,7 +118,7 @@ export const PauseScreen: React.FC = () => {
 
   const handleMainMenu = () => {
     // 호스트인 경우 서버에 재개 알림
-    if (isRPG && isMultiplayer && isHost) {
+    if (isRPG && isHost) {
       wsClient.resumeCoopGame();
     }
 
@@ -145,11 +145,8 @@ export const PauseScreen: React.FC = () => {
       // 게임 오버로 처리 (패배로 기록)
       useRPGStore.getState().setGameOver(false);
 
-      // 멀티플레이어인 경우 방 나가기
-      const { isMultiplayer: isMP } = useRPGStore.getState().multiplayer;
-      if (isMP) {
-        leaveMultiplayerRoom();
-      }
+      // 방 나가기
+      leaveMultiplayerRoom();
 
       // 게임 화면으로 돌아가서 게임 오버 모달 표시
       setScreen('game');
@@ -158,7 +155,7 @@ export const PauseScreen: React.FC = () => {
 
   // 멀티플레이어: 게임 중단 (호스트만) - 모든 플레이어에게 게임 오버 처리
   const handleStopGame = () => {
-    if (isRPG && isMultiplayer && isHost) {
+    if (isRPG && isHost) {
       // 서버에 게임 중단 요청 (모든 클라이언트에게 게임 오버 브로드캐스트)
       wsClient.stopCoopGame();
     }
@@ -323,8 +320,8 @@ export const PauseScreen: React.FC = () => {
             </span>
           </button>
 
-          {/* 멀티플레이어에서는 다시 시작 버튼 숨김 (로비에서만 재시작 가능) */}
-          {!(isRPG && isMultiplayer) && (
+          {/* RPG 모드에서는 다시 시작 버튼 숨김 (로비에서만 재시작 가능) */}
+          {!isRPG && (
             <button
               onClick={handleRestart}
               className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
@@ -338,25 +335,10 @@ export const PauseScreen: React.FC = () => {
             </button>
           )}
 
-          {/* RPG 멀티플레이어 호스트 전용: 게임 중단 버튼 */}
-          {isRPG && isMultiplayer && isHost && (
+          {/* RPG 호스트 전용: 게임 중단 버튼 */}
+          {isRPG && isHost && (
             <button
               onClick={handleStopGame}
-              className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
-              style={{ paddingTop: '5px', paddingBottom: '5px' }}
-            >
-              <div className="absolute inset-0 bg-red-500/20" />
-              <div className="absolute inset-0 border border-red-500/50 rounded-lg group-hover:border-red-400 group-hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all duration-300" />
-              <span className="relative font-korean text-lg text-red-400 group-hover:text-white transition-colors duration-300">
-                🛑 게임 중단
-              </span>
-            </button>
-          )}
-
-          {/* RPG 싱글 모드 전용: 게임 중단 버튼 */}
-          {isRPG && !isMultiplayer && (
-            <button
-              onClick={handleQuitGame}
               className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
               style={{ paddingTop: '5px', paddingBottom: '5px' }}
             >
@@ -380,8 +362,8 @@ export const PauseScreen: React.FC = () => {
             </span>
           </button>
 
-          {/* 멀티플레이어에서는 로비 버튼 숨김 */}
-          {!(isRPG && isMultiplayer) && (
+          {/* RPG 모드에서는 로비 버튼 숨김 (게임 중단으로 나감) */}
+          {!isRPG && (
             <button
               onClick={handleMainMenu}
               className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"

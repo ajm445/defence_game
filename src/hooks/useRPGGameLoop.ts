@@ -45,6 +45,8 @@ export function useRPGGameLoop() {
   const wasClientDeadRef = useRef<boolean>(false);
   // 클라이언트: 이전 프레임 시전 상태 추적 (시전 종료 시 이동 재개용)
   const wasCastingRef = useRef<boolean>(false);
+  // 클라이언트: 마지막 위치 동기화 시간 (지속 이동 중 주기적 위치 보고)
+  const lastPositionSyncRef = useRef<number>(0);
 
   const running = useRPGStore((state) => state.running);
   const paused = useRPGStore((state) => state.paused);
@@ -210,7 +212,7 @@ export function useRPGGameLoop() {
       // - 돌진 중에는 예측 중지 (호스트 100% 사용)
       // ==========================================
 
-      // 클라이언트 로컬 이동 예측 (싱글플레이와 동일한 로직)
+      // 클라이언트 로컬 이동 예측 (로컬 모드와 동일한 로직)
       const clientHeroForMove = useRPGStore.getState().hero;
       if (clientHeroForMove && clientHeroForMove.hp > 0) {
         const isDashing = clientHeroForMove.dashState !== undefined;
@@ -233,7 +235,7 @@ export function useRPGGameLoop() {
         if (!isDashing && !isCasting && !isStunned && clientHeroForMove.moveDirection) {
           const dir = clientHeroForMove.moveDirection;
 
-          // 이동속도 계산 (싱글플레이와 동일)
+          // 이동속도 계산 (로컬 모드와 동일)
           let moveSpeed = clientHeroForMove.config?.speed || clientHeroForMove.baseSpeed || 3;
 
           // 이동속도 버프 적용 (swiftness)
@@ -248,7 +250,7 @@ export function useRPGGameLoop() {
             const normalizedX = dir.x / dirLength;
             const normalizedY = dir.y / dirLength;
 
-            // 이동 거리 계산 (싱글플레이와 동일: deltaTime * 60)
+            // 이동 거리 계산 (로컬 모드와 동일: deltaTime * 60)
             const moveDistance = moveSpeed * deltaTime * 60;
 
             let newX = clientHeroForMove.x + normalizedX * moveDistance;
@@ -265,6 +267,14 @@ export function useRPGGameLoop() {
               state: 'moving',
               facingRight: dir.x >= 0,
             });
+
+            // 지속 이동 중 주기적 위치 보고 (500ms 간격)
+            // sendMoveDirection은 키 이벤트 시에만 호출되므로,
+            // 계속 같은 방향으로 이동 중일 때 서버에 위치를 알려줘야 드리프트 방지
+            if (clientNow - lastPositionSyncRef.current > 500) {
+              lastPositionSyncRef.current = clientNow;
+              sendMoveDirection(dir);
+            }
           }
         }
       }
@@ -427,7 +437,7 @@ export function useRPGGameLoop() {
     }
 
     // ============================================
-    // 싱글플레이어: 클라이언트가 게임 로직 실행
+    // 로컬 모드 (튜토리얼): 클라이언트가 게임 로직 실행
     // ============================================
 
     // 게임 시간 업데이트
@@ -870,7 +880,7 @@ export function useRPGGameLoop() {
 
         // 게임 종료 조건: 넥서스 파괴 시에만 (플레이어 사망은 부활로 처리)
       } else {
-        // 싱글플레이어: 기존 로직
+        // 로컬 모드 (튜토리얼): 기존 로직
         const result = updateAllEnemiesAINexus(
           currentEnemies,
           currentHeroState,
@@ -1194,7 +1204,7 @@ export function useRPGGameLoop() {
             });
           }
 
-          // 호스트/싱글플레이: 로컬 이펙트 즉시 재생
+          // 로컬 모드: 이펙트 즉시 재생
           if (skillType === 'smash') {
             effectManager.createEffect('boss_smash', boss.x, boss.y);
             soundManager.play('attack_melee');
@@ -1550,7 +1560,7 @@ export function useRPGGameLoop() {
     // 이펙트 업데이트
     effectManager.update(deltaTime);
 
-    // 동기화된 기본 공격 이펙트 처리 (호스트 및 싱글플레이어)
+    // 동기화된 기본 공격 이펙트 처리 (로컬 모드)
     const hostBasicAttackEffects = useRPGStore.getState().basicAttackEffects;
     const hostNow = Date.now();
     for (const effect of hostBasicAttackEffects) {
@@ -1568,7 +1578,7 @@ export function useRPGGameLoop() {
     // 오래된 기본 공격 이펙트 정리
     useRPGStore.getState().cleanBasicAttackEffects();
 
-    // 오래된 보스 스킬 실행 이펙트 정리 (싱글플레이어만 이 코드 실행)
+    // 오래된 보스 스킬 실행 이펙트 정리 (로컬 모드에서만 이 코드 실행)
     useRPGStore.getState().cleanBossSkillExecutedEffects();
 
     // 호스트 측 오래된 이펙트 ID 정리 (메모리 누수 방지)
@@ -1598,7 +1608,7 @@ export function useRPGGameLoop() {
     }
 
     // 서버 권위 모델: 클라이언트는 상태 브로드캐스트하지 않음 (서버가 처리)
-    // 이 코드는 싱글플레이어에서만 실행됨 (멀티플레이어는 위에서 early return)
+    // 이 코드는 로컬 모드(튜토리얼)에서만 실행됨 (멀티플레이어는 위에서 early return)
 
     animationIdRef.current = requestAnimationFrame(tick);
   }, []);
@@ -1671,8 +1681,8 @@ export function useRPGGameLoop() {
       if (result.buff) {
         useRPGStore.getState().addBuff(result.buff);
 
-        // 싱글플레이어: 멀티플레이어 시 호환성을 위해 유지 (실제로는 즉시 반환됨)
-        // 서버 권위 모델에서는 서버가 버프 공유를 처리하므로 이 코드는 싱글플레이에서만 의미 있음
+        // 로컬 모드(튜토리얼): 서버 권위 모델에서는 서버가 버프 공유를 처리하므로
+        // 이 코드는 로컬 모드에서만 의미 있음
         const currentHero = useRPGStore.getState().hero;
         if (currentHero) {
           shareHostBuffToAllies(result.buff, currentHero);

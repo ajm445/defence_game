@@ -41,7 +41,9 @@ export function executeSkill(
   // 스킬 쿨다운 체크 (캐시된 직접 참조 사용)
   const skill = skillSlot === 'Q' ? hero._skillQ : skillSlot === 'W' ? hero._skillW : hero._skillE;
 
-  if (skill.currentCooldown > 0) {
+  // 쿨다운 허용 오차: ~3프레임 (서버 틱 순서 + 클라이언트-서버 타이밍 차이 보정)
+  const COOLDOWN_TOLERANCE = 0.05;
+  if (skill.currentCooldown > COOLDOWN_TOLERANCE) {
     return;
   }
 
