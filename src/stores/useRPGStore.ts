@@ -2577,18 +2577,12 @@ export const useRPGStore = create<RPGStore>()(
               syncX = hero.x;
               syncY = hero.y;
             } else if (isLocalMoving) {
-              // 이동 중: 네트워크 지연으로 서버 위치가 항상 뒤처지므로
-              // 작은 차이(25px 이하)는 무시하여 드래그/슬라이딩 방지
-              // 큰 차이만 점진적 보정으로 드리프트 누적 방지
-              if (positionDiff > 25) {
-                const alpha = Math.min(0.3, (positionDiff - 25) / 300);
-                const corr = capCorrection(dx * alpha, dy * alpha, 8);
-                syncX = localHero.x + corr.x;
-                syncY = localHero.y + corr.y;
-              } else {
-                syncX = localHero.x;
-                syncY = localHero.y;
-              }
+              // 이동 중: 100% 로컬 예측 사용 (보정 없음)
+              // 네트워크 지연으로 서버 위치가 항상 클라이언트 뒤에 있으므로
+              // 어떤 보정이든 역방향 드래그(속도 저하)를 유발함
+              // 드리프트는 주기적 위치 보고(1초)와 서버 보정(20%)으로 처리
+              syncX = localHero.x;
+              syncY = localHero.y;
             } else if (isServerMoving) {
               // 클라이언트 정지, 서버 아직 이동 중: 서버가 따라잡을 때까지 로컬 유지 (뒤로 밀림 방지)
               syncX = localHero.x;
