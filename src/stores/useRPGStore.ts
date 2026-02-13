@@ -2577,44 +2577,30 @@ export const useRPGStore = create<RPGStore>()(
               syncX = hero.x;
               syncY = hero.y;
             } else if (isLocalMoving) {
-              // 클라이언트 이동 중: 점진적 보정 (차이에 비례)
-              // 네트워크 지연으로 서버 위치가 클라이언트 뒤에 있으므로
-              // 이동 방향 역방향 보정(drag)을 제거하여 체감 속도 저하 방지
-              const alpha = Math.min(0.5, Math.max(0.08, positionDiff / 200));
-              let corrX = dx * alpha;
-              let corrY = dy * alpha;
-
-              // 이동 방향 역방향 보정 제거 (레이턴시 드래그 방지)
-              // 수직 성분(좌우 드리프트)만 유지하여 정확한 경로 보정
-              if (localHero.moveDirection) {
-                const mdir = localHero.moveDirection;
-                const mdirLen = Math.sqrt(mdir.x * mdir.x + mdir.y * mdir.y);
-                if (mdirLen > 0) {
-                  const ndx = mdir.x / mdirLen;
-                  const ndy = mdir.y / mdirLen;
-                  const dot = corrX * ndx + corrY * ndy;
-                  if (dot < 0) {
-                    // 보정이 이동 반대 방향 → 수직 성분만 유지
-                    corrX -= dot * ndx;
-                    corrY -= dot * ndy;
-                  }
-                }
+              // 이동 중: 네트워크 지연으로 서버 위치가 항상 뒤처지므로
+              // 작은 차이(25px 이하)는 무시하여 드래그/슬라이딩 방지
+              // 큰 차이만 점진적 보정으로 드리프트 누적 방지
+              if (positionDiff > 25) {
+                const alpha = Math.min(0.3, (positionDiff - 25) / 300);
+                const corr = capCorrection(dx * alpha, dy * alpha, 8);
+                syncX = localHero.x + corr.x;
+                syncY = localHero.y + corr.y;
+              } else {
+                syncX = localHero.x;
+                syncY = localHero.y;
               }
-
-              const corr = capCorrection(corrX, corrY, 8);
-              syncX = localHero.x + corr.x;
-              syncY = localHero.y + corr.y;
             } else if (isServerMoving) {
               // 클라이언트 정지, 서버 아직 이동 중: 서버가 따라잡을 때까지 로컬 유지 (뒤로 밀림 방지)
               syncX = localHero.x;
               syncY = localHero.y;
             } else {
-              // 양쪽 모두 정지: 작은 차이 무시, 큰 차이 수렴 (프레임당 최대 12px)
-              if (positionDiff < 3) {
+              // 양쪽 모두 정지: 작은 차이 무시, 큰 차이 부드럽게 수렴
+              // 네트워크 지연으로 정지 후 서버가 약간 앞서므로 데드존 크게 설정
+              if (positionDiff < 20) {
                 syncX = localHero.x;
                 syncY = localHero.y;
               } else {
-                const corr = capCorrection(dx * 0.4, dy * 0.4, 12);
+                const corr = capCorrection(dx * 0.2, dy * 0.2, 5);
                 syncX = localHero.x + corr.x;
                 syncY = localHero.y + corr.y;
               }
