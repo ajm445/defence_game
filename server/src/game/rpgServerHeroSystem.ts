@@ -132,12 +132,18 @@ export function createHero(playerInfo: CoopPlayerInfo, spawnPos: { x: number; y:
     configName = heroClass;
   }
 
-  const upgrades = playerInfo.statUpgrades || { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 };
+  const upgrades = { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0, skillCooldown: 0, ...(playerInfo.statUpgrades || {}) };
   const attackBonus = getStatBonus('attack', upgrades.attack, tier);
   const speedBonus = getStatBonus('speed', upgrades.speed, tier);
   const hpBonus = getStatBonus('hp', upgrades.hp, tier);
   const attackSpeedBonus = getStatBonus('attackSpeed', upgrades.attackSpeed, tier);
   const rangeBonus = getStatBonus('range', upgrades.range, tier);
+
+  // 마법사 계열 스킬 쿨타임 감소 계산 (레벨당 1%, 최대 30%)
+  const skillCooldownBonus = heroClass === 'mage'
+    ? getStatBonus('skillCooldown', upgrades.skillCooldown ?? 0, tier)
+    : 0;
+  const skillCooldownReduction = Math.min(skillCooldownBonus / 100, 0.30);
 
   const finalHp = baseStats.hp + hpBonus;
   const finalAttack = baseStats.attack + attackBonus;
@@ -151,6 +157,12 @@ export function createHero(playerInfo: CoopPlayerInfo, spawnPos: { x: number; y:
   const skillQ = skills.find(s => s.key === 'Q')!;
   const skillW = skills.find(s => s.key === 'W')!;
   const skillE = skills.find(s => s.key === 'E')!;
+
+  // 마법사 계열 스킬 쿨타임 감소: W/E 스킬의 cooldown 자체를 감소
+  if (skillCooldownReduction > 0) {
+    skillW.cooldown = +(skillW.cooldown * (1 - skillCooldownReduction)).toFixed(2);
+    skillE.cooldown = +(skillE.cooldown * (1 - skillCooldownReduction)).toFixed(2);
+  }
 
   return {
     id: heroId,
@@ -200,6 +212,7 @@ export function createHero(playerInfo: CoopPlayerInfo, spawnPos: { x: number; y:
     advancedClass: playerInfo.advancedClass,
     tier: playerInfo.tier,
     goldAccumulator: 0,
+    skillCooldownReduction: skillCooldownReduction > 0 ? skillCooldownReduction : undefined,
   };
 }
 
@@ -229,6 +242,7 @@ export function updateDeadHero(hero: ServerHero, deltaTime: number): void {
 /**
  * 스킬 쿨다운 업데이트
  * - 광전사 버프 활성화 시 Q스킬 쿨다운이 더 빠르게 감소
+ * - 마법사 계열 스킬 쿨타임 감소: W/E 쿨다운 틱 가속
  * - 참고: SP 공격속도 업그레이드는 영웅 생성 시 hero.config.attackSpeed에 이미 반영됨
  *   (Q스킬 쿨다운 시간 자체가 짧아져 있으므로 여기서 추가 적용하면 중복됨)
  */
@@ -237,15 +251,14 @@ export function updateSkillCooldowns(hero: ServerHero, deltaTime: number): void 
   const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
   const buffMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
 
+  // 마법사 계열 스킬 쿨타임 감소는 skill.cooldown 자체에 반영됨 (createHero에서 적용)
+  // 여기서는 일반 틱만 처리
+
   if (hero.skills) {
     for (const skill of hero.skills) {
       if (skill.currentCooldown > 0) {
         const isQSkill = skill.key === 'Q';
-        let cooldownReduction = deltaTime;
-        if (isQSkill) {
-          // 광전사 버프만 적용 (SP 공격속도는 이미 쿨다운 시간에 반영됨)
-          cooldownReduction = deltaTime * buffMultiplier;
-        }
+        const cooldownReduction = isQSkill ? deltaTime * buffMultiplier : deltaTime;
         skill.currentCooldown = Math.max(0, skill.currentCooldown - cooldownReduction);
       }
     }

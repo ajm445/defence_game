@@ -74,6 +74,13 @@ export const RPGModeScreen: React.FC = () => {
   // 이 컴포넌트는 이미 초기화된 상태에서 마운트됨
   // 언마운트 시 정리하지 않음 - 메인 메뉴로 돌아갈 때만 PauseScreen에서 resetGame 호출
 
+  // 다시하기 시 expSavedRef 리셋 (컴포넌트가 언마운트되지 않으므로 수동 리셋 필요)
+  useEffect(() => {
+    if (!gameOver) {
+      expSavedRef.current = false;
+    }
+  }, [gameOver]);
+
   // 게임 오버 시 경험치 저장
   useEffect(() => {
     // profile 객체 참조 변경으로 인한 중복 실행 방지

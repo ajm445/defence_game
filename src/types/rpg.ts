@@ -251,6 +251,7 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   deathTime?: number;        // 사망 시간 (부활 타이머용)
   castingUntil?: number;     // 시전 종료 시간 (게임 시간 기준, 시전 중 이동/공격 불가)
   darkBladeActive?: boolean; // 다크나이트 어둠의 칼날 토글 활성 상태
+  skillCooldownReduction?: number; // 마법사 계열 스킬 쿨타임 감소 비율 (0.0 ~ 0.30)
 }
 
 // 웨이브 설정

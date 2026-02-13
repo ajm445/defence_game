@@ -133,7 +133,7 @@ export const upgradeCharacterStat = async (
 
   const newStatUpgrades = {
     ...currentProgress.statUpgrades,
-    [statType]: currentProgress.statUpgrades[statType] + 1,
+    [statType]: (currentProgress.statUpgrades[statType] ?? 0) + 1,
   };
 
   const newSp = currentProgress.sp - 1;
@@ -170,7 +170,8 @@ export const resetCharacterStats = async (
     currentProgress.statUpgrades.hp +
     currentProgress.statUpgrades.attackSpeed +
     currentProgress.statUpgrades.range +
-    currentProgress.statUpgrades.hpRegen;
+    currentProgress.statUpgrades.hpRegen +
+    (currentProgress.statUpgrades.skillCooldown ?? 0);
 
   // 이미 0이면 리셋할 필요 없음
   if (spentSP === 0) {

@@ -381,6 +381,7 @@ export const STAT_UPGRADE_CONFIG = {
   attackSpeed: { perLevel: 0.02, maxLevel: 30 },
   range: { perLevel: 5, maxLevel: 30 },
   hpRegen: { perLevel: 1, maxLevel: 30 },
+  skillCooldown: { perLevel: 1, maxLevel: 30 },
 };
 
 // SP 스탯 보너스 계산 (2차 강화 전: maxLevel 제한, 2차 강화 후: 제한 해제)
@@ -404,7 +405,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, {
     name: '버서커',
     baseClass: 'warrior',
     stats: { hp: 440, attack: 68, attackSpeed: 0.77, speed: 3.08, range: 80 },
-    specialEffects: { lifestealMultiplier: 1.5 },
+    specialEffects: { lifestealMultiplier: 1.3 },
   },
   guardian: {
     name: '가디언',

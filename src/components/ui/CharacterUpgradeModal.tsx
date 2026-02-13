@@ -75,13 +75,16 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
 
   const upgradeableStats = getUpgradeableStats(heroClass);
 
-  // statUpgrades가 없을 경우 기본값 사용
-  const safeStatUpgrades = progress.statUpgrades ?? {
+  // statUpgrades가 없거나 새 필드가 누락된 경우 기본값 병합
+  const safeStatUpgrades = {
     attack: 0,
     speed: 0,
     hp: 0,
+    attackSpeed: 0,
     range: 0,
     hpRegen: 0,
+    skillCooldown: 0,
+    ...(progress.statUpgrades ?? {}),
   };
   const totalSpentSP = getTotalSpentSP(safeStatUpgrades);
 
@@ -239,10 +242,17 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
               <span className="text-gray-400">공격력</span>
               <span className="text-white">{displayConfig.attack + getStatBonus('attack', safeStatUpgrades.attack, progress.tier)}</span>
             </div>
-            <div className="flex justify-between">
-              <span className="text-gray-400">공격속도</span>
-              <span className="text-white">{Math.max(0.3, displayConfig.attackSpeed - getStatBonus('attackSpeed', safeStatUpgrades.attackSpeed ?? 0, progress.tier)).toFixed(2)}초</span>
-            </div>
+            {heroClass === 'mage' ? (
+              <div className="flex justify-between">
+                <span className="text-gray-400">스킬 쿨감</span>
+                <span className="text-white">{getStatBonus('skillCooldown', safeStatUpgrades.skillCooldown ?? 0, progress.tier)}%</span>
+              </div>
+            ) : (
+              <div className="flex justify-between">
+                <span className="text-gray-400">공격속도</span>
+                <span className="text-white">{Math.max(0.3, displayConfig.attackSpeed - getStatBonus('attackSpeed', safeStatUpgrades.attackSpeed ?? 0, progress.tier)).toFixed(2)}초</span>
+              </div>
+            )}
             <div className="flex justify-between">
               <span className="text-gray-400">이동속도</span>
               <span className="text-white">{(displayConfig.speed + getStatBonus('speed', safeStatUpgrades.speed, progress.tier)).toFixed(1)}</span>
@@ -454,7 +464,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
 
                       {/* 특수 효과 */}
                       <div className="text-cyan-400 text-xs mb-3">
-                        {advConfig.specialEffects.damageReduction && `받피 ${advConfig.specialEffects.damageReduction * 100}% 감소`}
+                        {advConfig.specialEffects.damageReduction && `피해량 ${advConfig.specialEffects.damageReduction * 100}% 감소`}
                         {advConfig.specialEffects.lifestealMultiplier && `흡혈 ${advConfig.specialEffects.lifestealMultiplier}배`}
                         {advConfig.specialEffects.lifesteal && `흡혈 ${advConfig.specialEffects.lifesteal * 100}%`}
                         {advConfig.specialEffects.critChance && `크리티컬 ${advConfig.specialEffects.critChance * 100}%`}

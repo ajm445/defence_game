@@ -27,9 +27,10 @@ export interface CharacterStatUpgrades {
   attack: number;      // 공격력 (모든 캐릭터)
   speed: number;       // 이동속도 (모든 캐릭터)
   hp: number;          // 체력 (모든 캐릭터)
-  attackSpeed: number; // 공격속도 (모든 캐릭터)
+  attackSpeed: number; // 공격속도 (전사/기사/궁수)
   range: number;       // 사거리 (원거리: archer, mage)
   hpRegen: number;     // 체력 재생 (근거리: warrior, knight)
+  skillCooldown: number; // 스킬 쿨타임 감소 (마법사 계열)
 }
 
 // 클래스 진행 상황
@@ -236,6 +237,7 @@ export const createDefaultStatUpgrades = (): CharacterStatUpgrades => ({
   attackSpeed: 0,
   range: 0,
   hpRegen: 0,
+  skillCooldown: 0,
 });
 
 // 스탯 업그레이드 타입 (캐릭터별)
@@ -247,7 +249,11 @@ export const getUpgradeableStats = (heroClass: HeroClass): StatUpgradeType[] => 
   if (heroClass === 'warrior' || heroClass === 'knight') {
     return ['attack', 'speed', 'hp', 'attackSpeed', 'hpRegen'];
   }
-  // 원거리 캐릭터: 공격력, 이동속도, 체력, 공격속도, 사거리
+  // 마법사 계열: 공격력, 이동속도, 체력, 스킬 쿨타임 감소, 사거리
+  if (heroClass === 'mage') {
+    return ['attack', 'speed', 'hp', 'skillCooldown', 'range'];
+  }
+  // 궁수: 공격력, 이동속도, 체력, 공격속도, 사거리
   return ['attack', 'speed', 'hp', 'attackSpeed', 'range'];
 };
 
@@ -302,6 +308,13 @@ export const STAT_UPGRADE_CONFIG: Record<StatUpgradeType, {
     unit: '/초',
     maxLevel: 30,
   },
+  skillCooldown: {
+    name: '스킬 쿨타임 감소',
+    icon: '🔮',
+    perLevel: 1,      // 레벨당 1% 스킬 쿨타임 감소
+    unit: '%',
+    maxLevel: 30,
+  },
 };
 
 // 특정 스탯의 총 보너스 계산
@@ -314,5 +327,5 @@ export const getStatBonus = (upgradeType: StatUpgradeType, level: number, tier?:
 
 // 사용한 총 SP 계산 (모든 스탯 레벨의 합)
 export const getTotalSpentSP = (statUpgrades: CharacterStatUpgrades): number => {
-  return statUpgrades.attack + statUpgrades.speed + statUpgrades.hp + statUpgrades.attackSpeed + statUpgrades.range + statUpgrades.hpRegen;
+  return statUpgrades.attack + statUpgrades.speed + statUpgrades.hp + statUpgrades.attackSpeed + statUpgrades.range + statUpgrades.hpRegen + (statUpgrades.skillCooldown ?? 0);
 };

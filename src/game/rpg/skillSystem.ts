@@ -40,6 +40,7 @@ export function startSkillCooldown(hero: HeroUnit, skillType: SkillType): HeroUn
 /**
  * 스킬 쿨다운 업데이트
  * - 광전사 버프 활성화 시 Q스킬 쿨다운이 더 빠르게 감소
+ * - 마법사 계열 스킬 쿨타임 감소: W/E 쿨다운 틱 가속
  * - 참고: SP 공격속도 업그레이드는 영웅 생성 시 hero.config.attackSpeed에 이미 반영됨
  *   (Q스킬 쿨다운 시간 자체가 짧아져 있으므로 여기서 추가 적용하면 중복됨)
  */
@@ -48,15 +49,12 @@ export function updateSkillCooldowns(hero: HeroUnit, deltaTime: number): HeroUni
   const berserkerBuff = hero.buffs.find(b => b.type === 'berserker' && b.duration > 0);
   const buffMultiplier = berserkerBuff?.speedBonus ? (1 + berserkerBuff.speedBonus) : 1;
 
+  // 마법사 계열 스킬 쿨타임 감소는 skill.cooldown 자체에 반영됨 (영웅 생성 시 적용)
+
   const updatedSkills = hero.skills.map((skill) => {
     // Q스킬(기본 공격)에만 광전사 버프 적용
     const isQSkill = skill.key === 'Q';
-    let cooldownReduction = deltaTime;
-
-    if (isQSkill) {
-      // 광전사 버프만 적용 (SP 공격속도는 이미 쿨다운 시간에 반영됨)
-      cooldownReduction = deltaTime * buffMultiplier;
-    }
+    const cooldownReduction = isQSkill ? deltaTime * buffMultiplier : deltaTime;
 
     return {
       ...skill,

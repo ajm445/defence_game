@@ -1,5 +1,36 @@
 # Changelog
 
+## [1.23.11] - 2026-02-14
+
+### 마법사 계열 SP 업그레이드: 스킬 쿨타임 감소
+- **마법사 계열 공격속도 → 스킬 쿨타임 감소 교체**: 마법사/대마법사/힐러의 SP 업그레이드에서 "공격속도" 옵션을 "스킬 쿨타임 감소"로 변경
+  - 레벨당 1% 감소, 최대 30레벨 = 30% 감소
+  - W/E 스킬 쿨다운에 직접 적용 (Q스킬 자동공격은 영향 없음)
+  - 전사/기사/궁수 계열은 기존 공격속도 업그레이드 유지
+- **스킬 툴팁 감소된 쿨타임 표시**: 스킬 쿨타임 감소가 적용된 실제 쿨다운 시간 표시
+- **서버 스킬 쿨다운 하드코딩 제거**: `rpgServerSkillSystem.ts`의 22+ 위치에서 하드코딩된 쿨다운 값을 `hero._skillW/E.cooldown` 참조로 변경
+
+### 밸런스 조정
+- **버서커 패시브 피해흡혈 배율 너프**: 1.5배 → 1.3배
+- **버서커 궁극기(광란) 너프**: 공격력/공격속도 증가 100% → 80% (지속시간 10초 유지)
+
+### Bug Fixes
+- **SP 초기화 버그 수정**: `skillCooldown` 필드가 SP 계산에 누락되어 리셋 시 SP가 정상 반환되지 않던 문제 수정
+- **다시하기 시 경험치 중복 저장 방지**: `expSavedRef` 리셋 로직 추가
+
+### Technical Changes
+- `src/types/auth.ts`: `CharacterStatUpgrades`에 `skillCooldown` 필드 추가, 마법사 업그레이드 스탯 목록 변경
+- `src/types/rpg.ts`, `server/src/game/rpgServerTypes.ts`: `skillCooldownReduction` 필드 추가
+- `server/src/game/rpgServerHeroSystem.ts`: 영웅 생성 시 스킬 쿨다운 감소 계산 및 적용
+- `server/src/game/rpgServerSkillSystem.ts`: 모든 스킬 쿨다운 설정을 `hero._skillW/E.cooldown` 참조로 통일
+- `server/src/game/rpgServerConfig.ts`: `STAT_UPGRADE_CONFIG`에 `skillCooldown` 추가, 버서커 흡혈 배율 변경
+- `src/stores/useRPGStore.ts`: 클라이언트 영웅 생성/역직렬화 시 스킬 쿨다운 감소 적용
+- `src/components/ui/CharacterUpgradeModal.tsx`: 마법사 계열 스킬 쿨감 UI 표시
+- `src/constants/rpgConfig.ts`: 버서커 흡혈 배율 변경
+- `server/src/api/profileRouter.ts`: DB 기본값에 `skillCooldown` 추가
+
+---
+
 ## [1.22.11] - 2026-02-09 (WIP - 진행중)
 
 ### UI/UX

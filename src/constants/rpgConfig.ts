@@ -947,7 +947,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
       range: 80,         // 변동 없음
     },
     specialEffects: {
-      lifestealMultiplier: 1.5,  // 피해흡혈 1.5배
+      lifestealMultiplier: 1.3,  // 피해흡혈 1.3배
     },
   },
   guardian: {

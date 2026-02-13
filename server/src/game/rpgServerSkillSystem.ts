@@ -407,7 +407,7 @@ function executeWSkill(
         startTime: gameTime,
       });
 
-      hero.skillCooldowns.W = 8.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       break;
     }
 
@@ -442,7 +442,7 @@ function executeWSkill(
         startTime: gameTime,
         heroId: hero.id,
       });
-      hero.skillCooldowns.W = 6.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       break;
     }
 
@@ -489,7 +489,7 @@ function executeWSkill(
         startTime: gameTime,
       });
 
-      hero.skillCooldowns.W = 10.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       break;
     }
 
@@ -520,7 +520,7 @@ function executeWSkill(
         duration: 0.7,
         startTime: gameTime,
       });
-      hero.skillCooldowns.W = 5.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       break;
     }
   }
@@ -575,7 +575,7 @@ function executeESkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.E = 30.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       break;
     }
 
@@ -607,7 +607,7 @@ function executeESkill(
         duration: 1.0,
         startTime: gameTime,
       });
-      hero.skillCooldowns.E = 25.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       break;
     }
 
@@ -640,7 +640,7 @@ function executeESkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.E = 35.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       break;
     }
 
@@ -663,7 +663,7 @@ function executeESkill(
         duration: 3.0,
         startTime: gameTime,
       });
-      hero.skillCooldowns.E = 40.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       break;
     }
   }
@@ -748,7 +748,7 @@ function executeAdvancedWSkill(
         startTime: gameTime,
       });
 
-      hero.skillCooldowns.W = 6.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       return true;
     }
 
@@ -811,7 +811,7 @@ function executeAdvancedWSkill(
         startTime: gameTime,
       });
 
-      hero.skillCooldowns.W = 8.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       return true;
     }
 
@@ -877,7 +877,7 @@ function executeAdvancedWSkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.W = 5.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       return true;
     }
 
@@ -928,7 +928,7 @@ function executeAdvancedWSkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.W = 5.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       return true;
     }
 
@@ -995,7 +995,7 @@ function executeAdvancedWSkill(
         startTime: gameTime,
       });
 
-      hero.skillCooldowns.W = 8.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       return true;
     }
 
@@ -1038,7 +1038,7 @@ function executeAdvancedWSkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.W = 4.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       return true;
     }
 
@@ -1087,7 +1087,7 @@ function executeAdvancedWSkill(
         startTime: gameTime,
       });
 
-      hero.skillCooldowns.W = 7.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       return true;
     }
 
@@ -1139,7 +1139,7 @@ function executeAdvancedWSkill(
         startTime: gameTime,
       });
 
-      hero.skillCooldowns.W = 7.0;
+      hero.skillCooldowns.W = hero._skillW.cooldown;
       return true;
     }
 
@@ -1165,14 +1165,14 @@ function executeAdvancedESkill(
 
   switch (advancedClass) {
     case 'berserker': {
-      // 광란: 10초간 공격력/공속 100% 증가 + 받는 피해 50% 증가
+      // 광란: 10초간 공격력/공속 80% 증가 + 받는 피해 50% 증가
       hero.buffs = hero.buffs || [];
       hero.buffs.push({
         type: 'berserker',
         duration: 10,
         startTime: gameTime,
-        attackBonus: 1.0,
-        speedBonus: 1.0,
+        attackBonus: 0.8,
+        speedBonus: 0.8,
         damageTaken: 0.5,
       });
 
@@ -1184,7 +1184,7 @@ function executeAdvancedESkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.E = 45.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       return true;
     }
 
@@ -1208,7 +1208,7 @@ function executeAdvancedESkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.E = 40.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       return true;
     }
 
@@ -1269,7 +1269,7 @@ function executeAdvancedESkill(
         targetId: targetEnemy.id,
       });
 
-      hero.skillCooldowns.E = 30.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       return true;
     }
 
@@ -1291,7 +1291,7 @@ function executeAdvancedESkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.E = 35.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       return true;
     }
 
@@ -1324,7 +1324,7 @@ function executeAdvancedESkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.E = 60.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       return true;
     }
 
@@ -1429,7 +1429,7 @@ function executeAdvancedESkill(
         startTime: gameTime,
       });
 
-      hero.skillCooldowns.E = 50.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       return true;
     }
 
@@ -1479,7 +1479,7 @@ function executeAdvancedESkill(
         heroId: hero.id,  // 힐러를 따라다니도록 heroId 추가
       });
 
-      hero.skillCooldowns.E = 45.0;
+      hero.skillCooldowns.E = hero._skillE.cooldown;
       return true;
     }
 

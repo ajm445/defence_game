@@ -62,6 +62,8 @@ export interface ServerHero extends Omit<SerializedHero, 'skills'> {
   darkBladeActive?: boolean;
   darkBladeLastToggleOff?: number;
   darkBladeTickTimer?: number;
+  // 마법사 계열 스킬 쿨타임 감소 비율 (0.0 ~ 0.30)
+  skillCooldownReduction?: number;
 }
 
 // 서버 게임 상태

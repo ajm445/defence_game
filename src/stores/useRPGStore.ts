@@ -572,6 +572,12 @@ function createHeroUnit(
   const rangeBonus = getStatBonus('range', upgrades.range, tier);
   // hpRegen은 게임 루프에서 적용됨
 
+  // 마법사 계열 스킬 쿨타임 감소 계산 (레벨당 1%, 최대 30%)
+  const skillCooldownBonus = heroClass === 'mage'
+    ? getStatBonus('skillCooldown', upgrades.skillCooldown ?? 0, tier)
+    : 0;
+  const skillCooldownReduction = Math.min(skillCooldownBonus / 100, 0.30);
+
   // 최종 스탯 계산
   const finalHp = baseStats.hp + hpBonus;
   const finalAttack = baseStats.attack + attackBonus;
@@ -584,6 +590,15 @@ function createHeroUnit(
   const skills = advancedClass
     ? createAdvancedClassSkills(heroClass, advancedClass as AdvancedHeroClass)
     : createClassSkills(heroClass);
+
+  // 마법사 계열 스킬 쿨타임 감소: W/E 스킬의 cooldown 자체를 감소
+  if (skillCooldownReduction > 0) {
+    for (const skill of skills) {
+      if (skill.key === 'W' || skill.key === 'E') {
+        skill.cooldown = +(skill.cooldown * (1 - skillCooldownReduction)).toFixed(2);
+      }
+    }
+  }
 
   return {
     id: 'hero',
@@ -620,6 +635,8 @@ function createHeroUnit(
     passiveGrowth: passiveState,
     // SP 업그레이드 저장 (hpRegen 적용용)
     statUpgrades: upgrades,
+    // 마법사 계열 스킬 쿨타임 감소
+    skillCooldownReduction: skillCooldownReduction > 0 ? skillCooldownReduction : undefined,
   };
 }
 
@@ -1011,7 +1028,7 @@ export const useRPGStore = create<RPGStore>()(
       const advancedStats = advancedConfig.stats;
 
       // SP 업그레이드 보너스 다시 적용
-      const upgrades = state.hero.statUpgrades || { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 };
+      const upgrades = state.hero.statUpgrades || { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0, skillCooldown: 0 };
       const attackBonus = getStatBonus('attack', upgrades.attack);
       const speedBonus = getStatBonus('speed', upgrades.speed);
       const hpBonus = getStatBonus('hp', upgrades.hp);
@@ -1082,7 +1099,7 @@ export const useRPGStore = create<RPGStore>()(
       const enhancedRange = Math.floor(baseStats.range * SECOND_ENHANCEMENT_MULTIPLIER);
 
       // SP 업그레이드 보너스 다시 적용 (2차 강화이므로 tier 2 - maxLevel 제한 해제)
-      const upgrades = state.hero.statUpgrades || { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0 };
+      const upgrades = state.hero.statUpgrades || { attack: 0, speed: 0, hp: 0, attackSpeed: 0, range: 0, hpRegen: 0, skillCooldown: 0 };
       const attackBonus = getStatBonus('attack', upgrades.attack, 2);
       const speedBonus = getStatBonus('speed', upgrades.speed, 2);
       const hpBonus = getStatBonus('hp', upgrades.hp, 2);
@@ -1308,12 +1325,14 @@ export const useRPGStore = create<RPGStore>()(
         // SP 공격속도 업그레이드 보너스 (초 단위)
         const spAttackSpeedBonus = getStatBonus('attackSpeed', state.hero.statUpgrades?.attackSpeed || 0, state.hero.tier);
 
+        // 마법사 계열 스킬 쿨타임 감소는 skill.cooldown 자체에 반영됨 (createHeroUnit에서 적용)
+
         const updatedSkills = state.hero.skills.map((skill) => {
-          // Q스킬(기본 공격)에만 공격속도 보너스 적용
           const isQSkill = skill.key === 'Q';
           let cooldownReduction = deltaTime;
 
           if (isQSkill) {
+            // Q스킬(기본 공격)에만 공격속도 보너스 적용
             // SP 공격속도 보너스를 쿨다운 감소 배율로 변환
             // 예: 0.5초 보너스 / 1.0초 기본쿨다운 = 0.5 추가 배율 = 1.5x 빠른 회복
             const spMultiplier = 1 + (spAttackSpeedBonus / skill.cooldown);
@@ -3197,6 +3216,11 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
   const advancedClass = serialized.advancedClass as AdvancedHeroClass | undefined;
   let skills: Skill[];
 
+  // 마법사 계열 스킬 쿨타임 감소 계산
+  const skillCooldownReduction = serialized.heroClass === 'mage' && serialized.statUpgrades?.skillCooldown
+    ? Math.min(getStatBonus('skillCooldown', serialized.statUpgrades.skillCooldown, serialized.tier) / 100, 0.30)
+    : 0;
+
   if (advancedClass) {
     // 전직 스킬 생성 후 쿨다운 적용
     const advancedSkills = createAdvancedClassSkills(serialized.heroClass, advancedClass);
@@ -3212,6 +3236,15 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
       { ...classSkills.w, currentCooldown: serialized.skillCooldowns.W, level: 1 },
       { ...classSkills.e, currentCooldown: serialized.skillCooldowns.E, level: 1 },
     ];
+  }
+
+  // 마법사 계열 스킬 쿨타임 감소: W/E 스킬의 cooldown 자체를 감소
+  if (skillCooldownReduction > 0) {
+    for (const skill of skills) {
+      if (skill.key === 'W' || skill.key === 'E') {
+        skill.cooldown = +(skill.cooldown * (1 - skillCooldownReduction)).toFixed(2);
+      }
+    }
   }
 
   // 전직한 경우 전직 config 이름 사용
@@ -3258,6 +3291,8 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
     deathTime: serialized.deathTime,  // 사망 시간 동기화
     castingUntil: serialized.castingUntil,  // 시전 상태 동기화
     darkBladeActive: serialized.darkBladeActive,  // 다크나이트 토글 상태 동기화
+    // 마법사 계열 스킬 쿨타임 감소
+    skillCooldownReduction: skillCooldownReduction > 0 ? skillCooldownReduction : undefined,
   };
 }
 

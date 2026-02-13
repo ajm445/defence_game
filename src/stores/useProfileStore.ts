@@ -459,7 +459,8 @@ export const useProfileStore = create<ProfileStore>()(
         progress.statUpgrades.hp +
         progress.statUpgrades.attackSpeed +
         progress.statUpgrades.range +
-        progress.statUpgrades.hpRegen;
+        progress.statUpgrades.hpRegen +
+        (progress.statUpgrades.skillCooldown ?? 0);
 
       if (spentSP === 0) return false;
 
