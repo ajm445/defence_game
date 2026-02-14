@@ -1244,17 +1244,17 @@ export const ADVANCED_W_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
 // 전직 E 스킬 설정 (R 키)
 // ============================================
 export const ADVANCED_E_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> = {
-  // 버서커: 광란 - 10초간 공격력/공속 100% 증가, 받는 피해 50% 증가
+  // 버서커: 광란 - 10초간 공격력/공속 80% 증가, 받는 피해 50% 증가
   berserker: {
     type: 'rage',
     name: '광란',
     nameEn: 'Rage',
     key: 'E',
     cooldown: 45,
-    description: '10초간 공격력/공속 100% 증가, 받는 피해 50% 증가',
+    description: '10초간 공격력/공속 80% 증가, 받는 피해 50% 증가',
     duration: 10,
-    attackBonus: 1.0,
-    speedBonus: 1.0,
+    attackBonus: 0.8,
+    speedBonus: 0.8,
     damageTaken: 0.5,
   },
   // 가디언: 보호막 - 아군 전체에게 5초간 피해 50% 감소 버프

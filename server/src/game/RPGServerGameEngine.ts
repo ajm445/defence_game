@@ -365,13 +365,33 @@ export class RPGServerGameEngine {
     }
 
     // 위치 보정: 클라이언트 로컬 예측과 서버 위치 차이 최소화
-    // 네트워크 지연으로 클라이언트 위치가 과거 시점이므로 보수적으로 보정
     if (input.position) {
-      const dist = distance(hero.x, hero.y, input.position.x, input.position.y);
-      if (dist > 10 && dist < 200) {
-        // 10~200px 범위에서 20% 비율로 클라이언트 위치로 보간
-        hero.x = hero.x + (input.position.x - hero.x) * 0.2;
-        hero.y = hero.y + (input.position.y - hero.y) * 0.2;
+      const dx = input.position.x - hero.x;
+      const dy = input.position.y - hero.y;
+      const distSq = dx * dx + dy * dy;
+
+      if (distSq > 25) { // 5px 이상 차이
+        if (distSq >= 40000) {
+          // 200px 이상: 즉시 스냅 (심각한 불일치)
+          hero.x = input.position.x;
+          hero.y = input.position.y;
+        } else {
+          // 5~200px: 방향 기반 보정
+          // 이동 중일 때 네트워크 지연으로 스테일 위치가 역방향으로 당기는 것을 방지
+          let ratio = 0.5;
+          if (hero.moveDirection) {
+            const dirLen = Math.sqrt(hero.moveDirection.x ** 2 + hero.moveDirection.y ** 2);
+            if (dirLen > 0) {
+              const dist = Math.sqrt(distSq);
+              const dot = (dx * hero.moveDirection.x + dy * hero.moveDirection.y) / (dist * dirLen);
+              // 전방 (클라이언트가 앞서감): 강한 보정 → 서버가 따라잡음
+              // 후방 (스테일 위치): 약한 보정 → 역방향 끌림 방지
+              ratio = dot > 0 ? 0.5 : 0.15;
+            }
+          }
+          hero.x += dx * ratio;
+          hero.y += dy * ratio;
+        }
       }
     }
 
