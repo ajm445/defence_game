@@ -76,15 +76,15 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
   const upgradeableStats = getUpgradeableStats(heroClass);
 
   // statUpgrades가 없거나 새 필드가 누락된 경우 기본값 병합
+  const statUpgrades = progress.statUpgrades ?? {};
   const safeStatUpgrades = {
-    attack: 0,
-    speed: 0,
-    hp: 0,
-    attackSpeed: 0,
-    range: 0,
-    hpRegen: 0,
-    skillCooldown: 0,
-    ...(progress.statUpgrades ?? {}),
+    attack: statUpgrades.attack ?? 0,
+    speed: statUpgrades.speed ?? 0,
+    hp: statUpgrades.hp ?? 0,
+    attackSpeed: statUpgrades.attackSpeed ?? 0,
+    range: statUpgrades.range ?? 0,
+    hpRegen: statUpgrades.hpRegen ?? 0,
+    skillCooldown: statUpgrades.skillCooldown ?? 0,
   };
   const totalSpentSP = getTotalSpentSP(safeStatUpgrades);
 
