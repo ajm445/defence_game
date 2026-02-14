@@ -287,7 +287,7 @@ export const STAT_UPGRADE_CONFIG: Record<StatUpgradeType, {
   hp: {
     name: '체력',
     icon: '❤️',
-    perLevel: 35,     // 레벨당 +35 체력
+    perLevel: 50,     // 레벨당 +50 체력
     unit: '',
     maxLevel: 30,
   },

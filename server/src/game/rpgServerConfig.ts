@@ -469,7 +469,7 @@ export function getPassiveFromCharacterLevel(heroClass: HeroClass, characterLeve
 export const STAT_UPGRADE_CONFIG = {
   attack: { perLevel: 5, maxLevel: 30 },
   speed: { perLevel: 0.1, maxLevel: 30 },
-  hp: { perLevel: 35, maxLevel: 30 },
+  hp: { perLevel: 50, maxLevel: 30 },
   attackSpeed: { perLevel: 0.02, maxLevel: 30 },
   range: { perLevel: 5, maxLevel: 30 },
   hpRegen: { perLevel: 1, maxLevel: 30 },
