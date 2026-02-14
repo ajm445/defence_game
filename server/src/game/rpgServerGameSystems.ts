@@ -18,7 +18,7 @@ import {
   CLASS_CONFIGS,
 } from './rpgServerConfig';
 import { distance, distanceSquared, generateId } from './rpgServerUtils';
-import { isBossType } from '../../../src/utils/bossUtils';
+import { isBossType } from '../utils/bossUtils';
 
 export interface GameSystemsContext {
   difficulty: RPGDifficulty;

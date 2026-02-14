@@ -17,7 +17,7 @@ import {
 } from './rpgServerConfig';
 import { distance, distanceSquared, clamp, generateId, pointToLineDistance } from './rpgServerUtils';
 import { damageBase } from './rpgServerGameSystems';
-import { isBossType } from '../../../src/utils/bossUtils';
+import { isBossType } from '../utils/bossUtils';
 
 export interface SkillContext {
   state: ServerGameState;

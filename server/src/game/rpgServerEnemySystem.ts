@@ -21,7 +21,7 @@ import {
   ADVANCED_CLASS_CONFIGS,
   type AdvancedHeroClass,
 } from './rpgServerConfig';
-import { isBossType } from '../../../src/utils/bossUtils';
+import { isBossType } from '../utils/bossUtils';
 import { distance, distanceSquared, clamp, generateId } from './rpgServerUtils';
 
 export interface EnemyContext {

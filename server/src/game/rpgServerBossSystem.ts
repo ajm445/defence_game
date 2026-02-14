@@ -15,7 +15,7 @@ import {
 } from './rpgServerConfig';
 import { distance, clamp, generateId, pointToLineDistance, isInConeRange } from './rpgServerUtils';
 import { createEnemy } from './rpgServerEnemySystem';
-import { isBossType } from '../../../src/utils/bossUtils';
+import { isBossType } from '../utils/bossUtils';
 
 export interface BossContext {
   difficulty: RPGDifficulty;
