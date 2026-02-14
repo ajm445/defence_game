@@ -215,8 +215,8 @@ export function createBoss2(
   // Boss2 난이도별 고정 HP/ATK (bossHp/AttackMultiplier 미적용 - 별도 스케일링)
   // Boss1 대비 약 10~15% 높은 공격력 유지
   const boss2HpByDifficulty: Partial<Record<RPGDifficulty, Record<number, number>>> = {
-    hell: { 1: 5000, 2: 5800, 3: 8000, 4: 10500 },
-    apocalypse: { 1: 7500, 2: 8500, 3: 11500, 4: 15000 },
+    hell: { 1: 6000, 2: 7000, 3: 9500, 4: 12500 },
+    apocalypse: { 1: 8500, 2: 9800, 3: 13000, 4: 17000 },
   };
   const boss2AtkByDifficulty: Partial<Record<RPGDifficulty, Record<number, number>>> = {
     hell: { 1: 150, 2: 165, 3: 195, 4: 240 },
