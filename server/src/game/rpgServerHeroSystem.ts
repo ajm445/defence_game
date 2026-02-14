@@ -143,7 +143,7 @@ export function createHero(playerInfo: CoopPlayerInfo, spawnPos: { x: number; y:
   const skillCooldownBonus = heroClass === 'mage'
     ? getStatBonus('skillCooldown', upgrades.skillCooldown ?? 0, tier)
     : 0;
-  const skillCooldownReduction = Math.min(skillCooldownBonus / 100, 0.30);
+  const skillCooldownReduction = Math.min(skillCooldownBonus / 100, 0.50);
 
   const finalHp = baseStats.hp + hpBonus;
   const finalAttack = baseStats.attack + attackBonus;

@@ -21,6 +21,18 @@ export interface ExtremeRanking {
   cleared_at: string;
 }
 
+// 난이도별 랭킹
+export type RankingDifficulty = 'extreme' | 'hell' | 'apocalypse';
+
+export interface DifficultyRanking {
+  id: string;
+  difficulty: RankingDifficulty;
+  player_count: number;
+  clear_time: number;
+  players: RankingPlayer[];
+  cleared_at: string;
+}
+
 // API 요청 헬퍼
 async function apiRequest<T>(
   endpoint: string,
@@ -81,6 +93,53 @@ export const saveExtremeRanking = async (
     return data.success;
   } catch (err) {
     console.error('Save extreme ranking error:', err);
+    return false;
+  }
+};
+
+// 난이도별 랭킹 조회
+export const getDifficultyRankings = async (
+  difficulty: RankingDifficulty,
+  playerCount: number
+): Promise<DifficultyRanking[]> => {
+  try {
+    const data = await apiRequest<{
+      success: boolean;
+      rankings: DifficultyRanking[];
+    }>(`/api/rankings/${difficulty}/${playerCount}`);
+
+    if (!data.success) {
+      return [];
+    }
+
+    return data.rankings;
+  } catch (err) {
+    console.error('Get difficulty rankings error:', err);
+    return [];
+  }
+};
+
+// 난이도별 랭킹 저장
+export const saveDifficultyRanking = async (
+  difficulty: RankingDifficulty,
+  playerCount: number,
+  clearTime: number,
+  players: RankingPlayer[]
+): Promise<boolean> => {
+  try {
+    const data = await apiRequest<{ success: boolean }>('/api/rankings', {
+      method: 'POST',
+      body: JSON.stringify({
+        difficulty,
+        playerCount,
+        clearTime,
+        players,
+      }),
+    });
+
+    return data.success;
+  } catch (err) {
+    console.error('Save difficulty ranking error:', err);
     return false;
   }
 };

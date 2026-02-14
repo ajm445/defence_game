@@ -279,14 +279,18 @@ const initialVisibility: VisibilityState = {
   visibleRadius: RPG_CONFIG.VISIBILITY.RADIUS,
 };
 
-// 넥서스 초기 상태 생성
-const createInitialNexus = (): Nexus => ({
-  x: NEXUS_CONFIG.position.x,
-  y: NEXUS_CONFIG.position.y,
-  hp: NEXUS_CONFIG.hp,
-  maxHp: NEXUS_CONFIG.hp,
-  laserCooldown: 0,
-});
+// 넥서스 초기 상태 생성 (난이도별 HP 배율 적용)
+const createInitialNexus = (difficulty?: RPGDifficulty): Nexus => {
+  const multiplier = difficulty ? DIFFICULTY_CONFIGS[difficulty].nexusHpMultiplier : 1.0;
+  const nexusHp = Math.floor(NEXUS_CONFIG.hp * multiplier);
+  return {
+    x: NEXUS_CONFIG.position.x,
+    y: NEXUS_CONFIG.position.y,
+    hp: nexusHp,
+    maxHp: nexusHp,
+    laserCooldown: 0,
+  };
+};
 
 // 적 기지 초기 상태 생성 (플레이어 수에 따라 기지 수 결정)
 // - 1~2인: 좌, 우 (2개)
@@ -574,11 +578,11 @@ function createHeroUnit(
   const rangeBonus = getStatBonus('range', upgrades.range, tier);
   // hpRegen은 게임 루프에서 적용됨
 
-  // 마법사 계열 스킬 쿨타임 감소 계산 (레벨당 1%, 최대 30%)
+  // 마법사 계열 스킬 쿨타임 감소 계산 (레벨당 1%, 최대 50%)
   const skillCooldownBonus = heroClass === 'mage'
     ? getStatBonus('skillCooldown', upgrades.skillCooldown ?? 0, tier)
     : 0;
-  const skillCooldownReduction = Math.min(skillCooldownBonus / 100, 0.30);
+  const skillCooldownReduction = Math.min(skillCooldownBonus / 100, 0.50);
 
   // 최종 스탯 계산
   const finalHp = baseStats.hp + hpBonus;
@@ -660,7 +664,7 @@ export const useRPGStore = create<RPGStore>()(
         selectedDifficulty: gameDifficulty,
         hero,
         // 넥서스 디펜스 초기화
-        nexus: createInitialNexus(),
+        nexus: createInitialNexus(gameDifficulty),
         enemyBases: createInitialEnemyBases(1, gameDifficulty),
         gamePhase: 'playing',
         gold: GOLD_CONFIG.STARTING_GOLD,
@@ -2257,7 +2261,7 @@ export const useRPGStore = create<RPGStore>()(
         otherHeroesInterpolation: new Map(),
         personalKills: 0,
         running: true,
-        nexus: createInitialNexus(),
+        nexus: createInitialNexus(gameDifficulty),
         enemyBases: createInitialEnemyBases(players.length, gameDifficulty), // 플레이어 수와 난이도에 따른 기지 생성
         gamePhase: 'playing',
         gold: GOLD_CONFIG.STARTING_GOLD,
@@ -3222,7 +3226,7 @@ function deserializeHeroFromNetwork(serialized: SerializedHero): HeroUnit {
 
   // 마법사 계열 스킬 쿨타임 감소 계산
   const skillCooldownReduction = serialized.heroClass === 'mage' && serialized.statUpgrades?.skillCooldown
-    ? Math.min(getStatBonus('skillCooldown', serialized.statUpgrades.skillCooldown, serialized.tier) / 100, 0.30)
+    ? Math.min(getStatBonus('skillCooldown', serialized.statUpgrades.skillCooldown, serialized.tier) / 100, 0.50)
     : 0;
 
   if (advancedClass) {

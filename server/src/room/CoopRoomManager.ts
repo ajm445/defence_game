@@ -473,8 +473,10 @@ export function updateCoopRoomSettings(hostPlayerId: string, isPrivate?: boolean
     normal: '중간',
     hard: '어려움',
     extreme: '극한',
+    hell: '지옥',
+    apocalypse: '종말',
   };
-  const difficultyName = DIFFICULTY_NAMES[room.difficulty] || '쉬움';
+  const difficultyName = DIFFICULTY_NAMES[room.difficulty] || room.difficulty;
 
   console.log(`[Coop] 방 설정 변경: ${room.code} (Host: ${hostInfo?.name}, ${roomType}, 난이도: ${difficultyName})`);
 

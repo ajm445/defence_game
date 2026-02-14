@@ -21,6 +21,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     bossAttackMultiplier: 1.0,
     enemyBaseHpMultiplier: 1.0,
     unitTimeMultiplier: 1.0,      // 기본 유닛 등장 시간
+    nexusHpMultiplier: 1.0,
     recommendedLevel: 1,
   },
   normal: {
@@ -38,6 +39,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     bossAttackMultiplier: 1.6,
     enemyBaseHpMultiplier: 2.2,
     unitTimeMultiplier: 1.3,      // 유닛 등장 30% 가속
+    nexusHpMultiplier: 1.0,
     recommendedLevel: 15,
   },
   hard: {
@@ -55,6 +57,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     bossAttackMultiplier: 2.2,
     enemyBaseHpMultiplier: 2.8,
     unitTimeMultiplier: 1.6,      // 유닛 등장 60% 가속
+    nexusHpMultiplier: 1.0,
     recommendedLevel: 25,
   },
   extreme: {
@@ -72,6 +75,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     bossAttackMultiplier: 3.0,
     enemyBaseHpMultiplier: 4.0,
     unitTimeMultiplier: 2.0,      // 유닛 등장 2배 가속
+    nexusHpMultiplier: 1.0,
     recommendedLevel: 40,
   },
   hell: {
@@ -89,6 +93,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     bossAttackMultiplier: 3.3,
     enemyBaseHpMultiplier: 4.5,
     unitTimeMultiplier: 2.2,
+    nexusHpMultiplier: 1.5,       // 보스 4마리 대비 넥서스 체력 증가
     recommendedLevel: 55,
   },
   apocalypse: {
@@ -106,6 +111,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     bossAttackMultiplier: 4.0,
     enemyBaseHpMultiplier: 6.0,
     unitTimeMultiplier: 2.7,
+    nexusHpMultiplier: 2.0,       // 보스 4마리 대비 넥서스 체력 대폭 증가
     recommendedLevel: 70,
   },
 };
@@ -209,7 +215,7 @@ export const UPGRADE_CONFIG = {
     description: '이동속도',
   },
   hp: {
-    perLevel: 25,          // 레벨당 +25 최대 HP
+    perLevel: 50,          // 레벨당 +50 최대 HP
     description: '최대 HP',
   },
   attackSpeed: {

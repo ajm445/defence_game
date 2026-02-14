@@ -171,12 +171,13 @@ export class RPGServerGameEngine {
       heroes.set(hero.id, hero);
     }
 
-    // 넥서스 초기화
+    // 넥서스 초기화 (난이도별 HP 배율 적용)
+    const nexusHp = Math.floor(NEXUS_CONFIG.hp * difficultyConfig.nexusHpMultiplier);
     const nexus: ServerNexus = {
       x: NEXUS_CONFIG.position.x,
       y: NEXUS_CONFIG.position.y,
-      hp: NEXUS_CONFIG.hp,
-      maxHp: NEXUS_CONFIG.hp,
+      hp: nexusHp,
+      maxHp: nexusHp,
       laserCooldown: 0,
     };
 

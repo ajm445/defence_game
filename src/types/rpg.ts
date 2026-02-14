@@ -21,6 +21,7 @@ export interface DifficultyConfig {
   bossAttackMultiplier: number;    // 보스 공격력 배율
   enemyBaseHpMultiplier: number;   // 적 기지 HP 배율
   unitTimeMultiplier: number;      // 유닛 등장 시간 가속 배율 (높을수록 빨리 등장)
+  nexusHpMultiplier: number;       // 넥서스 HP 배율 (지옥/종말 난이도용)
   recommendedLevel: number;        // 추천 레벨
 }
 
@@ -267,7 +268,7 @@ export interface HeroUnit extends Omit<Unit, 'type'> {
   deathTime?: number;        // 사망 시간 (부활 타이머용)
   castingUntil?: number;     // 시전 종료 시간 (게임 시간 기준, 시전 중 이동/공격 불가)
   darkBladeActive?: boolean; // 다크나이트 어둠의 칼날 토글 활성 상태
-  skillCooldownReduction?: number; // 마법사 계열 스킬 쿨타임 감소 비율 (0.0 ~ 0.30)
+  skillCooldownReduction?: number; // 마법사 계열 스킬 쿨타임 감소 비율 (0.0 ~ 0.50)
 }
 
 // 웨이브 설정

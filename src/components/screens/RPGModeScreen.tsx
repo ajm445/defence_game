@@ -24,7 +24,7 @@ import { LevelUpResult, calculatePlayerExp, calculateClassExp, VIP_EXP_MULTIPLIE
 import { CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
-import { saveExtremeRanking, RankingPlayer } from '../../services/rankingService';
+import { saveDifficultyRanking, RankingPlayer, RankingDifficulty } from '../../services/rankingService';
 import { tryExitFullscreen, tryEnterFullscreen, setTabletGameActive } from '../../hooks/useDeviceDetect';
 
 export const RPGModeScreen: React.FC = () => {
@@ -94,8 +94,9 @@ export const RPGModeScreen: React.FC = () => {
       const rpgState = useRPGStore.getState();
       const killsForExp = rpgState.personalKills;
 
-      // 극한 난이도 승리 시 랭킹 저장 (호스트만)
-      if (result.victory && rpgState.selectedDifficulty === 'extreme' && rpgState.multiplayer.isHost) {
+      // 극한/지옥/종말 난이도 승리 시 랭킹 저장 (호스트만)
+      const rankingDifficulties: RankingDifficulty[] = ['extreme', 'hell', 'apocalypse'];
+      if (result.victory && rankingDifficulties.includes(rpgState.selectedDifficulty as RankingDifficulty) && rpgState.multiplayer.isHost) {
         const rankingPlayers: RankingPlayer[] = rpgState.multiplayer.players.map(p => {
           const playerClassProgress = useProfileStore.getState().classProgress.find(cp => cp.className === p.heroClass);
           const advClass = p.advancedClass as AdvancedHeroClass | undefined;
@@ -109,7 +110,7 @@ export const RPGModeScreen: React.FC = () => {
         });
 
         const playerCount = rankingPlayers.length;
-        saveExtremeRanking(playerCount, result.timePlayed, rankingPlayers);
+        saveDifficultyRanking(rpgState.selectedDifficulty as RankingDifficulty, playerCount, result.timePlayed, rankingPlayers);
       }
 
       // 경험치 저장 (난이도 배율 적용)

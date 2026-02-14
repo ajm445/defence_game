@@ -1,5 +1,28 @@
 # Changelog
 
+## [1.24.1] - 2026-02-14
+
+### 난이도별 랭킹 시스템 확장
+- **극한/지옥/종말 3개 난이도 독립 랭킹**: 기존 극한 전용에서 3개 난이도로 확장
+  - 상단 난이도 탭: 극한(빨강), 지옥(주황), 종말(보라)
+  - 하단 인원수 탭: 1/2/3/4인 (선택 난이도 색상 연동)
+  - 각 난이도/인원수 조합별 상위 10위 표시
+- **`difficulty_rankings` 통합 테이블**: `difficulty` 컬럼 추가, 복합 인덱스
+  - 기존 `extreme_rankings` 데이터 자동 마이그레이션
+  - 기존 `/extreme` API 하위호환 유지
+- **서버 API 추가**: `GET /:difficulty/:playerCount`, `POST /` (difficulty 포함)
+- **클라이언트**: `getDifficultyRankings()`, `saveDifficultyRanking()` 함수 추가
+- **랭킹 저장 트리거 확장**: 극한/지옥/종말 승리 시 모두 자동 저장
+
+### Technical Changes
+- `supabase/migrations/011_create_difficulty_rankings.sql`: 통합 테이블 + 데이터 마이그레이션
+- `server/src/api/rankingsRouter.ts`: `GET /:difficulty/:playerCount`, `POST /` 라우트 추가
+- `src/services/rankingService.ts`: `RankingDifficulty`, `DifficultyRanking` 타입 + API 함수
+- `src/components/ui/RankingModal.tsx`: 난이도 탭 UI, 동적 색상/제목
+- `src/components/screens/RPGModeScreen.tsx`: `saveDifficultyRanking()` 호출로 교체
+
+---
+
 ## [1.24.0] - 2026-02-14
 
 ### Boss2: 암흑 마법사 추가 (지옥/종말 난이도)

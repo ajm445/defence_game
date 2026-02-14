@@ -317,7 +317,7 @@ export const STAT_UPGRADE_CONFIG: Record<StatUpgradeType, {
     icon: '🔮',
     perLevel: 1,      // 레벨당 1% 스킬 쿨타임 감소
     unit: '%',
-    maxLevel: 30,
+    maxLevel: 50,
   },
 };
 

@@ -50,7 +50,7 @@ export const GOLD_CONFIG = {
 export const UPGRADE_CONFIG = {
   attack: { perLevel: 5, description: '공격력' },
   speed: { perLevel: 0.08, description: '이동속도' },
-  hp: { perLevel: 25, description: '최대 HP' },
+  hp: { perLevel: 50, description: '최대 HP' },
   attackSpeed: { perLevel: 0.03, description: '공격속도' },
   goldRate: { perLevel: 1, description: '초당 골드' },
   range: { perLevel: 8, description: '사거리', maxLevel: 10 },
@@ -82,6 +82,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, {
   bossAttackMultiplier: number;
   enemyBaseHpMultiplier: number;
   unitTimeMultiplier: number;
+  nexusHpMultiplier: number;
 }> = {
   easy: {
     enemyHpMultiplier: 1.0,
@@ -93,6 +94,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, {
     bossAttackMultiplier: 1.0,
     enemyBaseHpMultiplier: 1.0,
     unitTimeMultiplier: 1.0,
+    nexusHpMultiplier: 1.0,
   },
   normal: {
     enemyHpMultiplier: 2.2,
@@ -104,6 +106,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, {
     bossAttackMultiplier: 1.6,
     enemyBaseHpMultiplier: 2.2,
     unitTimeMultiplier: 1.3,
+    nexusHpMultiplier: 1.0,
   },
   hard: {
     enemyHpMultiplier: 2.8,
@@ -115,6 +118,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, {
     bossAttackMultiplier: 2.2,
     enemyBaseHpMultiplier: 2.8,
     unitTimeMultiplier: 1.6,
+    nexusHpMultiplier: 1.0,
   },
   extreme: {
     enemyHpMultiplier: 4.0,
@@ -126,6 +130,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, {
     bossAttackMultiplier: 3.0,
     enemyBaseHpMultiplier: 4.0,
     unitTimeMultiplier: 2.0,
+    nexusHpMultiplier: 1.0,
   },
   hell: {
     enemyHpMultiplier: 4.5,
@@ -137,6 +142,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, {
     bossAttackMultiplier: 3.3,
     enemyBaseHpMultiplier: 4.5,
     unitTimeMultiplier: 2.2,
+    nexusHpMultiplier: 1.5,
   },
   apocalypse: {
     enemyHpMultiplier: 6.0,
@@ -148,6 +154,7 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, {
     bossAttackMultiplier: 4.0,
     enemyBaseHpMultiplier: 6.0,
     unitTimeMultiplier: 2.7,
+    nexusHpMultiplier: 2.0,
   },
 };
 
@@ -466,7 +473,7 @@ export const STAT_UPGRADE_CONFIG = {
   attackSpeed: { perLevel: 0.02, maxLevel: 30 },
   range: { perLevel: 5, maxLevel: 30 },
   hpRegen: { perLevel: 1, maxLevel: 30 },
-  skillCooldown: { perLevel: 1, maxLevel: 30 },
+  skillCooldown: { perLevel: 1, maxLevel: 50 },
 };
 
 // SP 스탯 보너스 계산 (2차 강화 전: maxLevel 제한, 2차 강화 후: 제한 해제)

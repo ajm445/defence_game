@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { ExtremeRanking, getExtremeRankings } from '../../services/rankingService';
+import { DifficultyRanking, RankingDifficulty, getDifficultyRankings } from '../../services/rankingService';
 import { CLASS_CONFIGS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { HeroClass, AdvancedHeroClass } from '../../types/rpg';
 import { soundManager } from '../../services/SoundManager';
@@ -10,6 +10,12 @@ interface RankingModalProps {
 }
 
 type PlayerCountTab = 1 | 2 | 3 | 4;
+
+const DIFFICULTY_TABS: { key: RankingDifficulty; label: string; color: string; borderColor: string; bgColor: string }[] = [
+  { key: 'extreme', label: '극한', color: 'text-red-400', borderColor: 'border-red-500', bgColor: 'bg-red-500/20' },
+  { key: 'hell', label: '지옥', color: 'text-orange-400', borderColor: 'border-orange-500', bgColor: 'bg-orange-500/20' },
+  { key: 'apocalypse', label: '종말', color: 'text-purple-400', borderColor: 'border-purple-500', bgColor: 'bg-purple-500/20' },
+];
 
 // 시간 포맷팅 (초 -> "X분 XX초")
 const formatTime = (seconds: number): string => {
@@ -54,9 +60,12 @@ const PlayerInfo: React.FC<{
 };
 
 export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) => {
+  const [selectedDifficulty, setSelectedDifficulty] = useState<RankingDifficulty>('extreme');
   const [activeTab, setActiveTab] = useState<PlayerCountTab>(1);
-  const [rankings, setRankings] = useState<ExtremeRanking[]>([]);
+  const [rankings, setRankings] = useState<DifficultyRanking[]>([]);
   const [isLoading, setIsLoading] = useState(false);
+
+  const currentDiffTab = DIFFICULTY_TABS.find(d => d.key === selectedDifficulty)!;
 
   // 랭킹 데이터 로드
   useEffect(() => {
@@ -64,15 +73,20 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
 
     const fetchRankings = async () => {
       setIsLoading(true);
-      const data = await getExtremeRankings(activeTab);
+      const data = await getDifficultyRankings(selectedDifficulty, activeTab);
       setRankings(data);
       setIsLoading(false);
     };
 
     fetchRankings();
-  }, [isOpen, activeTab]);
+  }, [isOpen, selectedDifficulty, activeTab]);
 
   if (!isOpen) return null;
+
+  const handleDifficultyChange = (diff: RankingDifficulty) => {
+    soundManager.play('ui_click');
+    setSelectedDifficulty(diff);
+  };
 
   const handleTabChange = (tab: PlayerCountTab) => {
     soundManager.play('ui_click');
@@ -92,7 +106,9 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
             <span className="text-2xl">🏆</span>
-            <h1 className="text-xl font-bold text-white">극한 난이도 랭킹</h1>
+            <h1 className="text-xl font-bold text-white">
+              <span className={currentDiffTab.color}>{currentDiffTab.label}</span> 난이도 랭킹
+            </h1>
           </div>
           <button
             onClick={onClose}
@@ -102,7 +118,25 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
           </button>
         </div>
 
-        {/* 탭 버튼 */}
+        {/* 난이도 탭 */}
+        <div className="flex gap-2 px-6 py-3 border-b border-gray-700/50">
+          {DIFFICULTY_TABS.map((diff) => (
+            <button
+              key={diff.key}
+              onClick={() => handleDifficultyChange(diff.key)}
+              className={`
+                px-4 py-2 rounded-lg font-bold text-sm transition-all cursor-pointer
+                ${selectedDifficulty === diff.key
+                  ? `${diff.bgColor} ${diff.color} border ${diff.borderColor}`
+                  : 'bg-gray-800/50 text-gray-400 border border-gray-700 hover:bg-gray-800 hover:text-gray-300'}
+              `}
+            >
+              {diff.label}
+            </button>
+          ))}
+        </div>
+
+        {/* 인원수 탭 */}
         <div className="flex gap-2 px-6 py-3 border-b border-gray-700/50">
           {([1, 2, 3, 4] as PlayerCountTab[]).map((count) => (
             <button
@@ -111,7 +145,7 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
               className={`
                 px-4 py-2 rounded-lg font-bold text-sm transition-all cursor-pointer
                 ${activeTab === count
-                  ? 'bg-red-500/20 text-red-400 border border-red-500'
+                  ? `${currentDiffTab.bgColor} ${currentDiffTab.color} border ${currentDiffTab.borderColor}`
                   : 'bg-gray-800/50 text-gray-400 border border-gray-700 hover:bg-gray-800 hover:text-gray-300'}
               `}
             >
@@ -121,7 +155,7 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
         </div>
 
         {/* 랭킹 목록 */}
-        <div className="p-6 overflow-y-auto max-h-[calc(85vh-150px)]">
+        <div className="p-6 overflow-y-auto max-h-[calc(85vh-210px)]">
           {isLoading ? (
             <div className="flex items-center justify-center py-12">
               <div className="text-gray-400 animate-pulse">로딩 중...</div>
@@ -131,7 +165,7 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
               <span className="text-4xl mb-3">📭</span>
               <p className="text-gray-400">아직 클리어 기록이 없습니다.</p>
               <p className="text-gray-500 text-sm mt-1">
-                {activeTab}인 극한 난이도를 클리어하고 첫 기록을 세워보세요!
+                {activeTab}인 {currentDiffTab.label} 난이도를 클리어하고 첫 기록을 세워보세요!
               </p>
             </div>
           ) : (
