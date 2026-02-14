@@ -560,9 +560,11 @@ export class RPGCoopGameRoom {
         }
 
         // 모든 플레이어에게 방장 변경 알림
+        const newHostName = newHostInfo?.name || `Player_${this.hostPlayerId.slice(0, 4)}`;
         this.broadcast({
           type: 'COOP_HOST_CHANGED',
           newHostPlayerId: this.hostPlayerId,
+          newHostName,
         });
 
         // 새 방장에게 권한 부여 알림 (게임 중에도 로비 관리 권한 용도)
@@ -590,6 +592,11 @@ export class RPGCoopGameRoom {
       }
     }
 
+    // 게임 진행 중이면 서버 게임 엔진에서 영웅 제거
+    if (this.gameEngine && this.gameState === 'playing') {
+      this.gameEngine.removeHero(playerId);
+    }
+
     // 플레이어 목록에서 제거
     this.playerIds = this.playerIds.filter(id => id !== playerId);
     this.playerInfos = this.playerInfos.filter(p => p.id !== playerId);
@@ -597,10 +604,12 @@ export class RPGCoopGameRoom {
     // 대기 방 플레이어 동기화
     syncWaitingRoomPlayers(this.id, this.playerIds, this.playerInfos);
 
-    // 연결 해제 알림
+    // 연결 해제 알림 (플레이어 이름 포함)
+    const disconnectedName = leavingPlayer?.name || `Player_${playerId.slice(0, 4)}`;
     this.broadcast({
       type: 'COOP_PLAYER_DISCONNECTED',
       playerId,
+      playerName: disconnectedName,
     });
 
     // 모든 플레이어가 나가면 게임 종료

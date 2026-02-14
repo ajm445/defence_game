@@ -676,4 +676,13 @@ export class RPGServerGameEngine {
   public isGameOver(): boolean {
     return this.state.gameOver;
   }
+
+  public removeHero(playerId: string): void {
+    const heroId = `hero_${playerId}`;
+    const hero = this.state.heroes.get(heroId);
+    if (hero) {
+      this.state.heroes.delete(heroId);
+      console.log(`[ServerEngine] 영웅 제거 (연결 해제): ${heroId}`);
+    }
+  }
 }

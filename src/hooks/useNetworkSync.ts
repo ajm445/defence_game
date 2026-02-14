@@ -57,7 +57,7 @@ export function useNetworkSync() {
 
         // 호스트 변경
         case 'COOP_HOST_CHANGED':
-          handleHostChanged(message.newHostPlayerId);
+          handleHostChanged(message.newHostPlayerId, message.newHostName);
           break;
 
         // 새 호스트 권한 부여
@@ -67,7 +67,7 @@ export function useNetworkSync() {
 
         // 플레이어 연결 해제
         case 'COOP_PLAYER_DISCONNECTED':
-          handlePlayerDisconnected(message.playerId);
+          handlePlayerDisconnected(message.playerId, message.playerName);
           break;
 
         // 플레이어 재접속
@@ -210,7 +210,7 @@ function handleGameStateFromServer(serializedState: SerializedGameState) {
   state.applySerializedState(serializedState, myHeroId);
 }
 
-function handleHostChanged(newHostPlayerId: string) {
+function handleHostChanged(newHostPlayerId: string, newHostName?: string) {
   console.log(`[NetworkSync] 호스트 변경: ${newHostPlayerId}`);
 
   const state = useRPGStore.getState();
@@ -220,6 +220,13 @@ function handleHostChanged(newHostPlayerId: string) {
     hostPlayerId: newHostPlayerId,
     isHost: isNowHost,
   });
+
+  // 인게임 알림: 새 방장 안내
+  if (isNowHost) {
+    useUIStore.getState().showNotification('방장 권한을 위임받았습니다.');
+  } else if (newHostName) {
+    useUIStore.getState().showNotification(`${newHostName}님이 새 방장이 되었습니다.`);
+  }
 }
 
 function handleBecomeHost() {
@@ -231,9 +238,10 @@ function handleBecomeHost() {
 
   // 새 호스트로서 게임 루프 시작
   // (게임 루프는 이미 실행 중이므로 isHost 플래그만 변경하면 됨)
+  useUIStore.getState().showNotification('방장 권한을 위임받았습니다.');
 }
 
-function handlePlayerDisconnected(playerId: string) {
+function handlePlayerDisconnected(playerId: string, playerName?: string) {
   console.log(`[NetworkSync] 플레이어 연결 해제: ${playerId}`);
 
   const heroId = `hero_${playerId}`;
@@ -241,8 +249,13 @@ function handlePlayerDisconnected(playerId: string) {
 
   // players 목록에서도 제거
   const state = useRPGStore.getState();
+  const leavingPlayer = state.multiplayer.players.find(p => p.id === playerId);
+  const displayName = playerName || leavingPlayer?.name || `Player`;
   const updatedPlayers = state.multiplayer.players.filter(p => p.id !== playerId);
   state.setMultiplayerState({ players: updatedPlayers });
+
+  // 인게임 알림
+  useUIStore.getState().showNotification(`${displayName}님의 연결이 끊어졌습니다.`);
 }
 
 function handlePlayerReconnected(playerId: string) {

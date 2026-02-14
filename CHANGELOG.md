@@ -11,11 +11,21 @@
 - **클라이언트: `dark_meteor_fall` SkillEffect 생성**: `boss_smash` 파티클 → SkillEffect 기반 렌더링
 - **SkillType 확장**: `'dark_meteor_fall'` 타입 추가
 
+### 멀티플레이 연결 해제 처리 개선
+- **팀원 이탈 인게임 알림**: 연결 해제 시 `{이름}님의 연결이 끊어졌습니다.` 알림 표시
+- **방장 위임 알림**: 새 방장에게 `방장 권한을 위임받았습니다.`, 나머지에게 `{이름}님이 새 방장이 되었습니다.` 표시
+- **서버 영웅 제거**: 연결 해제된 플레이어의 영웅을 서버 게임 엔진에서 즉시 제거 (`removeHero`)
+  - 기존: 클라이언트에서만 제거 → 서버 브로드캐스트로 캐릭터가 다시 나타나는 버그
+  - 수정: 서버 `state.heroes`에서 삭제 → 다음 브로드캐스트부터 미포함
+
 ### 수정 파일
 - `src/types/rpg.ts`: SkillType에 `dark_meteor_fall` 추가
 - `server/src/game/rpgServerBossSystem.ts`: dark_meteor 실행 시 개별 위치 이펙트 push
 - `src/hooks/useRPGGameLoop.ts`: 클라이언트/호스트 dark_meteor_fall SkillEffect 생성
 - `src/renderer/drawHero.ts`: dark_meteor_fall 렌더링 케이스 추가
+- `server/src/game/RPGServerGameEngine.ts`: `removeHero()` 메서드 추가
+- `server/src/game/RPGCoopGameRoom.ts`: 연결 해제 시 게임 엔진 영웅 제거 + 이름 포함 메시지
+- `src/hooks/useNetworkSync.ts`: 연결 해제/방장 변경 인게임 알림 추가
 
 ---
 
