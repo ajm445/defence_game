@@ -17,7 +17,8 @@
     "build": "tsc -b && vite build",
     "build:server": "cd server && npm run build",
     "lint": "eslint .",
-    "preview": "vite preview"
+    "preview": "vite preview",
+    "start": "cd server && npm start"
   },
   "dependencies": {
     "react": "^19.2.0",
