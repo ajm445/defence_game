@@ -3007,6 +3007,123 @@ export function drawSkillEffect(
       }
       break;
 
+    case 'dark_meteor_fall':
+      // 보스2 - 암흑 유성 낙하 (보라색/어둠 테마)
+      {
+        const radius = effect.radius || 100;
+        const meteorCount = 5;
+        const fallHeight = 250;
+
+        // 배경 경고 (보라색)
+        ctx.globalAlpha = (1 - progress) * 0.3;
+        ctx.fillStyle = '#9900ff40';
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 경고 원 (충돌 범위)
+        ctx.globalAlpha = (1 - progress) * 0.5;
+        ctx.strokeStyle = '#cc66ff';
+        ctx.lineWidth = 3;
+        ctx.setLineDash([10, 5]);
+        ctx.beginPath();
+        ctx.arc(screenX, screenY, radius, 0, Math.PI * 2);
+        ctx.stroke();
+        ctx.setLineDash([]);
+
+        // 암흑 운석 낙하
+        for (let i = 0; i < meteorCount; i++) {
+          const meteorDelay = i / meteorCount * 0.5;
+          const meteorProgress = Math.max(0, Math.min(1, (progress - meteorDelay) / 0.5));
+
+          if (meteorProgress <= 0) continue;
+
+          // 고정된 위치 계산
+          const angle = (i / meteorCount) * Math.PI * 2 + 0.5;
+          const dist = radius * (0.3 + (i % 3) * 0.25);
+          const targetX = screenX + Math.cos(angle) * dist;
+          const targetY = screenY + Math.sin(angle) * dist;
+
+          // 운석 낙하
+          const fallProgress = Math.min(meteorProgress, 0.7) / 0.7;
+          const meteorY = targetY - fallHeight * (1 - fallProgress);
+          const meteorSize = 12 + (i % 3) * 4;
+
+          if (meteorProgress < 0.7) {
+            // 운석 본체
+            ctx.save();
+            ctx.translate(targetX, meteorY);
+            ctx.rotate(Math.PI * 0.25);
+
+            // 운석 글로우 (보라색)
+            ctx.globalAlpha = (1 - progress) * 0.6;
+            const meteorGlow = ctx.createRadialGradient(0, 0, 0, 0, 0, meteorSize * 2);
+            meteorGlow.addColorStop(0, '#9900ff');
+            meteorGlow.addColorStop(0.5, '#6600cc80');
+            meteorGlow.addColorStop(1, 'transparent');
+            ctx.fillStyle = meteorGlow;
+            ctx.beginPath();
+            ctx.arc(0, 0, meteorSize * 2, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 운석 코어 (짙은 보라)
+            ctx.globalAlpha = (1 - progress) * 0.95;
+            ctx.fillStyle = '#7700dd';
+            ctx.beginPath();
+            ctx.ellipse(0, 0, meteorSize * 0.6, meteorSize, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 운석 밝은 중심 (라벤더)
+            ctx.fillStyle = '#cc88ff';
+            ctx.beginPath();
+            ctx.ellipse(0, -meteorSize * 0.3, meteorSize * 0.3, meteorSize * 0.5, 0, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.restore();
+
+            // 운석 꼬리 (보라색)
+            const tailLength = 60 + fallProgress * 40;
+            const tailGradient = ctx.createLinearGradient(targetX, meteorY, targetX, meteorY - tailLength);
+            tailGradient.addColorStop(0, '#9900ff90');
+            tailGradient.addColorStop(0.3, '#6600cc60');
+            tailGradient.addColorStop(1, 'transparent');
+            ctx.globalAlpha = (1 - progress) * 0.8;
+            ctx.strokeStyle = tailGradient;
+            ctx.lineWidth = meteorSize * 0.8;
+            ctx.lineCap = 'round';
+            ctx.beginPath();
+            ctx.moveTo(targetX, meteorY);
+            ctx.lineTo(targetX, meteorY - tailLength);
+            ctx.stroke();
+
+          } else {
+            // 충돌 폭발 (보라색)
+            const impactProgress = (meteorProgress - 0.7) / 0.3;
+            const explosionSize = meteorSize * 3 * impactProgress;
+
+            ctx.globalAlpha = (1 - impactProgress) * 0.9;
+            const explosionGradient = ctx.createRadialGradient(targetX, targetY, 0, targetX, targetY, explosionSize);
+            explosionGradient.addColorStop(0, '#ffffff');
+            explosionGradient.addColorStop(0.2, '#cc66ff');
+            explosionGradient.addColorStop(0.5, '#9900ff');
+            explosionGradient.addColorStop(1, 'transparent');
+            ctx.fillStyle = explosionGradient;
+            ctx.beginPath();
+            ctx.arc(targetX, targetY, explosionSize, 0, Math.PI * 2);
+            ctx.fill();
+
+            // 충격파 링
+            ctx.globalAlpha = (1 - impactProgress) * 0.7;
+            ctx.strokeStyle = '#cc00ff';
+            ctx.lineWidth = 3;
+            ctx.beginPath();
+            ctx.arc(targetX, targetY, explosionSize * 1.2, 0, Math.PI * 2);
+            ctx.stroke();
+          }
+        }
+      }
+      break;
+
     case 'inferno_burn':
       // 대마법사 W 스킬 - 화상 지속 효과 (바닥에 불타는 영역)
       {

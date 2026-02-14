@@ -124,7 +124,8 @@ export type SkillType =
   | 'divine_light'    // 팔라딘 - 신성한 빛
   | 'dark_blade'      // 다크나이트 - 어둠의 칼날
   | 'meteor_shower'   // 대마법사 - 메테오 샤워
-  | 'spring_of_life'; // 힐러 - 생명의 샘
+  | 'spring_of_life'  // 힐러 - 생명의 샘
+  | 'dark_meteor_fall'; // 보스2 - 암흑 유성 낙하
 
 // 스킬 슬롯 타입
 export type SkillSlot = 'Q' | 'W' | 'E';

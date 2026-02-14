@@ -383,13 +383,26 @@ function executeBossSkill(
 
   // 스킬 실행 이펙트 추가
   const now = state.currentTickTimestamp;
-  state.bossSkillExecutedEffects.push({
-    id: `boss_skill_${cast.skillType}_${now}_${boss.id}`,
-    skillType: cast.skillType,
-    x: boss.x,
-    y: boss.y,
-    timestamp: now,
-  });
+  if (cast.skillType === 'dark_meteor' && cast.meteorPositions) {
+    // dark_meteor: 각 영웅 위치에 개별 낙하 이펙트
+    for (const pos of cast.meteorPositions) {
+      state.bossSkillExecutedEffects.push({
+        id: `boss_skill_dark_meteor_${now}_${boss.id}_${Math.round(pos.x)}_${Math.round(pos.y)}`,
+        skillType: cast.skillType,
+        x: pos.x,
+        y: pos.y,
+        timestamp: now,
+      });
+    }
+  } else {
+    state.bossSkillExecutedEffects.push({
+      id: `boss_skill_${cast.skillType}_${now}_${boss.id}`,
+      skillType: cast.skillType,
+      x: boss.x,
+      y: boss.y,
+      timestamp: now,
+    });
+  }
 
   boss.state = 'idle';
 }

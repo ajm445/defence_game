@@ -164,10 +164,20 @@ export function useRPGGameLoop() {
               effectManager.createEffect('boss_shockwave', effect.x, effect.y);
               soundManager.play('warning');
               break;
-            case 'dark_meteor':
-              effectManager.createEffect('boss_smash', effect.x, effect.y);
+            case 'dark_meteor': {
+              // 각 위치에 암흑 유성 낙하 이펙트 생성
+              const meteorEffect: SkillEffect = {
+                type: 'dark_meteor_fall' as SkillType,
+                position: { x: effect.x, y: effect.y },
+                radius: 100,
+                damage: 0,
+                duration: 1.5,
+                startTime: useRPGStore.getState().gameTime,
+              };
+              useRPGStore.getState().addSkillEffect(meteorEffect);
               soundManager.play('warning');
               break;
+            }
             case 'soul_drain':
               effectManager.createEffect('boss_shockwave', effect.x, effect.y);
               soundManager.play('warning');
@@ -1265,7 +1275,16 @@ export function useRPGGameLoop() {
             effectManager.createEffect('boss_shockwave', boss.x, boss.y);
             soundManager.play('warning');
           } else if (skillType === 'dark_meteor') {
-            effectManager.createEffect('boss_smash', boss.x, boss.y);
+            // 싱글플레이: 보스 위치에 암흑 유성 낙하 이펙트 (멀티플레이는 서버가 개별 위치로 push)
+            const darkMeteorEffect: SkillEffect = {
+              type: 'dark_meteor_fall' as SkillType,
+              position: { x: boss.x, y: boss.y },
+              radius: 100,
+              damage: 0,
+              duration: 1.5,
+              startTime: useRPGStore.getState().gameTime,
+            };
+            useRPGStore.getState().addSkillEffect(darkMeteorEffect);
             soundManager.play('warning');
           } else if (skillType === 'soul_drain') {
             effectManager.createEffect('boss_shockwave', boss.x, boss.y);

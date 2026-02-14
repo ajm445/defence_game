@@ -1,5 +1,24 @@
 # Changelog
 
+## [1.24.2] - 2026-02-14
+
+### Boss2 암흑 유성(dark_meteor) 낙하 이펙트 추가
+- **보라색 운석 낙하 시각 이펙트**: 경고 원만 표시되던 dark_meteor에 하늘에서 떨어지는 유성 이펙트 추가
+  - 5개 보라색 운석이 250px 높이에서 시간차(0.5초 간격) 낙하
+  - 낙하 70% → 폭발 30% 타이밍, `meteor_shower` 패턴 기반
+  - 보라색/어둠 테마 색상 (글로우 `#9900ff`, 코어 `#7700dd`, 폭발 `#cc66ff`)
+- **서버: 개별 위치 이펙트 push**: 보스 위치 1개 → `meteorPositions` 각 영웅 위치에 개별 이펙트
+- **클라이언트: `dark_meteor_fall` SkillEffect 생성**: `boss_smash` 파티클 → SkillEffect 기반 렌더링
+- **SkillType 확장**: `'dark_meteor_fall'` 타입 추가
+
+### 수정 파일
+- `src/types/rpg.ts`: SkillType에 `dark_meteor_fall` 추가
+- `server/src/game/rpgServerBossSystem.ts`: dark_meteor 실행 시 개별 위치 이펙트 push
+- `src/hooks/useRPGGameLoop.ts`: 클라이언트/호스트 dark_meteor_fall SkillEffect 생성
+- `src/renderer/drawHero.ts`: dark_meteor_fall 렌더링 케이스 추가
+
+---
+
 ## [1.24.1] - 2026-02-14
 
 ### 난이도별 랭킹 시스템 확장
