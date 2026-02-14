@@ -74,6 +74,40 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, DifficultyConfig> = {
     unitTimeMultiplier: 2.0,      // 유닛 등장 2배 가속
     recommendedLevel: 40,
   },
+  hell: {
+    id: 'hell',
+    name: '지옥',
+    nameEn: 'Hell',
+    description: '지옥의 시련 (추천 레벨: 55+)',
+    enemyHpMultiplier: 4.5,
+    enemyAttackMultiplier: 3.3,
+    spawnIntervalMultiplier: 0.65,
+    spawnCountMultiplier: 3.2,
+    goldRewardMultiplier: 2.5,
+    expRewardMultiplier: 3.2,
+    bossHpMultiplier: 4.5,
+    bossAttackMultiplier: 3.3,
+    enemyBaseHpMultiplier: 4.5,
+    unitTimeMultiplier: 2.2,
+    recommendedLevel: 55,
+  },
+  apocalypse: {
+    id: 'apocalypse',
+    name: '종말',
+    nameEn: 'Apocalypse',
+    description: '세계의 종말 (추천 레벨: 70+)',
+    enemyHpMultiplier: 6.0,
+    enemyAttackMultiplier: 4.0,
+    spawnIntervalMultiplier: 0.55,
+    spawnCountMultiplier: 4.2,
+    goldRewardMultiplier: 3.2,
+    expRewardMultiplier: 4.2,
+    bossHpMultiplier: 6.0,
+    bossAttackMultiplier: 4.0,
+    enemyBaseHpMultiplier: 6.0,
+    unitTimeMultiplier: 2.7,
+    recommendedLevel: 70,
+  },
 };
 
 // 패시브 시스템 상수
@@ -141,6 +175,7 @@ export const GOLD_CONFIG = {
     knight: 35,
     mage: 45,
     boss: 500,
+    boss2: 500,
   } as GoldTable,
 
   // 적 기지 파괴 시 골드 보상 (난이도별)
@@ -149,6 +184,8 @@ export const GOLD_CONFIG = {
     normal: 100,
     hard: 200,
     extreme: 300,
+    hell: 350,
+    apocalypse: 500,
   } as Record<RPGDifficulty, number>,
 
   // 업그레이드 기본 비용 (1레벨 고정, 이후 레벨 비례 증가)
@@ -380,6 +417,13 @@ export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
     attackDamage: 50,
     attackSpeed: 2.0,
   },
+  boss2: {
+    detectionRange: 400,
+    attackRange: 250,
+    moveSpeed: 1.0,
+    attackDamage: 120,
+    attackSpeed: 2.5,
+  },
   // 비전투 유닛 (기본값)
   woodcutter: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
   miner: { detectionRange: 0, attackRange: 0, moveSpeed: 1.0, attackDamage: 0, attackSpeed: 0 },
@@ -432,6 +476,13 @@ export const RPG_ENEMY_CONFIGS: Record<string, RPGEnemyConfig> = {
     attack: 50,
     attackSpeed: 2.0,
     speed: 1.5,
+  },
+  boss2: {
+    name: '암흑 마법사',
+    hp: 2800,
+    attack: 120,
+    attackSpeed: 2.5,
+    speed: 1.0,
   },
 };
 
@@ -607,6 +658,7 @@ export const RPG_CONFIG = {
     knight: 25,   // 기사
     mage: 30,     // 마법사
     boss: 200,    // 보스
+    boss2: 250,   // 암흑 마법사 보스
   } as ExpTable,
 
   // 카메라 설정
@@ -787,6 +839,8 @@ export interface BossSkillConfig {
   oneTimeUse?: boolean;       // 한 번만 사용 가능 여부
   chargeDistance?: number;    // 돌진 거리 (px)
   healPercent?: number;       // 회복량 (최대 HP 대비 %)
+  zoneDuration?: number;      // 장판 지속시간 (초, void_zone)
+  drainHealPercent?: number;  // 적중 영웅당 자힐 비율 (soul_drain)
 }
 
 export const BOSS_SKILL_CONFIGS: Record<BossSkillType, BossSkillConfig> = {
@@ -862,6 +916,76 @@ export const BOSS_SKILL_CONFIGS: Record<BossSkillType, BossSkillConfig> = {
     hpThreshold: 0.6,         // HP 60% 이하부터 사용
     healPercent: 0.1,         // 최대 HP의 10% 회복
   },
+  // ============================================
+  // Boss2 (암흑 마법사) 스킬
+  // ============================================
+  // 암흑 구체 - 대상 방향 원거리 AoE 폭발
+  dark_orb: {
+    type: 'dark_orb',
+    name: '암흑 구체',
+    nameEn: 'Dark Orb',
+    cooldown: 6,
+    damage: 2.5,              // 250% 데미지
+    radius: 120,
+    castTime: 1.0,
+  },
+  // 그림자 소환 - 마법사 졸개 3마리 소환
+  shadow_summon: {
+    type: 'shadow_summon',
+    name: '그림자 소환',
+    nameEn: 'Shadow Summon',
+    cooldown: 18,
+    damage: 0,
+    radius: 100,
+    castTime: 1.5,
+    summonCount: 3,
+    hpThreshold: 0.7,
+  },
+  // 공허의 영역 - 5초 지속 데미지 장판
+  void_zone: {
+    type: 'void_zone',
+    name: '공허의 영역',
+    nameEn: 'Void Zone',
+    cooldown: 15,
+    damage: 0.5,              // 초당 50% 데미지
+    radius: 180,
+    castTime: 1.5,
+    zoneDuration: 5,
+  },
+  // 암흑 유성 - 각 영웅 위치에 유성 낙하
+  dark_meteor: {
+    type: 'dark_meteor',
+    name: '암흑 유성',
+    nameEn: 'Dark Meteor',
+    cooldown: 20,
+    damage: 3.0,              // 300% 데미지
+    radius: 100,
+    castTime: 2.0,
+    hpThreshold: 0.5,
+  },
+  // 영혼 흡수 - AoE 드레인 + 자힐
+  soul_drain: {
+    type: 'soul_drain',
+    name: '영혼 흡수',
+    nameEn: 'Soul Drain',
+    cooldown: 12,
+    damage: 1.5,              // 150% 데미지
+    radius: 200,
+    castTime: 1.5,
+    hpThreshold: 0.6,
+    drainHealPercent: 0.05,   // 적중 영웅당 5% 자힐
+  },
+  // 순간이동 - 가장 먼 영웅 근처로 텔레포트
+  teleport: {
+    type: 'teleport',
+    name: '순간이동',
+    nameEn: 'Teleport',
+    cooldown: 10,
+    damage: 0,
+    radius: 0,
+    castTime: 0.8,
+    hpThreshold: 0.8,
+  },
 };
 
 // 난이도별 보스 스킬 활성화
@@ -870,6 +994,18 @@ export const DIFFICULTY_BOSS_SKILLS: Record<RPGDifficulty, BossSkillType[]> = {
   normal: ['smash', 'summon'],        // 중간: 강타 + 소환
   hard: ['smash', 'summon', 'knockback', 'heal'],  // 어려움: 강타 + 소환 + 밀어내기 + 회복
   extreme: ['smash', 'summon', 'shockwave', 'knockback', 'charge', 'heal'], // 극한: 모든 스킬
+  hell: ['smash', 'summon', 'shockwave', 'knockback', 'charge', 'heal'],    // 지옥: 모든 스킬
+  apocalypse: ['smash', 'summon', 'shockwave', 'knockback', 'charge', 'heal'], // 종말: 모든 스킬
+};
+
+// 난이도별 Boss2 스킬 활성화
+export const DIFFICULTY_BOSS2_SKILLS: Record<RPGDifficulty, BossSkillType[]> = {
+  easy: [],
+  normal: [],
+  hard: [],
+  extreme: [],
+  hell: ['dark_orb', 'shadow_summon', 'void_zone', 'dark_meteor', 'soul_drain', 'teleport'],
+  apocalypse: ['dark_orb', 'shadow_summon', 'void_zone', 'dark_meteor', 'soul_drain', 'teleport'],
 };
 
 // ============================================

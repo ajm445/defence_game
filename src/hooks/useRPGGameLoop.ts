@@ -21,6 +21,7 @@ import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
 import { SkillType, PendingSkill, SkillEffect, HeroUnit, Buff } from '../types/rpg';
 import { distance } from '../utils/math';
+import { isBossType } from '../utils/bossUtils';
 import { createEnemyFromBase, getSpawnConfig, shouldSpawnEnemy, shouldSpawnTutorialEnemy, createTutorialEnemy } from '../game/rpg/nexusSpawnSystem';
 import { createBosses, areAllBossesDead, hasBosses, updateBossSkills, applyStunToHero } from '../game/rpg/bossSystem';
 import { processNexusLaser, isNexusAlive } from '../game/rpg/nexusLaserSystem';
@@ -86,11 +87,13 @@ export function useRPGGameLoop() {
         if (!processedEffectIdsRef.current.has(effect.id)) {
           processedEffectIdsRef.current.set(effect.id, clientNow);
           // 보스 기본 공격은 별도 이펙트 사용
-          const effectType = effect.type === 'boss'
-            ? 'boss_basic_attack'
-            : effect.type === 'ranged'
-              ? 'attack_ranged'
-              : 'attack_melee';
+          const effectType = effect.type === 'boss2'
+            ? 'boss2_basic_attack'
+            : isBossType(effect.type)
+              ? 'boss_basic_attack'
+              : effect.type === 'ranged'
+                ? 'attack_ranged'
+                : 'attack_melee';
           effectManager.createEffect(effectType, effect.x, effect.y);
           // 사운드도 함께 재생
           const soundType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
@@ -147,6 +150,31 @@ export function useRPGGameLoop() {
               } else {
                 useUIStore.getState().showNotification(`⚠️ 보스가 회복합니다!`);
               }
+              break;
+            // Boss2 스킬 이펙트
+            case 'dark_orb':
+              effectManager.createEffect('boss_shockwave', effect.x, effect.y);
+              soundManager.play('warning');
+              break;
+            case 'shadow_summon':
+              effectManager.createEffect('boss_summon', effect.x, effect.y);
+              soundManager.play('boss_spawn');
+              break;
+            case 'void_zone':
+              effectManager.createEffect('boss_shockwave', effect.x, effect.y);
+              soundManager.play('warning');
+              break;
+            case 'dark_meteor':
+              effectManager.createEffect('boss_smash', effect.x, effect.y);
+              soundManager.play('warning');
+              break;
+            case 'soul_drain':
+              effectManager.createEffect('boss_shockwave', effect.x, effect.y);
+              soundManager.play('warning');
+              break;
+            case 'teleport':
+              effectManager.createEffect('boss_charge', effect.x, effect.y);
+              soundManager.play('warning');
               break;
           }
         }
@@ -812,8 +840,9 @@ export function useRPGGameLoop() {
 
           // 공격자 정보 확인 (보스 공격 이펙트용)
           const attackerInfo = result.heroAttackers.get(heroId);
-          const isBossAttack = attackerInfo?.attackerType === 'boss';
-          const effectType = isBossAttack ? 'boss_basic_attack' : 'attack_melee';
+          const isBossAttack = attackerInfo?.attackerType != null && isBossType(attackerInfo.attackerType);
+          const isBoss2Attack = attackerInfo?.attackerType === 'boss2';
+          const effectType = isBoss2Attack ? 'boss2_basic_attack' : isBossAttack ? 'boss_basic_attack' : 'attack_melee';
           const attackEffectType = isBossAttack ? 'boss' : 'melee';
 
           if (heroId === currentHeroState.id) {
@@ -898,8 +927,9 @@ export function useRPGGameLoop() {
           useRPGStore.getState().damageHero(finalDamage);
 
           // 보스 공격 여부에 따른 이펙트 타입 결정
-          const isBossAttack = result.attackerInfo?.attackerType === 'boss';
-          const effectType = isBossAttack ? 'boss_basic_attack' : 'attack_melee';
+          const isBossAttack = result.attackerInfo?.attackerType != null && isBossType(result.attackerInfo.attackerType);
+          const isBoss2Attack = result.attackerInfo?.attackerType === 'boss2';
+          const effectType = isBoss2Attack ? 'boss2_basic_attack' : isBossAttack ? 'boss_basic_attack' : 'attack_melee';
           effectManager.createEffect(effectType, updatedHero.x, updatedHero.y);
           soundManager.play('attack_melee');
           // 피격 데미지 숫자 표시 (적 공격 - 빨간색)
@@ -971,10 +1001,10 @@ export function useRPGGameLoop() {
       // ============================================
       // 보스 돌진 이동 처리 (자연스러운 이동)
       // ============================================
-      const dashingBosses = useRPGStore.getState().enemies.filter(e => e.type === 'boss' && e.dashState);
+      const dashingBosses = useRPGStore.getState().enemies.filter(e => isBossType(e.type) && e.dashState);
       if (dashingBosses.length > 0) {
         const dashUpdatedEnemies = useRPGStore.getState().enemies.map(enemy => {
-          if (enemy.type !== 'boss' || !enemy.dashState) return enemy;
+          if (!isBossType(enemy.type) || !enemy.dashState) return enemy;
 
           const dash = enemy.dashState;
           const newProgress = dash.progress + deltaTime / dash.duration;
@@ -1006,7 +1036,7 @@ export function useRPGGameLoop() {
       // 보스 스킬 처리 (난이도별)
       // ============================================
       const latestEnemies = useRPGStore.getState().enemies;
-      const bossEnemies = latestEnemies.filter(e => e.type === 'boss' && e.hp > 0);
+      const bossEnemies = latestEnemies.filter(e => isBossType(e.type) && e.hp > 0);
 
       for (const boss of bossEnemies) {
         // 모든 살아있는 영웅 수집
@@ -1225,6 +1255,24 @@ export function useRPGGameLoop() {
             soundManager.play('hero_revive');
             // 보스 회복 알림 표시
             useUIStore.getState().showNotification(`⚠️ 보스가 회복합니다! (+${healPercent}%)`);
+          } else if (skillType === 'dark_orb') {
+            effectManager.createEffect('boss_shockwave', boss.x, boss.y);
+            soundManager.play('warning');
+          } else if (skillType === 'shadow_summon') {
+            effectManager.createEffect('boss_summon', boss.x, boss.y);
+            soundManager.play('boss_spawn');
+          } else if (skillType === 'void_zone') {
+            effectManager.createEffect('boss_shockwave', boss.x, boss.y);
+            soundManager.play('warning');
+          } else if (skillType === 'dark_meteor') {
+            effectManager.createEffect('boss_smash', boss.x, boss.y);
+            soundManager.play('warning');
+          } else if (skillType === 'soul_drain') {
+            effectManager.createEffect('boss_shockwave', boss.x, boss.y);
+            soundManager.play('warning');
+          } else if (skillType === 'teleport') {
+            effectManager.createEffect('boss_charge', boss.x, boss.y);
+            soundManager.play('warning');
           }
         }
       }
@@ -1269,7 +1317,7 @@ export function useRPGGameLoop() {
             const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
             if (dist <= skill.radius) {
               // 마법사: 보스에게만 데미지 보너스 적용
-              const actualDamage = (enemy.type === 'boss' && skill.bossDamageMultiplier)
+              const actualDamage = (isBossType(enemy.type) && skill.bossDamageMultiplier)
                 ? Math.floor(skill.damage * skill.bossDamageMultiplier)
                 : skill.damage;
               const killed = useRPGStore.getState().damageEnemy(enemy.id, actualDamage, skill.casterId);
@@ -1567,11 +1615,13 @@ export function useRPGGameLoop() {
       if (!processedEffectIdsRef.current.has(effect.id)) {
         processedEffectIdsRef.current.set(effect.id, hostNow);
         // 보스 기본 공격은 별도 이펙트 사용
-        const effectType = effect.type === 'boss'
-          ? 'boss_basic_attack'
-          : effect.type === 'ranged'
-            ? 'attack_ranged'
-            : 'attack_melee';
+        const effectType = effect.type === 'boss2'
+          ? 'boss2_basic_attack'
+          : isBossType(effect.type)
+            ? 'boss_basic_attack'
+            : effect.type === 'ranged'
+              ? 'attack_ranged'
+              : 'attack_melee';
         effectManager.createEffect(effectType, effect.x, effect.y);
       }
     }
@@ -2314,7 +2364,7 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
 
         for (const { enemy } of targets) {
           // 마법사: 보스에게만 데미지 보너스 적용
-          const actualDamage = enemy.type === 'boss' ? Math.floor(totalDamage * bossDamageMultiplier) : totalDamage;
+          const actualDamage = isBossType(enemy.type) ? Math.floor(totalDamage * bossDamageMultiplier) : totalDamage;
           const killed = state.damageEnemy(enemy.id, actualDamage, heroId);
           if (killed) {
             state.removeEnemy(enemy.id);
@@ -2432,7 +2482,7 @@ function updateOtherHeroesAutoAttack(deltaTime: number, enemies: ReturnType<type
             if (dot < attackAngleThreshold) continue;
 
             // 마법사: 보스에게만 데미지 보너스 적용
-            const actualDamage = enemy.type === 'boss' ? Math.floor(totalDamage * bossDamageMultiplier) : totalDamage;
+            const actualDamage = isBossType(enemy.type) ? Math.floor(totalDamage * bossDamageMultiplier) : totalDamage;
             const killed = state.damageEnemy(enemy.id, actualDamage, heroId);
             if (killed) {
               state.removeEnemy(enemy.id);

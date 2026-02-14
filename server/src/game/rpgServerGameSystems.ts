@@ -18,6 +18,7 @@ import {
   CLASS_CONFIGS,
 } from './rpgServerConfig';
 import { distance, distanceSquared, generateId } from './rpgServerUtils';
+import { isBossType } from '../../../src/utils/bossUtils';
 
 export interface GameSystemsContext {
   difficulty: RPGDifficulty;
@@ -219,7 +220,7 @@ export function checkWinCondition(state: ServerGameState): 'victory' | 'defeat' 
     let bossCount = 0;
     let deadBossCount = 0;
     for (const e of enemies) {
-      if (e.type === 'boss') {
+      if (isBossType(e.type)) {
         bossCount++;
         if (e.hp <= 0) deadBossCount++;
       }
@@ -378,6 +379,7 @@ export function serializeGameState(state: ServerGameState): SerializedGameState 
     pendingSkills: state.pendingSkills,
     bossSkillWarnings: state.bossSkillWarnings,
     bossSkillExecutedEffects: state.bossSkillExecutedEffects,
+    bossActiveZones: state.bossActiveZones,
     damageNumbers: state.damageNumbers,
     running: state.running,
     paused: state.paused,

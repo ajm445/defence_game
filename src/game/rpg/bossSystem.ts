@@ -1,6 +1,7 @@
 import { RPGEnemy, EnemyBase, EnemyBaseId, EnemyAIConfig, RPGDifficulty, BossSkill, BossSkillType, BossSkillCast, BossSkillWarning, HeroUnit, Buff, DashState } from '../../types/rpg';
 import { GOLD_CONFIG, ENEMY_AI_CONFIGS, NEXUS_CONFIG, DIFFICULTY_CONFIGS, RPG_ENEMY_CONFIGS, BOSS_SKILL_CONFIGS, DIFFICULTY_BOSS_SKILLS, TUTORIAL_BOSS_CONFIG } from '../../constants/rpgConfig';
 import { generateId, distance } from '../../utils/math';
+import { isBossType } from '../../utils/bossUtils';
 
 // 보스 설정
 const BOSS_CONFIG = {
@@ -219,7 +220,7 @@ function createBossSkills(difficulty: RPGDifficulty): BossSkill[] {
  * 모든 보스가 죽었는지 확인
  */
 export function areAllBossesDead(enemies: RPGEnemy[]): boolean {
-  const bosses = enemies.filter(e => e.type === 'boss');
+  const bosses = enemies.filter(e => isBossType(e.type));
   if (bosses.length === 0) return true;
   return bosses.every(b => b.hp <= 0);
 }
@@ -228,7 +229,7 @@ export function areAllBossesDead(enemies: RPGEnemy[]): boolean {
  * 보스 수 확인
  */
 export function getBossCount(enemies: RPGEnemy[]): { total: number; alive: number } {
-  const bosses = enemies.filter(e => e.type === 'boss');
+  const bosses = enemies.filter(e => isBossType(e.type));
   const aliveBosses = bosses.filter(b => b.hp > 0);
   return {
     total: bosses.length,
@@ -240,7 +241,7 @@ export function getBossCount(enemies: RPGEnemy[]): { total: number; alive: numbe
  * 보스가 존재하는지 확인
  */
 export function hasBosses(enemies: RPGEnemy[]): boolean {
-  return enemies.some(e => e.type === 'boss' && e.hp > 0);
+  return enemies.some(e => isBossType(e.type) && e.hp > 0);
 }
 
 /**

@@ -23,6 +23,7 @@ export type EffectType =
   | 'boss_heal'
   // 보스 기본 공격 이펙트
   | 'boss_basic_attack'
+  | 'boss2_basic_attack'
   // RTS 지뢰 이펙트
   | 'mine_explosion';
 

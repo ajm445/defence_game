@@ -8,8 +8,8 @@ export const RPGWaveInfo: React.FC = () => {
   const gamePhase = useRPGGamePhase();
 
   const aliveEnemies = enemies.filter((e) => e.hp > 0).length;
-  const bossEnemies = enemies.filter((e) => e.hp > 0 && e.type === 'boss').length;
-  const totalBosses = enemies.filter((e) => e.type === 'boss').length;
+  const bossEnemies = enemies.filter((e) => e.hp > 0 && (e.type === 'boss' || e.type === 'boss2')).length;
+  const totalBosses = enemies.filter((e) => e.type === 'boss' || e.type === 'boss2').length;
   const destroyedBases = enemyBases.filter((b) => b.destroyed).length;
   const isBossPhase = gamePhase === 'boss_phase';
 

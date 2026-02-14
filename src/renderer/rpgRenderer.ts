@@ -1,4 +1,4 @@
-import { RPGGameState, BossSkillWarning, BossSkillType } from '../types/rpg';
+import { RPGGameState, BossSkillWarning, BossSkillType, BossVoidZone } from '../types/rpg';
 import { RPG_CONFIG, NEXUS_CONFIG, ENEMY_BASE_CONFIG, BOSS_SKILL_CONFIGS } from '../constants/rpgConfig';
 import { drawGrid } from './drawGrid';
 import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange, drawSkillRange } from './drawHero';
@@ -83,6 +83,14 @@ export function renderRPG(
   const tutorialState = useRPGTutorialStore.getState();
   if (tutorialState.isActive && tutorialState.targetPosition) {
     drawTutorialTargetMarker(ctx, tutorialState.targetPosition, camera, state.gameTime);
+  }
+
+  // Boss2 Void Zone 지속 장판 렌더링
+  const rpgStore = useRPGStore.getState();
+  if (rpgStore.bossActiveZones && rpgStore.bossActiveZones.length > 0) {
+    for (const zone of rpgStore.bossActiveZones) {
+      drawVoidZone(ctx, zone, camera, state.gameTime);
+    }
   }
 
   // 보스 스킬 경고 표시 렌더링
@@ -600,6 +608,121 @@ function drawBossSkillWarning(
       }
       break;
     }
+
+    // ============================================
+    // Boss2 (암흑 마법사) 스킬 경고
+    // ============================================
+    case 'dark_orb': {
+      // 암흑 구체: 보라색 원형 AoE
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * (0.5 + progress * 0.5), 0, Math.PI * 2);
+      const orbGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, warning.radius);
+      orbGradient.addColorStop(0, `rgba(153, 0, 255, ${alpha * 0.6})`);
+      orbGradient.addColorStop(1, `rgba(80, 0, 150, ${alpha * 0.2})`);
+      ctx.fillStyle = orbGradient;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(200, 100, 255, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      break;
+    }
+
+    case 'shadow_summon': {
+      // 그림자 소환: 보라색 마법진
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius, 0, Math.PI * 2);
+      ctx.strokeStyle = `rgba(153, 0, 255, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      const ssRotation = elapsed * 2;
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * 0.5, ssRotation, ssRotation + Math.PI * 1.5);
+      ctx.strokeStyle = `rgba(200, 50, 255, ${alpha})`;
+      ctx.lineWidth = 2;
+      ctx.stroke();
+
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * 0.2, 0, Math.PI * 2);
+      ctx.fillStyle = `rgba(153, 0, 255, ${alpha * 0.5})`;
+      ctx.fill();
+      break;
+    }
+
+    case 'void_zone': {
+      // 공허의 영역: 보라색 소용돌이 장판 경고
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * (0.5 + progress * 0.5), 0, Math.PI * 2);
+      const vzGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, warning.radius);
+      vzGradient.addColorStop(0, `rgba(50, 0, 100, ${alpha * 0.6})`);
+      vzGradient.addColorStop(0.5, `rgba(100, 0, 200, ${alpha * 0.4})`);
+      vzGradient.addColorStop(1, `rgba(153, 0, 255, ${alpha * 0.2})`);
+      ctx.fillStyle = vzGradient;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(200, 100, 255, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+      break;
+    }
+
+    case 'dark_meteor': {
+      // 암흑 유성: 보라색 원형 낙하 경고
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * progress, 0, Math.PI * 2);
+      const dmGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, warning.radius);
+      dmGradient.addColorStop(0, `rgba(153, 0, 255, ${alpha * 0.5})`);
+      dmGradient.addColorStop(0.5, `rgba(100, 0, 200, ${alpha * 0.4})`);
+      dmGradient.addColorStop(1, `rgba(50, 0, 100, ${alpha * 0.2})`);
+      ctx.fillStyle = dmGradient;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(255, 100, 255, ${alpha})`;
+      ctx.lineWidth = 4;
+      ctx.stroke();
+
+      // 경고 텍스트
+      const dmBlink = Math.sin(elapsed * 12) > 0 ? 1 : 0.5;
+      ctx.globalAlpha = dmBlink;
+      ctx.font = 'bold 16px sans-serif';
+      ctx.textAlign = 'center';
+      ctx.strokeStyle = '#000';
+      ctx.lineWidth = 3;
+      ctx.strokeText('⚠ 유성 낙하 ⚠', screenX, screenY - warning.radius - 15);
+      ctx.fillStyle = '#cc66ff';
+      ctx.fillText('⚠ 유성 낙하 ⚠', screenX, screenY - warning.radius - 15);
+      break;
+    }
+
+    case 'soul_drain': {
+      // 영혼 흡수: 보라색 원형 흡수 이펙트
+      ctx.beginPath();
+      ctx.arc(screenX, screenY, warning.radius * (0.6 + progress * 0.4), 0, Math.PI * 2);
+      const sdGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, warning.radius);
+      sdGradient.addColorStop(0, `rgba(100, 0, 200, ${alpha * 0.5})`);
+      sdGradient.addColorStop(1, `rgba(50, 0, 100, ${alpha * 0.2})`);
+      ctx.fillStyle = sdGradient;
+      ctx.fill();
+      ctx.strokeStyle = `rgba(180, 50, 255, ${alpha})`;
+      ctx.lineWidth = 3;
+      ctx.stroke();
+
+      // 수렴하는 선
+      ctx.strokeStyle = `rgba(200, 100, 255, ${alpha * 0.7})`;
+      ctx.lineWidth = 1.5;
+      for (let i = 0; i < 8; i++) {
+        const lineAngle = (Math.PI / 4) * i + elapsed * 1.5;
+        const outerDist = warning.radius * (1 - progress * 0.3);
+        ctx.beginPath();
+        ctx.moveTo(screenX + Math.cos(lineAngle) * outerDist, screenY + Math.sin(lineAngle) * outerDist);
+        ctx.lineTo(screenX + Math.cos(lineAngle) * 10, screenY + Math.sin(lineAngle) * 10);
+        ctx.stroke();
+      }
+      break;
+    }
+
+    case 'teleport': {
+      // 텔레포트: 경고 없음 (빈 케이스)
+      break;
+    }
   }
 
   // 스킬 이름 표시
@@ -609,6 +732,63 @@ function drawBossSkillWarning(
   ctx.textBaseline = 'middle';
   ctx.fillStyle = `rgba(255, 255, 255, ${alpha})`;
   ctx.fillText(config.name, screenX, screenY - warning.radius - 15);
+
+  ctx.restore();
+}
+
+/**
+ * Void Zone (공허의 영역) 지속 장판 렌더링
+ */
+function drawVoidZone(
+  ctx: CanvasRenderingContext2D,
+  zone: BossVoidZone,
+  camera: { x: number; y: number },
+  gameTime: number
+) {
+  const screenX = zone.x - camera.x;
+  const screenY = zone.y - camera.y;
+
+  const elapsed = gameTime - zone.startTime;
+  const pulse = Math.sin(elapsed * 3) * 0.15 + 0.85;
+
+  ctx.save();
+
+  // 소용돌이 배경
+  const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, zone.radius);
+  gradient.addColorStop(0, `rgba(80, 0, 150, ${0.4 * pulse})`);
+  gradient.addColorStop(0.5, `rgba(50, 0, 100, ${0.3 * pulse})`);
+  gradient.addColorStop(1, `rgba(30, 0, 60, ${0.1 * pulse})`);
+  ctx.fillStyle = gradient;
+  ctx.beginPath();
+  ctx.arc(screenX, screenY, zone.radius, 0, Math.PI * 2);
+  ctx.fill();
+
+  // 회전하는 테두리
+  ctx.strokeStyle = `rgba(180, 50, 255, ${0.6 * pulse})`;
+  ctx.lineWidth = 3;
+  ctx.setLineDash([8, 8]);
+  ctx.lineDashOffset = -elapsed * 30;
+  ctx.beginPath();
+  ctx.arc(screenX, screenY, zone.radius, 0, Math.PI * 2);
+  ctx.stroke();
+  ctx.setLineDash([]);
+
+  // 소용돌이 선
+  ctx.strokeStyle = `rgba(153, 0, 255, ${0.3 * pulse})`;
+  ctx.lineWidth = 1.5;
+  for (let i = 0; i < 3; i++) {
+    const spiralAngle = elapsed * 2 + (Math.PI * 2 / 3) * i;
+    ctx.beginPath();
+    for (let t = 0; t < 1; t += 0.05) {
+      const r = zone.radius * t;
+      const a = spiralAngle + t * Math.PI * 2;
+      const px = screenX + Math.cos(a) * r;
+      const py = screenY + Math.sin(a) * r;
+      if (t === 0) ctx.moveTo(px, py);
+      else ctx.lineTo(px, py);
+    }
+    ctx.stroke();
+  }
 
   ctx.restore();
 }

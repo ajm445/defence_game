@@ -16,10 +16,12 @@ import {
   RPG_ENEMY_CONFIGS,
   BOSS_SKILL_CONFIGS,
   DIFFICULTY_BOSS_SKILLS,
+  DIFFICULTY_BOSS2_SKILLS,
   SPAWN_CONFIG,
   ADVANCED_CLASS_CONFIGS,
   type AdvancedHeroClass,
 } from './rpgServerConfig';
+import { isBossType } from '../../../src/utils/bossUtils';
 import { distance, distanceSquared, clamp, generateId } from './rpgServerUtils';
 
 export interface EnemyContext {
@@ -199,6 +201,98 @@ export function createBoss(
 }
 
 /**
+ * Boss2 (암흑 마법사) 생성
+ */
+export function createBoss2(
+  baseId: EnemyBaseId,
+  spawnX: number,
+  spawnY: number,
+  difficulty: RPGDifficulty,
+  playerCount: number
+): RPGEnemy {
+  const difficultyConfig = DIFFICULTY_CONFIGS[difficulty];
+
+  // Boss2 난이도별 고정 HP/ATK (bossHp/AttackMultiplier 미적용 - 별도 스케일링)
+  // Boss1 대비 약 10~15% 높은 공격력 유지
+  const boss2HpByDifficulty: Partial<Record<RPGDifficulty, Record<number, number>>> = {
+    hell: { 1: 5000, 2: 5800, 3: 8000, 4: 10500 },
+    apocalypse: { 1: 7500, 2: 8500, 3: 11500, 4: 15000 },
+  };
+  const boss2AtkByDifficulty: Partial<Record<RPGDifficulty, Record<number, number>>> = {
+    hell: { 1: 150, 2: 165, 3: 195, 4: 240 },
+    apocalypse: { 1: 180, 2: 200, 3: 235, 4: 290 },
+  };
+  const defaultHpByPlayerCount: Record<number, number> = { 1: 2800, 2: 3200, 3: 4400, 4: 6000 };
+  const baseDamageByPlayerCount: Record<number, number> = { 1: 120, 2: 130, 3: 155, 4: 190 };
+
+  const clampedPlayerCount = Math.max(1, Math.min(4, playerCount));
+
+  const fixedHpTable = boss2HpByDifficulty[difficulty];
+  const bossHp = fixedHpTable
+    ? fixedHpTable[clampedPlayerCount]
+    : Math.floor(defaultHpByPlayerCount[clampedPlayerCount] * difficultyConfig.bossHpMultiplier);
+  const fixedAtkTable = boss2AtkByDifficulty[difficulty];
+  const bossDamage = fixedAtkTable
+    ? fixedAtkTable[clampedPlayerCount]
+    : Math.floor(baseDamageByPlayerCount[clampedPlayerCount] * difficultyConfig.bossAttackMultiplier);
+  const goldReward = Math.floor(500 * difficultyConfig.goldRewardMultiplier);
+
+  const aiConfig = ENEMY_AI_CONFIGS.boss2;
+
+  // Boss2 스킬 생성
+  const skillTypes = DIFFICULTY_BOSS2_SKILLS[difficulty];
+  const bossSkills: BossSkill[] = skillTypes.map(type => {
+    const config = BOSS_SKILL_CONFIGS[type];
+    return {
+      type: type as BossSkillType,
+      cooldown: config.cooldown,
+      currentCooldown: config.cooldown * 0.5,
+      damage: config.damage,
+      radius: config.radius,
+      castTime: config.castTime,
+      summonCount: config.summonCount,
+      hpThreshold: config.hpThreshold,
+      drainHealPercent: config.drainHealPercent,
+      zoneDuration: config.zoneDuration,
+      used: false,
+    };
+  });
+
+  return {
+    id: `boss2_${baseId}_${generateId()}`,
+    type: 'boss2' as any,
+    config: {
+      name: baseId === 'left' ? '왼쪽 암흑 마법사' : '오른쪽 암흑 마법사',
+      cost: {},
+      hp: bossHp,
+      attack: bossDamage,
+      attackSpeed: 2.5,
+      speed: 1.0,
+      range: aiConfig.attackRange,
+      type: 'combat',
+    },
+    x: spawnX,
+    y: spawnY,
+    hp: bossHp,
+    maxHp: bossHp,
+    state: 'idle',
+    attackCooldown: 0,
+    team: 'enemy',
+    goldReward,
+    targetHero: false,
+    aiConfig: {
+      ...aiConfig,
+      attackDamage: bossDamage,
+    },
+    buffs: [],
+    fromBase: baseId,
+    aggroOnHero: false,
+    damagedBy: [],
+    bossSkills,
+  };
+}
+
+/**
  * 적 스폰 업데이트
  */
 export function updateSpawning(
@@ -285,7 +379,7 @@ export function updateEnemies(
     }
 
     // 보스 시전 중이면 이동 안 함
-    if (enemy.type === 'boss' && enemy.currentCast) {
+    if (isBossType(enemy.type) && enemy.currentCast) {
       enemy.state = 'casting';
       continue;
     }
@@ -487,7 +581,7 @@ export function handleEnemyDeath(state: ServerGameState, enemy: RPGEnemy, attack
 
   const goldReward = enemy.goldReward;
 
-  if (enemy.type === 'boss') {
+  if (isBossType(enemy.type)) {
     state.stats.bossesKilled++;
 
     const contributors = enemy.damagedBy || [];

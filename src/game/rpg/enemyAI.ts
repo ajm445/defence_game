@@ -2,6 +2,7 @@ import { RPGEnemy, HeroUnit, Buff, Nexus } from '../../types/rpg';
 import { UnitType } from '../../types/unit';
 import { ENEMY_AI_CONFIGS, RPG_CONFIG, NEXUS_CONFIG, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { distance, clamp } from '../../utils/math';
+import { isBossType } from '../../utils/bossUtils';
 
 export interface EnemyAIResult {
   enemy: RPGEnemy;
@@ -46,7 +47,7 @@ export function updateEnemyAINexus(
   }
 
   // 보스가 스킬 시전 중이면 이동하지 않음
-  if (enemy.type === 'boss' && enemy.currentCast) {
+  if (isBossType(enemy.type) && enemy.currentCast) {
     return {
       enemy: {
         ...enemy,
@@ -563,7 +564,7 @@ function updateEnemyAIMultiplayer(
   }
 
   // 보스가 스킬 시전 중이면 이동하지 않음
-  if (enemy.type === 'boss' && enemy.currentCast) {
+  if (isBossType(enemy.type) && enemy.currentCast) {
     return {
       enemy: {
         ...enemy,

@@ -33,6 +33,8 @@ const difficultyColors: Record<RPGDifficulty, { bg: string; border: string; text
   normal: { bg: 'bg-yellow-500/20', border: 'border-yellow-500', text: 'text-yellow-400', hoverBg: 'hover:bg-yellow-500/30' },
   hard: { bg: 'bg-orange-500/20', border: 'border-orange-500', text: 'text-orange-400', hoverBg: 'hover:bg-orange-500/30' },
   extreme: { bg: 'bg-red-500/20', border: 'border-red-500', text: 'text-red-400', hoverBg: 'hover:bg-red-500/30' },
+  hell: { bg: 'bg-purple-500/20', border: 'border-purple-500', text: 'text-purple-400', hoverBg: 'hover:bg-purple-500/30' },
+  apocalypse: { bg: 'bg-rose-500/20', border: 'border-rose-500', text: 'text-rose-400', hoverBg: 'hover:bg-rose-500/30' },
 };
 
 const CLASS_LIST: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];

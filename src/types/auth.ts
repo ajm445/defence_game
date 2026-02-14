@@ -77,6 +77,8 @@ const VICTORY_BONUS_BY_DIFFICULTY: Record<RPGDifficulty, number> = {
   normal: 200,
   hard: 350,
   extreme: 500,
+  hell: 700,
+  apocalypse: 1000,
 };
 
 // 플레이어 경험치 계산 (넥서스 디펜스)
@@ -125,6 +127,8 @@ const CLASS_VICTORY_BONUS_BY_DIFFICULTY: Record<RPGDifficulty, number> = {
   normal: 160,
   hard: 280,
   extreme: 400,
+  hell: 560,
+  apocalypse: 800,
 };
 
 // 직업 경험치 계산 (넥서스 디펜스)

@@ -106,9 +106,10 @@ export function drawRPGMinimap(
         const enemyX = x + enemy.x * scaleX;
         const enemyY = y + enemy.y * scaleY;
 
-        ctx.fillStyle = enemy.type === 'boss' ? '#ff0000' : '#ff6666';
+        const isAnyBoss = enemy.type === 'boss' || enemy.type === 'boss2';
+        ctx.fillStyle = enemy.type === 'boss2' ? '#9900ff' : (enemy.type === 'boss' ? '#ff0000' : '#ff6666');
         ctx.beginPath();
-        ctx.arc(enemyX, enemyY, enemy.type === 'boss' ? 4 : 2, 0, Math.PI * 2);
+        ctx.arc(enemyX, enemyY, isAnyBoss ? 4 : 2, 0, Math.PI * 2);
         ctx.fill();
       }
     }

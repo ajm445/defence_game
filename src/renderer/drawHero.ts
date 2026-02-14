@@ -671,9 +671,11 @@ export function drawRPGEnemy(
 
   // 보스 유닛은 더 크게 렌더링
   const isBoss = enemy.type === 'boss';
-  const unitScale = isBoss ? 2.5 : 1;
-  const baseRadius = isBoss ? 44 : 22;
-  const mainRadius = isBoss ? 34 : 17;
+  const isBoss2 = enemy.type === 'boss2';
+  const isAnyBoss = isBoss || isBoss2;
+  const unitScale = isAnyBoss ? 2.5 : 1;
+  const baseRadius = isAnyBoss ? 44 : 22;
+  const mainRadius = isAnyBoss ? 34 : 17;
 
   // 타겟 글로우
   if (isTarget) {
@@ -685,11 +687,15 @@ export function drawRPGEnemy(
   if (isBoss) {
     ctx.shadowColor = '#ff0000';
     ctx.shadowBlur = 30;
+  } else if (isBoss2) {
+    ctx.shadowColor = '#9900ff';
+    ctx.shadowBlur = 30;
   }
 
   // 외부 원
+  const bossColor = isBoss2 ? '#9900ff' : '#ff0000';
   const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, baseRadius);
-  gradient.addColorStop(0, (isBoss ? '#ff0000' : '#ef4444') + '40');
+  gradient.addColorStop(0, (isAnyBoss ? bossColor : '#ef4444') + '40');
   gradient.addColorStop(1, 'transparent');
   ctx.fillStyle = gradient;
   ctx.beginPath();
@@ -697,9 +703,9 @@ export function drawRPGEnemy(
   ctx.fill();
 
   // 메인 원
-  ctx.fillStyle = isBoss ? '#2a0a0a' : '#1a1a25';
-  ctx.strokeStyle = isTarget ? '#ff6600' : (isBoss ? '#ff0000' : '#ef4444');
-  ctx.lineWidth = isTarget ? 3 : (isBoss ? 4 : 2);
+  ctx.fillStyle = isAnyBoss ? (isBoss2 ? '#1a0a2a' : '#2a0a0a') : '#1a1a25';
+  ctx.strokeStyle = isTarget ? '#ff6600' : (isAnyBoss ? bossColor : '#ef4444');
+  ctx.lineWidth = isTarget ? 3 : (isAnyBoss ? 4 : 2);
 
   ctx.beginPath();
   ctx.arc(screenX, screenY, mainRadius, 0, Math.PI * 2);
@@ -715,10 +721,11 @@ export function drawRPGEnemy(
     knight: '🛡️',
     mage: '🔮',
     boss: '👹',
+    boss2: '🧙',
   };
-  const iconSize = isBoss ? 60 : 30;
-  const iconHeight = isBoss ? 80 : 40;
-  const emojiSize = isBoss ? 40 : 20;
+  const iconSize = isAnyBoss ? 60 : 30;
+  const iconHeight = isAnyBoss ? 80 : 40;
+  const emojiSize = isAnyBoss ? 40 : 20;
 
   // 적이 영웅을 바라보도록 flip (원본 이미지가 왼쪽을 바라봄)
   // 영웅이 오른쪽에 있으면 flip하여 오른쪽을 바라봄
@@ -730,9 +737,9 @@ export function drawRPGEnemy(
   }
 
   // 체력바
-  const hpBarWidth = isBoss ? 80 : 26;
-  const hpBarHeight = isBoss ? 8 : 4;
-  const hpBarY = isBoss ? -60 : -35;
+  const hpBarWidth = isAnyBoss ? 80 : 26;
+  const hpBarHeight = isAnyBoss ? 8 : 4;
+  const hpBarY = isAnyBoss ? -60 : -35;
   const hpPercent = enemy.hp / enemy.maxHp;
 
   ctx.fillStyle = '#1a1a25';
@@ -752,7 +759,7 @@ export function drawRPGEnemy(
   ctx.fill();
 
   // 보스 체력 텍스트
-  if (isBoss) {
+  if (isAnyBoss) {
     ctx.font = 'bold 12px Arial';
     ctx.fillStyle = '#ffffff';
     ctx.textAlign = 'center';
@@ -760,7 +767,7 @@ export function drawRPGEnemy(
   }
 
   // 보스 공격 모션 (attacking 상태)
-  if (isBoss && enemy.state === 'attacking') {
+  if (isAnyBoss && enemy.state === 'attacking') {
     ctx.save();
 
     // 공격 방향 계산 (영웅 방향)
@@ -812,8 +819,8 @@ export function drawRPGEnemy(
 
     // 회전하는 별들 (기절 이펙트)
     const time = Date.now() / 1000;
-    const starCount = isBoss ? 5 : 3;
-    const orbitRadius = isBoss ? 50 : 25;
+    const starCount = isAnyBoss ? 5 : 3;
+    const orbitRadius = isAnyBoss ? 50 : 25;
 
     for (let i = 0; i < starCount; i++) {
       const angle = (time * 3) + (i * (Math.PI * 2 / starCount));
@@ -822,7 +829,7 @@ export function drawRPGEnemy(
 
       // 별 그리기
       ctx.fillStyle = '#ffd700';
-      ctx.font = isBoss ? '16px Arial' : '12px Arial';
+      ctx.font = isAnyBoss ? '16px Arial' : '12px Arial';
       ctx.textAlign = 'center';
       ctx.textBaseline = 'middle';
       ctx.fillText('⭐', starX, starY);
@@ -832,7 +839,7 @@ export function drawRPGEnemy(
     ctx.font = 'bold 10px Arial';
     ctx.fillStyle = '#ffd700';
     ctx.textAlign = 'center';
-    ctx.fillText('STUN', screenX, screenY - (isBoss ? 75 : 50));
+    ctx.fillText('STUN', screenX, screenY - (isAnyBoss ? 75 : 50));
 
     ctx.restore();
   }

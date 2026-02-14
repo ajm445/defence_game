@@ -1,5 +1,53 @@
 # Changelog
 
+## [1.24.0] - 2026-02-14
+
+### Boss2: 암흑 마법사 추가 (지옥/종말 난이도)
+- **새로운 보스 Boss2 (암흑 마법사)**: 지옥/종말 난이도에서 기존 보스와 함께 등장하는 원거리 마법사 보스
+  - 기지 2개 파괴 시 각 기지 위치에서 Boss1 + Boss2가 함께 스폰 (총 4마리)
+  - HP: 2800/3200/4400/6000 (1/2/3/4인), 공격력: 120/130/155/190, 공격 사거리: 250px
+  - 보라색(#9900ff) 글로우/테마로 Boss1(빨강)과 시각적 구분
+
+### Boss2 고유 스킬 6개
+- **암흑 구체 (Dark Orb)**: 6초 쿨, 대상 방향 원거리 AoE 폭발 (250% 데미지, 120px)
+- **그림자 소환 (Shadow Summon)**: 18초 쿨, HP ≤70% 시 마법사 졸개 3마리 소환
+- **공허의 영역 (Void Zone)**: 15초 쿨, 5초 지속 데미지 장판 (초당 50% 데미지, 180px)
+- **암흑 유성 (Dark Meteor)**: 20초 쿨, HP ≤50% 시 각 영웅 위치에 유성 낙하 (300% 데미지)
+- **영혼 흡수 (Soul Drain)**: 12초 쿨, HP ≤60% 시 AoE 드레인 + 적중 영웅당 자힐 5%
+- **순간이동 (Teleport)**: 10초 쿨, HP ≤80% 시 가장 먼 영웅 근처로 텔레포트
+
+### 지옥/종말 난이도 밸런스 하향
+- Boss2 추가(보스 2→4마리)로 과도해진 체감 난이도 하향 조정
+- **지옥**: 극한 대비 +10~15% 수준으로 조정 (적HP 6.0→4.5, 적ATK 4.0→3.3 등)
+- **종말**: 기존 지옥 수준으로 조정 (적HP 9.0→6.0, 적ATK 5.2→4.0 등)
+- 골드/경험치 보상도 비례 하향 (과도한 보상 방지)
+- 기지 파괴 골드: 지옥 450→350, 종말 650→500
+
+### 렌더링 및 UI
+- Boss2 보라색 글로우, 배경, 체력바 텍스트, 공격 모션, 기절 이펙트
+- 미니맵 보라색(#9900ff) 4px 점 표시
+- 6개 스킬 경고 시각화 (보라색 테마)
+- 공허의 영역 지속 장판 렌더링 (보라색 소용돌이)
+- 게임 오버 모달 보스 수 지옥/종말 4마리로 정확히 표시
+- `isBossType()` 유틸리티로 Boss1/Boss2 통합 처리
+
+### Technical Changes
+- `src/types/unit.ts`, `shared/types/game.ts`: `UnitType`에 `'boss2'` 추가
+- `src/types/rpg.ts`: `BossSkillType`에 6개 추가, `BossVoidZone` 인터페이스, `RPGGameState`에 `bossActiveZones` 추가
+- `src/utils/bossUtils.ts`: `isBossType()` 유틸리티 신규
+- `src/constants/rpgConfig.ts`, `server/src/game/rpgServerConfig.ts`: Boss2 스킬/AI/능력치 설정 미러링
+- `server/src/game/rpgServerBossSystem.ts`: 6개 신규 스킬 실행 로직, `updateVoidZones()` DoT 처리
+- `server/src/game/rpgServerEnemySystem.ts`: `createBoss2()` 스폰 함수
+- `server/src/game/RPGServerGameEngine.ts`: 지옥/종말 보스 페이즈에서 Boss2 추가 스폰
+- `shared/types/hostBasedNetwork.ts`: `SerializedGameState`에 `bossActiveZones` 추가
+- `src/renderer/drawHero.ts`: Boss2 렌더링 + `isBoss` → `isAnyBoss` 통합
+- `src/renderer/rpgRenderer.ts`: 6개 스킬 경고 + `drawVoidZone()` 렌더링
+- `src/hooks/useRPGGameLoop.ts`: Boss2 이펙트/사운드 핸들러 (멀티플레이어 동기화 포함)
+- `src/stores/useRPGStore.ts`: `bossActiveZones` 상태 + 직렬화, 보스 수 계산 수정
+- 서버/클라이언트 ~33곳 `type === 'boss'` → `isBossType()` 교체
+
+---
+
 ## [1.23.11] - 2026-02-14
 
 ### 마법사 계열 SP 업그레이드: 스킬 쿨타임 감소

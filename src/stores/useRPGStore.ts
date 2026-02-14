@@ -1,8 +1,8 @@
 import { create } from 'zustand';
 import { subscribeWithSelector } from 'zustand/middleware';
-import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning, AdvancedHeroClass, SkillType, DamageNumber, DamageNumberType, BossSkillExecutedEffect } from '../types/rpg';
+import { RPGGameState, HeroUnit, RPGEnemy, Skill, SkillEffect, RPGGameResult, HeroClass, PendingSkill, Buff, VisibilityState, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, RPGDifficulty, NexusLaserEffect, BossSkillWarning, BossVoidZone, AdvancedHeroClass, SkillType, DamageNumber, DamageNumberType, BossSkillExecutedEffect } from '../types/rpg';
 import { UnitType } from '../types/unit';
-import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, JOB_ADVANCEMENT_REQUIREMENTS, SECOND_ENHANCEMENT_MULTIPLIER, ADVANCEMENT_OPTIONS, TUTORIAL_MAP_CONFIG, TUTORIAL_NEXUS_CONFIG, TUTORIAL_ENEMY_BASE_CONFIG } from '../constants/rpgConfig';
+import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFIG, GOLD_CONFIG, UPGRADE_CONFIG, ENEMY_AI_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, JOB_ADVANCEMENT_REQUIREMENTS, SECOND_ENHANCEMENT_MULTIPLIER, ADVANCEMENT_OPTIONS, TUTORIAL_MAP_CONFIG, TUTORIAL_NEXUS_CONFIG, TUTORIAL_ENEMY_BASE_CONFIG, DIFFICULTY_BOSS2_SKILLS } from '../constants/rpgConfig';
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
 import { createInitialUpgradeLevels, getUpgradeCost, canUpgrade, getGoldReward, calculateAllUpgradeBonuses, UpgradeType } from '../game/rpg/goldSystem';
 import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '../types/auth';
@@ -12,6 +12,7 @@ import { wsClient } from '../services/WebSocketClient';
 import { soundManager } from '../services/SoundManager';
 import { useUIStore } from './useUIStore';
 import { distance } from '../utils/math';
+import { isBossType } from '../utils/bossUtils';
 
 // 버프 공유 범위 상수 (useNetworkSync.ts와 동일)
 const BERSERKER_SHARE_RANGE = 300;
@@ -423,6 +424,7 @@ const initialState: RPGState = {
   damageNumbers: [],
   pendingSkills: [],
   bossSkillWarnings: [],
+  bossActiveZones: [],
   result: null,
   mousePosition: { x: NEXUS_CONFIG.position.x, y: NEXUS_CONFIG.position.y },
   showAttackRange: false,
@@ -1548,7 +1550,7 @@ export const useRPGStore = create<RPGStore>()(
             if (newHp <= 0) {
               killed = true;
               goldReward = enemy.goldReward || 0;
-              isBoss = enemy.type === 'boss';
+              isBoss = isBossType(enemy.type);
               enemyDamagedBy = updatedDamagedBy;
               return { ...enemy, hp: 0, damagedBy: updatedDamagedBy };
             }
@@ -1817,7 +1819,7 @@ export const useRPGStore = create<RPGStore>()(
           basesDestroyed: state.stats.basesDestroyed,
           bossesKilled: state.stats.bossesKilled,
           totalBases,
-          totalBosses: totalBases, // 보스 수 = 기지 수
+          totalBosses: totalBases * (DIFFICULTY_BOSS2_SKILLS[state.selectedDifficulty]?.length > 0 ? 2 : 1), // 지옥/종말: 기지당 boss1+boss2
           timePlayed: state.stats.timePlayed,
           heroClass: state.hero?.heroClass || 'warrior',
           finalUpgradeLevels: state.upgradeLevels,
@@ -2506,6 +2508,7 @@ export const useRPGStore = create<RPGStore>()(
         bossSkillExecutedEffects: state.bossSkillExecutedEffects,
         pendingSkills: state.pendingSkills,
         bossSkillWarnings: state.bossSkillWarnings,
+        bossActiveZones: state.bossActiveZones,
         damageNumbers: state.damageNumbers,
         running: state.running,
         paused: state.paused,
@@ -2949,6 +2952,7 @@ export const useRPGStore = create<RPGStore>()(
         bossSkillExecutedEffects: serializedState.bossSkillExecutedEffects || [],
         pendingSkills: serializedState.pendingSkills,
         bossSkillWarnings: serializedState.bossSkillWarnings || [],
+        bossActiveZones: serializedState.bossActiveZones || [],
         damageNumbers: serializedState.damageNumbers || [],
         lastDamageTime: newLastDamageTime,  // 클라이언트 피격 화면 효과용
         camera: newCamera,  // 클라이언트 부활 시 카메라 자동 고정

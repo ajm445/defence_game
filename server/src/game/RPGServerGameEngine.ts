@@ -62,6 +62,7 @@ import {
 import {
   createEnemy,
   createBoss,
+  createBoss2,
   updateSpawning,
   updateEnemies,
   enemyAttackHero,
@@ -72,6 +73,7 @@ import {
 
 import {
   updateBossSkills,
+  updateVoidZones,
   type BossContext,
 } from './rpgServerBossSystem';
 
@@ -232,6 +234,7 @@ export class RPGServerGameEngine {
       goldAccumulator: 0,
       nexusLaserCooldown: 0,
       currentTickTimestamp: Date.now(),
+      bossActiveZones: [],
     };
   }
 
@@ -327,6 +330,9 @@ export class RPGServerGameEngine {
 
     // 8. 보스 스킬 처리
     updateBossSkills(this.state, deltaTime, this.bossContext);
+
+    // 8.5. Void Zone 지속 데미지 처리
+    updateVoidZones(this.state, deltaTime);
 
     // 9. 넥서스 레이저 업데이트
     updateNexusLaser(this.state, deltaTime, (enemy) => this.handleEnemyDeath(enemy));
@@ -560,6 +566,17 @@ export class RPGServerGameEngine {
   private onEnemyAttackHero(enemy: RPGEnemy, hero: ServerHero): void {
     enemyAttackHero(enemy, hero, this.state.damageNumbers, this.state.currentTickTimestamp);
 
+    // 보스 기본공격 이펙트
+    if (enemy.type === 'boss' || enemy.type === 'boss2') {
+      this.state.basicAttackEffects.push({
+        id: `enemy_attack_${this.state.currentTickTimestamp}_${enemy.id}`,
+        type: enemy.type as 'boss' | 'boss2',
+        x: hero.x,
+        y: hero.y,
+        timestamp: this.state.currentTickTimestamp,
+      });
+    }
+
     // 영웅 사망 처리
     if (hero.hp <= 0) {
       hero.hp = 0;
@@ -582,6 +599,17 @@ export class RPGServerGameEngine {
 
   private onEnemyAttackNexus(enemy: RPGEnemy): void {
     enemyAttackNexus(enemy, this.state.nexus, this.state.damageNumbers, this.state.currentTickTimestamp);
+
+    // 보스 기본공격 이펙트 (넥서스 공격)
+    if (enemy.type === 'boss' || enemy.type === 'boss2') {
+      this.state.basicAttackEffects.push({
+        id: `enemy_nexus_attack_${this.state.currentTickTimestamp}_${enemy.id}`,
+        type: enemy.type as 'boss' | 'boss2',
+        x: this.state.nexus.x,
+        y: this.state.nexus.y,
+        timestamp: this.state.currentTickTimestamp,
+      });
+    }
   }
 
   private handleEnemyDeath(enemy: RPGEnemy, attacker?: ServerHero): void {
@@ -596,6 +624,12 @@ export class RPGServerGameEngine {
     for (const base of destroyedBases) {
       const boss = createBoss(base.id, base.x, base.y, this.difficulty, this.playerInfos.length);
       this.state.enemies.push(boss);
+
+      // hell/apocalypse 난이도에서 boss2 (암흑 마법사)도 스폰
+      if (this.difficulty === 'hell' || this.difficulty === 'apocalypse') {
+        const boss2 = createBoss2(base.id, base.x + 100, base.y + 50, this.difficulty, this.playerInfos.length);
+        this.state.enemies.push(boss2);
+      }
     }
   }
 

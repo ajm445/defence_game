@@ -4,7 +4,7 @@
  * - 보스 스킬 패턴
  */
 
-import type { RPGEnemy, BossSkillType, EnemyBaseId, RPGDifficulty } from '../../../src/types/rpg';
+import type { RPGEnemy, BossSkillType, BossVoidZone, EnemyBaseId, RPGDifficulty } from '../../../src/types/rpg';
 import type { ServerHero, ServerGameState } from './rpgServerTypes';
 import {
   RPG_CONFIG,
@@ -15,6 +15,7 @@ import {
 } from './rpgServerConfig';
 import { distance, clamp, generateId, pointToLineDistance, isInConeRange } from './rpgServerUtils';
 import { createEnemy } from './rpgServerEnemySystem';
+import { isBossType } from '../../../src/utils/bossUtils';
 
 export interface BossContext {
   difficulty: RPGDifficulty;
@@ -30,10 +31,8 @@ export function updateBossSkills(
   ctx: BossContext
 ): void {
   const { enemies, gameTime } = state;
-  const bosses = enemies.filter(e => e.type === 'boss' && e.hp > 0);
+  const bosses = enemies.filter(e => isBossType(e.type) && e.hp > 0);
   const aliveHeroes = Array.from(state.heroes.values()).filter(h => !h.isDead);
-
-  if (aliveHeroes.length === 0) return;
 
   for (const boss of bosses) {
     if (!boss.bossSkills) continue;
@@ -44,6 +43,12 @@ export function updateBossSkills(
 
     // 현재 시전 중인 스킬 처리
     if (boss.currentCast) {
+      // 모든 영웅이 죽으면 시전 취소 → 넥서스로 이동 가능하게
+      if (aliveHeroes.length === 0) {
+        boss.currentCast = undefined;
+        boss.state = 'idle';
+        continue;
+      }
       const castProgress = gameTime - boss.currentCast.startTime;
       if (castProgress >= boss.currentCast.castTime) {
         executeBossSkill(state, boss, boss.currentCast, aliveHeroes, ctx);
@@ -51,6 +56,9 @@ export function updateBossSkills(
       }
       continue;
     }
+
+    // 살아있는 영웅이 없으면 새 스킬 시전 안 함
+    if (aliveHeroes.length === 0) continue;
 
     // 스킬 쿨다운 감소
     const hpRatio = boss.hp / boss.maxHp;
@@ -104,22 +112,43 @@ export function updateBossSkills(
 
       // 경고 표시
       const config = BOSS_SKILL_CONFIGS[availableSkill.type];
-      const warning: any = {
-        id: `warning_${boss.id}_${availableSkill.type}_${gameTime}`,
-        skillType: availableSkill.type as any,
-        x: boss.x,
-        y: boss.y,
-        radius: config.radius,
-        angle: targetAngle,
-        startTime: gameTime,
-        duration: config.castTime,
-      };
-      // 돌진 스킬: 경로 끝점 추가
-      if (availableSkill.type === 'charge' && config.chargeDistance) {
-        warning.targetX = clamp(boss.x + Math.cos(targetAngle) * config.chargeDistance, 50, RPG_CONFIG.MAP_WIDTH - 50);
-        warning.targetY = clamp(boss.y + Math.sin(targetAngle) * config.chargeDistance, 50, RPG_CONFIG.MAP_HEIGHT - 50);
+
+      if (availableSkill.type === 'dark_meteor') {
+        // 각 영웅 위치에 개별 경고 생성
+        const meteorPositions: {x: number, y: number}[] = [];
+        for (const hero of aliveHeroes) {
+          meteorPositions.push({ x: hero.x, y: hero.y });
+          state.bossSkillWarnings.push({
+            id: `warning_${boss.id}_dark_meteor_${hero.id}_${gameTime}`,
+            skillType: 'dark_meteor' as any,
+            x: hero.x,
+            y: hero.y,
+            radius: config.radius,
+            startTime: gameTime,
+            duration: config.castTime,
+          });
+        }
+        boss.currentCast!.meteorPositions = meteorPositions;
+      } else if (availableSkill.type === 'teleport') {
+        // 텔레포트: 경고 없음
+      } else {
+        const warning: any = {
+          id: `warning_${boss.id}_${availableSkill.type}_${gameTime}`,
+          skillType: availableSkill.type as any,
+          x: availableSkill.type === 'dark_orb' ? nearestHero.x : boss.x,
+          y: availableSkill.type === 'dark_orb' ? nearestHero.y : boss.y,
+          radius: config.radius,
+          angle: targetAngle,
+          startTime: gameTime,
+          duration: config.castTime,
+        };
+        // 돌진 스킬: 경로 끝점 추가
+        if (availableSkill.type === 'charge' && config.chargeDistance) {
+          warning.targetX = clamp(boss.x + Math.cos(targetAngle) * config.chargeDistance, 50, RPG_CONFIG.MAP_WIDTH - 50);
+          warning.targetY = clamp(boss.y + Math.sin(targetAngle) * config.chargeDistance, 50, RPG_CONFIG.MAP_HEIGHT - 50);
+        }
+        state.bossSkillWarnings.push(warning);
       }
-      state.bossSkillWarnings.push(warning);
     }
   }
 }
@@ -237,6 +266,119 @@ function executeBossSkill(
       boss.hp = Math.min(boss.maxHp, boss.hp + healAmount);
       break;
     }
+
+    // ============================================
+    // Boss2 (암흑 마법사) 스킬
+    // ============================================
+    case 'dark_orb': {
+      // 타겟 위치 AoE 폭발
+      const damage = Math.floor(baseDamage * config.damage);
+      const targetX = cast.targetX || boss.x;
+      const targetY = cast.targetY || boss.y;
+      for (const hero of heroes) {
+        const dist = distance(targetX, targetY, hero.x, hero.y);
+        if (dist <= config.radius) {
+          applyDamageToHero(state, hero, damage);
+        }
+      }
+      // 넥서스 데미지
+      if (distance(targetX, targetY, nexus.x, nexus.y) <= config.radius) {
+        applyDamageToNexus(state, damage);
+      }
+      break;
+    }
+
+    case 'shadow_summon': {
+      // 마법사 졸개 3마리 소환 (HP 60%)
+      const summonCount = config.summonCount || 3;
+      for (let i = 0; i < summonCount; i++) {
+        const angle = (Math.PI * 2 / summonCount) * i + Math.random() * 0.5;
+        const spawnX = boss.x + Math.cos(angle) * 100;
+        const spawnY = boss.y + Math.sin(angle) * 100;
+        const enemy = ctx.createEnemy('mage', boss.fromBase!, spawnX, spawnY, 1);
+        enemy.hp = Math.floor(enemy.hp * 0.6);
+        enemy.maxHp = enemy.hp;
+        enemy.goldReward = 20;
+        enemy.aggroOnHero = true;
+        state.enemies.push(enemy);
+      }
+      break;
+    }
+
+    case 'void_zone': {
+      // bossActiveZones에 장판 추가
+      const zoneDamage = Math.floor(baseDamage * config.damage);
+      const zone: BossVoidZone = {
+        id: `void_zone_${boss.id}_${state.gameTime}`,
+        x: cast.targetX || boss.x,
+        y: cast.targetY || boss.y,
+        radius: config.radius,
+        damage: zoneDamage,
+        duration: config.zoneDuration || 5,
+        startTime: state.gameTime,
+        bossId: boss.id,
+      };
+      state.bossActiveZones.push(zone);
+      break;
+    }
+
+    case 'dark_meteor': {
+      // 각 영웅 위치에 데미지 (meteorPositions 기반)
+      const damage = Math.floor(baseDamage * config.damage);
+      const positions = cast.meteorPositions || [];
+      for (const pos of positions) {
+        for (const hero of heroes) {
+          const dist = distance(pos.x, pos.y, hero.x, hero.y);
+          if (dist <= config.radius) {
+            applyDamageToHero(state, hero, damage);
+          }
+        }
+        // 넥서스 데미지
+        if (distance(pos.x, pos.y, nexus.x, nexus.y) <= config.radius) {
+          applyDamageToNexus(state, damage);
+        }
+      }
+      break;
+    }
+
+    case 'soul_drain': {
+      // 범위 데미지 + 적중수×5% 자힐
+      const damage = Math.floor(baseDamage * config.damage);
+      let hitCount = 0;
+      for (const hero of heroes) {
+        const dist = distance(boss.x, boss.y, hero.x, hero.y);
+        if (dist <= config.radius) {
+          applyDamageToHero(state, hero, damage);
+          hitCount++;
+        }
+      }
+      // 적중 영웅당 자힐
+      const healPercent = config.drainHealPercent || 0.05;
+      const healAmount = Math.floor(boss.maxHp * healPercent * hitCount);
+      if (healAmount > 0) {
+        boss.hp = Math.min(boss.maxHp, boss.hp + healAmount);
+      }
+      break;
+    }
+
+    case 'teleport': {
+      // 가장 먼 영웅 근처로 텔레포트
+      let farthestHero = heroes[0];
+      let maxDist = 0;
+      for (const hero of heroes) {
+        const dist = distance(boss.x, boss.y, hero.x, hero.y);
+        if (dist > maxDist) {
+          maxDist = dist;
+          farthestHero = hero;
+        }
+      }
+      // 영웅 근처 (100~150px) 랜덤 위치로 이동
+      const teleportAngle = Math.random() * Math.PI * 2;
+      const teleportDist = 100 + Math.random() * 50;
+      boss.x = clamp(farthestHero.x + Math.cos(teleportAngle) * teleportDist, 50, RPG_CONFIG.MAP_WIDTH - 50);
+      boss.y = clamp(farthestHero.y + Math.sin(teleportAngle) * teleportDist, 50, RPG_CONFIG.MAP_HEIGHT - 50);
+      break;
+    }
   }
 
   // 스킬 실행 이펙트 추가
@@ -338,4 +480,41 @@ function applyDamageToNexus(state: ServerGameState, damage: number): void {
     type: 'enemy_damage',
     createdAt: state.currentTickTimestamp,
   });
+}
+
+/**
+ * Void Zone (공허의 영역) 지속 데미지 업데이트
+ */
+export function updateVoidZones(state: ServerGameState, deltaTime: number): void {
+  const zones = state.bossActiveZones;
+  if (zones.length === 0) return;
+
+  const aliveHeroes = Array.from(state.heroes.values()).filter(h => !h.isDead);
+  const nexus = state.nexus;
+
+  for (let i = zones.length - 1; i >= 0; i--) {
+    const zone = zones[i];
+    zone.duration -= deltaTime;
+
+    if (zone.duration <= 0) {
+      zones.splice(i, 1);
+      continue;
+    }
+
+    // 초당 데미지 적용 (deltaTime 비례)
+    const tickDamage = Math.floor(zone.damage * deltaTime);
+    if (tickDamage <= 0) continue;
+
+    for (const hero of aliveHeroes) {
+      const dist = distance(zone.x, zone.y, hero.x, hero.y);
+      if (dist <= zone.radius) {
+        applyDamageToHero(state, hero, tickDamage);
+      }
+    }
+
+    // 넥서스 데미지
+    if (distance(zone.x, zone.y, nexus.x, nexus.y) <= zone.radius) {
+      applyDamageToNexus(state, tickDamage);
+    }
+  }
 }

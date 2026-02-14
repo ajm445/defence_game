@@ -53,7 +53,7 @@ export const UnitPanel: React.FC = () => {
   }, [gameMode, gameState, mySide, playerUnits]);
 
   const handleSpawn = (type: UnitType) => {
-    const config: Record<UnitType, string> = { melee: '검병', ranged: '궁수', knight: '기사', woodcutter: '나무꾼', miner: '광부', gatherer: '채집꾼', goldminer: '금광부', healer: '힐러', mage: '마법사', boss: '보스' };
+    const config: Record<UnitType, string> = { melee: '검병', ranged: '궁수', knight: '기사', woodcutter: '나무꾼', miner: '광부', gatherer: '채집꾼', goldminer: '금광부', healer: '힐러', mage: '마법사', boss: '보스', boss2: '암흑 마법사' };
 
     soundManager.play('ui_click');
 

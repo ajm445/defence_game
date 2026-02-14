@@ -3,7 +3,7 @@ import { Unit, UnitType } from './unit';
 import { CharacterStatUpgrades } from './auth';
 
 // 난이도 타입
-export type RPGDifficulty = 'easy' | 'normal' | 'hard' | 'extreme';
+export type RPGDifficulty = 'easy' | 'normal' | 'hard' | 'extreme' | 'hell' | 'apocalypse';
 
 // 난이도 설정 인터페이스
 export interface DifficultyConfig {
@@ -39,7 +39,8 @@ export type AdvancedHeroClass =
   | 'archmage' | 'healer';
 
 // 보스 스킬 타입
-export type BossSkillType = 'smash' | 'summon' | 'shockwave' | 'knockback' | 'charge' | 'heal';
+export type BossSkillType = 'smash' | 'summon' | 'shockwave' | 'knockback' | 'charge' | 'heal'
+  | 'dark_orb' | 'shadow_summon' | 'void_zone' | 'dark_meteor' | 'soul_drain' | 'teleport';
 
 // 보스 스킬 인터페이스
 export interface BossSkill {
@@ -59,6 +60,20 @@ export interface BossSkill {
   used?: boolean;             // 사용 완료 여부 (oneTimeUse용)
   chargeDistance?: number;    // 돌진 거리 (px)
   healPercent?: number;       // 회복량 (최대 HP 대비 %)
+  drainHealPercent?: number;  // 적중 영웅당 자힐 비율 (soul_drain)
+  zoneDuration?: number;      // 장판 지속시간 (void_zone)
+}
+
+// 보스 공허의 영역 (지속 장판)
+export interface BossVoidZone {
+  id: string;
+  x: number;
+  y: number;
+  radius: number;
+  damage: number;        // 초당 데미지
+  duration: number;      // 남은 지속시간 (초)
+  startTime: number;     // 시작 시간
+  bossId: string;        // 생성한 보스 ID
 }
 
 // 보스 스킬 시전 상태
@@ -69,6 +84,7 @@ export interface BossSkillCast {
   targetX?: number;          // 목표 위치 X
   targetY?: number;          // 목표 위치 Y
   targetAngle?: number;      // 목표 방향 (강타용)
+  meteorPositions?: {x: number, y: number}[];  // dark_meteor 각 영웅 위치
 }
 
 // 직업별 스킬 타입
@@ -360,6 +376,9 @@ export interface RPGGameState {
 
   // 보스 스킬 시각적 경고 (클라이언트 렌더링용)
   bossSkillWarnings: BossSkillWarning[];
+
+  // Boss2 공허의 영역 지속 장판
+  bossActiveZones: BossVoidZone[];
 }
 
 // 보스 스킬 경고 (바닥 표시용)
@@ -436,7 +455,7 @@ export interface BasicAttackEffect {
   id: string;           // 고유 ID (중복 생성 방지)
   x: number;
   y: number;
-  type: 'melee' | 'ranged' | 'boss';  // 'boss' 추가 - 보스 기본 공격
+  type: 'melee' | 'ranged' | 'boss' | 'boss2';  // 보스 기본 공격
   timestamp: number;    // 생성 시간
   attackerId?: string;  // 공격자 ID (보스 식별용)
 }

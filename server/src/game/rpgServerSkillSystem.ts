@@ -17,6 +17,7 @@ import {
 } from './rpgServerConfig';
 import { distance, distanceSquared, clamp, generateId, pointToLineDistance } from './rpgServerUtils';
 import { damageBase } from './rpgServerGameSystems';
+import { isBossType } from '../../../src/utils/bossUtils';
 
 export interface SkillContext {
   state: ServerGameState;
@@ -156,7 +157,7 @@ function executeQSkill(
 
     if (isAoE) {
       let actualDamage = damage;
-      if (enemy.type === 'boss' && heroClass === 'mage') {
+      if (isBossType(enemy.type) && heroClass === 'mage') {
         actualDamage = Math.floor(damage * bossDamageMultiplier);
       }
       if (isCriticalHit) {
@@ -175,7 +176,7 @@ function executeQSkill(
     const targets = archerTargets.slice(0, targetCount);
     for (const t of targets) {
       let actualDamage = damage;
-      if (t.enemy.type === 'boss') {
+      if (isBossType(t.enemy.type)) {
         actualDamage = Math.floor(damage * bossDamageMultiplier);
       }
       if (isCriticalHit) {
@@ -1227,7 +1228,7 @@ function executeAdvancedESkill(
       for (const enemy of enemies) {
         if (enemy.hp <= 0) continue;
         const dist = distance(targetX, targetY, enemy.x, enemy.y);
-        if (enemy.type === 'boss') {
+        if (isBossType(enemy.type)) {
           if (dist < closestBossDist) {
             closestBossDist = dist;
             closestBoss = enemy;
@@ -1518,7 +1519,7 @@ export function applyDamageToEnemyWithCrit(
     enemy.aggroExpireTime = ctx.state.gameTime + 5;
   }
 
-  if (enemy.type === 'boss' && attacker && enemy.damagedBy) {
+  if (isBossType(enemy.type) && attacker && enemy.damagedBy) {
     if (!enemy.damagedBy.includes(attacker.id)) {
       enemy.damagedBy.push(attacker.id);
     }

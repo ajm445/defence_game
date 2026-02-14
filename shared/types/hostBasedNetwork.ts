@@ -1,6 +1,6 @@
 // 호스트 기반 싱글/멀티플레이 통합 네트워크 타입 정의
 
-import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, PendingSkill, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, NexusLaserEffect, BossSkillWarning, DamageNumber, BossSkillExecutedEffect } from '../../src/types/rpg';
+import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, PendingSkill, Nexus, EnemyBase, EnemyBaseId, UpgradeLevels, RPGGamePhase, BasicAttackEffect, NexusLaserEffect, BossSkillWarning, BossVoidZone, DamageNumber, BossSkillExecutedEffect } from '../../src/types/rpg';
 import type { UnitType } from '../../src/types/unit';
 import type { CharacterStatUpgrades } from '../../src/types/auth';
 import type { CoopPlayerInfo, LobbyChatMessage } from './rpgNetwork';
@@ -140,6 +140,8 @@ export interface SerializedGameState {
   bossSkillWarnings: BossSkillWarning[];
   // 보스 스킬 실행 이펙트 (네트워크 동기화용)
   bossSkillExecutedEffects: BossSkillExecutedEffect[];
+  // Boss2 공허의 영역 지속 장판
+  bossActiveZones: BossVoidZone[];
   // 플로팅 데미지 숫자 (데미지/힐 표시용)
   damageNumbers: DamageNumber[];
   // 게임 상태

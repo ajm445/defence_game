@@ -2,6 +2,7 @@ import { HeroUnit, RPGEnemy, Skill, SkillEffect, SkillType, Buff, PendingSkill, 
 import { RPG_CONFIG, CLASS_SKILLS, CLASS_CONFIGS, PASSIVE_UNLOCK_LEVEL, UPGRADE_CONFIG, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { distance } from '../../utils/math';
 import { rollMultiTarget } from './passiveSystem';
+import { isBossType } from '../../utils/bossUtils';
 
 // 스킬 슬롯에서 스킬 타입 가져오기
 export function getSkillTypeForSlot(heroClass: HeroClass, slot: 'Q' | 'W' | 'E'): SkillType {
@@ -222,7 +223,7 @@ export function executeQSkill(
     if (isAoE) {
       // 범위 공격 (전사, 기사, 마법사): 범위 내 모든 적에게 데미지
       // 마법사: 보스에게만 데미지 보너스 적용
-      const actualDamage = enemy.type === 'boss' ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
+      const actualDamage = isBossType(enemy.type) ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
       enemyDamages.push({ enemyId: enemy.id, damage: actualDamage, isCritical: isCriticalHit });
       hitTargets.push({ x: enemy.x, y: enemy.y, damage: actualDamage });
     } else {
@@ -262,7 +263,7 @@ export function executeQSkill(
     const targets = archerTargets.slice(0, multiTargetCount);
     for (const t of targets) {
       if (t.type === 'enemy') {
-        const actualDamage = t.enemy.type === 'boss' ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
+        const actualDamage = isBossType(t.enemy.type) ? Math.floor(finalDamage * bossDamageMultiplier) : finalDamage;
         enemyDamages.push({ enemyId: t.enemy.id, damage: actualDamage, isCritical: isCriticalHit });
         hitTargets.push({ x: t.x, y: t.y, damage: actualDamage });
       } else {
@@ -660,7 +661,7 @@ export function executeWSkill(
           const enemyDist = distance(targetX, targetY, enemy.x, enemy.y);
           if (enemyDist <= radius) {
             // 보스에게만 데미지 보너스 적용
-            const actualDamage = enemy.type === 'boss' ? Math.floor(damage * bossDamageMultiplier) : damage;
+            const actualDamage = isBossType(enemy.type) ? Math.floor(damage * bossDamageMultiplier) : damage;
             enemyDamages.push({ enemyId: enemy.id, damage: actualDamage });
           }
         }
@@ -1612,7 +1613,7 @@ function executeAdvancedESkill(
         for (const enemy of enemies) {
           if (enemy.hp <= 0) continue;
           const dist = distance(targetX, targetY, enemy.x, enemy.y);
-          if (enemy.type === 'boss') {
+          if (isBossType(enemy.type)) {
             if (dist < closestBossDist) {
               closestBossDist = dist;
               closestBoss = enemy;

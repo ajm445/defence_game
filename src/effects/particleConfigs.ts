@@ -356,4 +356,19 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     shape: 'circle',
     spread: Math.PI / 2,  // 부채꼴 형태로 퍼짐
   },
+
+  // Boss2 기본 공격 - 보라색/암흑 마법 충격파
+  boss2_basic_attack: {
+    count: 12,
+    colors: ['#9900ff', '#6600cc', '#cc66ff', '#4d0099', '#b833ff'],
+    sizeMin: 5,
+    sizeMax: 12,
+    speedMin: 140,
+    speedMax: 240,
+    lifeMin: 0.2,
+    lifeMax: 0.4,
+    gravity: 30,
+    shape: 'circle',
+    spread: Math.PI / 3,
+  },
 };

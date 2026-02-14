@@ -12,6 +12,7 @@ const UNIT_IMAGE_PATHS: Record<UnitType, string> = {
   goldminer: '/img/units/goldminer.png',
   healer: '/img/units/healer.png',
   boss: '/img/units/boss.png', // 보스 이미지 (없으면 이모지 폴백)
+  boss2: '/img/units/RPG/boss2.png', // 암흑 마법사 보스
 };
 
 // 이미지 캐시

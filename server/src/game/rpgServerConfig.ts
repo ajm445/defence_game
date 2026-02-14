@@ -31,12 +31,15 @@ export const GOLD_CONFIG = {
     knight: 35,
     mage: 45,
     boss: 500,
+    boss2: 500,
   } as Record<string, number>,
   BASE_DESTROY_REWARDS: {
     easy: 50,
     normal: 100,
     hard: 200,
     extreme: 300,
+    hell: 350,
+    apocalypse: 500,
   } as Record<RPGDifficulty, number>,
   UPGRADE_BASE_COST: 50,
   STARTING_GOLD: 0,
@@ -124,6 +127,28 @@ export const DIFFICULTY_CONFIGS: Record<RPGDifficulty, {
     enemyBaseHpMultiplier: 4.0,
     unitTimeMultiplier: 2.0,
   },
+  hell: {
+    enemyHpMultiplier: 4.5,
+    enemyAttackMultiplier: 3.3,
+    spawnIntervalMultiplier: 0.65,
+    spawnCountMultiplier: 3.2,
+    goldRewardMultiplier: 2.5,
+    bossHpMultiplier: 4.5,
+    bossAttackMultiplier: 3.3,
+    enemyBaseHpMultiplier: 4.5,
+    unitTimeMultiplier: 2.2,
+  },
+  apocalypse: {
+    enemyHpMultiplier: 6.0,
+    enemyAttackMultiplier: 4.0,
+    spawnIntervalMultiplier: 0.55,
+    spawnCountMultiplier: 4.2,
+    goldRewardMultiplier: 3.2,
+    bossHpMultiplier: 6.0,
+    bossAttackMultiplier: 4.0,
+    enemyBaseHpMultiplier: 6.0,
+    unitTimeMultiplier: 2.7,
+  },
 };
 
 // 직업별 기본 스탯
@@ -163,6 +188,7 @@ export const ENEMY_AI_CONFIGS: Record<string, {
   knight: { detectionRange: 180, attackRange: 50, moveSpeed: 1.5, attackDamage: 25, attackSpeed: 1.5 },
   mage: { detectionRange: 250, attackRange: 180, moveSpeed: 1.6, attackDamage: 30, attackSpeed: 2.0 },
   boss: { detectionRange: 300, attackRange: 80, moveSpeed: 1.2, attackDamage: 50, attackSpeed: 2.0 },
+  boss2: { detectionRange: 400, attackRange: 250, moveSpeed: 1.0, attackDamage: 120, attackSpeed: 2.5 },
 };
 
 // RPG 적 설정
@@ -178,6 +204,7 @@ export const RPG_ENEMY_CONFIGS: Record<string, {
   knight: { name: '기사', hp: 200, attack: 25, attackSpeed: 1.5, speed: 1.5 },
   mage: { name: '마법사', hp: 120, attack: 30, attackSpeed: 2.0, speed: 1.6 },
   boss: { name: '보스', hp: 3500, attack: 100, attackSpeed: 2.0, speed: 1.2 },
+  boss2: { name: '암흑 마법사', hp: 2800, attack: 120, attackSpeed: 2.5, speed: 1.0 },
 };
 
 // 보스 스킬 설정 (클라이언트 rpgConfig.ts BOSS_SKILL_CONFIGS와 동일하게 유지)
@@ -194,6 +221,8 @@ export const BOSS_SKILL_CONFIGS: Record<string, {
   oneTimeUse?: boolean;
   chargeDistance?: number;
   healPercent?: number;
+  zoneDuration?: number;
+  drainHealPercent?: number;
 }> = {
   // 강타 - 전방 부채꼴 범위 공격
   smash: {
@@ -249,6 +278,50 @@ export const BOSS_SKILL_CONFIGS: Record<string, {
     hpThreshold: 0.6,         // HP 60% 이하부터 사용
     healPercent: 0.1,         // 최대 HP의 10% 회복
   },
+  // Boss2 (암흑 마법사) 스킬
+  dark_orb: {
+    cooldown: 6,
+    damage: 2.5,
+    radius: 120,
+    castTime: 1.0,
+  },
+  shadow_summon: {
+    cooldown: 18,
+    damage: 0,
+    radius: 100,
+    castTime: 1.5,
+    summonCount: 3,
+    hpThreshold: 0.7,
+  },
+  void_zone: {
+    cooldown: 15,
+    damage: 0.5,
+    radius: 180,
+    castTime: 1.5,
+    zoneDuration: 5,
+  },
+  dark_meteor: {
+    cooldown: 20,
+    damage: 3.0,
+    radius: 100,
+    castTime: 2.0,
+    hpThreshold: 0.5,
+  },
+  soul_drain: {
+    cooldown: 12,
+    damage: 1.5,
+    radius: 200,
+    castTime: 1.5,
+    hpThreshold: 0.6,
+    drainHealPercent: 0.05,
+  },
+  teleport: {
+    cooldown: 10,
+    damage: 0,
+    radius: 0,
+    castTime: 0.8,
+    hpThreshold: 0.8,
+  },
 };
 
 // 난이도별 보스 스킬 (클라이언트 rpgConfig.ts와 동일)
@@ -257,6 +330,18 @@ export const DIFFICULTY_BOSS_SKILLS: Record<RPGDifficulty, string[]> = {
   normal: ['smash', 'summon'],                    // 중간: 강타 + 소환
   hard: ['smash', 'summon', 'knockback', 'heal'], // 어려움: 강타 + 소환 + 밀어내기 + 회복
   extreme: ['smash', 'summon', 'shockwave', 'knockback', 'charge', 'heal'], // 극한: 모든 스킬
+  hell: ['smash', 'summon', 'shockwave', 'knockback', 'charge', 'heal'],    // 지옥: 모든 스킬
+  apocalypse: ['smash', 'summon', 'shockwave', 'knockback', 'charge', 'heal'], // 종말: 모든 스킬
+};
+
+// 난이도별 Boss2 스킬
+export const DIFFICULTY_BOSS2_SKILLS: Record<RPGDifficulty, string[]> = {
+  easy: [],
+  normal: [],
+  hard: [],
+  extreme: [],
+  hell: ['dark_orb', 'shadow_summon', 'void_zone', 'dark_meteor', 'soul_drain', 'teleport'],
+  apocalypse: ['dark_orb', 'shadow_summon', 'void_zone', 'dark_meteor', 'soul_drain', 'teleport'],
 };
 
 // 스폰 설정

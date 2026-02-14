@@ -12,6 +12,7 @@ import type {
   NexusLaserEffect,
   BossSkillWarning,
   BossSkillExecutedEffect,
+  BossVoidZone,
   DamageNumber,
   Skill,
   EnemyBaseId,
@@ -83,6 +84,7 @@ export interface ServerGameState {
   bossSkillWarnings: BossSkillWarning[];
   bossSkillExecutedEffects: BossSkillExecutedEffect[];
   damageNumbers: DamageNumber[];
+  bossActiveZones: BossVoidZone[];
   running: boolean;
   paused: boolean;
   gameOver: boolean;
