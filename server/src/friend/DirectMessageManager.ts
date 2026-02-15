@@ -2,8 +2,13 @@ import { v4 as uuidv4 } from 'uuid';
 import { getPlayerByUserId, sendToPlayer, onlineUserIds } from '../state/players';
 import { friendManager } from './FriendManager';
 import { filterProfanity } from '../utils/profanityFilter';
-import { DM_CHAT_CONFIG } from '../../../shared/types/friendNetwork';
 import type { DirectMessage } from '../../../shared/types/friendNetwork';
+
+const DM_CHAT_CONFIG = {
+  MAX_MESSAGE_LENGTH: 200,
+  MIN_MESSAGE_INTERVAL: 500,
+  MAX_HISTORY_PER_CONVERSATION: 50,
+} as const;
 
 export class DirectMessageManager {
   private static instance: DirectMessageManager;
