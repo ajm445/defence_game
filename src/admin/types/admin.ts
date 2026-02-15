@@ -178,6 +178,37 @@ export interface BansListResponse {
   pagination: Pagination;
 }
 
+// Feedback Types
+export interface FeedbackItem {
+  id: string;
+  playerId: string;
+  playerNickname: string;
+  playerLevel: number;
+  rating: number;
+  comment: string;
+  createdAt: string;
+  updatedAt: string;
+}
+
+export interface FeedbackStats {
+  totalCount: number;
+  averageRating: number;
+  distribution: Record<number, number>;
+}
+
+export interface FeedbackListResponse {
+  feedback: FeedbackItem[];
+  pagination: Pagination;
+}
+
+// Maintenance Types
+export interface MaintenanceStatus {
+  isActive: boolean;
+  message: string;
+  scheduledAt: number | null;
+  shutdownAt: number | null;
+}
+
 // Monitoring Types
 export interface ServerStatus {
   currentOnline: number;    // WebSocket 연결 수

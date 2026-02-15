@@ -33,6 +33,7 @@ export function useFriendMessages() {
     updateOnlinePlayerMode,
     setError,
     addDMMessage,
+    mergeDMHistory,
     clearDMConversation,
   } = useFriendStore();
 
@@ -77,7 +78,7 @@ export function useFriendMessages() {
 
         // 친구 상태 변경
         case 'FRIEND_STATUS_CHANGED':
-          updateFriendStatus(message.friendId, message.isOnline, message.currentRoom);
+          updateFriendStatus(message.friendId, message.isOnline, message.currentRoom, message.gameMode);
           // 오프라인 시 DM 대화 정리
           if (!message.isOnline) {
             clearDMConversation(message.friendId);
@@ -186,6 +187,10 @@ export function useFriendMessages() {
           addDMMessage(message.message.toUserId, message.message);
           break;
 
+        case 'DM_HISTORY':
+          mergeDMHistory(message.conversations);
+          break;
+
         case 'DM_ERROR':
           setError(message.message);
           setTimeout(() => setError(null), 3000);
@@ -226,6 +231,7 @@ export function useFriendMessages() {
     updateOnlinePlayerMode,
     setError,
     addDMMessage,
+    mergeDMHistory,
     clearDMConversation,
   ]);
 }

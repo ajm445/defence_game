@@ -337,6 +337,10 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       handleSendDM(playerId, (message as any).targetUserId, (message as any).content);
       break;
 
+    case 'GET_DM_HISTORY':
+      handleGetDMHistory(playerId);
+      break;
+
     // 로비 채팅
     case 'LOBBY_CHAT_SEND':
       handleLobbyChatSend(playerId, (message as any).content);
@@ -572,7 +576,7 @@ async function handleSetInGame(playerId: string, isInGame: boolean): Promise<voi
   if (player.userId) {
     // currentRoom은 isInGame이 true일 때만 의미 있음
     const currentRoom = isInGame ? player.roomId || undefined : undefined;
-    await friendManager.notifyFriendsStatusChange(player.userId, true, currentRoom);
+    await friendManager.notifyFriendsStatusChange(player.userId, true, currentRoom, player.gameMode);
   }
 }
 
@@ -1286,6 +1290,14 @@ async function handleSendDM(playerId: string, targetUserId: string, content: str
     // 보낸 사람에게 에코백
     sendToPlayer(playerId, { type: 'DM_SENT', message: result.dm });
   }
+}
+
+function handleGetDMHistory(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.userId) return;
+
+  const conversations = directMessageManager.getConversationsForUser(player.userId);
+  sendToPlayer(playerId, { type: 'DM_HISTORY', conversations });
 }
 
 // ============================================

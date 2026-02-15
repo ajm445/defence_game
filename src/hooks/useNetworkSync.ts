@@ -2,6 +2,7 @@ import { useCallback, useEffect, useRef } from 'react';
 import { useRPGStore } from '../stores/useRPGStore';
 import { useUIStore } from '../stores/useUIStore';
 import { useGameStore } from '../stores/useGameStore';
+import { useAuthStore } from '../stores/useAuthStore';
 import { wsClient } from '../services/WebSocketClient';
 import { CLASS_SKILLS, GOLD_CONFIG } from '../constants/rpgConfig';
 import {
@@ -128,6 +129,11 @@ export function useNetworkSync() {
         // 재접속 정보 (재접속 후 상태 복구)
         case 'COOP_RECONNECT_INFO':
           handleReconnectInfo(message);
+          break;
+
+        // 서버 점검 알림
+        case 'MAINTENANCE_NOTICE':
+          handleMaintenanceNotice(message);
           break;
       }
     };
@@ -872,6 +878,44 @@ export function shareHostBuffToAllies(buff: Buff, hostHero: HeroUnit) {
       console.log(`[NetworkSync] 호스트 버프 ${buff.type}를 ${otherHeroId}에게 공유${isKnightIronwall ? ' + HP 회복' : ''}`);
     }
   });
+}
+
+/**
+ * 서버 점검 알림 처리
+ * - 인게임: 자동으로 사라지는 알림 (showNotification)
+ * - 로비/메뉴: 닫을 수 있는 토스트 (setMaintenanceNotice)
+ * - 카운트다운 0이면 강제 로그아웃 + 로그인 화면으로 이동
+ */
+function handleMaintenanceNotice(message: { message: string; remainingMinutes: number | null; isActive: boolean }) {
+  if (!message.isActive) return;
+
+  const uiState = useUIStore.getState();
+  const currentScreen = uiState.currentScreen;
+  const isInGame = currentScreen === 'game' || currentScreen === 'countdown' || currentScreen === 'paused';
+
+  if (message.remainingMinutes !== null && message.remainingMinutes > 0) {
+    const text = `${message.message} (${message.remainingMinutes}분 후 서버 종료)`;
+    const inGameSuffix = isInGame ? ' 게임 중 데이터는 저장되지 않습니다.' : '';
+    // 항상 저장 (게임에서 나왔을 때 토스트로 보이도록)
+    uiState.setMaintenanceNotice(text);
+    // 인게임에서는 5초간 자동 사라지는 알림
+    if (isInGame) {
+      uiState.showMaintenanceAlert(`[서버 점검] ${text}${inGameSuffix}`);
+    }
+  } else {
+    // 카운트다운 완료 또는 즉시 점검 → 강제 로그아웃
+    const logoutText = '서버 점검이 시작되었습니다. 자동으로 로그아웃됩니다.';
+    uiState.setMaintenanceNotice(logoutText);
+    if (isInGame) {
+      uiState.showMaintenanceAlert(`[서버 점검] ${logoutText}`);
+    }
+    setTimeout(() => {
+      soundManager.stopBGM();
+      useAuthStore.getState().signOut().then(() => {
+        useUIStore.getState().setScreen('login');
+      });
+    }, 1500);
+  }
 }
 
 // ============================================

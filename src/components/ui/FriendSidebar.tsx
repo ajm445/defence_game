@@ -57,6 +57,7 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
       if (wsClient.isConnected()) {
         wsClient.send({ type: 'GET_FRIENDS_LIST' });
         wsClient.send({ type: 'GET_ONLINE_PLAYERS' });
+        wsClient.send({ type: 'GET_DM_HISTORY' });
         return true;
       }
       return false;
@@ -369,12 +370,13 @@ const OnlineList: React.FC<{
               </p>
               <p className="text-gray-500 text-xs">
                 Lv.{player.playerLevel}
-                {player.currentRoom ? (
-                  <span className="ml-1 text-yellow-400">게임중</span>
-                ) : player.gameMode && (
+                {player.gameMode && (
                   <span className={`ml-1 ${player.gameMode === 'rts' ? 'text-neon-cyan' : 'text-neon-purple'}`}>
                     {player.gameMode === 'rts' ? 'RTS' : 'RPG'}
                   </span>
+                )}
+                {player.currentRoom && (
+                  <span className="ml-1 text-yellow-400">게임중</span>
                 )}
               </p>
             </div>
@@ -451,6 +453,11 @@ const FriendsList: React.FC<{
               <p className="text-white text-xs font-medium truncate">{friend.name}</p>
               <p className="text-gray-500 text-xs">
                 Lv.{friend.playerLevel}
+                {friend.isOnline && friend.gameMode && (
+                  <span className={`ml-1 ${friend.gameMode === 'rts' ? 'text-neon-cyan' : 'text-neon-purple'}`}>
+                    {friend.gameMode === 'rts' ? 'RTS' : 'RPG'}
+                  </span>
+                )}
                 {friend.isOnline && friend.currentRoom && (
                   <span className="ml-1 text-yellow-400">게임중</span>
                 )}

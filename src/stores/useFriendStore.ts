@@ -46,7 +46,7 @@ interface FriendState {
   setError: (error: string | null) => void;
 
   // 친구 상태 업데이트
-  updateFriendStatus: (friendId: string, isOnline: boolean, currentRoom?: string) => void;
+  updateFriendStatus: (friendId: string, isOnline: boolean, currentRoom?: string, gameMode?: 'rts' | 'rpg' | null) => void;
   // 친구 추가
   addFriend: (friend: FriendInfo) => void;
   // 친구 삭제
@@ -69,6 +69,7 @@ interface FriendState {
 
   // DM 액션
   addDMMessage: (friendUserId: string, message: DirectMessage) => void;
+  mergeDMHistory: (conversations: { friendUserId: string; messages: DirectMessage[] }[]) => void;
   openDMChat: (friendId: string) => void;
   closeDMChat: () => void;
   clearDMConversation: (friendId: string) => void;
@@ -107,10 +108,10 @@ export const useFriendStore = create<FriendState>((set) => ({
   setLoading: (isLoading) => set({ isLoading }),
   setError: (error) => set({ error }),
 
-  updateFriendStatus: (friendId, isOnline, currentRoom) =>
+  updateFriendStatus: (friendId, isOnline, currentRoom, gameMode) =>
     set((state) => ({
       friends: state.friends.map((f) =>
-        f.id === friendId ? { ...f, isOnline, currentRoom } : f
+        f.id === friendId ? { ...f, isOnline, currentRoom, gameMode: gameMode ?? undefined } : f
       ),
     })),
 
@@ -215,6 +216,29 @@ export const useFriendStore = create<FriendState>((set) => ({
       if (state.activeDMFriendId !== friendUserId) {
         newUnread.set(friendUserId, (newUnread.get(friendUserId) || 0) + 1);
       }
+      return { dmConversations: newConversations, dmUnreadCounts: newUnread };
+    }),
+
+  mergeDMHistory: (conversations) =>
+    set((state) => {
+      const newConversations = new Map(state.dmConversations);
+      const newUnread = new Map(state.dmUnreadCounts);
+
+      for (const conv of conversations) {
+        const existing = newConversations.get(conv.friendUserId) || [];
+        const existingIds = new Set(existing.map(m => m.id));
+        // 중복 제거 후 병합
+        const newMessages = conv.messages.filter(m => !existingIds.has(m.id));
+        if (newMessages.length > 0) {
+          const merged = [...existing, ...newMessages].sort((a, b) => a.timestamp - b.timestamp);
+          newConversations.set(conv.friendUserId, merged);
+          // 새 메시지만큼 unread 증가 (활성 창이 아닌 경우)
+          if (state.activeDMFriendId !== conv.friendUserId) {
+            newUnread.set(conv.friendUserId, (newUnread.get(conv.friendUserId) || 0) + newMessages.length);
+          }
+        }
+      }
+
       return { dmConversations: newConversations, dmUnreadCounts: newUnread };
     }),
 

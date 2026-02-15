@@ -117,6 +117,26 @@ export class DirectMessageManager {
   }
 
   /**
+   * 유저의 모든 대화 이력 조회 (게임 중 놓친 메시지 재전송용)
+   */
+  getConversationsForUser(userId: string): { friendUserId: string; messages: DirectMessage[] }[] {
+    const result: { friendUserId: string; messages: DirectMessage[] }[] = [];
+
+    for (const [key, messages] of this.conversations) {
+      if (!key.includes(userId)) continue;
+      if (messages.length === 0) continue;
+
+      // key = "userId1:userId2" (정렬됨) → 상대방 ID 추출
+      const [id1, id2] = key.split(':');
+      const friendUserId = id1 === userId ? id2 : id1;
+
+      result.push({ friendUserId, messages: [...messages] });
+    }
+
+    return result;
+  }
+
+  /**
    * 유저 연결 해제 시 관련 대화 및 스팸 타이머 정리
    */
   cleanupUser(userId: string): void {

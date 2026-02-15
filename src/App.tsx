@@ -20,6 +20,7 @@ import { LoginScreen } from './components/screens/LoginScreen';
 import { ProfileScreen } from './components/screens/ProfileScreen';
 import { GameOverScreen } from './components/screens/GameOverScreen';
 import { PauseScreen } from './components/screens/PauseScreen';
+import { MaintenanceToast, MaintenanceAlert } from './components/ui/MaintenanceToast';
 import { preloadGameEmojis } from './utils/canvasEmoji';
 import { preloadAllUnitImages } from './utils/unitImages';
 import { preloadAllAdvancedHeroImages } from './utils/heroImages';
@@ -51,6 +52,9 @@ function App() {
     <div className="h-full overflow-hidden bg-gradient-to-br from-slate-900 via-slate-800 to-blue-900">
       {/* 모바일 세로 모드 회전 안내 */}
       <OrientationPrompt />
+      {/* 서버 점검 알림 */}
+      <MaintenanceToast />
+      <MaintenanceAlert />
 
       {currentScreen === 'menu' && <MainMenu />}
       {currentScreen === 'gameTypeSelect' && <GameTypeSelectScreen />}

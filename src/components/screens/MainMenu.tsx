@@ -2,6 +2,8 @@ import React, { useEffect, useState } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthProfile, useAuthStatus, useAuthIsGuest } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
+import { FeedbackModal } from '../ui/FeedbackModal';
+import { getMyFeedback } from '../../services/feedbackService';
 
 export const MainMenu: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -20,6 +22,8 @@ export const MainMenu: React.FC = () => {
   const isTablet = useUIStore((s) => s.isTablet);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [hasFeedback, setHasFeedback] = useState(false);
   const [settingsTab, setSettingsTab] = useState<'sound' | 'profile' | 'danger'>('sound');
   const [currentPassword, setCurrentPassword] = useState('');
   const [newPassword, setNewPassword] = useState('');
@@ -28,12 +32,23 @@ export const MainMenu: React.FC = () => {
   const [settingsError, setSettingsError] = useState<string | null>(null);
   const [settingsSuccess, setSettingsSuccess] = useState<string | null>(null);
 
+  const isAuthenticated = authStatus === 'authenticated' && profile;
+
   // 앱 시작 시 사운드 설정 동기화
   useEffect(() => {
     soundManager.setVolume(soundVolume);
     soundManager.setBGMVolume(soundVolume); // BGM도 마스터 볼륨과 동기화
     soundManager.setMuted(soundMuted);
   }, [soundVolume, soundMuted]);
+
+  // 피드백 작성 여부 확인 (로그인 + 비게스트만)
+  useEffect(() => {
+    if (isAuthenticated && !isGuest && profile) {
+      getMyFeedback(profile.id).then((feedback) => {
+        setHasFeedback(feedback !== null);
+      });
+    }
+  }, [isAuthenticated, isGuest, profile]);
 
   const handleStartGame = () => {
     soundManager.init();
@@ -150,8 +165,6 @@ export const MainMenu: React.FC = () => {
       setSettingsError(result.error || '회원 탈퇴에 실패했습니다.');
     }
   };
-
-  const isAuthenticated = authStatus === 'authenticated' && profile;
 
   return (
     <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
@@ -291,16 +304,42 @@ export const MainMenu: React.FC = () => {
         <div className="text-gray-400 text-xs tracking-widest uppercase">
           Press a button to start
         </div>
+        <div className="text-gray-600 text-[10px] mt-1">
+          © 2026 제작자. All rights reserved.
+        </div>
       </div>
 
-      {/* 설정 버튼 (우측 상단) - 로그인 시에만 표시 */}
+      {/* 우측 상단 버튼 그룹 */}
       {isAuthenticated && (
-        <button
-          onClick={handleOpenSettings}
-          className="absolute top-6 right-6 z-20 w-12 h-12 rounded-full bg-dark-700/80 border border-gray-600 hover:border-yellow-500 hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group"
-        >
-          <span className="text-2xl group-hover:rotate-90 transition-transform duration-300">⚙️</span>
-        </button>
+        <div className="absolute top-6 right-6 z-20 flex gap-3">
+          {/* 피드백 버튼 - 비게스트 + 미작성만 */}
+          {!isGuest && !hasFeedback && (
+            <button
+              onClick={() => { soundManager.play('ui_click'); setShowFeedback(true); }}
+              className="w-12 h-12 rounded-full bg-dark-700/80 border border-gray-600 hover:border-neon-cyan hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group"
+              title="게임 피드백"
+            >
+              <span className="text-2xl group-hover:scale-110 transition-transform duration-300">📝</span>
+            </button>
+          )}
+          {/* 설정 버튼 */}
+          <button
+            onClick={handleOpenSettings}
+            className="w-12 h-12 rounded-full bg-dark-700/80 border border-gray-600 hover:border-yellow-500 hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group"
+          >
+            <span className="text-2xl group-hover:rotate-90 transition-transform duration-300">⚙️</span>
+          </button>
+        </div>
+      )}
+
+      {/* 피드백 모달 */}
+      {isAuthenticated && !isGuest && profile && (
+        <FeedbackModal
+          isOpen={showFeedback}
+          onClose={() => setShowFeedback(false)}
+          onSubmitted={() => setHasFeedback(true)}
+          playerId={profile.id}
+        />
       )}
 
       {/* 설정 패널 */}

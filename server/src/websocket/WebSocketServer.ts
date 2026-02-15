@@ -14,6 +14,8 @@ import authRouter from '../api/authRouter';
 import profileRouter from '../api/profileRouter';
 import adminRouter from '../api/admin/adminRouter';
 import rankingsRouter from '../api/rankingsRouter';
+import feedbackRouter from '../api/feedbackRouter';
+import { isMaintenanceActive, getMaintenanceState, cleanupMaintenance } from '../state/maintenance';
 
 // Re-export for backwards compatibility
 export { players, sendMessage, sendToPlayer } from '../state/players';
@@ -52,6 +54,15 @@ export function createWebSocketServer(port: number) {
   app.use('/api/profile', profileRouter);
   app.use('/api/admin', adminRouter);
   app.use('/api/rankings', rankingsRouter);
+  app.use('/api/feedback', feedbackRouter);
+
+  // 점검 상태 조회 (공개 - 인증 불필요)
+  app.get('/api/maintenance/status', (_req, res) => {
+    res.json({
+      isActive: isMaintenanceActive(),
+      message: getMaintenanceState().message,
+    });
+  });
 
   // HTTP 서버 생성 (Express 앱 사용)
   const httpServer = createServer(app);
@@ -253,6 +264,7 @@ export function createWebSocketServer(port: number) {
   const close = () => {
     console.log('서버 종료 시작...');
     clearInterval(adminStatusInterval);
+    cleanupMaintenance(); // 점검 카운트다운 타이머 정리
     cleanupAllRooms(); // 모든 게임 방 및 게임 엔진 정리 (setInterval 정리)
     gameInviteManager.cleanup(); // 게임 초대 타이머 정리
     wss.clients.forEach((ws) => {

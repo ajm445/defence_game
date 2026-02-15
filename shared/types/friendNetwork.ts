@@ -29,6 +29,7 @@ export interface FriendInfo {
   isOnline: boolean;    // 온라인 상태
   playerLevel: number;  // 플레이어 레벨
   currentRoom?: string; // 현재 접속 중인 방 ID (게임 중이면)
+  gameMode?: GameMode;  // 현재 이용 중인 게임 모드
   lastSeen?: string;    // 마지막 접속 시간 (ISO 문자열)
 }
 
@@ -108,7 +109,8 @@ export type FriendClientMessage =
   // 서버 상태
   | { type: 'GET_SERVER_STATUS' }
   // DM (개인 메시지)
-  | { type: 'SEND_DM'; targetUserId: string; content: string };
+  | { type: 'SEND_DM'; targetUserId: string; content: string }
+  | { type: 'GET_DM_HISTORY' };
 
 // ============================================
 // 서버 → 클라이언트 메시지
@@ -125,7 +127,7 @@ export type FriendServerMessage =
   | { type: 'PENDING_FRIEND_REQUESTS'; requests: FriendRequestInfo[] }
   | { type: 'SENT_FRIEND_REQUESTS'; requests: FriendRequestInfo[] }
   // 친구 상태 변경
-  | { type: 'FRIEND_STATUS_CHANGED'; friendId: string; isOnline: boolean; currentRoom?: string }
+  | { type: 'FRIEND_STATUS_CHANGED'; friendId: string; isOnline: boolean; currentRoom?: string; gameMode?: GameMode }
   | { type: 'FRIEND_REMOVED'; friendId: string }
   | { type: 'FRIEND_ADDED'; friend: FriendInfo }
   // 온라인 플레이어 실시간 업데이트
@@ -142,6 +144,7 @@ export type FriendServerMessage =
   // DM (개인 메시지)
   | { type: 'DM_RECEIVED'; message: DirectMessage }
   | { type: 'DM_SENT'; message: DirectMessage }
+  | { type: 'DM_HISTORY'; conversations: { friendUserId: string; messages: DirectMessage[] }[] }
   | { type: 'DM_ERROR'; message: string }
   // 에러
   | { type: 'FRIEND_ERROR'; message: string };

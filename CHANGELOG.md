@@ -1,5 +1,77 @@
 # Changelog
 
+## [1.24.4] - 2026-02-15
+
+### 유저 피드백/별점 시스템
+- **별점(1~5) + 의견 수집**: 로그인한 비게스트 유저가 게임 피드백 작성 가능 (계정당 1회, 이후 수정 가능)
+- **피드백 모달 UI**: 별 클릭 호버 효과, 의견 textarea(500자), 전체 통계(평균 별점/참여자 수) 표시
+- **피드백 작성 후 버튼 숨김**: 이미 작성한 유저에게는 메인 메뉴 피드백 버튼 미표시
+- **관리자 피드백 페이지**: 통계 카드(총 개수/평균/분포), 별점 필터, 정렬, 페이지네이션, 삭제 기능
+- **DB**: `user_feedback` 테이블 (player_id UNIQUE, RLS 정책, updated_at 트리거)
+
+### 서버 점검 시스템
+- **관리자 점검 관리 페이지**: 카운트다운 시간 설정(0~120분, 5/10/15/30분 빠른 선택), 점검 메시지 커스텀, 실시간 남은 시간 표시
+- **점검 알림 브로드캐스트**: 활성화 시 모든 접속자에게 즉시 알림, 이후 1분마다 남은 시간 알림 반복
+- **인게임 알림**: 5초간 자동 사라지는 알림 + "게임 중 데이터는 저장되지 않습니다" 안내
+- **로비/메뉴 알림**: X 버튼으로 닫을 수 있는 토스트 (게임에서 나왔을 때도 표시)
+- **카운트다운 완료 시 자동 로그아웃**: 모든 접속 계정 강제 로그아웃 + BGM 정지 + 로그인 화면 이동
+- **점검 중 로그인 차단**: 로그인 화면에서 점검 상태 확인, "점검 중입니다" 안내 표시
+- **관리자 점검 해제**: 해제 후 정상 로그인 가능
+
+### 친구 시스템 개선
+- **게임 모드 + "게임중" 동시 표시**: 온라인/친구 목록에서 RPG/RTS 모드와 "게임중" 상태를 함께 표시
+- **DM 메시지 유실 방지**: 인게임 중 받은 메시지를 서버에 보관, 로비 복귀 시 `GET_DM_HISTORY`로 재전송
+- **FriendInfo에 gameMode 필드 추가**: 서버 상태 변경/친구 목록/친구 수락 시 gameMode 포함
+
+### 기타
+- **메인 메뉴 Copyright 추가**: `© 2026 제작자. All rights reserved.`
+
+### 새 파일
+- `supabase/migrations/012_create_user_feedback.sql`
+- `server/src/api/feedbackRouter.ts`
+- `server/src/api/admin/adminFeedbackRouter.ts`
+- `server/src/api/admin/adminMaintenanceRouter.ts`
+- `server/src/state/maintenance.ts`
+- `src/services/feedbackService.ts`
+- `src/components/ui/FeedbackModal.tsx`
+- `src/components/ui/MaintenanceToast.tsx`
+- `src/admin/pages/FeedbackPage.tsx`
+- `src/admin/pages/MaintenancePage.tsx`
+
+### 수정 파일
+- `server/src/api/admin/adminRouter.ts`: 피드백/점검 라우터 등록
+- `server/src/websocket/WebSocketServer.ts`: 피드백 라우터, 공개 점검 상태 API, 점검 정리
+- `server/src/websocket/MessageHandler.ts`: gameMode 전달, GET_DM_HISTORY 핸들러
+- `server/src/friend/FriendManager.ts`: gameMode 포함 상태 알림/친구 목록
+- `server/src/friend/FriendRequestHandler.ts`: 친구 수락 시 gameMode 포함
+- `server/src/friend/DirectMessageManager.ts`: getConversationsForUser 메서드
+- `shared/types/friendNetwork.ts`: FriendInfo gameMode, DM_HISTORY 타입
+- `src/stores/useUIStore.ts`: maintenanceNotice, maintenanceAlert 상태
+- `src/stores/useFriendStore.ts`: gameMode 처리, mergeDMHistory 액션
+- `src/hooks/useNetworkSync.ts`: MAINTENANCE_NOTICE 핸들러, useAuthStore import
+- `src/hooks/useFriendMessages.ts`: gameMode 전달, DM_HISTORY 처리
+- `src/components/screens/MainMenu.tsx`: 피드백 버튼/모달, copyright
+- `src/components/screens/LoginScreen.tsx`: 점검 상태 확인 및 차단 UI
+- `src/components/ui/FriendSidebar.tsx`: 모드+게임중 표시, DM 히스토리 요청
+- `src/admin/AdminApp.tsx`: 피드백/점검 라우트
+- `src/admin/components/layout/Sidebar.tsx`: 피드백/점검 네비게이션
+- `src/admin/types/admin.ts`: FeedbackItem/Stats, MaintenanceStatus 타입
+- `src/admin/services/adminApi.ts`: 피드백/점검 API 메서드
+- `src/App.tsx`: MaintenanceToast/Alert 렌더링
+
+---
+
+## [1.24.3] - 2026-02-15
+
+### 친구 간 개인 메시지(DM) 기능
+- **실시간 1:1 채팅**: 온라인 친구와 개인 메시지 송수신
+- **채팅 UI**: FriendSidebar 내 DM 채팅창, 메시지 입력/전송
+- **서버 DirectMessageManager**: 메모리 기반 대화 저장, 스팸 방지(500ms), 비속어 필터, 최대 50개/대화
+- **읽지 않은 메시지 배지**: 친구별 unread count 표시
+- **오프라인 시 대화 정리**: 친구 오프라인 시 DM 대화 자동 정리
+
+---
+
 ## [1.24.2] - 2026-02-14
 
 ### Boss2 암흑 유성(dark_meteor) 낙하 이펙트 추가

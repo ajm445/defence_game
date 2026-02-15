@@ -65,6 +65,7 @@ export class FriendManager {
             playerLevel: friendProfile.player_level || 1,
             // 게임 진행 중인 경우에만 currentRoom 표시
             currentRoom: onlinePlayer?.isInGame ? onlinePlayer.roomId || undefined : undefined,
+            gameMode: onlinePlayer?.gameMode || undefined,
           });
         }
       }
@@ -88,6 +89,7 @@ export class FriendManager {
             playerLevel: friendProfile.player_level || 1,
             // 게임 진행 중인 경우에만 currentRoom 표시
             currentRoom: onlinePlayer?.isInGame ? onlinePlayer.roomId || undefined : undefined,
+            gameMode: onlinePlayer?.gameMode || undefined,
           });
         }
       }
@@ -307,7 +309,7 @@ export class FriendManager {
   /**
    * 친구에게 온라인 상태 변경 알림
    */
-  async notifyFriendsStatusChange(userId: string, isOnline: boolean, currentRoom?: string): Promise<void> {
+  async notifyFriendsStatusChange(userId: string, isOnline: boolean, currentRoom?: string, gameMode?: 'rts' | 'rpg' | null): Promise<void> {
     const friendIds = await this.getFriendIds(userId);
 
     for (const friendId of friendIds) {
@@ -319,6 +321,7 @@ export class FriendManager {
           friendId: userId,
           isOnline,
           currentRoom,
+          gameMode: gameMode ?? undefined,
         });
       }
     }

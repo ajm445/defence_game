@@ -34,6 +34,11 @@ interface UIState {
   edgeScrollEnabled: boolean; // 마우스 가장자리 스크롤 활성화 여부
   soundVolume: number; // 0.0 ~ 1.0
   soundMuted: boolean;
+  // 점검 알림 (닫을 수 있는 토스트 - 로비/메뉴용)
+  maintenanceNotice: string | null;
+  // 점검 알림 (자동 사라짐 - 인게임용, 5초)
+  maintenanceAlert: string | null;
+  maintenanceAlertKey: number;
   // 모바일/태블릿 지원
   isMobile: boolean;
   isTablet: boolean;
@@ -58,6 +63,8 @@ interface UIActions {
   setSoundVolume: (volume: number) => void;
   setSoundMuted: (muted: boolean) => void;
   toggleSoundMuted: () => void;
+  setMaintenanceNotice: (notice: string | null) => void;
+  showMaintenanceAlert: (message: string) => void;
   // 모바일/태블릿 지원
   setDeviceInfo: (info: { isMobile: boolean; isTablet: boolean; isTouchDevice: boolean; isPortrait: boolean; uiScale: number }) => void;
   setFullscreen: (isFullscreen: boolean) => void;
@@ -77,6 +84,9 @@ export const useUIStore = create<UIStore>((set) => ({
   edgeScrollEnabled: false, // 기본값: 비활성화
   soundVolume: initialSoundSettings.volume, // localStorage에서 로드
   soundMuted: initialSoundSettings.muted, // localStorage에서 로드
+  maintenanceNotice: null,
+  maintenanceAlert: null,
+  maintenanceAlertKey: 0,
   // 모바일/태블릿 지원
   isMobile: false,
   isTablet: false,
@@ -125,6 +135,12 @@ export const useUIStore = create<UIStore>((set) => ({
   setSoundMuted: (muted) => set({ soundMuted: muted }),
 
   toggleSoundMuted: () => set((state) => ({ soundMuted: !state.soundMuted })),
+
+  setMaintenanceNotice: (notice) => set({ maintenanceNotice: notice }),
+  showMaintenanceAlert: (message) => set((state) => ({
+    maintenanceAlert: message,
+    maintenanceAlertKey: state.maintenanceAlertKey + 1,
+  })),
 
   // 모바일/태블릿 지원
   setDeviceInfo: (info) => set(info),

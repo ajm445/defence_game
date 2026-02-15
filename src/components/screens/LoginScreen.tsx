@@ -4,6 +4,8 @@ import { useAuthStore, useAuthError, useAuthIsLoading } from '../../stores/useAu
 import { soundManager } from '../../services/SoundManager';
 import { checkNicknameAvailability, checkUsernameAvailability } from '../../services/authService';
 
+const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
+
 type AuthMode = 'login' | 'signup' | 'guest';
 
 // API 설정 확인 (VITE_API_URL이 설정되어 있으면 인증 기능 사용 가능)
@@ -34,6 +36,9 @@ export const LoginScreen: React.FC = () => {
   const [confirmPassword, setConfirmPassword] = useState('');
   const [nickname, setNickname] = useState('');
   const [successMessage, setSuccessMessage] = useState<string | null>(null);
+
+  // 점검 상태
+  const [maintenanceMessage, setMaintenanceMessage] = useState<string | null>(null);
 
   // 닉네임 중복 확인 상태
   const [nicknameChecked, setNicknameChecked] = useState(false);
@@ -100,6 +105,20 @@ export const LoginScreen: React.FC = () => {
     }
   }, [nickname, setError]);
 
+  // 점검 상태 확인
+  useEffect(() => {
+    fetch(`${API_URL}/api/maintenance/status`)
+      .then(res => res.json())
+      .then(data => {
+        if (data.isActive) {
+          setMaintenanceMessage(data.message || '서버 점검 중입니다.');
+        }
+      })
+      .catch(() => {
+        // 서버 접속 불가 시 무시
+      });
+  }, []);
+
   // 컴포넌트 언마운트 시 타이머 정리
   useEffect(() => {
     return () => {
@@ -128,6 +147,11 @@ export const LoginScreen: React.FC = () => {
     soundManager.play('ui_click');
     clearError();
 
+    if (maintenanceMessage) {
+      setError('서버 점검 중에는 로그인할 수 없습니다.');
+      return;
+    }
+
     if (!username || !password) {
       setError('아이디와 비밀번호를 입력해주세요.');
       return;
@@ -138,13 +162,18 @@ export const LoginScreen: React.FC = () => {
     if (success) {
       setScreen('menu');
     }
-  }, [username, password, signIn, setScreen, setError, clearError]);
+  }, [username, password, signIn, setScreen, setError, clearError, maintenanceMessage]);
 
   const handleSignUp = useCallback(async (e: React.FormEvent) => {
     e.preventDefault();
     soundManager.init();
     soundManager.play('ui_click');
     clearError();
+
+    if (maintenanceMessage) {
+      setError('서버 점검 중에는 회원가입할 수 없습니다.');
+      return;
+    }
 
     if (!username || !password || !nickname) {
       setError('모든 필드를 입력해주세요.');
@@ -203,12 +232,17 @@ export const LoginScreen: React.FC = () => {
         setScreen('menu');
       }
     }
-  }, [username, password, confirmPassword, nickname, signUp, setScreen, setError, clearError]);
+  }, [username, password, confirmPassword, nickname, signUp, setScreen, setError, clearError, maintenanceMessage]);
 
   const handleGuestLogin = useCallback(async () => {
     soundManager.init();
     soundManager.play('ui_click');
     clearError();
+
+    if (maintenanceMessage) {
+      setError('서버 점검 중에는 접속할 수 없습니다.');
+      return;
+    }
 
     const guestNickname = nickname || `모험가${Math.floor(Math.random() * 10000)}`;
 
@@ -216,7 +250,7 @@ export const LoginScreen: React.FC = () => {
     if (success) {
       setScreen('menu');
     }
-  }, [nickname, signInGuest, setScreen, clearError]);
+  }, [nickname, signInGuest, setScreen, clearError, setError, maintenanceMessage]);
 
   const handleBack = useCallback(() => {
     soundManager.init();
@@ -242,6 +276,20 @@ export const LoginScreen: React.FC = () => {
         <div style={{ height: '20px' }} />
 
         <p className="text-gray-400 text-sm mb-10">로그인하여 진행 상황을 저장하세요</p>
+
+        <div style={{ height: '20px' }} />
+
+        {/* 점검 중 안내 */}
+        {maintenanceMessage && (
+          <div className="w-full mb-8 p-6 bg-yellow-500/15 border-2 border-yellow-500/50 rounded-lg text-center">
+            <div style={{ height: '5px' }} />
+            <div className="text-3xl mb-3">🔧</div>
+            <h2 className="text-yellow-300 font-bold text-lg mb-2">점검 중입니다</h2>
+            <p className="text-yellow-200/80 text-sm">{maintenanceMessage}</p>
+            <p className="text-gray-400 text-xs mt-3">잠시 후 다시 시도해주세요.</p>
+            <div style={{ height: '5px' }} />
+          </div>
+        )}
 
         <div style={{ height: '20px' }} />
 

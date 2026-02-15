@@ -214,6 +214,7 @@ export class FriendRequestHandler {
             playerLevel: fromUserProfile.player_level || 1,
             // 게임 진행 중인 경우에만 currentRoom 표시
             currentRoom: fromPlayer?.isInGame ? fromPlayer.roomId || undefined : undefined,
+            gameMode: fromPlayer?.gameMode || undefined,
           };
         }
       }
@@ -241,6 +242,7 @@ export class FriendRequestHandler {
               playerLevel: toUserProfile.player_level || 1,
               // 게임 진행 중인 경우에만 currentRoom 표시
               currentRoom: responderPlayer?.isInGame ? responderPlayer.roomId || undefined : undefined,
+              gameMode: responderPlayer?.gameMode || undefined,
             };
             sendToPlayer(fromPlayer.id, {
               type: 'FRIEND_REQUEST_RESPONDED',

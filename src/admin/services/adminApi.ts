@@ -9,6 +9,9 @@ import type {
   UserGrowthData,
   DailyGamesData,
   BansListResponse,
+  FeedbackListResponse,
+  FeedbackStats,
+  MaintenanceStatus,
 } from '../types/admin';
 
 const API_BASE = import.meta.env.VITE_API_URL || 'http://localhost:8080';
@@ -165,6 +168,47 @@ class AdminApiService {
 
   async getDailyGames(): Promise<{ gamesData: DailyGamesData[] }> {
     return this.request('/api/admin/stats/games-daily');
+  }
+  // Feedback APIs
+  async getFeedbackStats(): Promise<FeedbackStats> {
+    return this.request<FeedbackStats>('/api/admin/feedback/stats');
+  }
+
+  async getFeedbackList(params: {
+    page?: number;
+    limit?: number;
+    rating?: number;
+    sortOrder?: 'asc' | 'desc';
+  } = {}): Promise<FeedbackListResponse> {
+    const searchParams = new URLSearchParams();
+    if (params.page) searchParams.set('page', params.page.toString());
+    if (params.limit) searchParams.set('limit', params.limit.toString());
+    if (params.rating) searchParams.set('rating', params.rating.toString());
+    if (params.sortOrder) searchParams.set('sortOrder', params.sortOrder);
+
+    return this.request<FeedbackListResponse>(`/api/admin/feedback?${searchParams}`);
+  }
+
+  async deleteFeedback(id: string): Promise<void> {
+    await this.request(`/api/admin/feedback/${id}`, { method: 'DELETE' });
+  }
+
+  // Maintenance APIs
+  async getMaintenanceStatus(): Promise<MaintenanceStatus> {
+    return this.request<MaintenanceStatus>('/api/admin/maintenance/status');
+  }
+
+  async activateMaintenance(minutes: number, message: string): Promise<{ success: boolean; state: MaintenanceStatus }> {
+    return this.request('/api/admin/maintenance/activate', {
+      method: 'POST',
+      body: JSON.stringify({ minutes, message }),
+    });
+  }
+
+  async deactivateMaintenance(): Promise<{ success: boolean; state: MaintenanceStatus }> {
+    return this.request('/api/admin/maintenance/deactivate', {
+      method: 'POST',
+    });
   }
 }
 

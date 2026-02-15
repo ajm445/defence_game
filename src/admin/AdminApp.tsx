@@ -5,6 +5,8 @@ import { DashboardPage } from './pages/DashboardPage';
 import { PlayersPage } from './pages/PlayersPage';
 import { PlayerDetailPage } from './pages/PlayerDetailPage';
 import { MonitoringPage } from './pages/MonitoringPage';
+import { FeedbackPage } from './pages/FeedbackPage';
+import { MaintenancePage } from './pages/MaintenancePage';
 
 export default function AdminApp() {
   return (
@@ -16,6 +18,8 @@ export default function AdminApp() {
         <Route path="players" element={<PlayersPage />} />
         <Route path="players/:id" element={<PlayerDetailPage />} />
         <Route path="monitoring" element={<MonitoringPage />} />
+        <Route path="feedback" element={<FeedbackPage />} />
+        <Route path="maintenance" element={<MaintenancePage />} />
       </Route>
       <Route path="*" element={<Navigate to="dashboard" replace />} />
     </Routes>
