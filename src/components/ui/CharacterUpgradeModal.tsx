@@ -1,4 +1,4 @@
-import React, { useCallback, useState } from 'react';
+import React, { useCallback, useState, useEffect } from 'react';
 import { HeroClass, AdvancedHeroClass } from '../../types/rpg';
 import {
   ClassProgress,
@@ -39,6 +39,14 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
   isUnlocked,
   onClose,
 }) => {
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   const baseConfig = CLASS_CONFIGS[heroClass];
   const advancedConfig = progress.advancedClass
     ? ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass]

@@ -216,6 +216,7 @@ export interface ServerStatus {
   activeGames: number;
   serverUptime: number;
   memoryUsage: number;
+  maintenanceActive?: boolean;
 }
 
 export interface PlayerActivity {

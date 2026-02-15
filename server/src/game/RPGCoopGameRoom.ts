@@ -11,6 +11,11 @@ import type {
 } from '../../../shared/types/rpgNetwork';
 import type { SerializedGameState, PlayerInput } from '../../../shared/types/hostBasedNetwork';
 
+// 게임 종료 후 준비 체크 타임아웃 (10초)
+const READY_CHECK_TIMEOUT = 10000;
+// 모든 비호스트 준비 완료 후 방장 시작 대기 (30초)
+const HOST_START_TIMEOUT = 30000;
+
 /**
  * 서버 권위 게임 방
  * - 게임 로직은 서버에서 실행 (RPGServerGameEngine)
@@ -27,6 +32,8 @@ export class RPGCoopGameRoom {
 
   private gameState: 'waiting' | 'countdown' | 'playing' | 'ended' = 'waiting';
   private countdownTimer: NodeJS.Timeout | null = null;
+  private readyCheckTimer: NodeJS.Timeout | null = null;
+  private hostStartTimer: NodeJS.Timeout | null = null;
 
   // 서버 게임 엔진 (서버 권위 모델)
   private gameEngine: RPGServerGameEngine | null = null;
@@ -146,6 +153,13 @@ export class RPGCoopGameRoom {
       }
     });
 
+    // 모든 비호스트 플레이어의 준비 상태 리셋 (재게임 시 명시적 준비 필요)
+    this.playerInfos.forEach(p => {
+      if (!p.isHost) {
+        p.isReady = false;
+      }
+    });
+
     // 모든 플레이어에게 게임 종료 알림
     this.broadcast({ type: 'COOP_GAME_OVER', result });
 
@@ -156,6 +170,67 @@ export class RPGCoopGameRoom {
       this.gameEngine.stop();
       this.gameEngine = null;
     }
+
+    // 멀티플레이 (2인 이상) 시 10초 준비 체크 타이머 시작
+    if (this.playerInfos.length > 1) {
+      this.readyCheckTimer = setTimeout(() => {
+        this.readyCheckTimer = null;
+        this.kickUnreadyPlayers();
+      }, READY_CHECK_TIMEOUT);
+    }
+  }
+
+  /**
+   * 준비 시간 초과 시 미준비 비호스트 플레이어 퇴장
+   */
+  private kickUnreadyPlayers(): void {
+    if (this.gameState !== 'ended') return;
+
+    const unreadyPlayers = this.playerInfos.filter(p => !p.isHost && !p.isReady);
+    if (unreadyPlayers.length === 0) return;
+
+    console.log(`[ServerAuth] 준비 시간 초과 - ${unreadyPlayers.length}명 퇴장: Room ${this.id}`);
+
+    // 1. 퇴장 플레이어에게 알림 + 상태 정리
+    for (const unready of unreadyPlayers) {
+      sendToPlayer(unready.id, {
+        type: 'COOP_ROOM_DESTROYED',
+        reason: '준비 시간이 초과되어 방에서 나갔습니다.',
+        message: '준비 시간이 초과되어 방에서 나갔습니다.',
+      });
+
+      const player = players.get(unready.id);
+      if (player) {
+        player.roomId = null;
+        player.isInGame = false;
+        if (player.userId) {
+          friendManager.notifyFriendsStatusChange(player.userId, true, undefined);
+        }
+      }
+    }
+
+    // 2. 목록에서 제거
+    const kickedIds = new Set(unreadyPlayers.map(p => p.id));
+    this.playerIds = this.playerIds.filter(id => !kickedIds.has(id));
+    this.playerInfos = this.playerInfos.filter(p => !kickedIds.has(p.id));
+
+    // 3. 방이 비었으면 정리
+    if (this.playerIds.length === 0) {
+      this.cleanup();
+      return;
+    }
+
+    // 4. 남은 플레이어들에게 퇴장 알림
+    for (const unready of unreadyPlayers) {
+      this.broadcast({
+        type: 'COOP_PLAYER_DISCONNECTED',
+        playerId: unready.id,
+        playerName: unready.name,
+      });
+    }
+
+    // 5. 대기방 동기화
+    syncWaitingRoomPlayers(this.id, this.playerIds, this.playerInfos);
   }
 
   // ============================================
@@ -204,6 +279,18 @@ export class RPGCoopGameRoom {
     if (this.countdownTimer) {
       clearInterval(this.countdownTimer);
       this.countdownTimer = null;
+    }
+
+    // 준비 체크 타이머 정리
+    if (this.readyCheckTimer) {
+      clearTimeout(this.readyCheckTimer);
+      this.readyCheckTimer = null;
+    }
+
+    // 방장 시작 타이머 정리
+    if (this.hostStartTimer) {
+      clearTimeout(this.hostStartTimer);
+      this.hostStartTimer = null;
     }
 
     this.gameState = 'waiting';
@@ -274,6 +361,18 @@ export class RPGCoopGameRoom {
         });
         return;
       }
+    }
+
+    // 준비 체크 타이머 정리
+    if (this.readyCheckTimer) {
+      clearTimeout(this.readyCheckTimer);
+      this.readyCheckTimer = null;
+    }
+
+    // 방장 시작 타이머 정리
+    if (this.hostStartTimer) {
+      clearTimeout(this.hostStartTimer);
+      this.hostStartTimer = null;
     }
 
     // 카운트다운 시작
@@ -440,8 +539,8 @@ export class RPGCoopGameRoom {
    * 플레이어 준비 상태 변경 (로비에서)
    */
   public setPlayerReady(playerId: string, isReady: boolean): void {
-    // 게임 종료 후 로비 상태에서만 준비 상태 변경 가능
-    if (this.gameState !== 'waiting') {
+    // 로비 또는 게임 종료 상태에서 준비 상태 변경 가능
+    if (this.gameState !== 'waiting' && this.gameState !== 'ended') {
       return;
     }
 
@@ -463,6 +562,53 @@ export class RPGCoopGameRoom {
       playerId,
       isReady,
     });
+
+    const allNonHostReady = this.playerInfos.every(p => p.isHost || p.isReady);
+
+    if (isReady && allNonHostReady) {
+      // 모든 비호스트 준비 완료 → 준비 체크 타이머 해제 + 방장 시작 타이머 시작
+      if (this.readyCheckTimer) {
+        clearTimeout(this.readyCheckTimer);
+        this.readyCheckTimer = null;
+      }
+      console.log(`[ServerAuth] 모든 플레이어 준비 완료 - 방장 시작 대기: Room ${this.id}`);
+
+      // 방장에게 게임 시작 경고 알림
+      sendToPlayer(this.hostPlayerId, {
+        type: 'COOP_ROOM_ERROR',
+        message: '모든 플레이어가 준비 완료! 30초 안에 게임을 시작해주세요.',
+      });
+
+      // 30초 후 방장 미시작 시 방 파기
+      if (this.hostStartTimer) {
+        clearTimeout(this.hostStartTimer);
+      }
+      this.hostStartTimer = setTimeout(() => {
+        this.hostStartTimer = null;
+        if (this.gameState === 'ended') {
+          console.log(`[ServerAuth] 방장 시작 시간 초과 - 방 파기: Room ${this.id}`);
+          this.broadcast({
+            type: 'COOP_ROOM_DESTROYED',
+            reason: '방장이 시간 내에 게임을 시작하지 않아 방이 파기되었습니다.',
+            message: '방장이 시간 내에 게임을 시작하지 않아 방이 파기되었습니다.',
+          });
+          this.cleanup();
+        }
+      }, HOST_START_TIMEOUT);
+    } else if (!isReady && this.gameState === 'ended') {
+      // 준비 취소 → 방장 시작 타이머 해제 + 준비 체크 타이머 재시작
+      if (this.hostStartTimer) {
+        clearTimeout(this.hostStartTimer);
+        this.hostStartTimer = null;
+      }
+      if (!this.readyCheckTimer) {
+        this.readyCheckTimer = setTimeout(() => {
+          this.readyCheckTimer = null;
+          this.kickUnreadyPlayers();
+        }, READY_CHECK_TIMEOUT);
+        console.log(`[ServerAuth] 준비 취소 - 준비 타이머 재시작: Room ${this.id}`);
+      }
+    }
 
     console.log(`[ServerAuth] ${playerId} 준비 상태: ${isReady}`);
   }
@@ -541,6 +687,12 @@ export class RPGCoopGameRoom {
         console.log(`[ServerAuth] 방장 연결 해제로 카운트다운 취소`);
       }
 
+      // 방장 시작 타이머 정리 (새 방장에게 재시작하기 위해)
+      if (this.hostStartTimer) {
+        clearTimeout(this.hostStartTimer);
+        this.hostStartTimer = null;
+      }
+
       const remainingPlayers = this.playerIds.filter(id => id !== playerId);
 
       if (remainingPlayers.length > 0) {
@@ -572,6 +724,32 @@ export class RPGCoopGameRoom {
           type: 'COOP_YOU_ARE_NOW_HOST',
           gameState: this.gameState,
         });
+
+        // 게임 종료 상태에서 호스트 변경 시: 비호스트 준비 현황 재확인
+        if (this.gameState === 'ended') {
+          // 나간 플레이어 제외 후 비호스트 목록 재계산 (아래에서 playerInfos 필터 전이므로 수동 필터)
+          const remainingInfos = this.playerInfos.filter(p => p.id !== playerId);
+          const allNonHostReady = remainingInfos.every(p => p.isHost || p.id === this.hostPlayerId || p.isReady);
+          if (allNonHostReady && remainingInfos.length > 1) {
+            // 모든 비호스트 준비 완료 → 새 방장에게 시작 경고 + 30초 타이머
+            sendToPlayer(this.hostPlayerId, {
+              type: 'COOP_ROOM_ERROR',
+              message: '모든 플레이어가 준비 완료! 30초 안에 게임을 시작해주세요.',
+            });
+            this.hostStartTimer = setTimeout(() => {
+              this.hostStartTimer = null;
+              if (this.gameState === 'ended') {
+                console.log(`[ServerAuth] 방장 시작 시간 초과 - 방 파기: Room ${this.id}`);
+                this.broadcast({
+                  type: 'COOP_ROOM_DESTROYED',
+                  reason: '방장이 시간 내에 게임을 시작하지 않아 방이 파기되었습니다.',
+                  message: '방장이 시간 내에 게임을 시작하지 않아 방이 파기되었습니다.',
+                });
+                this.cleanup();
+              }
+            }, HOST_START_TIMEOUT);
+          }
+        }
 
         // 참고: 게임 진행 중일 때는 서버 게임 엔진이 계속 실행됨
         // 방장 변경은 로비 관리 권한만 위임함
@@ -672,6 +850,16 @@ export class RPGCoopGameRoom {
     if (this.countdownTimer) {
       clearInterval(this.countdownTimer);
       this.countdownTimer = null;
+    }
+
+    if (this.readyCheckTimer) {
+      clearTimeout(this.readyCheckTimer);
+      this.readyCheckTimer = null;
+    }
+
+    if (this.hostStartTimer) {
+      clearTimeout(this.hostStartTimer);
+      this.hostStartTimer = null;
     }
 
     // 방에 대한 모든 게임 초대 취소

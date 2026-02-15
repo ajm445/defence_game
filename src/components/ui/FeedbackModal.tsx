@@ -5,7 +5,7 @@ import { soundManager } from '../../services/SoundManager';
 interface FeedbackModalProps {
   isOpen: boolean;
   onClose: () => void;
-  onSubmitted?: () => void;
+  onSubmitted?: (expRewarded: number) => void;
   playerId: string;
 }
 
@@ -19,12 +19,23 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
   const [submitSuccess, setSubmitSuccess] = useState(false);
   const [error, setError] = useState<string | null>(null);
   const [summary, setSummary] = useState<{ averageRating: number; totalCount: number } | null>(null);
+  const [rewardedExp, setRewardedExp] = useState(0);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   useEffect(() => {
     if (!isOpen) return;
 
     setSubmitSuccess(false);
     setError(null);
+    setRewardedExp(0);
     setIsLoading(true);
 
     // 내 피드백 + 전체 요약 동시 로드
@@ -58,12 +69,13 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
     setIsSubmitting(true);
     setError(null);
 
-    const success = await submitFeedback(playerId, rating, comment);
+    const result = await submitFeedback(playerId, rating, comment);
 
-    if (success) {
+    if (result.success) {
       setSubmitSuccess(true);
       setHasExisting(true);
-      onSubmitted?.();
+      setRewardedExp(result.expRewarded);
+      onSubmitted?.(result.expRewarded);
       // 요약 데이터 갱신
       const newSummary = await getFeedbackSummary();
       if (newSummary) setSummary(newSummary);
@@ -109,6 +121,9 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
               <p className="text-green-400 font-bold text-lg">
                 피드백이 {hasExisting ? '수정' : '등록'}되었습니다!
               </p>
+              {rewardedExp > 0 && (
+                <p className="text-yellow-400 font-bold text-base">+{rewardedExp} EXP 획득!</p>
+              )}
               <p className="text-gray-400 text-sm">소중한 의견 감사합니다.</p>
               <button
                 onClick={onClose}

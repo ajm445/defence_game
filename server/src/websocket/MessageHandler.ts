@@ -1,5 +1,6 @@
 import type { ClientMessage } from '../../../shared/types/network';
 import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOffline, setOnlineStatusCallback, getPlayerByUserId, getLoggedInUserCount, setPlayerGameMode, type GameMode } from '../state/players';
+import { isMaintenanceActive } from '../state/maintenance';
 import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import { verifyAdminToken } from '../middleware/adminAuth';
 import { getSupabaseAdmin } from '../services/supabaseAdmin';
@@ -55,6 +56,7 @@ export function getServerStatus() {
     activeGames: gameRooms.size + coopGameRooms.size,
     serverUptime: process.uptime(),
     memoryUsage: process.memoryUsage().heapUsed,
+    maintenanceActive: isMaintenanceActive(),
   };
 }
 
@@ -173,6 +175,10 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     case 'COLLECT_RESOURCE':
       handleCollectResource(playerId, message.nodeId);
+      break;
+
+    case 'SURRENDER':
+      handleSurrender(playerId);
       break;
 
     // 사용자 인증 메시지
@@ -672,6 +678,17 @@ function handleCollectResource(playerId: string, nodeId: string): void {
   }
 }
 
+function handleSurrender(playerId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.roomId) return;
+
+  const room = gameRooms.get(player.roomId);
+  if (room) {
+    console.log(`[RTS] ${player.name || playerId} 항복`);
+    room.surrender(playerId);
+  }
+}
+
 // ============================================
 // 협동 모드 핸들러
 // ============================================
@@ -745,16 +762,10 @@ function handleLeaveCoopRoom(playerId: string): void {
         return;
       }
 
-      // 게임 중/종료 상태에서 호스트가 나가면 방 파기
-      if (gameRoom.isHost(playerId)) {
-        console.log(`[Coop] 호스트가 게임 중 나가기 - 방 파기: ${roomId}`);
-        gameRoom.destroyRoom(playerId);
-      } else {
-        // 일반 플레이어는 퇴장 처리
-        console.log(`[Coop] 게임 방에서 플레이어 제거: ${roomId}`);
-        gameRoom.handlePlayerDisconnect(playerId);
-        if (player) player.roomId = null;
-      }
+      // 게임 중/종료 상태: 호스트도 일반 플레이어도 퇴장 처리 (호스트 위임)
+      console.log(`[Coop] 게임 방에서 플레이어 퇴장: ${roomId} (isHost=${gameRoom.isHost(playerId)})`);
+      gameRoom.handlePlayerDisconnect(playerId);
+      if (player) player.roomId = null;
       return;
     }
   }

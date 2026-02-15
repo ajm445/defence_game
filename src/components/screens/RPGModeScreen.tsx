@@ -26,6 +26,8 @@ import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
 import { saveDifficultyRanking, RankingPlayer, RankingDifficulty } from '../../services/rankingService';
 import { tryExitFullscreen, tryEnterFullscreen, setTabletGameActive } from '../../hooks/useDeviceDetect';
+import { FeedbackModal } from '../ui/FeedbackModal';
+import { getMyFeedback } from '../../services/feedbackService';
 
 export const RPGModeScreen: React.FC = () => {
   // 게임 루프 시작
@@ -58,6 +60,26 @@ export const RPGModeScreen: React.FC = () => {
   const [showSecondEnhancement, setShowSecondEnhancement] = useState(false);
   const [enhancedClass, setEnhancedClass] = useState<AdvancedHeroClass | null>(null);
 
+  // 경험치 처리 완료 상태 (게스트는 경험치 저장 없으므로 즉시 완료)
+  const [expProcessed, setExpProcessed] = useState(isGuest);
+
+  // 멀티플레이 게임 종료 시 준비 카운트다운 (10초)
+  const [readyCountdown, setReadyCountdown] = useState<number | null>(null);
+
+  // 피드백 상태
+  const [showFeedback, setShowFeedback] = useState(false);
+  const [hasFeedback, setHasFeedback] = useState(false);
+  const [feedbackDismissed, setFeedbackDismissed] = useState(false);
+
+  // 게임 오버 시 피드백 작성 여부 확인
+  useEffect(() => {
+    if (gameOver && profile && !isGuest) {
+      getMyFeedback(profile.id).then((feedback) => {
+        setHasFeedback(feedback !== null);
+      });
+    }
+  }, [gameOver, profile, isGuest]);
+
   // 태블릿 인게임: 전체화면 해제 (캔버스 레이아웃 호환성)
   // RPG는 결과 화면이 이 컴포넌트 내 오버레이이므로, 사용자가 나갈 때까지 전체화면 비활성화 유지
   useEffect(() => {
@@ -70,82 +92,109 @@ export const RPGModeScreen: React.FC = () => {
     };
   }, [isTablet]);
 
+  // 카운트다운 재시작 트리거 (handleUnready에서 증가)
+  const [countdownTrigger, setCountdownTrigger] = useState(0);
+
+  // 멀티플레이 게임 종료 시 10초 준비 카운트다운
+  useEffect(() => {
+    const mp = useRPGStore.getState().multiplayer;
+    if (!gameOver || !mp.isMultiplayer || mp.players.length <= 1) {
+      setReadyCountdown(null);
+      return;
+    }
+    setReadyCountdown(10);
+    const interval = setInterval(() => {
+      setReadyCountdown(prev => {
+        if (prev === null || prev <= 1) {
+          clearInterval(interval);
+          return 0;
+        }
+        return prev - 1;
+      });
+    }, 1000);
+    return () => clearInterval(interval);
+  }, [gameOver, countdownTrigger]);
+
   // 게임 초기화: 멀티플레이어 모드에서는 initMultiplayerGame이 useNetworkSync에서 호출됨
   // 이 컴포넌트는 이미 초기화된 상태에서 마운트됨
   // 언마운트 시 정리하지 않음 - 메인 메뉴로 돌아갈 때만 PauseScreen에서 resetGame 호출
 
-  // 다시하기 시 expSavedRef 리셋 (컴포넌트가 언마운트되지 않으므로 수동 리셋 필요)
+  // 다시하기 시 expSavedRef + expProcessed 리셋 (컴포넌트가 언마운트되지 않으므로 수동 리셋 필요)
   useEffect(() => {
     if (!gameOver) {
       expSavedRef.current = false;
+      setExpProcessed(isGuest);
     }
-  }, [gameOver]);
+  }, [gameOver, isGuest]);
 
-  // 게임 오버 시 경험치 저장
-  useEffect(() => {
-    // profile 객체 참조 변경으로 인한 중복 실행 방지
-    // getState()로 현재 프로필을 가져와서 확인
+  // 경험치 저장 함수 (게임 오버 시 모든 플레이어 자동 실행)
+  const processExp = useCallback(() => {
     const currentProfile = useAuthStore.getState().profile;
+    if (!result || !currentProfile || currentProfile.isGuest || expSavedRef.current) return;
 
-    // 게스트가 아니고 아직 저장하지 않은 경우에만 경험치 저장
-    if (gameOver && result && currentProfile && !currentProfile.isGuest && !expSavedRef.current) {
-      expSavedRef.current = true;
+    expSavedRef.current = true;
 
-      const rpgState = useRPGStore.getState();
-      const killsForExp = rpgState.personalKills;
+    const rpgState = useRPGStore.getState();
+    const killsForExp = rpgState.personalKills;
 
-      // 극한/지옥/종말 난이도 승리 시 랭킹 저장 (호스트만)
-      const rankingDifficulties: RankingDifficulty[] = ['extreme', 'hell', 'apocalypse'];
-      if (result.victory && rankingDifficulties.includes(rpgState.selectedDifficulty as RankingDifficulty) && rpgState.multiplayer.isHost) {
-        const rankingPlayers: RankingPlayer[] = rpgState.multiplayer.players.map(p => {
-          const playerClassProgress = useProfileStore.getState().classProgress.find(cp => cp.className === p.heroClass);
-          const advClass = p.advancedClass as AdvancedHeroClass | undefined;
-          return {
-            playerId: p.id,
-            nickname: p.name,
-            heroClass: p.heroClass,
-            advancedClass: advClass,
-            characterLevel: p.characterLevel || playerClassProgress?.classLevel || 1,
-          } as RankingPlayer;
-        });
+    // 극한/지옥/종말 난이도 승리 시 랭킹 저장 (호스트만)
+    const rankingDifficulties: RankingDifficulty[] = ['extreme', 'hell', 'apocalypse'];
+    if (result.victory && rankingDifficulties.includes(rpgState.selectedDifficulty as RankingDifficulty) && rpgState.multiplayer.isHost) {
+      const rankingPlayers: RankingPlayer[] = rpgState.multiplayer.players.map(p => {
+        const playerClassProgress = useProfileStore.getState().classProgress.find(cp => cp.className === p.heroClass);
+        const advClass = p.advancedClass as AdvancedHeroClass | undefined;
+        return {
+          playerId: p.id,
+          nickname: p.name,
+          heroClass: p.heroClass,
+          advancedClass: advClass,
+          characterLevel: p.characterLevel || playerClassProgress?.classLevel || 1,
+        } as RankingPlayer;
+      });
 
-        const playerCount = rankingPlayers.length;
-        saveDifficultyRanking(rpgState.selectedDifficulty as RankingDifficulty, playerCount, result.timePlayed, rankingPlayers);
-      }
+      const playerCount = rankingPlayers.length;
+      saveDifficultyRanking(rpgState.selectedDifficulty as RankingDifficulty, playerCount, result.timePlayed, rankingPlayers);
+    }
 
-      // 경험치 저장 (난이도 배율 적용)
-      useProfileStore.getState().handleGameEnd({
-        mode: 'coop',
-        classUsed: result.heroClass,
-        basesDestroyed: result.basesDestroyed,
-        bossesKilled: result.bossesKilled,
-        kills: killsForExp,
-        playTime: result.timePlayed,
-        victory: result.victory,
-        difficulty: rpgState.selectedDifficulty,
-      }).then((levelResult) => {
-        if (levelResult && (levelResult.playerLeveledUp || levelResult.classLeveledUp)) {
-          setLevelUpResult(levelResult);
-          setShowLevelUp(true);
-          soundManager.play('level_up');
+    // 경험치 저장 (난이도 배율 적용)
+    useProfileStore.getState().handleGameEnd({
+      mode: 'coop',
+      classUsed: result.heroClass,
+      basesDestroyed: result.basesDestroyed,
+      bossesKilled: result.bossesKilled,
+      kills: killsForExp,
+      playTime: result.timePlayed,
+      victory: result.victory,
+      difficulty: rpgState.selectedDifficulty,
+    }).then((levelResult) => {
+      if (levelResult && (levelResult.playerLeveledUp || levelResult.classLeveledUp)) {
+        setLevelUpResult(levelResult);
+        setShowLevelUp(true);
+        soundManager.play('level_up');
 
-          // 2차 강화 체크: 레벨 40 도달 + 1차 전직 완료 + 아직 2차 강화 안함
-          if (levelResult.classLeveledUp && levelResult.newClassLevel && levelResult.newClassLevel >= 40 && levelResult.className) {
-            const classProgress = useProfileStore.getState().classProgress.find(p => p.className === levelResult.className);
-            if (classProgress && classProgress.advancedClass && classProgress.tier !== 2) {
-              // 2차 강화 서버 저장 및 알림
-              useProfileStore.getState().applySecondEnhancementAction(levelResult.className).then((success) => {
-                if (success) {
-                  setEnhancedClass(classProgress.advancedClass as AdvancedHeroClass);
-                  // 레벨업 알림이 닫힌 후 2차 강화 알림을 표시하기 위해 약간의 딜레이
-                }
-              });
-            }
+        // 2차 강화 체크: 레벨 40 도달 + 1차 전직 완료 + 아직 2차 강화 안함
+        if (levelResult.classLeveledUp && levelResult.newClassLevel && levelResult.newClassLevel >= 40 && levelResult.className) {
+          const classProgress = useProfileStore.getState().classProgress.find(p => p.className === levelResult.className);
+          if (classProgress && classProgress.advancedClass && classProgress.tier !== 2) {
+            useProfileStore.getState().applySecondEnhancementAction(levelResult.className).then((success) => {
+              if (success) {
+                setEnhancedClass(classProgress.advancedClass as AdvancedHeroClass);
+              }
+            });
           }
         }
-      });
-    }
-  }, [gameOver, result, classProgressList]);  // classProgressList 의존성 추가
+      }
+      setExpProcessed(true);
+    });
+  }, [result]);
+
+  // 게임 오버 시 경험치 저장 (모든 플레이어 자동 실행)
+  useEffect(() => {
+    const currentProfile = useAuthStore.getState().profile;
+    if (!gameOver || !result || !currentProfile || currentProfile.isGuest || expSavedRef.current) return;
+
+    processExp();
+  }, [gameOver, result, classProgressList, processExp]);
 
   // 스킬 사용 핸들러
   const handleUseSkill = useCallback(
@@ -198,18 +247,7 @@ export const RPGModeScreen: React.FC = () => {
     wsClient.restartCoopGame();
   }, []);
 
-  // 멀티플레이어: 방 파기 후 대기방으로 이동 (호스트만)
-  const handleDestroyRoom = useCallback(() => {
-    wsClient.destroyCoopRoom();
-    useRPGStore.getState().resetMultiplayerState();
-    resetGame();
-    clearLastGameResult();
-    setLevelUpResult(null);
-    setShowLevelUp(false);
-    setScreen('rpgCoopLobby');
-  }, [resetGame, clearLastGameResult, setScreen]);
-
-  // 멀티플레이어: 방 나가기 (클라이언트)
+  // 멀티플레이어: 방 나가기 (클라이언트 - 비호스트: 보상 없이 즉시 퇴장)
   const handleLeaveRoom = useCallback(() => {
     wsClient.leaveCoopRoom();
     useRPGStore.getState().resetMultiplayerState();
@@ -219,6 +257,28 @@ export const RPGModeScreen: React.FC = () => {
     setShowLevelUp(false);
     setScreen('rpgCoopLobby');
   }, [resetGame, clearLastGameResult, setScreen]);
+
+  // 비호스트: 준비 전송
+  const handleReady = useCallback(() => {
+    wsClient.coopReady();
+  }, []);
+
+  // 비호스트: 준비 취소 (카운트다운 재시작)
+  const handleUnready = useCallback(() => {
+    wsClient.coopUnready();
+    setCountdownTrigger(prev => prev + 1);
+  }, []);
+
+  // 비호스트: 카운트다운 0 도달 시 자동 퇴장 (서버에서 kick하지만 클라이언트도 즉시 처리)
+  useEffect(() => {
+    if (readyCountdown !== 0) return;
+    const mp = useRPGStore.getState().multiplayer;
+    if (!mp.isMultiplayer || mp.isHost) return;
+    const myPlayer = mp.players.find(p => p.id === mp.myPlayerId);
+    if (myPlayer?.isReady) return; // 준비 완료 상태면 무시
+    // 자동 퇴장
+    handleLeaveRoom();
+  }, [readyCountdown, handleLeaveRoom]);
 
   // 레벨업 알림 닫기
   const handleCloseLevelUp = useCallback(() => {
@@ -443,49 +503,179 @@ export const RPGModeScreen: React.FC = () => {
               </div>
             )}
 
-            <div style={{ height: '10px' }} />
-
-            {/* 버튼 */}
-            <div className="flex flex-col gap-3">
-              {isHost ? (
-                // 호스트 버튼
-                <>
-                  <button
-                    onClick={handleRestartGame}
-                    className="w-full px-6 py-3 bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan rounded-lg font-bold transition-colors cursor-pointer"
-                  >
-                    게임 재시작
-                  </button>
-                  <button
-                    onClick={handleReturnToLobby}
-                    className="w-full px-6 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold transition-colors cursor-pointer"
-                  >
-                    로비로 돌아가기
-                  </button>
-                  <button
-                    onClick={handleDestroyRoom}
-                    className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
-                  >
-                    나가기
-                  </button>
-                </>
-              ) : (
-                // 클라이언트 버튼
-                <>
-                  <div className="text-center text-gray-400 py-2">
-                    방장의 결정을 기다리는 중...
+            {isHost ? (
+              // ======= 호스트 영역 =======
+              <>
+                {!expProcessed ? (
+                  <div className="flex items-center justify-center gap-2 py-4 text-gray-400">
+                    <svg className="animate-spin h-5 w-5" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" fill="none" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4z" />
+                    </svg>
+                    <span>경험치 처리 중...</span>
                   </div>
-                  <button
-                    onClick={handleLeaveRoom}
-                    className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
-                  >
-                    방 나가기
-                  </button>
-                </>
-              )}
-            </div>
+                ) : (
+                  <>
+                    {/* 피드백 유도 (비게스트 & 미작성자 & 레벨5 이상만) */}
+                    {!isGuest && !hasFeedback && !feedbackDismissed && profile && profile.playerLevel >= 5 && (
+                      <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-center">
+                        <p className="text-gray-300 text-sm mb-2">게임이 재미있으셨나요? 피드백을 남겨주세요!</p>
+                        <div className="flex gap-2 justify-center">
+                          <button
+                            onClick={() => setShowFeedback(true)}
+                            className="px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/50 hover:border-yellow-400 rounded-lg text-sm font-bold transition-all cursor-pointer"
+                          >
+                            피드백 남기기 (+50 EXP)
+                          </button>
+                          <button
+                            onClick={() => setFeedbackDismissed(true)}
+                            className="px-4 py-2 bg-dark-700 hover:bg-dark-600 text-gray-400 rounded-lg text-sm transition-all cursor-pointer"
+                          >
+                            다음에 작성하기
+                          </button>
+                        </div>
+                      </div>
+                    )}
+
+                    <div className="flex flex-col gap-3">
+                      {/* 팀원 준비 현황 (2인 이상일 때만) */}
+                      {multiplayer.players.length > 1 && (() => {
+                        const nonHostPlayers = multiplayer.players.filter(p => !p.isHost);
+                        const readyCount = nonHostPlayers.filter(p => p.isReady).length;
+                        const totalNonHost = nonHostPlayers.length;
+                        const allReady = readyCount === totalNonHost;
+                        return (
+                          <div className={`text-center text-sm py-1 ${allReady ? 'text-green-400' : 'text-gray-400'}`}>
+                            팀원 준비 ({readyCount}/{totalNonHost})
+                            {!allReady && readyCountdown != null && readyCountdown > 0 && (
+                              <span className="text-orange-400 ml-1">- {readyCountdown}초 후 미준비 퇴장</span>
+                            )}
+                          </div>
+                        );
+                      })()}
+                      <button
+                        onClick={handleRestartGame}
+                        className={`w-full px-6 py-3 rounded-lg font-bold transition-colors cursor-pointer ${
+                          multiplayer.players.length <= 1 || multiplayer.players.filter(p => !p.isHost).every(p => p.isReady)
+                            ? 'bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan'
+                            : 'bg-dark-700 hover:bg-dark-600 text-gray-400'
+                        }`}
+                      >
+                        게임 재시작
+                      </button>
+                      <button
+                        onClick={handleReturnToLobby}
+                        className="w-full px-6 py-3 bg-dark-700 hover:bg-dark-600 text-white rounded-lg font-bold transition-colors cursor-pointer"
+                      >
+                        로비로 돌아가기
+                      </button>
+                      <button
+                        onClick={handleLeaveRoom}
+                        className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
+                      >
+                        나가기
+                      </button>
+                    </div>
+                  </>
+                )}
+              </>
+            ) : (
+              // ======= 비호스트 영역 =======
+              <>
+                {/* 피드백 유도 (경험치 처리 완료 후 = 준비 버튼 누른 후) */}
+                {expProcessed && !isGuest && !hasFeedback && !feedbackDismissed && profile && profile.playerLevel >= 5 && (
+                  <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-center">
+                    <p className="text-gray-300 text-sm mb-2">게임이 재미있으셨나요? 피드백을 남겨주세요!</p>
+                    <div className="flex gap-2 justify-center">
+                      <button
+                        onClick={() => setShowFeedback(true)}
+                        className="px-4 py-2 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/50 hover:border-yellow-400 rounded-lg text-sm font-bold transition-all cursor-pointer"
+                      >
+                        피드백 남기기 (+50 EXP)
+                      </button>
+                      <button
+                        onClick={() => setFeedbackDismissed(true)}
+                        className="px-4 py-2 bg-dark-700 hover:bg-dark-600 text-gray-400 rounded-lg text-sm transition-all cursor-pointer"
+                      >
+                        다음에 작성하기
+                      </button>
+                    </div>
+                  </div>
+                )}
+
+                {/* 준비 카운트다운 + 버튼 */}
+                {(() => {
+                  const myPlayer = multiplayer.players.find(p => p.id === multiplayer.myPlayerId);
+                  const myReady = myPlayer?.isReady ?? false;
+                  return (
+                    <div className="flex flex-col gap-3">
+                      {/* 준비 상태 안내 */}
+                      {!myReady && readyCountdown != null && readyCountdown > 0 ? (
+                        <div className="p-3 bg-orange-500/10 border border-orange-500/30 rounded-lg text-center animate-pulse">
+                          <p className="text-orange-400 font-bold text-sm">
+                            {readyCountdown}초 안에 준비 버튼을 눌러주세요!
+                          </p>
+                          <p className="text-orange-300/70 text-xs mt-1">
+                            준비하지 않으면 방에서 퇴장됩니다.
+                          </p>
+                        </div>
+                      ) : myReady ? (
+                        <div className="text-center text-green-400 py-2 text-sm">
+                          준비 완료! 방장의 결정을 기다리는 중...
+                        </div>
+                      ) : (
+                        <div className="text-center text-gray-400 py-2">
+                          방장의 결정을 기다리는 중...
+                        </div>
+                      )}
+                      <button
+                        onClick={() => myReady ? handleUnready() : handleReady()}
+                        className={`w-full px-6 py-3 rounded-lg font-bold transition-colors cursor-pointer ${
+                          myReady
+                            ? 'bg-green-500/20 hover:bg-green-500/30 text-green-400 border border-green-500/50'
+                            : 'bg-neon-cyan/20 hover:bg-neon-cyan/30 text-neon-cyan border border-neon-cyan/50'
+                        }`}
+                      >
+                        {myReady ? '준비 완료' : '준비'}
+                      </button>
+                      <button
+                        onClick={handleLeaveRoom}
+                        className="w-full px-6 py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 rounded-lg font-bold transition-colors cursor-pointer"
+                      >
+                        방 나가기
+                      </button>
+                    </div>
+                  );
+                })()}
+              </>
+            )}
           </div>
         </div>
+      )}
+
+      {/* 피드백 모달 */}
+      {!isGuest && profile && (
+        <FeedbackModal
+          isOpen={showFeedback}
+          onClose={() => setShowFeedback(false)}
+          onSubmitted={(expRewarded) => {
+            setHasFeedback(true);
+            if (expRewarded > 0) {
+              // 로컬 프로필 경험치 업데이트
+              const currentProfile = useAuthStore.getState().profile;
+              if (currentProfile) {
+                let newExp = currentProfile.playerExp + expRewarded;
+                let newLevel = currentProfile.playerLevel;
+                while (newExp >= newLevel * 100) {
+                  newExp -= newLevel * 100;
+                  newLevel++;
+                }
+                useAuthStore.getState().updateLocalProfile({ playerExp: newExp, playerLevel: newLevel });
+              }
+            }
+          }}
+          playerId={profile.id}
+        />
       )}
 
       {/* 레벨업 알림 */}

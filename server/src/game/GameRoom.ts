@@ -1328,6 +1328,16 @@ export class GameRoom {
     // 직접 자원 채집 처리 (필요 시 구현)
   }
 
+  public surrender(playerId: string): void {
+    if (this.gameState !== 'playing') return;
+
+    const side = this.getPlayerSide(playerId);
+    if (!side) return;
+
+    const winningSide = side === 'left' ? 'right' : 'left';
+    this.endGame(winningSide, '항복');
+  }
+
   public handlePlayerDisconnect(playerId: string): void {
     if (this.gameState !== 'playing') {
       // 게임 시작 전이면 방 제거

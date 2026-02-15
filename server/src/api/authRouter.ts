@@ -1,8 +1,47 @@
 import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabaseAdmin, getSupabaseClient, isSupabaseConfigured } from '../services/supabaseAdmin';
+import { filterProfanity } from '../utils/profanityFilter';
 
 const router = Router();
+
+// IP 기반 Rate Limiter (인증 API용)
+const AUTH_RATE_LIMIT = {
+  maxRequests: 20,
+  windowMs: 60 * 1000, // 1분
+};
+
+const ipRequestCounts = new Map<string, { count: number; resetTime: number }>();
+
+// 1분마다 만료된 항목 정리
+setInterval(() => {
+  const now = Date.now();
+  for (const [ip, data] of ipRequestCounts) {
+    if (now >= data.resetTime) {
+      ipRequestCounts.delete(ip);
+    }
+  }
+}, 60 * 1000);
+
+const authRateLimit = (req: Request, res: Response, next: () => void) => {
+  const ip = req.ip || req.socket.remoteAddress || 'unknown';
+  const now = Date.now();
+
+  let entry = ipRequestCounts.get(ip);
+  if (!entry || now >= entry.resetTime) {
+    entry = { count: 0, resetTime: now + AUTH_RATE_LIMIT.windowMs };
+    ipRequestCounts.set(ip, entry);
+  }
+
+  entry.count++;
+
+  if (entry.count > AUTH_RATE_LIMIT.maxRequests) {
+    res.status(429).json({ success: false, error: '요청이 너무 많습니다. 잠시 후 다시 시도해주세요.' });
+    return;
+  }
+
+  next();
+};
 
 // 미들웨어: Supabase 설정 확인
 const checkSupabase = (req: Request, res: Response, next: () => void) => {
@@ -15,12 +54,24 @@ const checkSupabase = (req: Request, res: Response, next: () => void) => {
 
 router.use(checkSupabase);
 
+// 닉네임 유효성 검증 (재사용)
+function validateNickname(nickname: string): { valid: boolean; error?: string } {
+  if (!nickname || nickname.length < 2 || nickname.length > 10) {
+    return { valid: false, error: '닉네임은 2~10자 사이여야 합니다.' };
+  }
+  if (filterProfanity(nickname) !== nickname) {
+    return { valid: false, error: '사용할 수 없는 닉네임입니다.' };
+  }
+  return { valid: true };
+}
+
 // 닉네임 중복 확인
 router.get('/check-nickname', async (req: Request, res: Response) => {
   const nickname = req.query.nickname as string;
 
-  if (!nickname || nickname.length < 2) {
-    res.status(400).json({ available: false, error: '닉네임은 2자 이상이어야 합니다.' });
+  const validation = validateNickname(nickname);
+  if (!validation.valid) {
+    res.status(400).json({ available: false, error: validation.error });
     return;
   }
 
@@ -80,11 +131,17 @@ router.get('/check-username', async (req: Request, res: Response) => {
 });
 
 // 회원가입
-router.post('/signup', async (req: Request, res: Response) => {
+router.post('/signup', authRateLimit, async (req: Request, res: Response) => {
   const { email, password, nickname } = req.body;
 
   if (!email || !password || !nickname) {
     res.status(400).json({ success: false, error: '이메일, 비밀번호, 닉네임을 입력해주세요.' });
+    return;
+  }
+
+  const nicknameValidation = validateNickname(nickname);
+  if (!nicknameValidation.valid) {
+    res.status(400).json({ success: false, error: nicknameValidation.error });
     return;
   }
 
@@ -152,7 +209,7 @@ router.post('/signup', async (req: Request, res: Response) => {
 });
 
 // 로그인 (비밀번호 검증 포함)
-router.post('/signin', async (req: Request, res: Response) => {
+router.post('/signin', authRateLimit, async (req: Request, res: Response) => {
   const { email, password } = req.body;
 
   if (!email || !password) {
@@ -263,11 +320,17 @@ router.post('/signin', async (req: Request, res: Response) => {
 
 // 게스트 로그인
 // 게스트는 Supabase Auth 계정을 생성하지 않고, 로컬 UUID로 임시 프로필만 반환
-router.post('/guest', async (req: Request, res: Response) => {
+router.post('/guest', authRateLimit, async (req: Request, res: Response) => {
   const { nickname } = req.body;
 
   if (!nickname) {
     res.status(400).json({ success: false, error: '닉네임을 입력해주세요.' });
+    return;
+  }
+
+  const guestNicknameValidation = validateNickname(nickname);
+  if (!guestNicknameValidation.valid) {
+    res.status(400).json({ success: false, error: guestNicknameValidation.error });
     return;
   }
 
@@ -399,6 +462,12 @@ router.patch('/profile/:userId/nickname', async (req: Request, res: Response) =>
     return;
   }
 
+  const nickValidation = validateNickname(nickname);
+  if (!nickValidation.valid) {
+    res.status(400).json({ success: false, error: nickValidation.error });
+    return;
+  }
+
   const supabase = getSupabaseAdmin()!;
 
   try {
@@ -420,7 +489,7 @@ router.patch('/profile/:userId/nickname', async (req: Request, res: Response) =>
 });
 
 // 비밀번호 변경
-router.patch('/password', async (req: Request, res: Response) => {
+router.patch('/password', authRateLimit, async (req: Request, res: Response) => {
   const { userId, currentPassword, newPassword } = req.body;
 
   if (!userId || !currentPassword || !newPassword) {

@@ -201,8 +201,8 @@ export const LoginScreen: React.FC = () => {
       return;
     }
 
-    if (nickname.length < 2 || nickname.length > 20) {
-      setError('닉네임은 2~20자 사이여야 합니다.');
+    if (nickname.length < 2 || nickname.length > 10) {
+      setError('닉네임은 2~10자 사이여야 합니다.');
       return;
     }
 
@@ -408,8 +408,8 @@ export const LoginScreen: React.FC = () => {
                   value={nickname}
                   onChange={(e) => handleNicknameChange(e.target.value)}
                   className="flex-1 px-4 py-4 bg-gray-800/60 border border-gray-600 rounded-md text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all"
-                  placeholder="게임에서 표시될 이름 (2~20자)"
-                  maxLength={20}
+                  placeholder="게임에서 표시될 이름 (2~10자)"
+                  maxLength={10}
                   disabled={isLoading}
                 />
                 <button
@@ -488,6 +488,10 @@ export const LoginScreen: React.FC = () => {
               />
             </div>
 
+            <p className="text-yellow-400/80 text-xs mt-2">
+              비밀번호를 잊으면 복구할 수 없습니다. 안전한 곳에 기록해 주세요.
+            </p>
+
             <div style={{ height: '20px' }} />
 
             <div className="flex justify-center mt-4">
@@ -524,7 +528,7 @@ export const LoginScreen: React.FC = () => {
                 onChange={(e) => setNickname(e.target.value)}
                 className="w-full px-4 py-4 bg-gray-800/60 border border-gray-600 rounded-md text-white focus:border-purple-500 focus:outline-none focus:ring-2 focus:ring-purple-500/20 transition-all"
                 placeholder="입력하지 않으면 랜덤 생성"
-                maxLength={20}
+                maxLength={10}
                 disabled={isLoading}
               />
             </div>

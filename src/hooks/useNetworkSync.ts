@@ -131,6 +131,21 @@ export function useNetworkSync() {
           handleReconnectInfo(message);
           break;
 
+        // 플레이어 준비 상태 변경
+        case 'COOP_PLAYER_READY': {
+          const players = useRPGStore.getState().multiplayer.players;
+          const updatedPlayers = players.map(p =>
+            p.id === message.playerId ? { ...p, isReady: message.isReady } : p
+          );
+          useRPGStore.getState().setMultiplayerState({ players: updatedPlayers });
+          break;
+        }
+
+        // 방 에러 (준비 미완료 등)
+        case 'COOP_ROOM_ERROR':
+          useUIStore.getState().showNotification(message.message);
+          break;
+
         // 서버 점검 알림
         case 'MAINTENANCE_NOTICE':
           handleMaintenanceNotice(message);
@@ -310,7 +325,10 @@ function handleGameOver(result: any) {
   }
 
   // 멀티플레이어 상태를 post_game으로 변경 (방은 유지)
-  useRPGStore.getState().setMultiplayerState({ connectionState: 'post_game' });
+  // 모든 비호스트 플레이어의 isReady를 false로 리셋 (서버에서도 리셋하지만 클라이언트도 동기화)
+  const currentPlayers = useRPGStore.getState().multiplayer.players;
+  const updatedPlayers = currentPlayers.map(p => p.isHost ? p : { ...p, isReady: false });
+  useRPGStore.getState().setMultiplayerState({ connectionState: 'post_game', players: updatedPlayers });
 }
 
 function handleReturnToLobby(message?: any) {

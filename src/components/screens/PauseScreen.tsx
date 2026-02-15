@@ -26,6 +26,7 @@ export const PauseScreen: React.FC = () => {
   const saveSoundSettings = useAuthStore((state) => state.saveSoundSettings);
 
   const [showSettings, setShowSettings] = useState(false);
+  const [showQuitConfirm, setShowQuitConfirm] = useState(false);
 
   const isTutorial = gameMode === 'tutorial';
   const isRPG = gameMode === 'rpg';
@@ -268,7 +269,7 @@ export const PauseScreen: React.FC = () => {
 
           {/* 게임 나가기 버튼 */}
           <button
-            onClick={handleQuitGame}
+            onClick={() => setShowQuitConfirm(true)}
             className="mt-4 group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
             style={{ paddingTop: '5px', paddingBottom: '5px' }}
           >
@@ -278,6 +279,30 @@ export const PauseScreen: React.FC = () => {
               🚪 게임 나가기
             </span>
           </button>
+
+          {/* 나가기 확인 모달 */}
+          {showQuitConfirm && (
+            <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setShowQuitConfirm(false)}>
+              <div className="bg-dark-800 border border-gray-600 rounded-xl p-6 min-w-[320px] animate-fade-in" onClick={(e) => e.stopPropagation()}>
+                <h3 className="text-white font-bold text-lg text-center mb-2">게임 나가기</h3>
+                <p className="text-gray-400 text-sm text-center mb-6">게임에서 나가시겠습니까?<br />진행 상황이 저장되지 않습니다.</p>
+                <div className="flex gap-3">
+                  <button
+                    onClick={() => setShowQuitConfirm(false)}
+                    className="flex-1 py-2 bg-dark-600 hover:bg-dark-500 text-gray-300 rounded-lg transition-colors cursor-pointer"
+                  >
+                    취소
+                  </button>
+                  <button
+                    onClick={handleQuitGame}
+                    className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors cursor-pointer"
+                  >
+                    나가기
+                  </button>
+                </div>
+              </div>
+            </div>
+          )}
         </div>
       </div>
     );
@@ -338,7 +363,7 @@ export const PauseScreen: React.FC = () => {
           {/* RPG 호스트 전용: 게임 중단 버튼 */}
           {isRPG && isHost && (
             <button
-              onClick={handleStopGame}
+              onClick={() => setShowQuitConfirm(true)}
               className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
               style={{ paddingTop: '5px', paddingBottom: '5px' }}
             >
@@ -424,6 +449,36 @@ export const PauseScreen: React.FC = () => {
             >
               닫기
             </button>
+          </div>
+        )}
+
+        {/* 게임 중단/나가기 확인 모달 (호스트/싱글) */}
+        {showQuitConfirm && (
+          <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setShowQuitConfirm(false)}>
+            <div className="bg-dark-800 border border-gray-600 rounded-xl p-6 min-w-[320px] animate-fade-in" onClick={(e) => e.stopPropagation()}>
+              <h3 className="text-white font-bold text-lg text-center mb-2">
+                {isRPG && isHost ? '게임 중단' : '게임 나가기'}
+              </h3>
+              <p className="text-gray-400 text-sm text-center mb-6">
+                {isRPG && isHost
+                  ? '게임을 중단하시겠습니까?\n모든 플레이어의 게임이 종료됩니다.'
+                  : '게임에서 나가시겠습니까?\n진행 상황이 저장되지 않습니다.'}
+              </p>
+              <div className="flex gap-3">
+                <button
+                  onClick={() => setShowQuitConfirm(false)}
+                  className="flex-1 py-2 bg-dark-600 hover:bg-dark-500 text-gray-300 rounded-lg transition-colors cursor-pointer"
+                >
+                  취소
+                </button>
+                <button
+                  onClick={isRPG && isHost ? handleStopGame : handleQuitGame}
+                  className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors cursor-pointer"
+                >
+                  확인
+                </button>
+              </div>
+            </div>
           </div>
         )}
       </div>

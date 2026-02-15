@@ -94,6 +94,7 @@ class WebSocketClient {
           this.connectionState = 'connected';
           this.reconnectAttempts = 0;
           this.pendingConnect = false;
+          useUIStore.getState().setConnectionLost(false);
 
           // 로그인 정보가 있으면 자동 재전송 (재연결 시 온라인 상태 복원)
           if (this.currentLogin) {
@@ -160,6 +161,7 @@ class WebSocketClient {
 
     if (this.reconnectAttempts >= this.maxReconnectAttempts) {
       console.log('최대 재연결 시도 횟수 초과 (탭 복귀 시 재시도)');
+      useUIStore.getState().setConnectionLost(true);
       return;
     }
 
@@ -254,6 +256,10 @@ class WebSocketClient {
 
   public sellHerb(): void {
     this.send({ type: 'SELL_HERB' });
+  }
+
+  public surrender(): void {
+    this.send({ type: 'SURRENDER' } as any);
   }
 
   public collectResource(nodeId: string): void {

@@ -1,4 +1,4 @@
-import React, { useEffect } from 'react';
+import React, { useEffect, useState } from 'react';
 import { useGameLoop } from '../../hooks/useGameLoop';
 import { useKeyboardInput } from '../../hooks/useKeyboardInput';
 import { useEdgeScroll } from '../../hooks/useEdgeScroll';
@@ -32,6 +32,8 @@ export const GameScreen: React.FC = () => {
   const stopGame = useGameStore((state) => state.stopGame);
   const gameResult = useMultiplayerStore((state) => state.gameResult);
   const setScreen = useUIStore((state) => state.setScreen);
+
+  const [showSurrenderConfirm, setShowSurrenderConfirm] = useState(false);
 
   // 멀티플레이어 게임 종료 처리
   useEffect(() => {
@@ -97,10 +99,19 @@ export const GameScreen: React.FC = () => {
       <ResourceBar />
       <GameTimer />
 
-      {/* HP 상태 패널 + 일시정지 버튼 */}
+      {/* HP 상태 패널 + 일시정지 버튼 + 항복 버튼 */}
       <div className="absolute flex items-start gap-3 z-20" style={{ top: 'max(1rem, env(safe-area-inset-top, 0px))', right: 'max(1rem, env(safe-area-inset-right, 0px))' }}>
         {isTouchDevice && (gameMode === 'ai' || gameMode === 'tutorial') && (
           <PauseButton onClick={() => { stopGame(); setScreen('paused'); }} />
+        )}
+        {gameMode === 'multiplayer' && (
+          <button
+            onClick={() => setShowSurrenderConfirm(true)}
+            className="px-3 py-1.5 bg-red-900/80 hover:bg-red-800/90 border border-red-600/50 rounded-lg text-red-300 text-sm font-medium transition-colors cursor-pointer flex items-center gap-1.5"
+          >
+            <span>🏳️</span>
+            <span>항복</span>
+          </button>
         )}
         <HPStatusPanel />
       </div>
@@ -152,6 +163,30 @@ export const GameScreen: React.FC = () => {
           <div className="absolute border-l border-b border-neon-cyan/20 pointer-events-none" style={{ bottom: 'env(safe-area-inset-bottom, 0px)', left: 'env(safe-area-inset-left, 0px)', width: 'clamp(3rem, 6vw, 6rem)', height: 'clamp(3rem, 6vw, 6rem)' }} />
           <div className="absolute border-r border-b border-neon-cyan/20 pointer-events-none" style={{ bottom: 'env(safe-area-inset-bottom, 0px)', right: `calc(clamp(200px, 20vw, 260px) + env(safe-area-inset-right, 0px))`, width: 'clamp(3rem, 6vw, 6rem)', height: 'clamp(3rem, 6vw, 6rem)' }} />
         </>
+      )}
+
+      {/* 항복 확인 모달 */}
+      {showSurrenderConfirm && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/60" onClick={() => setShowSurrenderConfirm(false)}>
+          <div className="bg-dark-800 border border-gray-600 rounded-xl p-6 min-w-[320px] animate-fade-in" onClick={(e) => e.stopPropagation()}>
+            <h3 className="text-white font-bold text-lg text-center mb-2">항복</h3>
+            <p className="text-gray-400 text-sm text-center mb-6">항복하시겠습니까?<br />상대방의 승리로 게임이 종료됩니다.</p>
+            <div className="flex gap-3">
+              <button
+                onClick={() => setShowSurrenderConfirm(false)}
+                className="flex-1 py-2 bg-dark-600 hover:bg-dark-500 text-gray-300 rounded-lg transition-colors cursor-pointer"
+              >
+                취소
+              </button>
+              <button
+                onClick={() => { setShowSurrenderConfirm(false); wsClient.surrender(); }}
+                className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors cursor-pointer"
+              >
+                항복
+              </button>
+            </div>
+          </div>
+        </div>
       )}
     </div>
   );

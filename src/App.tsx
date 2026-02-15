@@ -27,6 +27,7 @@ import { preloadAllAdvancedHeroImages } from './utils/heroImages';
 
 function App() {
   const currentScreen = useUIStore((state) => state.currentScreen);
+  const connectionLost = useUIStore((state) => state.connectionLost);
   const gameMode = useGameStore((state) => state.gameMode);
   const initializeAuth = useAuthStore((state) => state.initialize);
 
@@ -71,6 +72,19 @@ function App() {
       {currentScreen === 'countdown' && <CountdownScreen />}
       {currentScreen === 'gameover' && <GameOverScreen />}
       {currentScreen === 'paused' && <PauseScreen />}
+
+      {/* 서버 연결 끊김 배너 */}
+      {connectionLost && (
+        <div className="fixed bottom-0 left-0 right-0 z-[100] bg-red-900/95 border-t border-red-600 px-4 py-3 flex items-center justify-center gap-4">
+          <span className="text-red-200 text-sm">서버와의 연결이 끊어졌습니다.</span>
+          <button
+            onClick={() => window.location.reload()}
+            className="px-4 py-1.5 bg-red-600 hover:bg-red-500 text-white text-sm rounded-lg transition-colors cursor-pointer"
+          >
+            새로고침
+          </button>
+        </div>
+      )}
     </div>
   );
 }

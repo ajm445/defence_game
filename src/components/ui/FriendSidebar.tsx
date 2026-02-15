@@ -382,16 +382,7 @@ const OnlineList: React.FC<{
             </div>
           </div>
           <div className="flex gap-1 flex-shrink-0">
-            {/* 본인 또는 같은 방에 있는 사람에게는 초대 버튼 표시 안 함 */}
-            {!player.isMe && onInvite && player.isFriend && player.currentRoom !== currentRoomId && (
-              <button
-                onClick={() => onInvite(player.id)}
-                className="p-1 text-green-400 hover:bg-green-500/20 rounded transition-colors cursor-pointer"
-                title="게임 초대"
-              >
-                📩
-              </button>
-            )}
+            {/* 온라인 탭에서는 초대 불가 - 친구 탭에서만 초대 가능 */}
             {!player.isMe && !player.isFriend && (
               <button
                 onClick={() => onSendRequest(player.id)}

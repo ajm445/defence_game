@@ -31,6 +31,7 @@ export type ClientMessage =
   | { type: 'UPGRADE_BASE' }
   | { type: 'SELL_HERB' }
   | { type: 'COLLECT_RESOURCE'; nodeId: string }
+  | { type: 'SURRENDER' }
   // 게임 모드 변경
   | { type: 'CHANGE_GAME_MODE'; gameMode: 'rts' | 'rpg' | null }
   // 게임 중 상태 변경 (RTS AI 대전 등 싱글플레이어 게임용)
@@ -83,6 +84,7 @@ export interface AdminServerStatus {
   activeGames: number;
   serverUptime: number;
   memoryUsage: number;
+  maintenanceActive?: boolean;
 }
 
 export interface AdminPlayerActivity {

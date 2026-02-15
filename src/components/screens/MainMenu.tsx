@@ -50,6 +50,16 @@ export const MainMenu: React.FC = () => {
     }
   }, [isAuthenticated, isGuest, profile]);
 
+  // 설정 모달 ESC 키로 닫기
+  useEffect(() => {
+    if (!showSettings) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') setShowSettings(false);
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showSettings]);
+
   const handleStartGame = () => {
     soundManager.init();
     soundManager.play('ui_click');
@@ -312,8 +322,8 @@ export const MainMenu: React.FC = () => {
       {/* 우측 상단 버튼 그룹 */}
       {isAuthenticated && (
         <div className="absolute top-6 right-6 z-20 flex gap-3">
-          {/* 피드백 버튼 - 비게스트 + 미작성만 */}
-          {!isGuest && !hasFeedback && (
+          {/* 피드백 버튼 - 비게스트 + 미작성 + 레벨5 이상만 */}
+          {!isGuest && !hasFeedback && profile.playerLevel >= 5 && (
             <button
               onClick={() => { soundManager.play('ui_click'); setShowFeedback(true); }}
               className="w-12 h-12 rounded-full bg-dark-700/80 border border-gray-600 hover:border-neon-cyan hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group"
@@ -337,7 +347,21 @@ export const MainMenu: React.FC = () => {
         <FeedbackModal
           isOpen={showFeedback}
           onClose={() => setShowFeedback(false)}
-          onSubmitted={() => setHasFeedback(true)}
+          onSubmitted={(expRewarded) => {
+            setHasFeedback(true);
+            if (expRewarded > 0) {
+              const currentProfile = useAuthStore.getState().profile;
+              if (currentProfile) {
+                let newExp = currentProfile.playerExp + expRewarded;
+                let newLevel = currentProfile.playerLevel;
+                while (newExp >= newLevel * 100) {
+                  newExp -= newLevel * 100;
+                  newLevel++;
+                }
+                useAuthStore.getState().updateLocalProfile({ playerExp: newExp, playerLevel: newLevel });
+              }
+            }
+          }}
           playerId={profile.id}
         />
       )}

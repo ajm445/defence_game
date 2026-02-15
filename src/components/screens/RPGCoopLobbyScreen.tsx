@@ -121,6 +121,30 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     });
   }, [saveBlockedPlayers]);
 
+  // 인라인 모달 ESC 키로 닫기
+  useEffect(() => {
+    const anyModalOpen = showCreateRoomModal || !!privateRoomToJoin || showJoinInput;
+    if (!anyModalOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') {
+        if (showCreateRoomModal) {
+          setShowCreateRoomModal(false);
+          setSelectedRoomType(null);
+          setSelectedModalDifficulty(null);
+        } else if (privateRoomToJoin) {
+          setPrivateRoomToJoin(null);
+          setPrivateRoomCode('');
+          setError(null);
+        } else if (showJoinInput) {
+          setShowJoinInput(false);
+          setError(null);
+        }
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showCreateRoomModal, privateRoomToJoin, showJoinInput]);
+
   // 게임 시작 시 게임 화면으로 전환
   useEffect(() => {
     if (multiplayer.connectionState === 'in_game') {

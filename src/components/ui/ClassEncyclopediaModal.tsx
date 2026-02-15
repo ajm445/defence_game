@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { HeroClass, AdvancedHeroClass } from '../../types/rpg';
 import {
   CLASS_CONFIGS,
@@ -67,6 +67,15 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   const [selectedBaseClass, setSelectedBaseClass] = useState<HeroClass>('archer');
   const [selectedAdvancedClass, setSelectedAdvancedClass] = useState<AdvancedHeroClass | null>(null);
+
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
 
   if (!isOpen) return null;
 

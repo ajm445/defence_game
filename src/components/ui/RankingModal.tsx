@@ -67,6 +67,16 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
 
   const currentDiffTab = DIFFICULTY_TABS.find(d => d.key === selectedDifficulty)!;
 
+  // ESC 키로 닫기
+  useEffect(() => {
+    if (!isOpen) return;
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [isOpen, onClose]);
+
   // 랭킹 데이터 로드
   useEffect(() => {
     if (!isOpen) return;

@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
 import { Emoji } from '../common/Emoji';
 import { UnitType } from '../../types';
 import { getUnitImageUrl } from '../../utils/unitImages';
@@ -36,6 +36,14 @@ interface SlideData {
 
 export const HelpModal: React.FC<HelpModalProps> = ({ onClose }) => {
   const [currentSlide, setCurrentSlide] = useState(0);
+
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
 
   const slides: SlideData[] = [
     // RTS 모드 슬라이드

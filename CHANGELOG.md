@@ -1,5 +1,86 @@
 # Changelog
 
+## [1.24.5] - 2026-02-16
+
+### 멀티플레이 게임 종료 후 준비 시스템
+- **비호스트 준비 버튼**: 게임 종료 후 비호스트 플레이어에게 "준비" 토글 버튼 표시
+- **10초 준비 카운트다운**: 게임 종료 후 10초 내 준비하지 않으면 자동 퇴장 (서버 타이머 + 클라이언트 카운트다운)
+- **호스트 준비 현황 표시**: 호스트에게 "팀원 준비 (N/M)" + 미준비 퇴장 카운트다운 표시
+- **준비 취소 시 타이머 재시작**: 준비 취소하면 서버/클라이언트 모두 10초 카운트다운 재시작
+- **방장 시작 타이머 (30초)**: 모든 플레이어 준비 완료 후 30초 내 미시작 시 방 자동 파기 + 방장에게 경고 알림
+- **인원 수 스케일링 자동 조정**: 준비 완료된 플레이어 수 기준으로 난이도 재계산
+- **경험치 자동 저장**: 게임 오버/클리어 시 모든 플레이어(호스트/비호스트) 경험치 자동 저장
+- **자발적 퇴장 시 보상 없음**: "방 나가기"로 직접 나간 경우 경험치 미저장
+
+### 방장 나가기 → 호스트 위임 (방 유지)
+- **게임 중/종료 상태에서 방장 퇴장 시 방 파기 → 호스트 위임으로 변경**: 남은 플레이어에게 방장 권한 자동 이전
+- **호스트 위임 시 타이머 재설정**: 방장 변경 시 `hostStartTimer` 정리 + 비호스트 준비 상태 재확인 → 필요 시 새 방장에게 경고 + 30초 타이머 재시작
+
+### 초대 시스템 정리
+- **온라인 탭 초대 버튼 제거**: FriendSidebar/FriendPanel 온라인 탭에서 초대 버튼 삭제 (친구 탭에서만 초대 가능)
+- **같은 방 친구 초대 비활성화**: `friend.currentRoom !== currentRoomId` 조건으로 같은 방 친구에게는 초대 버튼 미표시 (기존 동작 유지)
+
+### RTS 1v1 항복 기능
+- **항복 버튼**: RTS 멀티플레이어 인게임에 🏳️ 항복 버튼 추가 (확인 모달 포함)
+- **서버 항복 처리**: `GameRoom.surrender()` 메서드 + `SURRENDER` 메시지 타입 추가
+- **게임 오버 화면**: 1v1 종료 후 "나가기" 클릭 시 모드 선택 화면으로 이동
+
+### 게임 나가기 확인 모달
+- **PauseScreen 확인 모달**: 게임 나가기/중단 버튼 클릭 시 확인 모달 표시 ("진행 상황이 저장되지 않습니다" 안내)
+- **RPG 호스트 게임 중단**: "모든 플레이어의 게임이 종료됩니다" 경고 표시
+
+### 서버 연결 끊김 알림
+- **연결 끊김 배너**: 최대 재연결 시도 초과 시 화면 하단에 "서버와의 연결이 끊어졌습니다" + 새로고침 버튼 표시
+- **재연결 시 자동 해제**: WebSocket 재연결 성공 시 배너 자동 숨김
+- **`useUIStore.connectionLost`**: 연결 상태 관리 상태 추가
+
+### UI/UX 개선
+- **ESC 키 모달 닫기**: RPGCoopLobby 인라인 모달, MainMenu 설정 모달에 ESC 키 닫기 지원
+- **모든 모달 ESC 닫기**: CharacterUpgrade, ClassEncyclopedia, DMChatWindow, Feedback, Help, Ranking 모달에 ESC 키 닫기 추가
+- **닉네임 길이 제한 변경**: 2~20자 → 2~10자 (클라이언트 + 서버 검증)
+- **비밀번호 안내 추가**: 회원가입 화면에 "비밀번호를 잊으면 복구할 수 없습니다" 안내 표시
+- **피드백 버튼 레벨 제한**: 레벨 5 이상만 메인 메뉴/게임 결과에서 피드백 버튼 표시
+- **피드백 EXP 보상**: 피드백 작성 시 +50 EXP 보상 (1회) + 로컬 프로필 즉시 반영
+- **관리자 모니터링**: 서버 상태 카드에 "정상 운영" / "점검 중" 뱃지 표시
+
+### 서버 보안 강화
+- **인증 API Rate Limiting**: IP 기반 분당 20회 제한 (429 Too Many Requests)
+- **닉네임 비속어 필터**: 서버 측 `filterProfanity` 검증 추가
+- **닉네임 서버 검증 통합**: 길이/형식/비속어 검증을 재사용 가능한 `validateNickname()` 함수로 통합
+
+### 새 파일
+- `supabase/migrations/013_add_feedback_exp_claimed.sql`
+
+### 수정 파일
+- `server/src/game/RPGCoopGameRoom.ts`: 준비 시스템 (10초 kick + 30초 호스트 타이머 + 호스트 위임 시 타이머 재설정)
+- `server/src/websocket/MessageHandler.ts`: 호스트 나가기 → 위임, 항복 핸들러, 점검 상태 포함
+- `server/src/game/GameRoom.ts`: `surrender()` 메서드 추가
+- `server/src/api/authRouter.ts`: Rate limiter + 닉네임 검증 + 비속어 필터
+- `server/src/api/feedbackRouter.ts`: EXP 보상 + feedback_exp_claimed 중복 방지
+- `shared/types/network.ts`: `SURRENDER` 메시지 타입, `maintenanceActive` 필드
+- `src/hooks/useNetworkSync.ts`: `COOP_PLAYER_READY`/`COOP_ROOM_ERROR` 핸들러, 게임 종료 시 isReady 리셋
+- `src/components/screens/RPGModeScreen.tsx`: 준비 시스템 UI (카운트다운, 준비/취소, 호스트 현황, 피드백)
+- `src/components/screens/PauseScreen.tsx`: 나가기 확인 모달
+- `src/components/screens/GameScreen.tsx`: 항복 버튼 + 확인 모달
+- `src/components/screens/GameOverScreen.tsx`: 1v1 종료 후 모드 선택 이동
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: ESC 키 모달 닫기
+- `src/components/screens/LoginScreen.tsx`: 닉네임 10자 제한, 비밀번호 안내
+- `src/components/screens/MainMenu.tsx`: 피드백 레벨 제한, EXP 보상 반영, ESC 설정 닫기
+- `src/components/ui/FriendSidebar.tsx`: 온라인 탭 초대 버튼 제거
+- `src/components/ui/FriendPanel.tsx`: 온라인 탭 초대 버튼 제거
+- `src/components/ui/CharacterUpgradeModal.tsx`: ESC 닫기
+- `src/components/ui/ClassEncyclopediaModal.tsx`: ESC 닫기
+- `src/components/ui/DMChatWindow.tsx`: ESC 닫기
+- `src/components/ui/FeedbackModal.tsx`: ESC 닫기 + EXP 보상 콜백
+- `src/components/ui/HelpModal.tsx`: ESC 닫기
+- `src/components/ui/RankingModal.tsx`: ESC 닫기
+- `src/services/WebSocketClient.ts`: `surrender()` 메서드, 연결 끊김 상태 관리
+- `src/services/feedbackService.ts`: EXP 보상 반환 타입 변경
+- `src/stores/useUIStore.ts`: `connectionLost` 상태 추가
+- `src/admin/pages/MonitoringPage.tsx`: 점검 상태 뱃지
+- `src/admin/types/admin.ts`: `maintenanceActive` 필드
+- `src/App.tsx`: 서버 연결 끊김 배너
+
 ## [1.24.4] - 2026-02-15
 
 ### 유저 피드백/별점 시스템

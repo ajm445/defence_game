@@ -122,7 +122,32 @@ router.post('/', async (req: Request, res: Response) => {
       return;
     }
 
-    res.json({ success: true });
+    // EXP 보상: feedback_exp_claimed가 false인 경우에만 (관리자 삭제 후 재작성 시 중복 방지)
+    let expRewarded = 0;
+    const { data: profileData, error: profileError } = await supabase
+      .from('player_profiles')
+      .select('player_exp, player_level, feedback_exp_claimed')
+      .eq('id', playerId)
+      .single();
+
+    if (!profileError && profileData && !profileData.feedback_exp_claimed) {
+      let newExp = profileData.player_exp + 50;
+      let newLevel = profileData.player_level;
+      // 레벨업 처리 (요구 경험치: level * 100)
+      while (newExp >= newLevel * 100) {
+        newExp -= newLevel * 100;
+        newLevel++;
+      }
+
+      await supabase
+        .from('player_profiles')
+        .update({ player_exp: newExp, player_level: newLevel, feedback_exp_claimed: true })
+        .eq('id', playerId);
+
+      expRewarded = 50;
+    }
+
+    res.json({ success: true, expRewarded });
   } catch (err) {
     console.error('Upsert feedback error:', err);
     res.status(500).json({ success: false, error: '피드백 저장 중 오류가 발생했습니다.' });

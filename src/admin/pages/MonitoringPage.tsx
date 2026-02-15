@@ -299,6 +299,17 @@ export function MonitoringPage() {
               </svg>
             </div>
             <h3 className="text-sm font-bold text-white uppercase tracking-wider">서버 상태</h3>
+            {serverStatus.maintenanceActive ? (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-red-500/20 text-red-400 border border-red-500/30">
+                <span className="w-2 h-2 rounded-full bg-red-400 animate-pulse"></span>
+                점검 중
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full text-xs font-semibold bg-green-500/20 text-green-400 border border-green-500/30">
+                <span className="w-2 h-2 rounded-full bg-green-400"></span>
+                정상 운영
+              </span>
+            )}
           </div>
           <div className="bg-slate-800/50 backdrop-blur-sm rounded-xl border border-slate-700/50 overflow-hidden">
           <div className="p-6">

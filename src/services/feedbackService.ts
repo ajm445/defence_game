@@ -45,17 +45,17 @@ export const submitFeedback = async (
   playerId: string,
   rating: number,
   comment: string
-): Promise<boolean> => {
+): Promise<{ success: boolean; expRewarded: number }> => {
   try {
-    const data = await apiRequest<{ success: boolean }>('/api/feedback', {
+    const data = await apiRequest<{ success: boolean; expRewarded: number }>('/api/feedback', {
       method: 'POST',
       body: JSON.stringify({ playerId, rating, comment }),
     });
 
-    return data.success;
+    return { success: data.success, expRewarded: data.expRewarded ?? 0 };
   } catch (err) {
     console.error('Submit feedback error:', err);
-    return false;
+    return { success: false, expRewarded: 0 };
   }
 };
 

@@ -32,6 +32,15 @@ export const DMChatWindow: React.FC<DMChatWindowProps> = ({ friendId, friendName
     inputRef.current?.focus();
   }, []);
 
+  // ESC 키로 닫기
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape') onClose();
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [onClose]);
+
   // 에러 자동 클리어
   useEffect(() => {
     if (error) {

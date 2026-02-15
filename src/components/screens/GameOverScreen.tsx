@@ -78,6 +78,9 @@ export const GameOverScreen: React.FC = () => {
     soundManager.play('ui_click');
     if (gameMode === 'multiplayer') {
       resetMultiplayer();
+      // RTS 1v1: 모드 선택 화면으로
+      setScreen('modeSelect');
+      return;
     }
     if (isTutorial) {
       endTutorial();
@@ -88,7 +91,7 @@ export const GameOverScreen: React.FC = () => {
   const handleRestartGame = () => {
     soundManager.play('ui_click');
     if (gameMode === 'multiplayer') {
-      // 멀티플레이어에서는 로비로 돌아가기
+      // 멀티플레이어에서는 로비로 돌아가기 (재매칭)
       resetMultiplayer();
       setScreen('lobby');
     } else if (isTutorial) {

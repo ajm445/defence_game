@@ -47,6 +47,7 @@ interface UIState {
   uiScale: number;
   isFullscreen: boolean;
   mobileControlMode: 'skills' | 'upgrades';
+  connectionLost: boolean;
 }
 
 interface UIActions {
@@ -69,6 +70,7 @@ interface UIActions {
   setDeviceInfo: (info: { isMobile: boolean; isTablet: boolean; isTouchDevice: boolean; isPortrait: boolean; uiScale: number }) => void;
   setFullscreen: (isFullscreen: boolean) => void;
   setMobileControlMode: (mode: 'skills' | 'upgrades') => void;
+  setConnectionLost: (lost: boolean) => void;
 }
 
 interface UIStore extends UIState, UIActions {}
@@ -95,6 +97,7 @@ export const useUIStore = create<UIStore>((set) => ({
   uiScale: 1.0,
   isFullscreen: false,
   mobileControlMode: 'skills',
+  connectionLost: false,
 
   setScreen: (screen) => set((state) => ({
     currentScreen: screen,
@@ -146,4 +149,5 @@ export const useUIStore = create<UIStore>((set) => ({
   setDeviceInfo: (info) => set(info),
   setFullscreen: (isFullscreen) => set({ isFullscreen }),
   setMobileControlMode: (mode) => set({ mobileControlMode: mode }),
+  setConnectionLost: (lost) => set({ connectionLost: lost }),
 }));
