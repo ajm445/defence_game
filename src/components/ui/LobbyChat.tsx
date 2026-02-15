@@ -1,24 +1,49 @@
-import React, { useState, useRef, useEffect, useCallback } from 'react';
+import React, { useState, useRef, useEffect, useCallback, useMemo } from 'react';
 import { useRPGStore } from '../../stores/useRPGStore';
 import { wsClient } from '../../services/WebSocketClient';
 import { LOBBY_CHAT_CONFIG } from '@shared/types/rpgNetwork';
 
-export const LobbyChat: React.FC = () => {
+interface LobbyChatProps {
+  blockedPlayers?: Map<string, string>;
+  onUnblock?: (playerId: string) => void;
+}
+
+export const LobbyChat: React.FC<LobbyChatProps> = ({ blockedPlayers, onUnblock }) => {
   const [message, setMessage] = useState('');
   const [lastSendTime, setLastSendTime] = useState(0);
   const [error, setError] = useState<string | null>(null);
+  const [showBlockList, setShowBlockList] = useState(false);
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLInputElement>(null);
+  const blockListRef = useRef<HTMLDivElement>(null);
 
   const lobbyChatMessages = useRPGStore((state) => state.multiplayer.lobbyChatMessages);
   const serverError = useRPGStore((state) => state.multiplayer.lobbyChatError);
   const setLobbyChatError = useRPGStore((state) => state.setLobbyChatError);
-  const myPlayerId = wsClient.playerId;
+
+  const filteredMessages = useMemo(
+    () => blockedPlayers && blockedPlayers.size > 0
+      ? lobbyChatMessages.filter((msg) => !blockedPlayers.has(msg.playerId))
+      : lobbyChatMessages,
+    [lobbyChatMessages, blockedPlayers]
+  );
+
+  // 차단 목록 외부 클릭 시 닫기
+  useEffect(() => {
+    if (!showBlockList) return;
+    const handler = (e: MouseEvent) => {
+      if (blockListRef.current && !blockListRef.current.contains(e.target as Node)) {
+        setShowBlockList(false);
+      }
+    };
+    document.addEventListener('mousedown', handler);
+    return () => document.removeEventListener('mousedown', handler);
+  }, [showBlockList]);
 
   // 새 메시지가 추가되면 스크롤
   useEffect(() => {
     messagesEndRef.current?.scrollIntoView({ behavior: 'smooth' });
-  }, [lobbyChatMessages]);
+  }, [filteredMessages]);
 
   // 로컬 에러 자동 클리어
   useEffect(() => {
@@ -75,21 +100,48 @@ export const LobbyChat: React.FC = () => {
     return date.toLocaleTimeString('ko-KR', { hour: '2-digit', minute: '2-digit' });
   };
 
+  const myPlayerId = wsClient.playerId;
+
   return (
     <div className="w-full bg-gray-800/30 rounded-lg border border-gray-700 overflow-hidden">
       {/* 헤더 */}
-      <div className="px-3 py-2 border-b border-gray-700 bg-gray-800/50">
+      <div className="px-3 py-2 border-b border-gray-700 bg-gray-800/50 flex items-center justify-between">
         <span className="text-gray-400 text-sm font-medium">채팅</span>
+        {blockedPlayers && blockedPlayers.size > 0 && onUnblock && (
+          <div className="relative" ref={blockListRef}>
+            <button
+              onClick={() => setShowBlockList((v) => !v)}
+              className="text-xs text-gray-500 hover:text-gray-300 transition-colors cursor-pointer"
+            >
+              차단 목록 ({blockedPlayers.size})
+            </button>
+            {showBlockList && (
+              <div className="absolute right-0 top-full mt-1 w-48 bg-gray-800 border border-gray-600 rounded-lg shadow-lg z-50 py-1">
+                {Array.from(blockedPlayers.entries()).map(([id, name]) => (
+                  <div key={id} className="flex items-center justify-between px-3 py-1.5 hover:bg-gray-700/50">
+                    <span className="text-gray-300 text-xs truncate mr-2">{name}</span>
+                    <button
+                      onClick={() => onUnblock(id)}
+                      className="text-red-400 hover:text-red-300 text-xs flex-shrink-0 cursor-pointer"
+                    >
+                      해제
+                    </button>
+                  </div>
+                ))}
+              </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* 메시지 목록 */}
       <div className="h-36 overflow-y-auto overflow-x-hidden px-3 py-2 space-y-1 scrollbar-thin scrollbar-thumb-gray-600 scrollbar-track-transparent">
-        {lobbyChatMessages.length === 0 ? (
+        {filteredMessages.length === 0 ? (
           <p className="text-gray-600 text-xs text-center py-4">
             메시지가 없습니다. 채팅을 시작해보세요!
           </p>
         ) : (
-          lobbyChatMessages.map((msg) => {
+          filteredMessages.map((msg) => {
             const isMe = msg.playerId === myPlayerId;
             return (
               <div

@@ -8,6 +8,7 @@ import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect, handleAdminD
 import { handlePlayerDisconnect } from '../room/RoomManager';
 import { players, sendMessage, Player, registerUserOffline } from '../state/players';
 import { gameInviteManager } from '../friend/GameInviteManager';
+import { directMessageManager } from '../friend/DirectMessageManager';
 import { cleanupPlayerRateLimits } from '../middleware/rateLimiter';
 import authRouter from '../api/authRouter';
 import profileRouter from '../api/profileRouter';
@@ -225,6 +226,7 @@ export function createWebSocketServer(port: number) {
       // 게임 초대 정리 (플레이어가 보낸 초대 취소)
       if (userId) {
         gameInviteManager.cancelUserInvites(userId);
+        directMessageManager.cleanupUser(userId);
       }
 
       // 관리자 구독 해제

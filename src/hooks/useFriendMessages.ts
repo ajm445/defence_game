@@ -32,6 +32,8 @@ export function useFriendMessages() {
     removeOnlinePlayer,
     updateOnlinePlayerMode,
     setError,
+    addDMMessage,
+    clearDMConversation,
   } = useFriendStore();
 
   useEffect(() => {
@@ -76,6 +78,10 @@ export function useFriendMessages() {
         // 친구 상태 변경
         case 'FRIEND_STATUS_CHANGED':
           updateFriendStatus(message.friendId, message.isOnline, message.currentRoom);
+          // 오프라인 시 DM 대화 정리
+          if (!message.isOnline) {
+            clearDMConversation(message.friendId);
+          }
           break;
 
         case 'FRIEND_REMOVED':
@@ -171,6 +177,20 @@ export function useFriendMessages() {
           removeGameInvite(message.inviteId);
           break;
 
+        // DM (개인 메시지)
+        case 'DM_RECEIVED':
+          addDMMessage(message.message.fromUserId, message.message);
+          break;
+
+        case 'DM_SENT':
+          addDMMessage(message.message.toUserId, message.message);
+          break;
+
+        case 'DM_ERROR':
+          setError(message.message);
+          setTimeout(() => setError(null), 3000);
+          break;
+
         // 서버 상태
         case 'SERVER_STATUS':
           setServerStatus(message.status);
@@ -205,5 +225,7 @@ export function useFriendMessages() {
     removeOnlinePlayer,
     updateOnlinePlayerMode,
     setError,
+    addDMMessage,
+    clearDMConversation,
   ]);
 }

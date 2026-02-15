@@ -28,6 +28,7 @@ import { RPGCoopGameRoom } from '../game/RPGCoopGameRoom';
 import { friendManager } from '../friend/FriendManager';
 import { friendRequestHandler } from '../friend/FriendRequestHandler';
 import { gameInviteManager } from '../friend/GameInviteManager';
+import { directMessageManager } from '../friend/DirectMessageManager';
 
 // 게임 방 저장소
 const gameRooms = new Map<string, GameRoom>();
@@ -329,6 +330,11 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     case 'GET_SERVER_STATUS':
       handleGetServerStatus(playerId);
+      break;
+
+    // DM (개인 메시지)
+    case 'SEND_DM':
+      handleSendDM(playerId, (message as any).targetUserId, (message as any).content);
       break;
 
     // 로비 채팅
@@ -1149,10 +1155,6 @@ async function handleRespondFriendRequest(playerId: string, requestId: string, a
   const result = await friendRequestHandler.respondFriendRequest(requestId, accept, player.userId);
   if (!result.success) {
     sendToPlayer(playerId, { type: 'FRIEND_ERROR', message: result.message });
-  } else if (accept) {
-    // 수락 시 양쪽 모두에게 친구 목록 갱신
-    const friends = await friendManager.getFriendsList(player.userId);
-    sendToPlayer(playerId, { type: 'FRIENDS_LIST', friends });
   }
 }
 
@@ -1259,6 +1261,31 @@ function handleGetServerStatus(playerId: string): void {
     waitingRooms: waitingRooms.filter(r => !r.isInGame).length,
   };
   sendToPlayer(playerId, { type: 'SERVER_STATUS', status });
+}
+
+// ============================================
+// DM (개인 메시지) 핸들러
+// ============================================
+
+async function handleSendDM(playerId: string, targetUserId: string, content: string): Promise<void> {
+  const player = players.get(playerId);
+  if (!player || !player.userId) {
+    sendToPlayer(playerId, { type: 'DM_ERROR', message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  if (!targetUserId || typeof content !== 'string') {
+    sendToPlayer(playerId, { type: 'DM_ERROR', message: '잘못된 요청입니다.' });
+    return;
+  }
+
+  const result = await directMessageManager.sendMessage(player.userId, targetUserId, content);
+  if (!result.success) {
+    sendToPlayer(playerId, { type: 'DM_ERROR', message: result.message });
+  } else if (result.dm) {
+    // 보낸 사람에게 에코백
+    sendToPlayer(playerId, { type: 'DM_SENT', message: result.dm });
+  }
 }
 
 // ============================================

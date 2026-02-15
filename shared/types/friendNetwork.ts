@@ -1,6 +1,25 @@
 // 친구 시스템 네트워크 타입 정의
 
 // ============================================
+// DM (개인 메시지) 관련
+// ============================================
+
+export interface DirectMessage {
+  id: string;
+  fromUserId: string;
+  fromUserName: string;
+  toUserId: string;
+  content: string;
+  timestamp: number;
+}
+
+export const DM_CHAT_CONFIG = {
+  MAX_MESSAGE_LENGTH: 200,
+  MIN_MESSAGE_INTERVAL: 500,
+  MAX_HISTORY_PER_CONVERSATION: 50,
+} as const;
+
+// ============================================
 // 친구 정보
 // ============================================
 
@@ -87,7 +106,9 @@ export type FriendClientMessage =
   | { type: 'SEND_GAME_INVITE'; friendId: string; roomId: string }
   | { type: 'RESPOND_GAME_INVITE'; inviteId: string; accept: boolean }
   // 서버 상태
-  | { type: 'GET_SERVER_STATUS' };
+  | { type: 'GET_SERVER_STATUS' }
+  // DM (개인 메시지)
+  | { type: 'SEND_DM'; targetUserId: string; content: string };
 
 // ============================================
 // 서버 → 클라이언트 메시지
@@ -118,5 +139,9 @@ export type FriendServerMessage =
   | { type: 'GAME_INVITE_EXPIRED'; inviteId: string }
   // 서버 상태
   | { type: 'SERVER_STATUS'; status: ServerStatusInfo }
+  // DM (개인 메시지)
+  | { type: 'DM_RECEIVED'; message: DirectMessage }
+  | { type: 'DM_SENT'; message: DirectMessage }
+  | { type: 'DM_ERROR'; message: string }
   // 에러
   | { type: 'FRIEND_ERROR'; message: string };

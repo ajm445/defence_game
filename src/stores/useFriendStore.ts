@@ -5,6 +5,7 @@ import type {
   FriendRequestInfo,
   GameInviteInfo,
   ServerStatusInfo,
+  DirectMessage,
 } from '@shared/types/friendNetwork';
 
 interface FriendState {
@@ -20,6 +21,10 @@ interface FriendState {
   receivedInvites: GameInviteInfo[];
   // 서버 상태
   serverStatus: ServerStatusInfo | null;
+  // DM 상태
+  dmConversations: Map<string, DirectMessage[]>;
+  activeDMFriendId: string | null;
+  dmUnreadCounts: Map<string, number>;
   // UI 상태
   isFriendPanelOpen: boolean;
   activeTab: 'friends' | 'online' | 'requests';
@@ -62,6 +67,12 @@ interface FriendState {
   removeOnlinePlayer: (playerId: string) => void;
   updateOnlinePlayerMode: (playerId: string, gameMode: 'rts' | 'rpg' | null) => void;
 
+  // DM 액션
+  addDMMessage: (friendUserId: string, message: DirectMessage) => void;
+  openDMChat: (friendId: string) => void;
+  closeDMChat: () => void;
+  clearDMConversation: (friendId: string) => void;
+
   // 초기화
   reset: () => void;
 }
@@ -73,6 +84,9 @@ const initialState = {
   sentRequests: [],
   receivedInvites: [],
   serverStatus: null,
+  dmConversations: new Map<string, DirectMessage[]>(),
+  activeDMFriendId: null as string | null,
+  dmUnreadCounts: new Map<string, number>(),
   isFriendPanelOpen: false,
   activeTab: 'friends' as const,
   isLoading: false,
@@ -101,22 +115,41 @@ export const useFriendStore = create<FriendState>((set) => ({
     })),
 
   addFriend: (friend) =>
-    set((state) => ({
-      friends: [friend, ...state.friends].sort((a, b) => {
-        if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
-        return b.playerLevel - a.playerLevel;
-      }),
-    })),
+    set((state) => {
+      // 중복 방지: 이미 같은 ID의 친구가 있으면 추가하지 않음
+      if (state.friends.some((f) => f.id === friend.id)) {
+        return state;
+      }
+      return {
+        friends: [friend, ...state.friends].sort((a, b) => {
+          if (a.isOnline !== b.isOnline) return a.isOnline ? -1 : 1;
+          return b.playerLevel - a.playerLevel;
+        }),
+      };
+    }),
 
   removeFriend: (friendId) =>
-    set((state) => ({
-      friends: state.friends.filter((f) => f.id !== friendId),
-    })),
+    set((state) => {
+      const newConversations = new Map(state.dmConversations);
+      newConversations.delete(friendId);
+      const newUnread = new Map(state.dmUnreadCounts);
+      newUnread.delete(friendId);
+      return {
+        friends: state.friends.filter((f) => f.id !== friendId),
+        dmConversations: newConversations,
+        dmUnreadCounts: newUnread,
+        activeDMFriendId: state.activeDMFriendId === friendId ? null : state.activeDMFriendId,
+      };
+    }),
 
   addPendingRequest: (request) =>
-    set((state) => ({
-      pendingRequests: [request, ...state.pendingRequests],
-    })),
+    set((state) => {
+      // 중복 방지: 이미 같은 ID의 요청이 있으면 추가하지 않음
+      if (state.pendingRequests.some((r) => r.id === request.id)) {
+        return state;
+      }
+      return { pendingRequests: [request, ...state.pendingRequests] };
+    }),
 
   removePendingRequest: (requestId) =>
     set((state) => ({
@@ -167,6 +200,46 @@ export const useFriendStore = create<FriendState>((set) => ({
       ),
     })),
 
+  addDMMessage: (friendUserId, message) =>
+    set((state) => {
+      const existing = state.dmConversations.get(friendUserId) || [];
+      // 중복 방지: 같은 ID 메시지가 이미 있으면 무시
+      if (existing.some((m) => m.id === message.id)) {
+        return state;
+      }
+      const newConversations = new Map(state.dmConversations);
+      newConversations.set(friendUserId, [...existing, message]);
+
+      // 창이 열려 있지 않으면 unread 증가
+      const newUnread = new Map(state.dmUnreadCounts);
+      if (state.activeDMFriendId !== friendUserId) {
+        newUnread.set(friendUserId, (newUnread.get(friendUserId) || 0) + 1);
+      }
+      return { dmConversations: newConversations, dmUnreadCounts: newUnread };
+    }),
+
+  openDMChat: (friendId) =>
+    set((state) => {
+      const newUnread = new Map(state.dmUnreadCounts);
+      newUnread.delete(friendId);
+      return { activeDMFriendId: friendId, dmUnreadCounts: newUnread };
+    }),
+
+  closeDMChat: () => set({ activeDMFriendId: null }),
+
+  clearDMConversation: (friendId) =>
+    set((state) => {
+      const newConversations = new Map(state.dmConversations);
+      newConversations.delete(friendId);
+      const newUnread = new Map(state.dmUnreadCounts);
+      newUnread.delete(friendId);
+      return {
+        dmConversations: newConversations,
+        dmUnreadCounts: newUnread,
+        activeDMFriendId: state.activeDMFriendId === friendId ? null : state.activeDMFriendId,
+      };
+    }),
+
   reset: () => set(initialState),
 }));
 
@@ -183,3 +256,14 @@ export const useFriendActiveTab = () => useFriendStore((state) => state.activeTa
 // 친구 요청 개수 (배지용)
 export const usePendingRequestCount = () => useFriendStore((state) => state.pendingRequests.length);
 export const useGameInviteCount = () => useFriendStore((state) => state.receivedInvites.length);
+
+// DM 관련
+export const useActiveDMFriendId = () => useFriendStore((state) => state.activeDMFriendId);
+export const useDMUnreadCounts = () => useFriendStore((state) => state.dmUnreadCounts);
+export const useDMTotalUnread = () => useFriendStore((state) => {
+  let total = 0;
+  for (const count of state.dmUnreadCounts.values()) {
+    total += count;
+  }
+  return total;
+});

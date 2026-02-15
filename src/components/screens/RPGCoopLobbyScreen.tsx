@@ -19,10 +19,8 @@ import {
 } from '../../hooks/useNetworkSync';
 import { ProfileButton } from '../ui/ProfileButton';
 import { FriendSidebar } from '../ui/FriendSidebar';
-import { FriendRequestNotification } from '../ui/FriendRequestNotification';
 import { GameInviteNotification } from '../ui/GameInviteNotification';
 import { ServerStatusBar } from '../ui/ServerStatusBar';
-import { useFriendMessages } from '../../hooks/useFriendMessages';
 import { ClassEncyclopediaModal } from '../ui/ClassEncyclopediaModal';
 import { RankingModal } from '../ui/RankingModal';
 import { LobbyChat } from '../ui/LobbyChat';
@@ -87,8 +85,41 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   // 방 타임아웃 경고
   const [timeoutWarning, setTimeoutWarning] = useState<string | null>(null);
 
-  // 친구 시스템 메시지 핸들러
-  useFriendMessages();
+  // 채팅 차단 목록
+  const [blockedPlayers, setBlockedPlayers] = useState<Map<string, string>>(() => {
+    try {
+      const raw = localStorage.getItem('defence_game_blocked_players');
+      if (raw) {
+        const parsed = JSON.parse(raw);
+        if (Array.isArray(parsed)) return new Map(parsed);
+      }
+    } catch { /* ignore */ }
+    return new Map();
+  });
+
+  const saveBlockedPlayers = useCallback((next: Map<string, string>) => {
+    try {
+      localStorage.setItem('defence_game_blocked_players', JSON.stringify(Array.from(next.entries())));
+    } catch { /* ignore */ }
+  }, []);
+
+  const handleBlockPlayer = useCallback((playerId: string, playerName: string) => {
+    setBlockedPlayers((prev) => {
+      const next = new Map(prev);
+      next.set(playerId, playerName);
+      saveBlockedPlayers(next);
+      return next;
+    });
+  }, [saveBlockedPlayers]);
+
+  const handleUnblockPlayer = useCallback((playerId: string) => {
+    setBlockedPlayers((prev) => {
+      const next = new Map(prev);
+      next.delete(playerId);
+      saveBlockedPlayers(next);
+      return next;
+    });
+  }, [saveBlockedPlayers]);
 
   // 게임 시작 시 게임 화면으로 전환
   useEffect(() => {
@@ -865,11 +896,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       return (
         <div
           key={player.id}
-          className={`flex items-center justify-between px-4 py-2 rounded-lg border ${
+          className={`flex items-center justify-between py-2 rounded-lg border ${
             isMe
               ? 'border-neon-cyan bg-neon-cyan/10'
               : 'border-gray-700 bg-gray-800/50'
           }`}
+          style={{ paddingLeft: 5, paddingRight: 5 }}
         >
           <div className="flex items-center gap-3">
             <span className="text-xl">{displayEmoji}</span>
@@ -891,6 +923,23 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             )}
             {!player.connected && (
               <span className="text-red-400 text-sm">연결 끊김</span>
+            )}
+            {!isMe && (
+              blockedPlayers.has(player.id) ? (
+                <button
+                  onClick={() => handleUnblockPlayer(player.id)}
+                  className="text-gray-500 hover:text-gray-300 text-xs cursor-pointer"
+                >
+                  차단 해제
+                </button>
+              ) : (
+                <button
+                  onClick={() => handleBlockPlayer(player.id, player.name)}
+                  className="text-gray-600 hover:text-red-400 text-xs cursor-pointer"
+                >
+                  채팅 차단
+                </button>
+              )
             )}
           </div>
         </div>
@@ -998,7 +1047,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
             {/* 채팅 */}
             <div className="flex-1 min-w-0">
-              <LobbyChat />
+              <LobbyChat blockedPlayers={blockedPlayers} onUnblock={handleUnblockPlayer} />
             </div>
           </div>
 
@@ -1030,7 +1079,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
         {/* 로비 채팅 */}
         <div className="w-[20rem]">
-          <LobbyChat />
+          <LobbyChat blockedPlayers={blockedPlayers} onUnblock={handleUnblockPlayer} />
         </div>
 
         {classChangeBtn}
@@ -1322,9 +1371,6 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       <div className="absolute top-8 left-8 z-20">
         <ProfileButton />
       </div>
-
-      {/* 친구 요청 알림 */}
-      <FriendRequestNotification />
 
       {/* 게임 초대 알림 */}
       <GameInviteNotification />

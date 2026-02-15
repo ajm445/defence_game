@@ -1,4 +1,4 @@
-import React, { useEffect, useCallback, useState } from 'react';
+import React, { useEffect, useCallback, useState, useRef } from 'react';
 import {
   useFriendStore,
   useFriends,
@@ -6,11 +6,14 @@ import {
   usePendingRequests,
   useSentRequests,
   usePendingRequestCount,
+  useActiveDMFriendId,
+  useDMUnreadCounts,
 } from '../../stores/useFriendStore';
 import { wsClient } from '../../services/WebSocketClient';
 import { soundManager } from '../../services/SoundManager';
 
 import { useFriendMessages } from '../../hooks/useFriendMessages';
+import { DMChatWindow } from './DMChatWindow';
 import type { FriendInfo, OnlinePlayerInfo, FriendRequestInfo } from '@shared/types/friendNetwork';
 
 interface FriendSidebarProps {
@@ -36,9 +39,17 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
   const pendingRequests = usePendingRequests();
   const sentRequests = useSentRequests();
   const pendingCount = usePendingRequestCount();
+  const activeDMFriendId = useActiveDMFriendId();
+  const dmUnreadCounts = useDMUnreadCounts();
 
   // 친구 시스템 실시간 메시지 처리 (FRIEND_STATUS_CHANGED 등)
   useFriendMessages();
+
+  // 친구 액션 직후 폴링 쿨다운 (실시간 이벤트와 폴링 충돌 방지)
+  const refreshCooldownRef = useRef(0);
+  const suppressRefresh = useCallback(() => {
+    refreshCooldownRef.current = Date.now() + 5000; // 5초간 폴링 억제
+  }, []);
 
   // 컴포넌트 마운트 시 데이터 로드 및 주기적 갱신
   useEffect(() => {
@@ -71,10 +82,12 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
       };
     }
 
-    // 5초마다 주기적으로 갱신 (온라인 상태 동기화 안전망)
+    // 30초마다 주기적으로 갱신 (온라인 상태 동기화 안전망, 실시간 이벤트가 주 업데이트 경로)
     const refreshInterval = setInterval(() => {
+      // 최근 액션 직후엔 폴링 건너뛰기 (낙관적 UI와 충돌 방지)
+      if (Date.now() < refreshCooldownRef.current) return;
       requestFriendsData();
-    }, 5000);
+    }, 30000);
 
     return () => {
       clearInterval(refreshInterval);
@@ -84,32 +97,36 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
   // 친구 요청 보내기
   const handleSendFriendRequest = useCallback((targetUserId: string) => {
     soundManager.play('ui_click');
+    suppressRefresh();
     wsClient.send({ type: 'SEND_FRIEND_REQUEST', targetUserId });
-  }, []);
+  }, [suppressRefresh]);
 
   // 친구 요청 응답
   const handleRespondRequest = useCallback((requestId: string, accept: boolean) => {
     soundManager.play('ui_click');
+    suppressRefresh();
     wsClient.send({ type: 'RESPOND_FRIEND_REQUEST', requestId, accept });
     // 응답 후 pendingRequests에서 해당 요청 즉시 제거
     useFriendStore.getState().removePendingRequest(requestId);
-  }, []);
+  }, [suppressRefresh]);
 
   // 친구 요청 취소
   const handleCancelRequest = useCallback((requestId: string) => {
     soundManager.play('ui_click');
+    suppressRefresh();
     wsClient.send({ type: 'CANCEL_FRIEND_REQUEST', requestId });
-  }, []);
+  }, [suppressRefresh]);
 
   // 친구 삭제
   const handleRemoveFriend = useCallback((friendId: string) => {
     soundManager.play('ui_click');
     if (confirm('정말 친구를 삭제하시겠습니까?')) {
+      suppressRefresh();
       // 낙관적 업데이트: UI 즉시 반영
       useFriendStore.getState().removeFriend(friendId);
       wsClient.send({ type: 'REMOVE_FRIEND', friendId });
     }
-  }, []);
+  }, [suppressRefresh]);
 
   // 게임 초대
   const handleInviteToGame = useCallback((friendId: string) => {
@@ -118,6 +135,17 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
       wsClient.send({ type: 'SEND_GAME_INVITE', friendId, roomId: currentRoomId });
     }
   }, [currentRoomId]);
+
+  // DM 열기
+  const handleOpenDM = useCallback((friendId: string) => {
+    soundManager.play('ui_click');
+    useFriendStore.getState().openDMChat(friendId);
+  }, []);
+
+  // DM 닫기
+  const handleCloseDM = useCallback(() => {
+    useFriendStore.getState().closeDMChat();
+  }, []);
 
   // 탭 변경
   const handleTabChange = useCallback((tab: TabType) => {
@@ -173,8 +201,21 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
     );
   }
 
+  // DM 대상 친구 정보
+  const dmFriend = activeDMFriendId ? friends.find(f => f.id === activeDMFriendId) : null;
+
   return (
     <div className="relative w-64 h-full bg-gray-900/80 border-l border-gray-700 flex flex-col">
+      {/* DM 채팅 창 (사이드바 왼쪽에 표시) */}
+      {activeDMFriendId && dmFriend && (
+        <div className="absolute right-full bottom-4 mr-2 z-20">
+          <DMChatWindow
+            friendId={activeDMFriendId}
+            friendName={dmFriend.name}
+            onClose={handleCloseDM}
+          />
+        </div>
+      )}
       {/* 왼쪽 중앙 접기 버튼 */}
       <button
         onClick={toggleCollapse}
@@ -267,6 +308,8 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
             onRemove={handleRemoveFriend}
             onInvite={currentRoomId ? handleInviteToGame : undefined}
             currentRoomId={currentRoomId}
+            onOpenDM={handleOpenDM}
+            dmUnreadCounts={dmUnreadCounts}
           />
         )}
         {activeTab === 'requests' && (
@@ -368,7 +411,9 @@ const FriendsList: React.FC<{
   onRemove: (friendId: string) => void;
   onInvite?: (friendId: string) => void;
   currentRoomId?: string;
-}> = ({ friends, onRemove, onInvite, currentRoomId }) => {
+  onOpenDM: (friendId: string) => void;
+  dmUnreadCounts: Map<string, number>;
+}> = ({ friends, onRemove, onInvite, currentRoomId, onOpenDM, dmUnreadCounts }) => {
   // 온라인 친구를 먼저 정렬
   const sortedFriends = [...friends].sort((a, b) => {
     if (a.isOnline && !b.isOnline) return -1;
@@ -424,6 +469,21 @@ const FriendsList: React.FC<{
                 title="게임 초대"
               >
                 📩
+              </button>
+            )}
+            {/* DM 버튼 (온라인 친구에게만) */}
+            {friend.isOnline && (
+              <button
+                onClick={() => onOpenDM(friend.id)}
+                className="relative p-1 text-neon-cyan/70 hover:text-neon-cyan hover:bg-neon-cyan/20 rounded transition-colors cursor-pointer"
+                title="개인 메시지"
+              >
+                💬
+                {(dmUnreadCounts.get(friend.id) || 0) > 0 && (
+                  <span className="absolute -top-1 -right-1 w-3.5 h-3.5 bg-red-500 text-white text-[9px] rounded-full flex items-center justify-center">
+                    {dmUnreadCounts.get(friend.id)}
+                  </span>
+                )}
               </button>
             )}
             <button
