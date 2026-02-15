@@ -376,12 +376,17 @@ export const RPGModeScreen: React.FC = () => {
               <div className={`text-4xl font-bold mb-2 ${result.victory ? 'text-green-400' : 'text-red-400'}`}>
                 {result.victory ? '🏆 승리!' : '💀 게임 오버'}
               </div>
+
+              <div style={{ height: '5px' }} />
+              
               <div className="text-gray-400">
                 {result.victory
                   ? '모든 보스를 처치했습니다!'
-                  : result.basesDestroyed > 0
-                    ? `${result.basesDestroyed}개 기지 파괴`
-                    : '넥서스가 파괴되었습니다'
+                  : result.nexusDestroyed
+                    ? '넥서스가 파괴되었습니다'
+                    : result.basesDestroyed > 0
+                      ? `${result.basesDestroyed}개 기지 파괴`
+                      : ''
                 }
               </div>
             </div>
@@ -519,6 +524,7 @@ export const RPGModeScreen: React.FC = () => {
                     {/* 피드백 유도 (비게스트 & 미작성자 & 레벨5 이상만) */}
                     {!isGuest && !hasFeedback && !feedbackDismissed && profile && profile.playerLevel >= 5 && (
                       <div className="mb-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg text-center">
+                        <div style={{ height: '5px' }} />
                         <p className="text-gray-300 text-sm mb-2">게임이 재미있으셨나요? 피드백을 남겨주세요!</p>
                         <div className="flex gap-2 justify-center">
                           <button
@@ -534,8 +540,11 @@ export const RPGModeScreen: React.FC = () => {
                             다음에 작성하기
                           </button>
                         </div>
+                        <div style={{ height: '5px' }} />
                       </div>
                     )}
+
+                    <div style={{ height: '10px' }} />
 
                     <div className="flex flex-col gap-3">
                       {/* 팀원 준비 현황 (2인 이상일 때만) */}

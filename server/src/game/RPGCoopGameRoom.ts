@@ -678,93 +678,20 @@ export class RPGCoopGameRoom {
   public handlePlayerDisconnect(playerId: string): void {
     console.log(`[ServerAuth] 플레이어 연결 해제: ${playerId}`);
 
-    // 방장이 연결 해제되면 새 방장 선정 (게임 진행 중에도 계속 진행)
-    if (playerId === this.hostPlayerId) {
-      // 카운트다운 중이면 타이머 정리
-      if (this.gameState === 'countdown' && this.countdownTimer) {
-        clearInterval(this.countdownTimer);
-        this.countdownTimer = null;
-        console.log(`[ServerAuth] 방장 연결 해제로 카운트다운 취소`);
-      }
+    // 나가는 플레이어 정보 캡처 (목록에서 제거하기 전에)
+    const leavingPlayer = players.get(playerId);
+    const leavingPlayerName = this.playerInfos.find(p => p.id === playerId)?.name
+      || leavingPlayer?.name
+      || `Player_${playerId.slice(0, 4)}`;
 
-      // 방장 시작 타이머 정리 (새 방장에게 재시작하기 위해)
-      if (this.hostStartTimer) {
-        clearTimeout(this.hostStartTimer);
-        this.hostStartTimer = null;
-      }
-
-      const remainingPlayers = this.playerIds.filter(id => id !== playerId);
-
-      if (remainingPlayers.length > 0) {
-        // 새 방장 선정
-        this.hostPlayerId = remainingPlayers[0];
-        const newHostInfo = this.playerInfos.find(p => p.id === this.hostPlayerId);
-        if (newHostInfo) {
-          newHostInfo.isHost = true;
-        }
-
-        console.log(`[ServerAuth] 새 방장 선정: ${this.hostPlayerId}`);
-
-        // 카운트다운 중이었다면 로비로 복귀
-        if (this.gameState === 'countdown') {
-          this.gameState = 'waiting';
-          this.broadcast({ type: 'COOP_COUNTDOWN_CANCELLED', reason: '방장 연결 해제' });
-        }
-
-        // 모든 플레이어에게 방장 변경 알림
-        const newHostName = newHostInfo?.name || `Player_${this.hostPlayerId.slice(0, 4)}`;
-        this.broadcast({
-          type: 'COOP_HOST_CHANGED',
-          newHostPlayerId: this.hostPlayerId,
-          newHostName,
-        });
-
-        // 새 방장에게 권한 부여 알림 (게임 중에도 로비 관리 권한 용도)
-        sendToPlayer(this.hostPlayerId, {
-          type: 'COOP_YOU_ARE_NOW_HOST',
-          gameState: this.gameState,
-        });
-
-        // 게임 종료 상태에서 호스트 변경 시: 비호스트 준비 현황 재확인
-        if (this.gameState === 'ended') {
-          // 나간 플레이어 제외 후 비호스트 목록 재계산 (아래에서 playerInfos 필터 전이므로 수동 필터)
-          const remainingInfos = this.playerInfos.filter(p => p.id !== playerId);
-          const allNonHostReady = remainingInfos.every(p => p.isHost || p.id === this.hostPlayerId || p.isReady);
-          if (allNonHostReady && remainingInfos.length > 1) {
-            // 모든 비호스트 준비 완료 → 새 방장에게 시작 경고 + 30초 타이머
-            sendToPlayer(this.hostPlayerId, {
-              type: 'COOP_ROOM_ERROR',
-              message: '모든 플레이어가 준비 완료! 30초 안에 게임을 시작해주세요.',
-            });
-            this.hostStartTimer = setTimeout(() => {
-              this.hostStartTimer = null;
-              if (this.gameState === 'ended') {
-                console.log(`[ServerAuth] 방장 시작 시간 초과 - 방 파기: Room ${this.id}`);
-                this.broadcast({
-                  type: 'COOP_ROOM_DESTROYED',
-                  reason: '방장이 시간 내에 게임을 시작하지 않아 방이 파기되었습니다.',
-                  message: '방장이 시간 내에 게임을 시작하지 않아 방이 파기되었습니다.',
-                });
-                this.cleanup();
-              }
-            }, HOST_START_TIMEOUT);
-          }
-        }
-
-        // 참고: 게임 진행 중일 때는 서버 게임 엔진이 계속 실행됨
-        // 방장 변경은 로비 관리 권한만 위임함
-      } else {
-        // 모든 플레이어가 나감
-        this.endGame(false);
-      }
-    }
+    // ★ 플레이어 목록에서 먼저 제거 (이후 broadcast에서 나간 플레이어 제외)
+    this.playerIds = this.playerIds.filter(id => id !== playerId);
+    this.playerInfos = this.playerInfos.filter(p => p.id !== playerId);
 
     // 나가는 플레이어의 상태 초기화
-    const leavingPlayer = players.get(playerId);
     if (leavingPlayer) {
-      leavingPlayer.roomId = null;    // 방 ID 초기화
+      leavingPlayer.roomId = null;
       leavingPlayer.isInGame = false;
-      // 친구들에게 상태 변경 알림
       if (leavingPlayer.userId) {
         friendManager.notifyFriendsStatusChange(leavingPlayer.userId, true, undefined);
       }
@@ -775,25 +702,96 @@ export class RPGCoopGameRoom {
       this.gameEngine.removeHero(playerId);
     }
 
-    // 플레이어 목록에서 제거
-    this.playerIds = this.playerIds.filter(id => id !== playerId);
-    this.playerInfos = this.playerInfos.filter(p => p.id !== playerId);
+    // 모든 플레이어가 나간 경우
+    if (this.playerIds.length === 0) {
+      this.endGame(false);
+      return;
+    }
+
+    // 방장이 연결 해제되면 새 방장 선정
+    if (playerId === this.hostPlayerId) {
+      // 카운트다운 중이면 타이머 정리
+      if (this.gameState === 'countdown' && this.countdownTimer) {
+        clearInterval(this.countdownTimer);
+        this.countdownTimer = null;
+        console.log(`[ServerAuth] 방장 연결 해제로 카운트다운 취소`);
+      }
+
+      // 방장 시작 타이머 정리
+      if (this.hostStartTimer) {
+        clearTimeout(this.hostStartTimer);
+        this.hostStartTimer = null;
+      }
+
+      // 새 방장 선정 (이미 나간 플레이어 제외됨)
+      this.hostPlayerId = this.playerIds[0];
+      const newHostInfo = this.playerInfos.find(p => p.id === this.hostPlayerId);
+      if (newHostInfo) {
+        newHostInfo.isHost = true;
+      }
+
+      console.log(`[ServerAuth] 새 방장 선정: ${this.hostPlayerId}`);
+
+      // 카운트다운 중이었다면 로비로 복귀
+      if (this.gameState === 'countdown') {
+        this.gameState = 'waiting';
+        this.broadcast({ type: 'COOP_COUNTDOWN_CANCELLED', reason: '방장 연결 해제' });
+      }
+
+      // 모든 플레이어에게 방장 변경 알림 (나간 플레이어 제외)
+      const newHostName = newHostInfo?.name || `Player_${this.hostPlayerId.slice(0, 4)}`;
+      this.broadcast({
+        type: 'COOP_HOST_CHANGED',
+        newHostPlayerId: this.hostPlayerId,
+        newHostName,
+      });
+
+      // 새 방장에게 권한 부여 알림
+      sendToPlayer(this.hostPlayerId, {
+        type: 'COOP_YOU_ARE_NOW_HOST',
+        gameState: this.gameState,
+      });
+
+      // 게임 종료 상태에서 호스트 변경 시: 비호스트 준비 현황 재확인
+      if (this.gameState === 'ended') {
+        const allNonHostReady = this.playerInfos.every(p => p.isHost || p.id === this.hostPlayerId || p.isReady);
+        if (allNonHostReady && this.playerInfos.length > 1) {
+          sendToPlayer(this.hostPlayerId, {
+            type: 'COOP_ROOM_ERROR',
+            message: '모든 플레이어가 준비 완료! 30초 안에 게임을 시작해주세요.',
+          });
+          this.hostStartTimer = setTimeout(() => {
+            this.hostStartTimer = null;
+            if (this.gameState === 'ended') {
+              console.log(`[ServerAuth] 방장 시작 시간 초과 - 방 파기: Room ${this.id}`);
+              this.broadcast({
+                type: 'COOP_ROOM_DESTROYED',
+                reason: '방장이 시간 내에 게임을 시작하지 않아 방이 파기되었습니다.',
+                message: '방장이 시간 내에 게임을 시작하지 않아 방이 파기되었습니다.',
+              });
+              this.cleanup();
+            }
+          }, HOST_START_TIMEOUT);
+        }
+      }
+
+      // 게임이 일시정지 상태면 자동 재개 (나간 방장이 일시정지했으므로)
+      if (this.gameEngine && this.gameState === 'playing' && this.gameEngine.isPaused()) {
+        this.gameEngine.resume();
+        this.broadcast({ type: 'COOP_GAME_RESUMED' });
+        console.log(`[ServerAuth] 방장 퇴장으로 게임 자동 재개: Room ${this.id}`);
+      }
+    }
 
     // 대기 방 플레이어 동기화
     syncWaitingRoomPlayers(this.id, this.playerIds, this.playerInfos);
 
-    // 연결 해제 알림 (플레이어 이름 포함)
-    const disconnectedName = leavingPlayer?.name || `Player_${playerId.slice(0, 4)}`;
+    // 연결 해제 알림 (나간 플레이어는 이미 playerIds에서 제외됨)
     this.broadcast({
       type: 'COOP_PLAYER_DISCONNECTED',
       playerId,
-      playerName: disconnectedName,
+      playerName: leavingPlayerName,
     });
-
-    // 모든 플레이어가 나가면 게임 종료
-    if (this.playerIds.length === 0) {
-      this.endGame(false);
-    }
   }
 
   /**

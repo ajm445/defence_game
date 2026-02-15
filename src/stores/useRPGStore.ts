@@ -1818,6 +1818,7 @@ export const useRPGStore = create<RPGStore>()(
         gamePhase: victory ? 'victory' : 'defeat',
         result: {
           victory,
+          nexusDestroyed: !victory && (state.nexus?.hp ?? 1) <= 0,
           totalKills: state.stats.totalKills,
           totalGoldEarned: state.stats.totalGoldEarned,
           basesDestroyed: state.stats.basesDestroyed,

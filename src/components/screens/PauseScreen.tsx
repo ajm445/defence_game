@@ -32,10 +32,13 @@ export const PauseScreen: React.FC = () => {
   const isRPG = gameMode === 'rpg';
 
   // 멀티플레이어 상태 확인
-  const { isHost } = useRPGStore.getState().multiplayer;
+  const { isHost, players } = useRPGStore.getState().multiplayer;
 
   // RPG 모드에서 클라이언트(비호스트)인지 확인
   const isMultiplayerClient = isRPG && !isHost;
+
+  // 방에 혼자 있으면 '중단' (결과 표시), 여럿이면 '나가기' (보상 없이 퇴장)
+  const isSoloRoom = isRPG && isHost && players.length <= 1;
 
   // 호스트가 일시정지 화면에 진입하면 서버에 알림
   useEffect(() => {
@@ -138,26 +141,21 @@ export const PauseScreen: React.FC = () => {
     }
   };
 
-  // RPG 모드 게임 중단 (현재까지의 진행 저장 후 게임 오버 처리)
+  // RPG 모드 게임 나가기 (보상 없이 퇴장, 호스트는 위임)
   const handleQuitGame = () => {
     if (isRPG) {
-      // 일시정지 해제
       useRPGStore.getState().setPaused(false);
-      // 게임 오버로 처리 (패배로 기록)
-      useRPGStore.getState().setGameOver(false);
-
-      // 방 나가기
+      // 방 나가기 (서버에서 호스트 위임 + 일시정지 자동 해제 처리)
       leaveMultiplayerRoom();
-
-      // 게임 화면으로 돌아가서 게임 오버 모달 표시
-      setScreen('game');
+      useRPGStore.getState().resetGame();
+      resetGameUI();
+      setScreen('rpgCoopLobby');
     }
   };
 
-  // 멀티플레이어: 게임 중단 (호스트만) - 모든 플레이어에게 게임 오버 처리
+  // RPG 모드 게임 중단 (혼자 있을 때 - 게임 결과 화면 표시 + 보상)
   const handleStopGame = () => {
     if (isRPG && isHost) {
-      // 서버에 게임 중단 요청 (모든 클라이언트에게 게임 오버 브로드캐스트)
       wsClient.stopCoopGame();
     }
   };
@@ -285,7 +283,7 @@ export const PauseScreen: React.FC = () => {
             <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setShowQuitConfirm(false)}>
               <div className="bg-dark-800 border border-gray-600 rounded-xl p-6 min-w-[320px] animate-fade-in" onClick={(e) => e.stopPropagation()}>
                 <h3 className="text-white font-bold text-lg text-center mb-2">게임 나가기</h3>
-                <p className="text-gray-400 text-sm text-center mb-6">게임에서 나가시겠습니까?<br />진행 상황이 저장되지 않습니다.</p>
+                <p className="text-gray-400 text-sm text-center mb-6">게임을 나가게되면 보상을 받을 수 없습니다.</p>
                 <div className="flex gap-3">
                   <button
                     onClick={() => setShowQuitConfirm(false)}
@@ -360,8 +358,8 @@ export const PauseScreen: React.FC = () => {
             </button>
           )}
 
-          {/* RPG 호스트 전용: 게임 중단 버튼 */}
-          {isRPG && isHost && (
+          {/* RPG 게임 중단/나가기 버튼 (혼자: 중단, 여럿: 나가기) */}
+          {isRPG && (
             <button
               onClick={() => setShowQuitConfirm(true)}
               className="group relative px-8 py-3 rounded-lg overflow-hidden transition-all duration-200 hover:scale-105 active:scale-95"
@@ -370,7 +368,7 @@ export const PauseScreen: React.FC = () => {
               <div className="absolute inset-0 bg-red-500/20" />
               <div className="absolute inset-0 border border-red-500/50 rounded-lg group-hover:border-red-400 group-hover:shadow-[0_0_10px_rgba(239,68,68,0.3)] transition-all duration-300" />
               <span className="relative font-korean text-lg text-red-400 group-hover:text-white transition-colors duration-300">
-                🛑 게임 중단
+                {isSoloRoom ? '🛑 게임 중단' : '🚪 게임 나가기'}
               </span>
             </button>
           )}
@@ -457,11 +455,13 @@ export const PauseScreen: React.FC = () => {
           <div className="fixed inset-0 z-[60] flex items-center justify-center bg-black/60" onClick={() => setShowQuitConfirm(false)}>
             <div className="bg-dark-800 border border-gray-600 rounded-xl p-6 min-w-[320px] animate-fade-in" onClick={(e) => e.stopPropagation()}>
               <h3 className="text-white font-bold text-lg text-center mb-2">
-                {isRPG && isHost ? '게임 중단' : '게임 나가기'}
+                {isSoloRoom ? '게임 중단' : '게임 나가기'}
               </h3>
               <p className="text-gray-400 text-sm text-center mb-6">
-                {isRPG && isHost
-                  ? '게임을 중단하시겠습니까?\n모든 플레이어의 게임이 종료됩니다.'
+                {isRPG
+                  ? (isSoloRoom
+                    ? '게임을 중단하시겠습니까?'
+                    : '게임을 나가게되면 보상을 받을 수 없습니다.')
                   : '게임에서 나가시겠습니까?\n진행 상황이 저장되지 않습니다.'}
               </p>
               <div className="flex gap-3">
@@ -472,10 +472,10 @@ export const PauseScreen: React.FC = () => {
                   취소
                 </button>
                 <button
-                  onClick={isRPG && isHost ? handleStopGame : handleQuitGame}
+                  onClick={isSoloRoom ? handleStopGame : handleQuitGame}
                   className="flex-1 py-2 bg-red-600 hover:bg-red-500 text-white rounded-lg transition-colors cursor-pointer"
                 >
-                  확인
+                  {isSoloRoom ? '중단' : '나가기'}
                 </button>
               </div>
             </div>

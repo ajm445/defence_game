@@ -493,6 +493,7 @@ export type ExpTable = Partial<Record<UnitType, number>>;
 // RPG 게임 결과
 export interface RPGGameResult {
   victory: boolean;
+  nexusDestroyed: boolean;  // 넥서스가 파괴되었는지 (false면 유저가 게임 중단)
   totalKills: number;
   totalGoldEarned: number;
   basesDestroyed: number;
