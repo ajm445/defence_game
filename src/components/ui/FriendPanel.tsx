@@ -294,7 +294,7 @@ const OnlinePlayerList: React.FC<{
   onSendRequest: (targetUserId: string) => void;
   onInvite?: (friendId: string) => void;
   currentRoomId?: string;
-}> = ({ players, onSendRequest, onInvite, currentRoomId }) => {
+}> = ({ players, onSendRequest }) => {
   if (players.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
