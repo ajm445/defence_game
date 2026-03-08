@@ -3,7 +3,7 @@
   "version": "1.24.5",
   "type": "module",
   "engines": {
-    "node": ">=18.0.0"
+    "node": ">=20.0.0"
   },
   "scripts": {
     "dev": "tsx watch src/index.ts",

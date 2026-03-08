@@ -203,8 +203,6 @@ export const FriendPanel: React.FC<FriendPanelProps> = ({ onInviteToRoom, curren
           <OnlinePlayerList
             players={filteredOnlinePlayers}
             onSendRequest={handleSendFriendRequest}
-            onInvite={currentRoomId ? handleInviteToGame : undefined}
-            currentRoomId={currentRoomId}
           />
         )}
         {activeTab === 'requests' && (
@@ -292,8 +290,6 @@ const FriendList: React.FC<{
 const OnlinePlayerList: React.FC<{
   players: OnlinePlayerInfo[];
   onSendRequest: (targetUserId: string) => void;
-  onInvite?: (friendId: string) => void;
-  currentRoomId?: string;
 }> = ({ players, onSendRequest }) => {
   if (players.length === 0) {
     return (

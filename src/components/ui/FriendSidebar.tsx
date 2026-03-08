@@ -299,8 +299,6 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
           <OnlineList
             players={filteredOnlinePlayers}
             onSendRequest={handleSendFriendRequest}
-            onInvite={currentRoomId ? handleInviteToGame : undefined}
-            currentRoomId={currentRoomId}
           />
         )}
         {activeTab === 'friends' && (
@@ -330,8 +328,6 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
 const OnlineList: React.FC<{
   players: OnlinePlayerInfo[];
   onSendRequest: (targetUserId: string) => void;
-  onInvite?: (friendId: string) => void;
-  currentRoomId?: string;
 }> = ({ players, onSendRequest }) => {
   if (players.length === 0) {
     return (
