@@ -26,12 +26,38 @@ export function drawRPGMinimap(
 
   ctx.save();
 
-  // 미니맵 배경
-  ctx.fillStyle = 'rgba(10, 10, 20, 0.9)';
+  // 미니맵 배경 (어두운 초록 톤)
+  ctx.fillStyle = 'rgba(12, 18, 12, 0.92)';
   ctx.fillRect(x, y, width, height);
 
-  // 미니맵 테두리
-  ctx.strokeStyle = '#ffd700';
+  // 영역별 색조 반영
+  // 넥서스 주변 시안
+  if (state.nexus) {
+    const nxM = x + state.nexus.x * scaleX;
+    const nyM = y + state.nexus.y * scaleY;
+    const nexusGrad = ctx.createRadialGradient(nxM, nyM, 0, nxM, nyM, 25);
+    nexusGrad.addColorStop(0, 'rgba(0, 180, 200, 0.15)');
+    nexusGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+    ctx.fillStyle = nexusGrad;
+    ctx.fillRect(x, y, width, height);
+  }
+
+  // 기지 주변 적갈색
+  if (state.enemyBases) {
+    for (const base of state.enemyBases) {
+      if (base.destroyed) continue;
+      const bxM = x + base.x * scaleX;
+      const byM = y + base.y * scaleY;
+      const baseGrad = ctx.createRadialGradient(bxM, byM, 0, bxM, byM, 18);
+      baseGrad.addColorStop(0, 'rgba(120, 30, 30, 0.2)');
+      baseGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
+      ctx.fillStyle = baseGrad;
+      ctx.fillRect(x, y, width, height);
+    }
+  }
+
+  // 미니맵 테두리 (둥근 모서리 느낌)
+  ctx.strokeStyle = 'rgba(100, 130, 80, 0.6)';
   ctx.lineWidth = 2;
   ctx.strokeRect(x, y, width, height);
 

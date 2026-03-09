@@ -1,5 +1,5 @@
 import { RPGGameState, BossSkillWarning, BossSkillType, BossVoidZone } from '../types/rpg';
-import { RPG_CONFIG, NEXUS_CONFIG, ENEMY_BASE_CONFIG, BOSS_SKILL_CONFIGS } from '../constants/rpgConfig';
+import { BOSS_SKILL_CONFIGS } from '../constants/rpgConfig';
 import { drawGrid } from './drawGrid';
 import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange, drawSkillRange } from './drawHero';
 import { effectManager } from '../effects';
@@ -9,6 +9,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { useUIStore } from '../stores/useUIStore';
 import { drawNexus, drawAllEnemyBases, drawNexusLaserBeams } from './drawNexusEntities';
 import { useRPGTutorialStore, TutorialTargetPosition } from '../stores/useRPGTutorialStore';
+import { drawMapDecorations, drawNaturalBoundary, drawBoundaryDarkness, drawZoneTints, drawAmbientEffects } from './drawMapDecorations';
 
 // 영웅 중심 이펙트 타입 (영웅 현재 위치를 따라가야 하는 이펙트)
 // 대시 이펙트(warrior_w, knight_w, blood_rush 등)와 타겟 위치 이펙트(mage_w, inferno 등)는 제외
@@ -61,8 +62,15 @@ export function renderRPG(
   // 배경 그리드
   drawGrid(ctx, camera, scaledWidth, scaledHeight);
 
-  // 맵 경계 표시
-  drawMapBoundary(ctx, camera, scaledWidth, scaledHeight);
+  // 영역별 색조 (넥서스 주변 시안, 기지 주변 적갈색)
+  drawZoneTints(ctx, camera, scaledWidth, scaledHeight);
+
+  // 지형 장식 (풀, 바위, 물웅덩이, 횃불)
+  drawMapDecorations(ctx, camera, scaledWidth, scaledHeight, state.gameTime);
+
+  // 맵 경계 (자연 경계 + 어둠 페이드)
+  drawBoundaryDarkness(ctx, camera, scaledWidth, scaledHeight);
+  drawNaturalBoundary(ctx, camera, scaledWidth, scaledHeight);
 
   // 넥서스 디펜스 엔티티 렌더링 (다른 엔티티와 동일한 카메라 사용)
   if (state.nexus) {
@@ -181,6 +189,9 @@ export function renderRPG(
   // 파티클 이펙트 렌더링
   effectManager.render(ctx, camera.x, camera.y, scaledWidth, scaledHeight);
 
+  // 안개/파티클 효과 (넥서스 빛, 기지 연기, 가장자리 안개)
+  drawAmbientEffects(ctx, camera, scaledWidth, scaledHeight, state.gameTime);
+
   // 줌 변환 복원
   ctx.restore();
 
@@ -203,56 +214,6 @@ export function renderRPG(
   }
 }
 
-/**
- * 맵 경계 표시
- */
-function drawMapBoundary(
-  ctx: CanvasRenderingContext2D,
-  camera: { x: number; y: number },
-  canvasWidth: number,
-  canvasHeight: number
-) {
-  ctx.save();
-
-  // 맵 영역 외부 어둡게
-  ctx.fillStyle = 'rgba(0, 0, 0, 0.5)';
-
-  // 왼쪽
-  if (camera.x < 0) {
-    ctx.fillRect(0, 0, -camera.x, canvasHeight);
-  }
-
-  // 오른쪽
-  const rightEdge = RPG_CONFIG.MAP_WIDTH - camera.x;
-  if (rightEdge < canvasWidth) {
-    ctx.fillRect(rightEdge, 0, canvasWidth - rightEdge, canvasHeight);
-  }
-
-  // 위쪽
-  if (camera.y < 0) {
-    ctx.fillRect(0, 0, canvasWidth, -camera.y);
-  }
-
-  // 아래쪽
-  const bottomEdge = RPG_CONFIG.MAP_HEIGHT - camera.y;
-  if (bottomEdge < canvasHeight) {
-    ctx.fillRect(0, bottomEdge, canvasWidth, canvasHeight - bottomEdge);
-  }
-
-  // 맵 경계선
-  ctx.strokeStyle = '#ffd70050';
-  ctx.lineWidth = 3;
-  ctx.setLineDash([10, 10]);
-  ctx.strokeRect(
-    -camera.x,
-    -camera.y,
-    RPG_CONFIG.MAP_WIDTH,
-    RPG_CONFIG.MAP_HEIGHT
-  );
-  ctx.setLineDash([]);
-
-  ctx.restore();
-}
 
 /**
  * 게임 오버 오버레이
