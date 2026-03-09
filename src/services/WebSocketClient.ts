@@ -315,9 +315,10 @@ class WebSocketClient {
     isPrivate: boolean = false,
     difficulty: string = 'easy',
     advancedClass?: AdvancedHeroClass,
-    tier?: 1 | 2
+    tier?: 1 | 2,
+    mapTheme: string = 'forest'
   ): void {
-    this.send({ type: 'CREATE_COOP_ROOM', playerName, heroClass, characterLevel, statUpgrades, isPrivate, difficulty, advancedClass, tier } as any);
+    this.send({ type: 'CREATE_COOP_ROOM', playerName, heroClass, characterLevel, statUpgrades, isPrivate, difficulty, advancedClass, tier, mapTheme } as any);
   }
 
   public joinCoopRoom(

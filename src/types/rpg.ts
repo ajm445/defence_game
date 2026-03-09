@@ -5,6 +5,9 @@ import { CharacterStatUpgrades } from './auth';
 // 난이도 타입
 export type RPGDifficulty = 'easy' | 'normal' | 'hard' | 'extreme' | 'hell' | 'apocalypse';
 
+// 맵 테마 타입
+export type MapTheme = 'forest' | 'ice' | 'volcano' | 'shadow';
+
 // 난이도 설정 인터페이스
 export interface DifficultyConfig {
   id: RPGDifficulty;
@@ -381,6 +384,9 @@ export interface RPGGameState {
 
   // Boss2 공허의 영역 지속 장판
   bossActiveZones: BossVoidZone[];
+
+  // 맵 테마
+  mapTheme: MapTheme;
 }
 
 // 보스 스킬 경고 (바닥 표시용)

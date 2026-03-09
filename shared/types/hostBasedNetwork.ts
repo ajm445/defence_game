@@ -248,6 +248,7 @@ export interface MultiplayerState {
   // 방 설정 (로비 복귀 시 유지)
   roomIsPrivate?: boolean;
   roomDifficulty?: string;
+  roomMapTheme?: string;
   // 로비 채팅
   lobbyChatMessages: LobbyChatMessage[];
   lobbyChatError: string | null;

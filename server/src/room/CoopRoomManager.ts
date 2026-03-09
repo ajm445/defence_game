@@ -32,6 +32,7 @@ interface WaitingCoopRoom {
   state: 'waiting' | 'countdown' | 'started';
   isPrivate: boolean;  // 비밀방 여부
   difficulty: string;  // 난이도 ('easy' | 'normal' | 'hard' | 'extreme')
+  mapTheme: string;    // 맵 테마 ('forest' | 'ice' | 'volcano' | 'shadow')
   // 로비 채팅
   chatHistory: LobbyChatMessage[];
   lastMessageTime: Map<string, number>;  // playerId -> 마지막 메시지 시간
@@ -84,7 +85,8 @@ export function createCoopRoom(
   isPrivate: boolean = false,
   difficulty: string = 'easy',
   advancedClass?: string,
-  tier?: 1 | 2
+  tier?: 1 | 2,
+  mapTheme: string = 'forest'
 ): WaitingCoopRoom | null {
   const player = players.get(hostPlayerId);
   if (!player) {
@@ -123,6 +125,7 @@ export function createCoopRoom(
     state: 'waiting',
     isPrivate,
     difficulty,
+    mapTheme,
     chatHistory: [],
     lastMessageTime: new Map(),
   };
@@ -142,6 +145,7 @@ export function createCoopRoom(
     roomId,
     isPrivate: room.isPrivate,
     difficulty: room.difficulty,
+    mapTheme: room.mapTheme,
   });
 
   // 다른 대기 중인 클라이언트들에게 방 목록 업데이트 알림
@@ -240,6 +244,7 @@ export function joinCoopRoom(
     yourIndex: playerIndex,
     isPrivate: room.isPrivate,
     difficulty: room.difficulty,
+    mapTheme: room.mapTheme,
   });
 
   // 채팅 히스토리 전송
@@ -304,6 +309,7 @@ export function leaveCoopRoom(playerId: string): void {
             yourIndex: Array.from(room.players.keys()).indexOf(id),
             isPrivate: room.isPrivate,
             difficulty: room.difficulty,
+            mapTheme: room.mapTheme,
           });
         });
       }
@@ -445,7 +451,7 @@ export function kickCoopPlayer(hostPlayerId: string, targetPlayerId: string): vo
 }
 
 // 방 설정 변경 (호스트 전용)
-export function updateCoopRoomSettings(hostPlayerId: string, isPrivate?: boolean, difficulty?: string): void {
+export function updateCoopRoomSettings(hostPlayerId: string, isPrivate?: boolean, difficulty?: string, mapTheme?: string): void {
   const player = players.get(hostPlayerId);
   if (!player || !player.roomId) return;
 
@@ -464,6 +470,9 @@ export function updateCoopRoomSettings(hostPlayerId: string, isPrivate?: boolean
   }
   if (difficulty !== undefined) {
     room.difficulty = difficulty;
+  }
+  if (mapTheme !== undefined) {
+    room.mapTheme = mapTheme;
   }
 
   const hostInfo = room.players.get(hostPlayerId);
@@ -486,6 +495,7 @@ export function updateCoopRoomSettings(hostPlayerId: string, isPrivate?: boolean
       type: 'COOP_ROOM_SETTINGS_CHANGED',
       isPrivate: room.isPrivate,
       difficulty: room.difficulty,
+      mapTheme: room.mapTheme,
     });
   });
 
@@ -534,7 +544,7 @@ export function startCoopGame(hostPlayerId: string): void {
   const playerIds = Array.from(room.players.keys());
   const playerInfos = Array.from(room.players.values());
 
-  const gameRoom = new RPGCoopGameRoom(room.id, room.code, playerIds, playerInfos, room.isPrivate, room.difficulty);
+  const gameRoom = new RPGCoopGameRoom(room.id, room.code, playerIds, playerInfos, room.isPrivate, room.difficulty, room.mapTheme);
 
   // MessageHandler에 게임 방 등록
   addCoopRoom(gameRoom);
@@ -592,6 +602,7 @@ export function getAllWaitingCoopRooms(): WaitingCoopRoomInfo[] {
         isPrivate: room.isPrivate,
         isInGame: room.state === 'started',  // 게임 중인 방 표시
         difficulty: room.difficulty,  // 난이도
+        mapTheme: room.mapTheme,    // 맵 테마
       };
     });
 }
@@ -740,6 +751,7 @@ export function joinCoopRoomById(
     yourIndex: playerIndex,
     isPrivate: room.isPrivate,
     difficulty: room.difficulty,
+    mapTheme: room.mapTheme,
   });
 
   // 채팅 히스토리 전송
@@ -839,6 +851,7 @@ export function joinCoopRoomByInvite(
     yourIndex: playerIndex,
     isPrivate: room.isPrivate,
     difficulty: room.difficulty,
+    mapTheme: room.mapTheme,
   });
 
   // 채팅 히스토리 전송

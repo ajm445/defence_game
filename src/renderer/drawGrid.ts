@@ -4,14 +4,18 @@ export function drawGrid(
   ctx: CanvasRenderingContext2D,
   camera: Camera,
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  gridColors?: { mainColor: string; subColor: string }
 ) {
+  const mainColor = gridColors?.mainColor ?? 'rgba(0, 245, 255, 0.05)';
+  const subColor = gridColors?.subColor ?? 'rgba(0, 245, 255, 0.02)';
+
   const gridSize = 100;
   const startX = -camera.x % gridSize;
   const startY = -camera.y % gridSize;
 
   // 메인 그리드
-  ctx.strokeStyle = 'rgba(0, 245, 255, 0.05)';
+  ctx.strokeStyle = mainColor;
   ctx.lineWidth = 1;
 
   for (let x = startX; x < canvasWidth; x += gridSize) {
@@ -33,7 +37,7 @@ export function drawGrid(
   const subStartX = -camera.x % subGridSize;
   const subStartY = -camera.y % subGridSize;
 
-  ctx.strokeStyle = 'rgba(0, 245, 255, 0.02)';
+  ctx.strokeStyle = subColor;
 
   for (let x = subStartX; x < canvasWidth; x += subGridSize) {
     if ((x - subStartX) % gridSize !== 0) {

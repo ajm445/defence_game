@@ -1,4 +1,6 @@
 import { RPG_CONFIG, NEXUS_CONFIG, ENEMY_BASE_CONFIG } from '../constants/rpgConfig';
+import { MapThemeConfig } from '../constants/mapThemeConfig';
+import { MapTheme } from '../types/rpg';
 
 // ============================================
 // 장식 요소 타입
@@ -9,7 +11,7 @@ interface Decoration {
   y: number;
   type: 'grass' | 'rock' | 'puddle' | 'torch';
   size: number;
-  variant: number; // 0~1 랜덤 변형
+  variant: number;
   rotation: number;
 }
 
@@ -34,11 +36,12 @@ function seededRandom(seed: number): () => number {
 }
 
 // ============================================
-// 장식 데이터 캐시 (게임 시작 시 1회 생성)
+// 장식 데이터 캐시 (테마 변경 시 재생성)
 // ============================================
 
 let _decorations: Decoration[] | null = null;
 let _boundaryElements: BoundaryTree[] | null = null;
+let _cachedTheme: MapTheme | null = null;
 
 const MAP_W = RPG_CONFIG.MAP_WIDTH;
 const MAP_H = RPG_CONFIG.MAP_HEIGHT;
@@ -61,10 +64,17 @@ function isNearEntity(x: number, y: number, clearance: number): boolean {
   return false;
 }
 
+function ensureCache(theme: MapThemeConfig) {
+  if (_cachedTheme === theme.id && _decorations && _boundaryElements) return;
+  _cachedTheme = theme.id;
+  _decorations = generateDecorations();
+  _boundaryElements = generateBoundaryElements(theme);
+}
+
 function generateDecorations(): Decoration[] {
   const rng = seededRandom(42);
   const decorations: Decoration[] = [];
-  const margin = 120; // 맵 가장자리 여백
+  const margin = 120;
 
   // 풀 패치 (150개)
   for (let i = 0; i < 150; i++) {
@@ -72,11 +82,8 @@ function generateDecorations(): Decoration[] {
     const y = margin + rng() * (MAP_H - margin * 2);
     if (isNearEntity(x, y, 150)) continue;
     decorations.push({
-      x, y,
-      type: 'grass',
-      size: 8 + rng() * 20,
-      variant: rng(),
-      rotation: rng() * Math.PI * 2,
+      x, y, type: 'grass',
+      size: 8 + rng() * 20, variant: rng(), rotation: rng() * Math.PI * 2,
     });
   }
 
@@ -86,11 +93,8 @@ function generateDecorations(): Decoration[] {
     const y = margin + rng() * (MAP_H - margin * 2);
     if (isNearEntity(x, y, 180)) continue;
     decorations.push({
-      x, y,
-      type: 'rock',
-      size: 12 + rng() * 18,
-      variant: rng(),
-      rotation: rng() * Math.PI * 2,
+      x, y, type: 'rock',
+      size: 12 + rng() * 18, variant: rng(), rotation: rng() * Math.PI * 2,
     });
   }
 
@@ -100,15 +104,12 @@ function generateDecorations(): Decoration[] {
     const y = 200 + rng() * (MAP_H - 400);
     if (isNearEntity(x, y, 200)) continue;
     decorations.push({
-      x, y,
-      type: 'puddle',
-      size: 20 + rng() * 25,
-      variant: rng(),
-      rotation: rng() * Math.PI * 2,
+      x, y, type: 'puddle',
+      size: 20 + rng() * 25, variant: rng(), rotation: rng() * Math.PI * 2,
     });
   }
 
-  // 횃불 (각 기지 주변 3개씩 = 12개 + 넥서스 주변 4개)
+  // 횃불 (각 기지 주변 3개씩 + 넥서스 주변 4개)
   const torchBases = [
     { x: ENEMY_BASE_CONFIG.left.x, y: ENEMY_BASE_CONFIG.left.y },
     { x: ENEMY_BASE_CONFIG.right.x, y: ENEMY_BASE_CONFIG.right.y },
@@ -123,120 +124,75 @@ function generateDecorations(): Decoration[] {
       decorations.push({
         x: base.x + Math.cos(angle) * dist,
         y: base.y + Math.sin(angle) * dist,
-        type: 'torch',
-        size: 6,
-        variant: rng(),
-        rotation: 0,
+        type: 'torch', size: 6, variant: rng(), rotation: 0,
       });
     }
   }
 
-  // 넥서스 주변 횃불 4개
   for (let i = 0; i < 4; i++) {
     const angle = (Math.PI / 2) * i + Math.PI / 4;
     const dist = 130;
     decorations.push({
       x: NEXUS_CONFIG.position.x + Math.cos(angle) * dist,
       y: NEXUS_CONFIG.position.y + Math.sin(angle) * dist,
-      type: 'torch',
-      size: 6,
-      variant: rng(),
-      rotation: 0,
+      type: 'torch', size: 6, variant: rng(), rotation: 0,
     });
   }
 
   return decorations;
 }
 
-function generateBoundaryElements(): BoundaryTree[] {
+function generateBoundaryElements(theme: MapThemeConfig): BoundaryTree[] {
   const rng = seededRandom(123);
   const elements: BoundaryTree[] = [];
   const spacing = 35;
+  const treeRatio = theme.boundary.treeRatio;
 
-  // 상단 경계
-  for (let x = -20; x <= MAP_W + 20; x += spacing) {
-    const yOffset = rng() * 30;
-    elements.push({
-      x: x + rng() * 15 - 7,
-      y: -10 + yOffset,
-      size: 20 + rng() * 15,
-      variant: rng(),
-      type: rng() > 0.3 ? 'tree' : 'rock',
-    });
-    // 두 번째 줄 (더 울창하게)
-    if (rng() > 0.3) {
+  const addEdge = (getX: (t: number) => number, getY: (t: number) => number, getX2: (t: number) => number, getY2: (t: number) => number, length: number) => {
+    for (let t = -20; t <= length + 20; t += spacing) {
       elements.push({
-        x: x + rng() * 20 - 10,
-        y: -30 + rng() * 15,
-        size: 15 + rng() * 15,
+        x: getX(t) + rng() * 15 - 7,
+        y: getY(t),
+        size: 20 + rng() * 15,
         variant: rng(),
-        type: rng() > 0.4 ? 'tree' : 'rock',
+        type: rng() < treeRatio ? 'tree' : 'rock',
       });
+      if (rng() > 0.3) {
+        elements.push({
+          x: getX2(t) + rng() * 20 - 10,
+          y: getY2(t),
+          size: 15 + rng() * 15,
+          variant: rng(),
+          type: rng() < (treeRatio + 0.1) ? 'tree' : 'rock',
+        });
+      }
     }
-  }
+  };
 
-  // 하단 경계
-  for (let x = -20; x <= MAP_W + 20; x += spacing) {
-    const yOffset = rng() * 30;
-    elements.push({
-      x: x + rng() * 15 - 7,
-      y: MAP_H + 10 - yOffset,
-      size: 20 + rng() * 15,
-      variant: rng(),
-      type: rng() > 0.3 ? 'tree' : 'rock',
-    });
-    if (rng() > 0.3) {
-      elements.push({
-        x: x + rng() * 20 - 10,
-        y: MAP_H + 30 - rng() * 15,
-        size: 15 + rng() * 15,
-        variant: rng(),
-        type: rng() > 0.4 ? 'tree' : 'rock',
-      });
-    }
-  }
-
-  // 좌측 경계
-  for (let y = -20; y <= MAP_H + 20; y += spacing) {
-    const xOffset = rng() * 30;
-    elements.push({
-      x: -10 + xOffset,
-      y: y + rng() * 15 - 7,
-      size: 20 + rng() * 15,
-      variant: rng(),
-      type: rng() > 0.3 ? 'tree' : 'rock',
-    });
-    if (rng() > 0.3) {
-      elements.push({
-        x: -30 + rng() * 15,
-        y: y + rng() * 20 - 10,
-        size: 15 + rng() * 15,
-        variant: rng(),
-        type: rng() > 0.4 ? 'tree' : 'rock',
-      });
-    }
-  }
-
-  // 우측 경계
-  for (let y = -20; y <= MAP_H + 20; y += spacing) {
-    const xOffset = rng() * 30;
-    elements.push({
-      x: MAP_W + 10 - xOffset,
-      y: y + rng() * 15 - 7,
-      size: 20 + rng() * 15,
-      variant: rng(),
-      type: rng() > 0.3 ? 'tree' : 'rock',
-    });
-    if (rng() > 0.3) {
-      elements.push({
-        x: MAP_W + 30 - rng() * 15,
-        y: y + rng() * 20 - 10,
-        size: 15 + rng() * 15,
-        variant: rng(),
-        type: rng() > 0.4 ? 'tree' : 'rock',
-      });
-    }
-  }
+  // 상단
+  addEdge(
+    t => t, t => -10 + (rng() * 30),
+    t => t, _t => -30 + rng() * 15,
+    MAP_W
+  );
+  // 하단
+  addEdge(
+    t => t, _t => MAP_H + 10 - rng() * 30,
+    t => t, _t => MAP_H + 30 - rng() * 15,
+    MAP_W
+  );
+  // 좌측
+  addEdge(
+    _t => -10 + rng() * 30, t => t,
+    _t => -30 + rng() * 15, t => t,
+    MAP_H
+  );
+  // 우측
+  addEdge(
+    _t => MAP_W + 10 - rng() * 30, t => t,
+    _t => MAP_W + 30 - rng() * 15, t => t,
+    MAP_H
+  );
 
   return elements;
 }
@@ -249,38 +205,35 @@ export function drawZoneTints(
   ctx: CanvasRenderingContext2D,
   camera: { x: number; y: number },
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  theme: MapThemeConfig
 ) {
   ctx.save();
 
-  // 넥서스 주변: 안전한 시안/초록 톤
+  // 넥서스 주변
   const nx = NEXUS_CONFIG.position.x - camera.x;
   const ny = NEXUS_CONFIG.position.y - camera.y;
   const nexusGrad = ctx.createRadialGradient(nx, ny, 0, nx, ny, 350);
-  nexusGrad.addColorStop(0, 'rgba(0, 180, 200, 0.06)');
-  nexusGrad.addColorStop(0.6, 'rgba(0, 150, 180, 0.03)');
+  nexusGrad.addColorStop(0, theme.zoneTints.nexus.inner);
+  nexusGrad.addColorStop(0.6, theme.zoneTints.nexus.mid);
   nexusGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
   ctx.fillStyle = nexusGrad;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
-  // 적 기지 주변: 위험한 적갈색 톤
+  // 적 기지 주변
   const bases = [
-    ENEMY_BASE_CONFIG.left,
-    ENEMY_BASE_CONFIG.right,
-    ENEMY_BASE_CONFIG.top,
-    ENEMY_BASE_CONFIG.bottom,
+    ENEMY_BASE_CONFIG.left, ENEMY_BASE_CONFIG.right,
+    ENEMY_BASE_CONFIG.top, ENEMY_BASE_CONFIG.bottom,
   ];
 
   for (const base of bases) {
     const bx = base.x - camera.x;
     const by = base.y - camera.y;
-
-    // 화면 밖이면 스킵
     if (bx < -300 || bx > canvasWidth + 300 || by < -300 || by > canvasHeight + 300) continue;
 
     const baseGrad = ctx.createRadialGradient(bx, by, 0, bx, by, 280);
-    baseGrad.addColorStop(0, 'rgba(120, 30, 30, 0.08)');
-    baseGrad.addColorStop(0.5, 'rgba(80, 20, 20, 0.04)');
+    baseGrad.addColorStop(0, theme.zoneTints.base.inner);
+    baseGrad.addColorStop(0.5, theme.zoneTints.base.mid);
     baseGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = baseGrad;
     ctx.fillRect(0, 0, canvasWidth, canvasHeight);
@@ -290,18 +243,18 @@ export function drawZoneTints(
 }
 
 // ============================================
-// 장식 요소 렌더링
+// 장식 요소 렌더링 (테마 색상 적용)
 // ============================================
 
 function drawGrass(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
-  size: number, variant: number
+  size: number, variant: number,
+  colors: MapThemeConfig['decorations']['grass']
 ) {
   ctx.save();
   ctx.translate(x, y);
 
-  // 여러 풀잎 클러스터
   const bladeCount = 3 + Math.floor(variant * 4);
   for (let i = 0; i < bladeCount; i++) {
     const angle = (Math.PI * 2 / bladeCount) * i + variant * 0.5;
@@ -315,8 +268,10 @@ function drawGrass(
     ctx.quadraticCurveTo(bx + variant * 3, by - h * 0.7, bx + 1, by - h);
     ctx.quadraticCurveTo(bx - variant * 2, by - h * 0.5, bx + 2, by);
 
-    const green = 80 + Math.floor(variant * 60);
-    ctx.fillStyle = `rgba(${30 + Math.floor(variant * 20)}, ${green}, ${20 + Math.floor(variant * 15)}, 0.5)`;
+    const r = colors.rBase + Math.floor(variant * colors.rRange);
+    const g = colors.gBase + Math.floor(variant * colors.gRange);
+    const b = colors.bBase + Math.floor(variant * colors.bRange);
+    ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.5)`;
     ctx.fill();
   }
 
@@ -326,30 +281,29 @@ function drawGrass(
 function drawRock(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
-  size: number, variant: number, rotation: number
+  size: number, variant: number, rotation: number,
+  colors: MapThemeConfig['decorations']['rock']
 ) {
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rotation);
 
-  // 불규칙 다각형 바위
   const points = 5 + Math.floor(variant * 3);
   ctx.beginPath();
   for (let i = 0; i < points; i++) {
     const angle = (Math.PI * 2 / points) * i;
     const r = size * (0.6 + (Math.sin(i * 3.7 + variant * 10) * 0.5 + 0.5) * 0.4);
     const px = Math.cos(angle) * r;
-    const py = Math.sin(angle) * r * 0.7; // 약간 납작하게
+    const py = Math.sin(angle) * r * 0.7;
     if (i === 0) ctx.moveTo(px, py);
     else ctx.lineTo(px, py);
   }
   ctx.closePath();
 
-  const gray = 40 + Math.floor(variant * 30);
+  const gray = colors.grayBase + Math.floor(variant * colors.grayRange);
   ctx.fillStyle = `rgba(${gray}, ${gray - 5}, ${gray - 10}, 0.6)`;
   ctx.fill();
 
-  // 하이라이트
   ctx.beginPath();
   ctx.ellipse(size * -0.15, size * -0.15, size * 0.25, size * 0.15, rotation, 0, Math.PI * 2);
   ctx.fillStyle = `rgba(${gray + 25}, ${gray + 20}, ${gray + 15}, 0.3)`;
@@ -361,30 +315,32 @@ function drawRock(
 function drawPuddle(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
-  size: number, variant: number, gameTime: number
+  size: number, variant: number, gameTime: number,
+  colors: MapThemeConfig['decorations']['puddle']
 ) {
   ctx.save();
 
-  // 물 반짝임 애니메이션
   const shimmer = Math.sin(gameTime * 1.5 + variant * 10) * 0.03 + 0.12;
 
-  // 타원형 물웅덩이
   ctx.beginPath();
   ctx.ellipse(x, y, size, size * 0.65, variant * Math.PI, 0, Math.PI * 2);
 
   const grad = ctx.createRadialGradient(x, y, 0, x, y, size);
-  grad.addColorStop(0, `rgba(30, 80, 120, ${shimmer + 0.05})`);
-  grad.addColorStop(0.7, `rgba(20, 60, 100, ${shimmer})`);
-  grad.addColorStop(1, `rgba(15, 45, 70, ${shimmer * 0.5})`);
+  const [ir, ig, ib] = colors.inner;
+  const [mr, mg, mb] = colors.mid;
+  const [or, og, ob] = colors.outer;
+  grad.addColorStop(0, `rgba(${ir}, ${ig}, ${ib}, ${shimmer + 0.05})`);
+  grad.addColorStop(0.7, `rgba(${mr}, ${mg}, ${mb}, ${shimmer})`);
+  grad.addColorStop(1, `rgba(${or}, ${og}, ${ob}, ${shimmer * 0.5})`);
   ctx.fillStyle = grad;
   ctx.fill();
 
-  // 반짝이는 하이라이트
   const hlX = x + Math.sin(gameTime * 0.8 + variant * 5) * size * 0.2;
   const hlY = y + Math.cos(gameTime * 0.6 + variant * 3) * size * 0.1;
+  const [hr, hg, hb] = colors.highlight;
   ctx.beginPath();
   ctx.ellipse(hlX, hlY, size * 0.15, size * 0.08, 0, 0, Math.PI * 2);
-  ctx.fillStyle = `rgba(100, 180, 220, ${shimmer * 1.5})`;
+  ctx.fillStyle = `rgba(${hr}, ${hg}, ${hb}, ${shimmer * 1.5})`;
   ctx.fill();
 
   ctx.restore();
@@ -393,42 +349,39 @@ function drawPuddle(
 function drawTorch(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
-  variant: number, gameTime: number
+  variant: number, gameTime: number,
+  colors: MapThemeConfig['decorations']['torch']
 ) {
   ctx.save();
 
-  // 빛 글로우 (넓은 범위)
   const flicker = Math.sin(gameTime * 6 + variant * 20) * 0.03 +
                   Math.sin(gameTime * 9 + variant * 15) * 0.02 + 0.12;
 
   const glowGrad = ctx.createRadialGradient(x, y, 0, x, y, 50);
-  glowGrad.addColorStop(0, `rgba(255, 160, 50, ${flicker})`);
-  glowGrad.addColorStop(0.5, `rgba(255, 100, 20, ${flicker * 0.4})`);
-  glowGrad.addColorStop(1, 'rgba(255, 80, 0, 0)');
+  glowGrad.addColorStop(0, `${colors.glowColor} ${flicker})`);
+  glowGrad.addColorStop(0.5, `${colors.glowMidColor} ${flicker * 0.4})`);
+  glowGrad.addColorStop(1, `${colors.glowColor} 0)`);
   ctx.fillStyle = glowGrad;
   ctx.beginPath();
   ctx.arc(x, y, 50, 0, Math.PI * 2);
   ctx.fill();
 
-  // 기둥
-  ctx.fillStyle = '#5a4030';
+  ctx.fillStyle = colors.poleColor;
   ctx.fillRect(x - 2, y - 4, 4, 10);
 
-  // 불꽃
   const flameH = 8 + Math.sin(gameTime * 8 + variant * 10) * 2;
   const flameW = 4 + Math.sin(gameTime * 10 + variant * 7) * 1;
 
   ctx.beginPath();
   ctx.moveTo(x - flameW, y - 4);
   ctx.quadraticCurveTo(x, y - 4 - flameH, x + flameW, y - 4);
-  ctx.fillStyle = `rgba(255, 200, 50, 0.8)`;
+  ctx.fillStyle = colors.flameColor;
   ctx.fill();
 
-  // 불꽃 코어
   ctx.beginPath();
   ctx.moveTo(x - flameW * 0.5, y - 5);
   ctx.quadraticCurveTo(x, y - 5 - flameH * 0.6, x + flameW * 0.5, y - 5);
-  ctx.fillStyle = 'rgba(255, 255, 200, 0.9)';
+  ctx.fillStyle = colors.flameCoreColor;
   ctx.fill();
 
   ctx.restore();
@@ -441,34 +394,36 @@ function drawTorch(
 function drawBoundaryTree(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
-  size: number, variant: number
+  size: number, variant: number,
+  theme: MapThemeConfig
 ) {
   ctx.save();
 
-  // 나무 줄기
   const trunkW = size * 0.15;
   const trunkH = size * 0.4;
-  ctx.fillStyle = `rgba(${50 + Math.floor(variant * 20)}, ${30 + Math.floor(variant * 15)}, ${15 + Math.floor(variant * 10)}, 0.8)`;
+  const tc = theme.boundary.trunk;
+  const r = tc.rBase + Math.floor(variant * tc.range);
+  const g = tc.gBase + Math.floor(variant * (tc.range * 0.75));
+  const b = tc.bBase + Math.floor(variant * (tc.range * 0.5));
+  ctx.fillStyle = `rgba(${r}, ${g}, ${b}, 0.8)`;
   ctx.fillRect(x - trunkW / 2, y - trunkH, trunkW, trunkH);
 
-  // 나뭇잎 (원형 클러스터)
-  const leafColors = [
-    `rgba(20, ${60 + Math.floor(variant * 40)}, 15, 0.75)`,
-    `rgba(15, ${50 + Math.floor(variant * 35)}, 12, 0.7)`,
-    `rgba(25, ${70 + Math.floor(variant * 30)}, 20, 0.65)`,
-  ];
-
+  const leafCfg = theme.boundary.leaf.colors;
   const clusterPositions = [
-    { cx: 0, cy: -size * 0.5, r: size * 0.45 },
-    { cx: -size * 0.25, cy: -size * 0.35, r: size * 0.35 },
-    { cx: size * 0.25, cy: -size * 0.35, r: size * 0.35 },
+    { cx: 0, cy: -size * 0.5, rad: size * 0.45 },
+    { cx: -size * 0.25, cy: -size * 0.35, rad: size * 0.35 },
+    { cx: size * 0.25, cy: -size * 0.35, rad: size * 0.35 },
   ];
 
   for (let i = 0; i < clusterPositions.length; i++) {
     const c = clusterPositions[i];
+    const lc = leafCfg[i % leafCfg.length];
+    const lr = lc.r + Math.floor(variant * 20);
+    const lg = lc.g + Math.floor(variant * 15);
+    const lb = lc.b + Math.floor(variant * 10);
     ctx.beginPath();
-    ctx.arc(x + c.cx, y - trunkH + c.cy, c.r, 0, Math.PI * 2);
-    ctx.fillStyle = leafColors[i % leafColors.length];
+    ctx.arc(x + c.cx, y - trunkH + c.cy, c.rad, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(${lr}, ${lg}, ${lb}, ${lc.alpha})`;
     ctx.fill();
   }
 
@@ -478,7 +433,8 @@ function drawBoundaryTree(
 function drawBoundaryRock(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
-  size: number, variant: number
+  size: number, variant: number,
+  theme: MapThemeConfig
 ) {
   ctx.save();
 
@@ -494,7 +450,8 @@ function drawBoundaryRock(
   }
   ctx.closePath();
 
-  const g = 35 + Math.floor(variant * 25);
+  const gc = theme.boundary.rock;
+  const g = gc.grayBase + Math.floor(variant * gc.grayRange);
   ctx.fillStyle = `rgba(${g}, ${g - 3}, ${g - 8}, 0.8)`;
   ctx.fill();
 
@@ -517,8 +474,9 @@ interface AmbientParticle {
 }
 
 let _ambientParticles: AmbientParticle[] | null = null;
+let _ambientTheme: MapTheme | null = null;
 
-function generateAmbientParticles(): AmbientParticle[] {
+function generateAmbientParticles(theme: MapThemeConfig): AmbientParticle[] {
   const rng = seededRandom(777);
   const particles: AmbientParticle[] = [];
 
@@ -534,12 +492,9 @@ function generateAmbientParticles(): AmbientParticle[] {
     }
     particles.push({
       x, y,
-      vx: (rng() - 0.5) * 0.3,
-      vy: (rng() - 0.5) * 0.3,
-      size: 60 + rng() * 80,
-      alpha: 0.03 + rng() * 0.04,
-      type: 'fog',
-      color: 'rgba(200, 220, 230,',
+      vx: (rng() - 0.5) * 0.3, vy: (rng() - 0.5) * 0.3,
+      size: 60 + rng() * 80, alpha: 0.03 + rng() * 0.04,
+      type: 'fog', color: theme.ambient.fogColor,
     });
   }
 
@@ -550,16 +505,13 @@ function generateAmbientParticles(): AmbientParticle[] {
     particles.push({
       x: NEXUS_CONFIG.position.x + Math.cos(angle) * dist,
       y: NEXUS_CONFIG.position.y + Math.sin(angle) * dist,
-      vx: (rng() - 0.5) * 0.2,
-      vy: -0.1 - rng() * 0.2,
-      size: 2 + rng() * 4,
-      alpha: 0.3 + rng() * 0.4,
-      type: 'nexus_light',
-      color: 'rgba(0, 200, 255,',
+      vx: (rng() - 0.5) * 0.2, vy: -0.1 - rng() * 0.2,
+      size: 2 + rng() * 4, alpha: 0.3 + rng() * 0.4,
+      type: 'nexus_light', color: theme.ambient.nexusLightColor,
     });
   }
 
-  // 기지 주변 어둠 파티클 (각 기지 5개씩 = 20개)
+  // 기지 주변 파티클 (각 기지 5개씩)
   const bases = [
     ENEMY_BASE_CONFIG.left, ENEMY_BASE_CONFIG.right,
     ENEMY_BASE_CONFIG.top, ENEMY_BASE_CONFIG.bottom,
@@ -571,12 +523,9 @@ function generateAmbientParticles(): AmbientParticle[] {
       particles.push({
         x: base.x + Math.cos(angle) * dist,
         y: base.y + Math.sin(angle) * dist,
-        vx: (rng() - 0.5) * 0.15,
-        vy: -0.15 - rng() * 0.15,
-        size: 10 + rng() * 20,
-        alpha: 0.05 + rng() * 0.06,
-        type: 'base_ember',
-        color: 'rgba(150, 30, 50,',
+        vx: (rng() - 0.5) * 0.15, vy: -0.15 - rng() * 0.15,
+        size: 10 + rng() * 20, alpha: 0.05 + rng() * 0.06,
+        type: 'base_ember', color: theme.ambient.baseEmberColor,
       });
     }
   }
@@ -589,41 +538,38 @@ export function drawAmbientEffects(
   camera: { x: number; y: number },
   canvasWidth: number,
   canvasHeight: number,
-  gameTime: number
+  gameTime: number,
+  theme: MapThemeConfig
 ) {
-  if (!_ambientParticles) {
-    _ambientParticles = generateAmbientParticles();
+  if (!_ambientParticles || _ambientTheme !== theme.id) {
+    _ambientTheme = theme.id;
+    _ambientParticles = generateAmbientParticles(theme);
   }
 
   ctx.save();
 
   for (const p of _ambientParticles) {
-    // 시간 기반 위치 오프셋 (느린 이동)
     const offsetX = Math.sin(gameTime * p.vx * 2 + p.x * 0.01) * 30;
     const offsetY = Math.cos(gameTime * p.vy * 2 + p.y * 0.01) * 30 + (p.type === 'nexus_light' ? Math.sin(gameTime * 2 + p.x) * 15 : 0);
 
     const sx = p.x + offsetX - camera.x;
     const sy = p.y + offsetY - camera.y;
 
-    // 화면 밖이면 스킵
     if (sx < -p.size || sx > canvasWidth + p.size || sy < -p.size || sy > canvasHeight + p.size) continue;
 
     if (p.type === 'nexus_light') {
-      // 작은 빛 점
       const pulse = Math.sin(gameTime * 3 + p.x + p.y) * 0.2 + 0.8;
       ctx.beginPath();
       ctx.arc(sx, sy, p.size * pulse, 0, Math.PI * 2);
       ctx.fillStyle = `${p.color} ${p.alpha * pulse})`;
       ctx.fill();
     } else if (p.type === 'base_ember') {
-      // 떠오르는 연기/불꽃
       const rise = Math.sin(gameTime * 1.5 + p.y * 0.02) * 0.3 + 0.7;
       ctx.beginPath();
       ctx.arc(sx, sy, p.size * rise, 0, Math.PI * 2);
       ctx.fillStyle = `${p.color} ${p.alpha * rise})`;
       ctx.fill();
     } else {
-      // 안개
       const fade = Math.sin(gameTime * 0.5 + p.x * 0.005) * 0.3 + 0.7;
       const grad = ctx.createRadialGradient(sx, sy, 0, sx, sy, p.size);
       grad.addColorStop(0, `${p.color} ${p.alpha * fade})`);
@@ -642,79 +588,65 @@ export function drawAmbientEffects(
 // 메인 렌더링 함수
 // ============================================
 
-/**
- * 지형 장식 렌더링 (그리드 위, 엔티티 아래)
- */
 export function drawMapDecorations(
   ctx: CanvasRenderingContext2D,
   camera: { x: number; y: number },
   canvasWidth: number,
   canvasHeight: number,
-  gameTime: number
+  gameTime: number,
+  theme: MapThemeConfig
 ) {
-  if (!_decorations) {
-    _decorations = generateDecorations();
-  }
+  ensureCache(theme);
 
-  // 뷰포트 컬링 여유
   const pad = 60;
+  const dc = theme.decorations;
 
-  for (const d of _decorations) {
+  for (const d of _decorations!) {
     const sx = d.x - camera.x;
     const sy = d.y - camera.y;
-
-    // 화면 밖 스킵
     if (sx < -pad || sx > canvasWidth + pad || sy < -pad || sy > canvasHeight + pad) continue;
 
     switch (d.type) {
       case 'grass':
-        drawGrass(ctx, sx, sy, d.size, d.variant);
+        drawGrass(ctx, sx, sy, d.size, d.variant, dc.grass);
         break;
       case 'rock':
-        drawRock(ctx, sx, sy, d.size, d.variant, d.rotation);
+        drawRock(ctx, sx, sy, d.size, d.variant, d.rotation, dc.rock);
         break;
       case 'puddle':
-        drawPuddle(ctx, sx, sy, d.size, d.variant, gameTime);
+        drawPuddle(ctx, sx, sy, d.size, d.variant, gameTime, dc.puddle);
         break;
       case 'torch':
-        drawTorch(ctx, sx, sy, d.variant, gameTime);
+        drawTorch(ctx, sx, sy, d.variant, gameTime, dc.torch);
         break;
     }
   }
 }
 
-/**
- * 맵 경계 자연 요소 렌더링
- */
 export function drawNaturalBoundary(
   ctx: CanvasRenderingContext2D,
   camera: { x: number; y: number },
   canvasWidth: number,
-  canvasHeight: number
+  canvasHeight: number,
+  theme: MapThemeConfig
 ) {
-  if (!_boundaryElements) {
-    _boundaryElements = generateBoundaryElements();
-  }
+  ensureCache(theme);
 
   const pad = 50;
 
-  for (const el of _boundaryElements) {
+  for (const el of _boundaryElements!) {
     const sx = el.x - camera.x;
     const sy = el.y - camera.y;
-
     if (sx < -pad || sx > canvasWidth + pad || sy < -pad || sy > canvasHeight + pad) continue;
 
     if (el.type === 'tree') {
-      drawBoundaryTree(ctx, sx, sy, el.size, el.variant);
+      drawBoundaryTree(ctx, sx, sy, el.size, el.variant, theme);
     } else {
-      drawBoundaryRock(ctx, sx, sy, el.size, el.variant);
+      drawBoundaryRock(ctx, sx, sy, el.size, el.variant, theme);
     }
   }
 }
 
-/**
- * 맵 경계 외부 어둠 (자연 경계와 함께 사용)
- */
 export function drawBoundaryDarkness(
   ctx: CanvasRenderingContext2D,
   camera: { x: number; y: number },
@@ -723,24 +655,21 @@ export function drawBoundaryDarkness(
 ) {
   ctx.save();
 
-  // 맵 안쪽에서 시작하는 넓은 그라데이션 (250px 맵 안쪽 → 경계 → 경계 밖)
-  const innerFade = 250; // 맵 안쪽 그라데이션 시작점
-  const outerFade = 80;  // 경계 밖 그라데이션 끝점
+  const innerFade = 250;
+  const outerFade = 80;
 
-  // 맵 경계 스크린 좌표
   const leftEdge = -camera.x;
   const rightEdge = MAP_W - camera.x;
   const topEdge = -camera.y;
   const bottomEdge = MAP_H - camera.y;
 
-  // 왼쪽: 맵 안쪽부터 점진적으로 어두워짐 → 경계 밖 완전 검정
+  // 왼쪽
   {
-    const fadeStart = leftEdge + innerFade;  // 맵 안쪽 250px 지점
-    const fadeEnd = leftEdge - outerFade;    // 경계 밖 80px 지점
+    const fadeStart = leftEdge + innerFade;
+    const fadeEnd = leftEdge - outerFade;
     if (fadeStart > 0 && fadeEnd < canvasWidth) {
       const grad = ctx.createLinearGradient(
-        Math.max(fadeStart, 0), 0,
-        Math.min(fadeEnd, canvasWidth), 0
+        Math.max(fadeStart, 0), 0, Math.min(fadeEnd, canvasWidth), 0
       );
       grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
       grad.addColorStop(0.7, 'rgba(0, 0, 0, 0.6)');
@@ -748,7 +677,6 @@ export function drawBoundaryDarkness(
       ctx.fillStyle = grad;
       ctx.fillRect(0, 0, Math.max(fadeStart, 0), canvasHeight);
     }
-    // 그라데이션 끝 이후 완전 검정
     if (fadeEnd > 0) {
       ctx.fillStyle = '#000000';
       ctx.fillRect(0, 0, fadeEnd, canvasHeight);
@@ -761,8 +689,7 @@ export function drawBoundaryDarkness(
     const fadeEnd = rightEdge + outerFade;
     if (fadeStart < canvasWidth && fadeEnd > 0) {
       const grad = ctx.createLinearGradient(
-        Math.max(fadeStart, 0), 0,
-        Math.min(fadeEnd, canvasWidth), 0
+        Math.max(fadeStart, 0), 0, Math.min(fadeEnd, canvasWidth), 0
       );
       grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
       grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.6)');
@@ -782,8 +709,7 @@ export function drawBoundaryDarkness(
     const fadeEnd = topEdge - outerFade;
     if (fadeStart > 0 && fadeEnd < canvasHeight) {
       const grad = ctx.createLinearGradient(
-        0, Math.max(fadeStart, 0),
-        0, Math.min(fadeEnd, canvasHeight)
+        0, Math.max(fadeStart, 0), 0, Math.min(fadeEnd, canvasHeight)
       );
       grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
       grad.addColorStop(0.7, 'rgba(0, 0, 0, 0.6)');
@@ -803,8 +729,7 @@ export function drawBoundaryDarkness(
     const fadeEnd = bottomEdge + outerFade;
     if (fadeStart < canvasHeight && fadeEnd > 0) {
       const grad = ctx.createLinearGradient(
-        0, Math.max(fadeStart, 0),
-        0, Math.min(fadeEnd, canvasHeight)
+        0, Math.max(fadeStart, 0), 0, Math.min(fadeEnd, canvasHeight)
       );
       grad.addColorStop(0, 'rgba(0, 0, 0, 0)');
       grad.addColorStop(0.3, 'rgba(0, 0, 0, 0.6)');
@@ -828,4 +753,6 @@ export function resetMapDecorations() {
   _decorations = null;
   _boundaryElements = null;
   _ambientParticles = null;
+  _cachedTheme = null;
+  _ambientTheme = null;
 }

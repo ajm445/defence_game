@@ -1,5 +1,6 @@
 import { RPGGameState, BossSkillWarning, BossSkillType, BossVoidZone } from '../types/rpg';
 import { BOSS_SKILL_CONFIGS } from '../constants/rpgConfig';
+import { MAP_THEME_CONFIGS } from '../constants/mapThemeConfig';
 import { drawGrid } from './drawGrid';
 import { drawHero, drawRPGEnemy, drawSkillEffect, drawHeroAttackRange, drawSkillRange } from './drawHero';
 import { effectManager } from '../effects';
@@ -32,12 +33,13 @@ export function renderRPG(
   canvasHeight: number
 ) {
   const zoom = state.camera.zoom;
+  const themeConfig = MAP_THEME_CONFIGS[state.mapTheme || 'forest'];
 
-  // 캔버스 클리어 - 싱글플레이와 동일한 다크 그린 그라데이션 배경
+  // 캔버스 클리어 - 테마별 그라데이션 배경
   const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-  gradient.addColorStop(0, '#1a2e1a');
-  gradient.addColorStop(0.5, '#162016');
-  gradient.addColorStop(1, '#0f1a0f');
+  gradient.addColorStop(0, themeConfig.background.top);
+  gradient.addColorStop(0.5, themeConfig.background.mid);
+  gradient.addColorStop(1, themeConfig.background.bottom);
   ctx.fillStyle = gradient;
   ctx.fillRect(0, 0, canvasWidth, canvasHeight);
 
@@ -60,17 +62,17 @@ export function renderRPG(
   };
 
   // 배경 그리드
-  drawGrid(ctx, camera, scaledWidth, scaledHeight);
+  drawGrid(ctx, camera, scaledWidth, scaledHeight, themeConfig.grid);
 
-  // 영역별 색조 (넥서스 주변 시안, 기지 주변 적갈색)
-  drawZoneTints(ctx, camera, scaledWidth, scaledHeight);
+  // 영역별 색조
+  drawZoneTints(ctx, camera, scaledWidth, scaledHeight, themeConfig);
 
-  // 지형 장식 (풀, 바위, 물웅덩이, 횃불)
-  drawMapDecorations(ctx, camera, scaledWidth, scaledHeight, state.gameTime);
+  // 지형 장식
+  drawMapDecorations(ctx, camera, scaledWidth, scaledHeight, state.gameTime, themeConfig);
 
-  // 맵 경계 (자연 경계 + 어둠 페이드)
+  // 맵 경계 (어둠 페이드 + 자연 경계)
   drawBoundaryDarkness(ctx, camera, scaledWidth, scaledHeight);
-  drawNaturalBoundary(ctx, camera, scaledWidth, scaledHeight);
+  drawNaturalBoundary(ctx, camera, scaledWidth, scaledHeight, themeConfig);
 
   // 넥서스 디펜스 엔티티 렌더링 (다른 엔티티와 동일한 카메라 사용)
   if (state.nexus) {
@@ -189,8 +191,8 @@ export function renderRPG(
   // 파티클 이펙트 렌더링
   effectManager.render(ctx, camera.x, camera.y, scaledWidth, scaledHeight);
 
-  // 안개/파티클 효과 (넥서스 빛, 기지 연기, 가장자리 안개)
-  drawAmbientEffects(ctx, camera, scaledWidth, scaledHeight, state.gameTime);
+  // 안개/파티클 효과
+  drawAmbientEffects(ctx, camera, scaledWidth, scaledHeight, state.gameTime, themeConfig);
 
   // 줌 변환 복원
   ctx.restore();

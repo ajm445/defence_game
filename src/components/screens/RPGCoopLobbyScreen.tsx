@@ -5,7 +5,9 @@ import { useGameStore } from '../../stores/useGameStore';
 import { useAuthProfile, useAuthIsGuest, useAuthStore } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 import { CLASS_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { MAP_THEME_LIST } from '../../constants/mapThemeConfig';
 import { AdvancedHeroClass } from '../../types/rpg';
+import type { MapTheme } from '../../types/rpg';
 import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked, createDefaultStatUpgrades } from '../../types/auth';
 import type { HeroClass, RPGDifficulty } from '../../types/rpg';
 import type { WaitingCoopRoomInfo } from '@shared/types/rpgNetwork';
@@ -70,6 +72,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const [showCreateRoomModal, setShowCreateRoomModal] = useState(false);
   const [selectedRoomType, setSelectedRoomType] = useState<'public' | 'private' | null>(null);
   const [selectedModalDifficulty, setSelectedModalDifficulty] = useState<RPGDifficulty | null>(null);
+  const [selectedModalMapTheme, setSelectedModalMapTheme] = useState<MapTheme>('forest');
   const [privateRoomToJoin, setPrivateRoomToJoin] = useState<WaitingCoopRoomInfo | null>(null);
   const [privateRoomCode, setPrivateRoomCode] = useState('');
   // 방 목록 페이지네이션
@@ -82,6 +85,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   // 현재 방 설정 (로비에서 표시/변경용)
   const [roomIsPrivate, setRoomIsPrivate] = useState(false);
   const [roomDifficulty, setRoomDifficulty] = useState<RPGDifficulty>('easy');
+  const [roomMapTheme, setRoomMapTheme] = useState<MapTheme>('forest');
   // 방 타임아웃 경고
   const [timeoutWarning, setTimeoutWarning] = useState<string | null>(null);
 
@@ -131,6 +135,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           setShowCreateRoomModal(false);
           setSelectedRoomType(null);
           setSelectedModalDifficulty(null);
+          setSelectedModalMapTheme('forest');
         } else if (privateRoomToJoin) {
           setPrivateRoomToJoin(null);
           setPrivateRoomCode('');
@@ -164,8 +169,11 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       if (multiplayer.roomDifficulty) {
         setRoomDifficulty(multiplayer.roomDifficulty as RPGDifficulty);
       }
+      if (multiplayer.roomMapTheme) {
+        setRoomMapTheme(multiplayer.roomMapTheme as MapTheme);
+      }
     }
-  }, [multiplayer.connectionState, multiplayer.roomIsPrivate, multiplayer.roomDifficulty]);
+  }, [multiplayer.connectionState, multiplayer.roomIsPrivate, multiplayer.roomDifficulty, multiplayer.roomMapTheme]);
 
   // 에러 자동 클리어
   useEffect(() => {
@@ -296,6 +304,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           // 서버에서 받은 방 설정 (또는 기본값)
           const createdRoomIsPrivate = message.isPrivate ?? false;
           const createdRoomDifficulty = message.difficulty || 'easy';
+          const createdRoomMapTheme = message.mapTheme || 'forest';
 
           useRPGStore.getState().setMultiplayerState({
             roomCode: message.roomCode,
@@ -304,6 +313,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             connectionState: 'in_lobby',
             roomIsPrivate: createdRoomIsPrivate,
             roomDifficulty: createdRoomDifficulty,
+            roomMapTheme: createdRoomMapTheme,
             players: [{
               id: wsClient.playerId || '',
               name: profile?.nickname || '플레이어',
@@ -319,6 +329,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           // 로컬 상태도 동기화
           setRoomIsPrivate(createdRoomIsPrivate);
           setRoomDifficulty(createdRoomDifficulty as RPGDifficulty);
+          setRoomMapTheme(createdRoomMapTheme as MapTheme);
           useRPGStore.getState().setDifficulty(createdRoomDifficulty as RPGDifficulty);
           setTimeoutWarning(null);  // 이전 방 경고 초기화
           break;
@@ -329,6 +340,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           const amIHost = message.players?.some((p: any) => p.id === myPlayerId && p.isHost) || false;
           const joinedRoomIsPrivate = message.isPrivate ?? false;
           const joinedRoomDifficulty = message.difficulty || 'easy';
+          const joinedRoomMapTheme = message.mapTheme || 'forest';
           useRPGStore.getState().setMultiplayerState({
             roomCode: message.roomCode,
             roomId: message.roomId,
@@ -336,11 +348,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             connectionState: 'in_lobby',
             roomIsPrivate: joinedRoomIsPrivate,
             roomDifficulty: joinedRoomDifficulty,
+            roomMapTheme: joinedRoomMapTheme,
             players: message.players || [],
           });
           // 로컬 상태도 동기화
           setRoomIsPrivate(joinedRoomIsPrivate);
           setRoomDifficulty(joinedRoomDifficulty as RPGDifficulty);
+          setRoomMapTheme(joinedRoomMapTheme as MapTheme);
           useRPGStore.getState().setDifficulty(joinedRoomDifficulty as RPGDifficulty);
           setTimeoutWarning(null);  // 이전 방 경고 초기화
           break;
@@ -408,10 +422,14 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         case 'COOP_ROOM_SETTINGS_CHANGED':
           setRoomIsPrivate(message.isPrivate);
           setRoomDifficulty(message.difficulty as RPGDifficulty);
+          if (message.mapTheme) {
+            setRoomMapTheme(message.mapTheme as MapTheme);
+          }
           // 스토어에도 저장 (프로필 복귀 시 동기화용)
           useRPGStore.getState().setMultiplayerState({
             roomIsPrivate: message.isPrivate,
             roomDifficulty: message.difficulty,
+            roomMapTheme: message.mapTheme || 'forest',
           });
           useRPGStore.getState().setDifficulty(message.difficulty as RPGDifficulty);
           break;
@@ -681,11 +699,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     // 값을 먼저 저장 (상태 리셋 전에)
     const roomType = selectedRoomType;
     const difficulty = selectedModalDifficulty;
+    const mapTheme = selectedModalMapTheme;
 
     soundManager.play('ui_click');
     setShowCreateRoomModal(false);
     setSelectedRoomType(null);
     setSelectedModalDifficulty(null);
+    setSelectedModalMapTheme('forest');
     setIsConnecting(true);
 
     // 난이도를 스토어에 저장
@@ -694,6 +714,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     // 로컬 상태에도 저장 (로비 UI용)
     setRoomIsPrivate(roomType === 'private');
     setRoomDifficulty(difficulty);
+    setRoomMapTheme(mapTheme);
 
     try {
       await wsClient.connect();
@@ -709,12 +730,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       const tier = progress?.tier;
 
       selectClass(defaultClass);
-      createMultiplayerRoom(playerName, defaultClass, characterLevel, statUpgrades, roomType === 'private', difficulty, advancedClass, tier);
+      createMultiplayerRoom(playerName, defaultClass, characterLevel, statUpgrades, roomType === 'private', difficulty, advancedClass, tier, mapTheme);
     } catch (e) {
       setError('서버 연결 실패');
     }
     setIsConnecting(false);
-  }, [profile, selectClass, selectedRoomType, selectedModalDifficulty]);
+  }, [profile, selectClass, selectedRoomType, selectedModalDifficulty, selectedModalMapTheme]);
 
   // 비밀방 코드 확인 후 참가
   const handleJoinPrivateRoom = useCallback(async () => {
@@ -896,6 +917,41 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                   >
                     {config.name}
                     <span className="ml-1 opacity-60">Lv.{config.recommendedLevel}+</span>
+                  </button>
+                );
+              })}
+            </div>
+            {/* 맵 테마 */}
+            <div className="flex gap-1">
+              {MAP_THEME_LIST.map((theme) => {
+                const isSelected = roomMapTheme === theme.id;
+                const themeColors: Record<MapTheme, { border: string; bg: string; text: string }> = {
+                  forest: { border: 'border-green-500', bg: 'bg-green-500/20', text: 'text-green-400' },
+                  ice: { border: 'border-cyan-500', bg: 'bg-cyan-500/20', text: 'text-cyan-400' },
+                  volcano: { border: 'border-orange-500', bg: 'bg-orange-500/20', text: 'text-orange-400' },
+                  shadow: { border: 'border-purple-500', bg: 'bg-purple-500/20', text: 'text-purple-400' },
+                };
+                const tc = themeColors[theme.id];
+                return (
+                  <button
+                    key={theme.id}
+                    onClick={() => {
+                      if (isHostPlayer && isSelected) return;
+                      if (!isHostPlayer) return;
+                      soundManager.play('ui_click');
+                      wsClient.send({ type: 'UPDATE_COOP_ROOM_SETTINGS', mapTheme: theme.id } as any);
+                    }}
+                    disabled={!isHostPlayer}
+                    className={`px-2 py-1 text-xs rounded-lg border transition-all ${
+                      isSelected
+                        ? `${tc.border} ${tc.bg} ${tc.text}`
+                        : isHostPlayer
+                          ? `border-gray-600 text-gray-500 hover:${tc.border} cursor-pointer`
+                          : 'border-gray-700 text-gray-600 cursor-not-allowed'
+                    }`}
+                    title={theme.description}
+                  >
+                    {theme.name}
                   </button>
                 );
               })}
@@ -1746,6 +1802,53 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               <div style={{ height: '10px' }} />
             </div>
 
+            {/* 맵 테마 선택 */}
+            <div className="mb-6">
+              <p className="text-gray-400 text-sm mb-3 text-center">맵 테마</p>
+
+              <div style={{ height: '10px' }} />
+
+              <div className="flex gap-3">
+                {MAP_THEME_LIST.map((theme) => {
+                  const isSelected = selectedModalMapTheme === theme.id;
+                  const themeModalColors: Record<MapTheme, { border: string; bg: string; text: string; hoverBorder: string; hoverBg: string }> = {
+                    forest: { border: 'border-green-500', bg: 'bg-green-500/20', text: 'text-green-400', hoverBorder: 'hover:border-green-500', hoverBg: 'hover:bg-green-500/10' },
+                    ice: { border: 'border-cyan-500', bg: 'bg-cyan-500/20', text: 'text-cyan-400', hoverBorder: 'hover:border-cyan-500', hoverBg: 'hover:bg-cyan-500/10' },
+                    volcano: { border: 'border-orange-500', bg: 'bg-orange-500/20', text: 'text-orange-400', hoverBorder: 'hover:border-orange-500', hoverBg: 'hover:bg-orange-500/10' },
+                    shadow: { border: 'border-purple-500', bg: 'bg-purple-500/20', text: 'text-purple-400', hoverBorder: 'hover:border-purple-500', hoverBg: 'hover:bg-purple-500/10' },
+                  };
+                  const tc = themeModalColors[theme.id];
+                  const themeEmojis: Record<MapTheme, string> = {
+                    forest: '🌲',
+                    ice: '❄️',
+                    volcano: '🌋',
+                    shadow: '🌑',
+                  };
+                  return (
+                    <button
+                      key={theme.id}
+                      onClick={() => {
+                        soundManager.play('ui_click');
+                        setSelectedModalMapTheme(theme.id);
+                      }}
+                      className={`flex flex-col items-center justify-center w-20 h-20 border-2 rounded-xl transition-all cursor-pointer ${
+                        isSelected
+                          ? `${tc.border} ${tc.bg}`
+                          : `border-gray-600 ${tc.hoverBorder} ${tc.hoverBg}`
+                      }`}
+                    >
+                      <span className="text-2xl mb-1">{themeEmojis[theme.id]}</span>
+                      <span className={`font-bold text-sm ${isSelected ? tc.text : 'text-gray-400'}`}>
+                        {theme.name}
+                      </span>
+                      <span className="text-gray-500 text-xs mt-0.5">{theme.nameEn}</span>
+                    </button>
+                  );
+                })}
+              </div>
+              <div style={{ height: '10px' }} />
+            </div>
+
             {/* 버튼들 */}
             <div className="flex gap-4 mt-4">
               <button
@@ -1753,6 +1856,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                   setShowCreateRoomModal(false);
                   setSelectedRoomType(null);
                   setSelectedModalDifficulty(null);
+                  setSelectedModalMapTheme('forest');
                 }}
                 className="px-6 py-2 rounded-lg border border-gray-600 text-gray-400 hover:border-gray-400 hover:text-white transition-all cursor-pointer"
                 style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}

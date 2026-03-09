@@ -200,7 +200,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     // 협동 모드 메시지
     case 'CREATE_COOP_ROOM':
-      handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades, (message as any).isPrivate, (message as any).difficulty, (message as any).advancedClass, (message as any).tier);
+      handleCreateCoopRoom(playerId, message.playerName, message.heroClass, message.characterLevel, message.statUpgrades, (message as any).isPrivate, (message as any).difficulty, (message as any).advancedClass, (message as any).tier, (message as any).mapTheme);
       break;
 
     case 'JOIN_COOP_ROOM':
@@ -240,7 +240,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       break;
 
     case 'UPDATE_COOP_ROOM_SETTINGS':
-      handleUpdateCoopRoomSettings(playerId, message.isPrivate, message.difficulty);
+      handleUpdateCoopRoomSettings(playerId, message.isPrivate, message.difficulty, (message as any).mapTheme);
       break;
 
     case 'COOP_HERO_MOVE':
@@ -701,7 +701,7 @@ const DIFFICULTY_NAMES: Record<string, string> = {
   extreme: '극한',
 };
 
-function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean, difficulty?: string, advancedClass?: string, tier?: 1 | 2): void {
+function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, isPrivate?: boolean, difficulty?: string, advancedClass?: string, tier?: 1 | 2, mapTheme?: string): void {
   if (!rateLimiters.roomCreate.checkAndUpdate(playerId)) return;
 
   const player = players.get(playerId);
@@ -711,7 +711,7 @@ function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: a
   const roomType = isPrivate ? '비밀방' : '공개방';
   const difficultyName = DIFFICULTY_NAMES[difficulty ?? 'easy'] || '쉬움';
   console.log(`[Coop] ${name}(${playerId}) 방 생성 요청 (Lv.${characterLevel ?? 1}, 전직: ${advancedClass ?? '없음'}, ${roomType}, 난이도: ${difficultyName})`);
-  createCoopRoom(playerId, name, heroClass, characterLevel ?? 1, statUpgrades, isPrivate ?? false, difficulty ?? 'easy', advancedClass, tier);
+  createCoopRoom(playerId, name, heroClass, characterLevel ?? 1, statUpgrades, isPrivate ?? false, difficulty ?? 'easy', advancedClass, tier, mapTheme ?? 'forest');
 }
 
 function handleJoinCoopRoom(playerId: string, roomCode: string, playerName: string, heroClass: any, characterLevel?: number, statUpgrades?: any, advancedClass?: string, tier?: 1 | 2): void {
@@ -870,8 +870,8 @@ function handleKickCoopPlayer(hostPlayerId: string, targetPlayerId: string): voi
   kickCoopPlayer(hostPlayerId, targetPlayerId);
 }
 
-function handleUpdateCoopRoomSettings(hostPlayerId: string, isPrivate?: boolean, difficulty?: string): void {
-  updateCoopRoomSettings(hostPlayerId, isPrivate, difficulty);
+function handleUpdateCoopRoomSettings(hostPlayerId: string, isPrivate?: boolean, difficulty?: string, mapTheme?: string): void {
+  updateCoopRoomSettings(hostPlayerId, isPrivate, difficulty, mapTheme);
 }
 
 function handleCoopHeroMove(playerId: string, direction: { x: number; y: number } | null): void {

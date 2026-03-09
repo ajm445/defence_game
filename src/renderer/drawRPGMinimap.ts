@@ -1,5 +1,6 @@
 import { RPGGameState, VisibilityState } from '../types/rpg';
 import { RPG_CONFIG, NEXUS_CONFIG, ENEMY_BASE_CONFIG } from '../constants/rpgConfig';
+import { MapThemeConfig, MAP_THEME_CONFIGS } from '../constants/mapThemeConfig';
 
 interface MinimapConfig {
   x: number;
@@ -24,40 +25,40 @@ export function drawRPGMinimap(
   const scaleX = width / mapWidth;
   const scaleY = height / mapHeight;
 
+  const themeConfig: MapThemeConfig = MAP_THEME_CONFIGS[state.mapTheme || 'forest'];
+
   ctx.save();
 
-  // 미니맵 배경 (어두운 초록 톤)
-  ctx.fillStyle = 'rgba(12, 18, 12, 0.92)';
+  // 미니맵 배경 (테마별)
+  ctx.fillStyle = themeConfig.minimap.background;
   ctx.fillRect(x, y, width, height);
 
   // 영역별 색조 반영
-  // 넥서스 주변 시안
   if (state.nexus) {
     const nxM = x + state.nexus.x * scaleX;
     const nyM = y + state.nexus.y * scaleY;
     const nexusGrad = ctx.createRadialGradient(nxM, nyM, 0, nxM, nyM, 25);
-    nexusGrad.addColorStop(0, 'rgba(0, 180, 200, 0.15)');
+    nexusGrad.addColorStop(0, themeConfig.minimap.nexusTint);
     nexusGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
     ctx.fillStyle = nexusGrad;
     ctx.fillRect(x, y, width, height);
   }
 
-  // 기지 주변 적갈색
   if (state.enemyBases) {
     for (const base of state.enemyBases) {
       if (base.destroyed) continue;
       const bxM = x + base.x * scaleX;
       const byM = y + base.y * scaleY;
       const baseGrad = ctx.createRadialGradient(bxM, byM, 0, bxM, byM, 18);
-      baseGrad.addColorStop(0, 'rgba(120, 30, 30, 0.2)');
+      baseGrad.addColorStop(0, themeConfig.minimap.baseTint);
       baseGrad.addColorStop(1, 'rgba(0, 0, 0, 0)');
       ctx.fillStyle = baseGrad;
       ctx.fillRect(x, y, width, height);
     }
   }
 
-  // 미니맵 테두리 (둥근 모서리 느낌)
-  ctx.strokeStyle = 'rgba(100, 130, 80, 0.6)';
+  // 미니맵 테두리
+  ctx.strokeStyle = themeConfig.minimap.borderColor;
   ctx.lineWidth = 2;
   ctx.strokeRect(x, y, width, height);
 

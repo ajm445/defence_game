@@ -44,19 +44,21 @@ export class RPGCoopGameRoom {
   // 방 설정 (로비 복귀 시 유지)
   public isPrivate: boolean = false;
   public difficulty: string = 'easy';
+  public mapTheme: string = 'forest';
 
-  constructor(id: string, roomCode: string, playerIds: string[], playerInfos: CoopPlayerInfo[], isPrivate: boolean = false, difficulty: string = 'easy') {
+  constructor(id: string, roomCode: string, playerIds: string[], playerInfos: CoopPlayerInfo[], isPrivate: boolean = false, difficulty: string = 'easy', mapTheme: string = 'forest') {
     this.id = id;
     this.roomCode = roomCode;
     this.playerIds = playerIds;
     this.playerInfos = playerInfos;
     this.isPrivate = isPrivate;
     this.difficulty = difficulty;
+    this.mapTheme = mapTheme;
 
     // 호스트 식별 (첫 번째 플레이어가 방장 - 로비 관리용으로만 사용)
     this.hostPlayerId = playerInfos.find(p => p.isHost)?.id || playerIds[0];
 
-    console.log(`[ServerAuth] 게임 방 생성: ${id} (${roomCode}), 방장: ${this.hostPlayerId}, 플레이어: ${playerIds.length}명, 난이도: ${difficulty}`);
+    console.log(`[ServerAuth] 게임 방 생성: ${id} (${roomCode}), 방장: ${this.hostPlayerId}, 플레이어: ${playerIds.length}명, 난이도: ${difficulty}, 맵: ${mapTheme}`);
   }
 
   public startCountdown(): void {
@@ -115,6 +117,7 @@ export class RPGCoopGameRoom {
         playerIndex: index,
         players: this.playerInfos,
         difficulty: this.difficulty,
+        mapTheme: this.mapTheme,
       });
     });
   }
@@ -322,6 +325,7 @@ export class RPGCoopGameRoom {
       hostPlayerId: this.hostPlayerId,
       isPrivate: this.isPrivate,
       difficulty: this.difficulty,
+      mapTheme: this.mapTheme,
     });
 
     // 대기 방 상태를 'waiting'으로 변경하여 로비에 표시

@@ -172,7 +172,7 @@ export function useNetworkSync() {
  * 게임 로직은 서버가 처리하지만, 방장(isHost)은 UI 목적으로 유지
  */
 function handleGameStartServerAuth(message: any) {
-  const { playerIndex, players, difficulty } = message;
+  const { playerIndex, players, difficulty, mapTheme } = message;
 
   // 방장 정보 확인 (UI 목적: 일시정지, 재시작, 설정 변경 등)
   const hostPlayer = players.find((p: CoopPlayerInfo) => p.isHost);
@@ -199,6 +199,11 @@ function handleGameStartServerAuth(message: any) {
   // 난이도 설정 (서버에서 전달된 값 사용)
   if (difficulty) {
     useRPGStore.getState().setDifficulty(difficulty);
+  }
+
+  // 맵 테마 설정
+  if (mapTheme) {
+    useRPGStore.setState({ mapTheme: mapTheme as any });
   }
 
   // 게임 초기화 (서버가 게임 로직 실행, 클라이언트는 상태 수신만)
@@ -351,11 +356,16 @@ function handleReturnToLobby(message?: any) {
       isHost,  // 호스트 여부 설정
       roomIsPrivate: message.isPrivate ?? false,
       roomDifficulty: message.difficulty ?? 'easy',
+      roomMapTheme: message.mapTheme ?? 'forest',
     });
 
     // 난이도도 복원
     if (message.difficulty) {
       useRPGStore.getState().setDifficulty(message.difficulty);
+    }
+    // 맵 테마도 복원
+    if (message.mapTheme) {
+      useRPGStore.setState({ mapTheme: message.mapTheme as any });
     }
   } else {
     useRPGStore.getState().setMultiplayerState({ connectionState: 'in_lobby' });
@@ -1024,14 +1034,15 @@ export function createMultiplayerRoom(
   isPrivate?: boolean,
   difficulty?: string,
   advancedClass?: string,
-  tier?: 1 | 2
+  tier?: 1 | 2,
+  mapTheme?: string
 ) {
   useRPGStore.getState().setMultiplayerState({
     isMultiplayer: true,
     connectionState: 'connecting',
   });
 
-  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false, difficulty ?? 'easy', advancedClass as any, tier);
+  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false, difficulty ?? 'easy', advancedClass as any, tier, mapTheme ?? 'forest');
 }
 
 /**

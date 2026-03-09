@@ -249,7 +249,7 @@ export type CoopClientMessage =
   | { type: 'USER_LOGIN'; userId: string; nickname: string; isGuest: boolean; level?: number }
   | { type: 'USER_LOGOUT'; userId: string; nickname: string }
   // 방 관련
-  | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; isPrivate?: boolean; advancedClass?: string; tier?: 1 | 2 }
+  | { type: 'CREATE_COOP_ROOM'; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; isPrivate?: boolean; advancedClass?: string; tier?: 1 | 2; mapTheme?: string }
   | { type: 'JOIN_COOP_ROOM'; roomCode: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; advancedClass?: string; tier?: 1 | 2 }
   | { type: 'JOIN_COOP_ROOM_BY_ID'; roomId: string; playerName: string; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; advancedClass?: string; tier?: 1 | 2 }
   | { type: 'GET_COOP_ROOM_LIST' }
@@ -257,7 +257,7 @@ export type CoopClientMessage =
   | { type: 'COOP_READY' }
   | { type: 'COOP_UNREADY' }
   | { type: 'CHANGE_COOP_CLASS'; heroClass: HeroClass; characterLevel?: number; statUpgrades?: CharacterStatUpgrades; advancedClass?: string; tier?: 1 | 2 }
-  | { type: 'UPDATE_COOP_ROOM_SETTINGS'; isPrivate?: boolean; difficulty?: string }  // 호스트 전용 - 방 설정 변경
+  | { type: 'UPDATE_COOP_ROOM_SETTINGS'; isPrivate?: boolean; difficulty?: string; mapTheme?: string }  // 호스트 전용 - 방 설정 변경
   | { type: 'START_COOP_GAME' }  // 호스트 전용
   | { type: 'KICK_COOP_PLAYER'; playerId: string }  // 호스트 전용
   // 게임 액션 (레거시)
@@ -287,8 +287,8 @@ export type CoopClientMessage =
 
 export type CoopServerMessage =
   // 방 관련
-  | { type: 'COOP_ROOM_CREATED'; roomCode: string; roomId: string; isPrivate?: boolean; difficulty?: string }
-  | { type: 'COOP_ROOM_JOINED'; roomId: string; roomCode: string; players: CoopPlayerInfo[]; yourIndex: number; isPrivate?: boolean; difficulty?: string }
+  | { type: 'COOP_ROOM_CREATED'; roomCode: string; roomId: string; isPrivate?: boolean; difficulty?: string; mapTheme?: string }
+  | { type: 'COOP_ROOM_JOINED'; roomId: string; roomCode: string; players: CoopPlayerInfo[]; yourIndex: number; isPrivate?: boolean; difficulty?: string; mapTheme?: string }
   | { type: 'COOP_ROOM_LIST'; rooms: WaitingCoopRoomInfo[] }
   | { type: 'COOP_ROOM_LIST_UPDATED'; rooms: WaitingCoopRoomInfo[] }  // 방 목록 실시간 업데이트 (Push)
   | { type: 'COOP_PLAYER_JOINED'; player: CoopPlayerInfo }
@@ -296,14 +296,14 @@ export type CoopServerMessage =
   | { type: 'COOP_PLAYER_READY'; playerId: string; isReady: boolean }
   | { type: 'COOP_PLAYER_CLASS_CHANGED'; playerId: string; heroClass: HeroClass; characterLevel?: number; advancedClass?: string; tier?: 1 | 2 }
   | { type: 'COOP_PLAYER_KICKED'; playerId: string; reason: string }
-  | { type: 'COOP_ROOM_SETTINGS_CHANGED'; isPrivate: boolean; difficulty: string }  // 방 설정 변경 알림
+  | { type: 'COOP_ROOM_SETTINGS_CHANGED'; isPrivate: boolean; difficulty: string; mapTheme: string }  // 방 설정 변경 알림
   | { type: 'COOP_ROOM_ERROR'; message: string }
   | { type: 'COOP_ROOM_DESTROYED'; reason: string; message: string }  // 방 파기 (타임아웃 등)
   | { type: 'COOP_ROOM_TIMEOUT_WARNING'; message: string; remainingSeconds: number }  // 방 파기 1분 전 경고
   // 게임 시작
   | { type: 'COOP_GAME_COUNTDOWN'; seconds: number }
   // 서버 권위 모델 게임 시작 (isHost 없음)
-  | { type: 'COOP_GAME_START'; playerIndex: number; players: CoopPlayerInfo[]; difficulty: string }
+  | { type: 'COOP_GAME_START'; playerIndex: number; players: CoopPlayerInfo[]; difficulty: string; mapTheme: string }
   // 서버 권위 모델 게임 상태 (서버가 직접 브로드캐스트)
   | { type: 'COOP_GAME_STATE'; state: SerializedGameState }
   // 레거시 게임 시작 (상태 포함, deprecated)
@@ -376,4 +376,5 @@ export interface WaitingCoopRoomInfo {
   isPrivate: boolean;
   isInGame?: boolean;  // 게임 진행 중인 방
   difficulty?: string;  // 난이도 ('easy' | 'normal' | 'hard' | 'extreme')
+  mapTheme?: string;   // 맵 테마 ('forest' | 'ice' | 'volcano' | 'shadow')
 }

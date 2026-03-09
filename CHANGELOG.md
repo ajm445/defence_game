@@ -1,5 +1,51 @@
 # Changelog
 
+## [1.24.6] - 2026-03-09
+
+### 맵 테마 시스템 (RPG 모드)
+- **4종 맵 테마 추가**: 숲(Forest), 얼음(Ice), 화산(Volcano), 그림자(Shadow)
+- **테마별 비주얼**: 배경 그라데이션, 격자 색상, 영역 색조, 미니맵 색상, 장식물 팔레트, 경계 요소, 환경 파티클이 테마에 따라 변경
+- **`MapThemeConfig` 설정 기반 구조**: 모든 시각 요소가 config 객체로 관리되어 새 테마 추가 시 config만 작성하면 됨
+
+### 맵 장식 및 경계 개선
+- **자연 장식 시스템**: 풀(150개), 바위(40개), 웅덩이(12개), 횃불(16개) 등 시드 랜덤 배치
+- **자연 경계**: 맵 가장자리에 나무/바위 배치로 맵 경계 시각화
+- **그라데이션 경계 어둠**: 맵 외부를 250px 내측 페이드 → 80px 외측 페이드 → 완전 검정으로 자연스럽게 처리
+- **영역 색조**: 넥서스/적 기지 주변 테마별 색조 표시
+- **환경 파티클**: 떠다니는 파티클 애니메이션 (테마별 색상)
+- **테마 변경 시 캐시 자동 재생성**: `_cachedTheme` 추적으로 테마 전환 시 장식 데이터 재생성
+
+### 맵 테마 네트워크 동기화 (멀티플레이)
+- **방 생성 시 테마 선택**: 방 생성 모달에 맵 테마 선택 UI 추가 (이모지 아이콘 + 테마 색상)
+- **로비 내 테마 변경**: 방장이 로비에서 맵 테마 실시간 변경 가능
+- **서버-클라이언트 동기화**: `CREATE_COOP_ROOM`, `UPDATE_COOP_ROOM_SETTINGS`, `COOP_GAME_START`, `COOP_RETURN_TO_LOBBY` 등 모든 네트워크 메시지에 `mapTheme` 포함
+- **방 목록 테마 표시**: `WaitingCoopRoomInfo`에 `mapTheme` 필드 추가
+
+### 렌더러 리팩터링
+- **`drawMapDecorations.ts`**: 장식/경계/어둠/영역/파티클 5개 함수 모두 `MapThemeConfig` 매개변수 수용
+- **`rpgRenderer.ts`**: 배경 그라데이션을 테마 config에서 읽도록 변경
+- **`drawGrid.ts`**: 격자 색상 매개변수 추가 (테마별 색상 지원)
+- **`drawRPGMinimap.ts`**: 미니맵 배경/테두리/넥서스/기지 색상 테마 적용
+
+### 새 파일
+- `src/constants/mapThemeConfig.ts`: 4종 맵 테마 설정 (MapThemeConfig 인터페이스 + 테마별 config 객체)
+
+### 수정 파일
+- `src/types/rpg.ts`: `MapTheme` 타입 + `RPGGameState.mapTheme` 필드 추가
+- `src/renderer/drawMapDecorations.ts`: 테마 기반 장식/경계/어둠/영역/파티클 렌더링
+- `src/renderer/rpgRenderer.ts`: 테마 기반 배경 + 렌더 함수 호출 변경
+- `src/renderer/drawGrid.ts`: 격자 색상 매개변수 지원
+- `src/renderer/drawRPGMinimap.ts`: 테마 기반 미니맵 색상
+- `src/stores/useRPGStore.ts`: `mapTheme` 상태 + 직렬화 포함
+- `src/services/WebSocketClient.ts`: `createCoopRoom()` mapTheme 매개변수 추가
+- `src/hooks/useNetworkSync.ts`: 게임 시작/로비 복귀 시 mapTheme 동기화 + `createMultiplayerRoom` mapTheme 전달
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: 맵 테마 선택 UI (생성 모달 + 로비 설정)
+- `shared/types/rpgNetwork.ts`: 네트워크 메시지에 mapTheme 필드 추가
+- `shared/types/hostBasedNetwork.ts`: `MultiplayerState.roomMapTheme` 필드 추가
+- `server/src/websocket/MessageHandler.ts`: mapTheme 핸들링 추가
+- `server/src/room/CoopRoomManager.ts`: 방 생성/설정 변경/게임 시작 시 mapTheme 전달
+- `server/src/game/RPGCoopGameRoom.ts`: mapTheme 저장 + COOP_GAME_START/COOP_RETURN_TO_LOBBY에 포함
+
 ## [1.24.5] - 2026-02-16
 
 ### 멀티플레이 게임 종료 후 준비 시스템
