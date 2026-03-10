@@ -3,6 +3,7 @@ import { useHero, useRPGStore } from '../../stores/useRPGStore';
 import { Skill, SkillType, HeroClass, AdvancedHeroClass, HeroUnit, RPGEnemy } from '../../types/rpg';
 import { getSkillDescription } from '../../game/rpg/skillSystem';
 import { CLASS_SKILLS, CLASS_CONFIGS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS } from '../../constants/rpgConfig';
+import { SKILL_ICON_IMAGES } from '../../constants/skillIconConfig';
 import { distance } from '../../utils/math';
 
 interface SkillButtonProps {
@@ -16,8 +17,8 @@ interface SkillButtonProps {
   active?: boolean;  // 토글 스킬 활성화 상태
 }
 
-// 직업별 스킬 아이콘
-const getSkillIcon = (skillType: SkillType, _heroClass: HeroClass): string => {
+// 직업별 스킬 이모지 폴백
+const getSkillEmoji = (skillType: SkillType): string => {
   const iconMap: Record<string, string> = {
     // 기존 스킬
     dash: '💨',
@@ -108,7 +109,8 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
   const cooldownPercent = isOnCooldown ? (skill.currentCooldown / skill.cooldown) * 100 : 0;
   const isDisabled = active ? false : (isOnCooldown || disabled);
 
-  const skillIcon = getSkillIcon(skill.type, heroClass);
+  const skillImagePath = SKILL_ICON_IMAGES[skill.type];
+  const skillEmoji = getSkillEmoji(skill.type);
   const skillColor = getSkillColor(skill.key, heroClass);
   const displayKey = getDisplayKey(skill.key);
 
@@ -133,27 +135,33 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
         `}
         style={{ width: 'clamp(2.75rem, 4.5vw, 3.5rem)', height: 'clamp(2.75rem, 4.5vw, 3.5rem)' }}
       >
-        {/* 쿨다운 오버레이 */}
-        {isOnCooldown && (
-          <div
-            className="absolute bottom-0 left-0 right-0 bg-dark-900/80 transition-all"
-            style={{ height: `${cooldownPercent}%` }}
+        {/* 스킬 아이콘 */}
+        {skillImagePath ? (
+          <img
+            src={skillImagePath}
+            alt={skill.name}
+            className="absolute inset-0 w-full h-full object-cover rounded-md"
+            draggable={false}
           />
+        ) : (
+          <div className="relative z-10 flex items-center justify-center h-full">
+            <span style={{ fontSize: 'clamp(1.25rem, 2vw, 1.5rem)' }}>{skillEmoji}</span>
+          </div>
         )}
 
-        {/* 스킬 아이콘 */}
-        <div className="relative z-10 flex flex-col items-center justify-center h-full">
-          <span style={{ fontSize: 'clamp(1.25rem, 2vw, 1.5rem)' }}>{skillIcon}</span>
-          <span className="text-[10px] text-white/70 font-bold">{displayKey}</span>
-        </div>
-
-        {/* 쿨다운 텍스트 */}
+        {/* 쿨다운 오버레이 — 위에서 아래로 줄어듦 */}
         {isOnCooldown && (
-          <div className="absolute inset-0 flex items-center justify-center z-20">
-            <span className="font-bold text-white drop-shadow-lg" style={{ fontSize: 'clamp(0.875rem, 1.5vw, 1.125rem)' }}>
-              {Math.ceil(skill.currentCooldown)}
-            </span>
-          </div>
+          <>
+            <div
+              className="absolute top-0 left-0 right-0 bg-black/70 transition-all"
+              style={{ height: `${cooldownPercent}%` }}
+            />
+            <div className="absolute inset-0 flex items-center justify-center z-20">
+              <span className="font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" style={{ fontSize: 'clamp(0.875rem, 1.5vw, 1.125rem)' }}>
+                {Math.ceil(skill.currentCooldown)}
+              </span>
+            </div>
+          </>
         )}
 
         {/* 토글 활성 표시 */}
@@ -346,6 +354,9 @@ export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
               disabledReason={reason}
               active={skill.type === 'dark_blade' && hero.darkBladeActive}
             />
+            <div className="text-[10px] text-white/60 font-bold">
+              {getDisplayKey(skill.key)}
+            </div>
           </div>
         );
       })}

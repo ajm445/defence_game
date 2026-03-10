@@ -1,5 +1,47 @@
 # Changelog
 
+## [1.24.7] - 2026-03-10
+
+### 에셋 폴더 구조 정리
+- **`public/img/units/RPG/` 하위 폴더 분리**: 기존 플랫 구조 → `heroes/`, `map/`, `skill_icon/`으로 분류
+- **`heroes/`**: 전직 캐릭터 이미지 17개 (기존 위치에서 이동)
+- **`map/`**: 숲 맵 장식 에셋 5개 (신규)
+- **`skill_icon/`**: 스킬 아이콘 이미지 24개 (신규)
+- **경로 참조 업데이트**: `heroImages.ts`, `unitImages.ts`, `drawMapDecorations.ts` 경로 수정
+
+### 숲 맵 이미지 에셋 적용
+- **맵 장식 이미지 로딩 시스템**: `loadForestImages()`로 숲 테마 진입 시 비동기 로드 (1회), 실패 시 기존 캔버스 프리미티브 폴백
+- **풀 (`gress.png`)**: 150개 풀 장식에 이미지 적용 (variant별 투명도 변화)
+- **작은 돌 (`stone.png`)**: 40개 바위 장식에 이미지 적용
+- **큰 바위 (`rock.png`)**: 경계 바위에 이미지 적용
+- **나무 (`tree.png`)**: 경계 나무에 이미지 적용
+- **웅덩이 (`pool.png`)**: 12개 웅덩이에 이미지 적용 + 반짝임 하이라이트 애니메이션 오버레이
+- 다른 테마(ice/volcano/shadow)는 기존 캔버스 렌더링 유지
+
+### 스킬 아이콘 이미지 시스템
+- **`src/constants/skillIconConfig.ts`** (신규): 스킬 타입 → 아이콘 이미지 경로 매핑 (공유 모듈)
+- **기본 직업 8개 스킬 아이콘**: 전사(돌진/광전사), 궁수(관통 화살/화살 비), 기사(방패 돌진/철벽 방어), 마법사(화염구/운석 낙하)
+- **전직 16개 스킬 아이콘**: 버서커, 가디언, 저격수, 레인저, 팔라딘, 다크나이트, 대마법사, 힐러 W/E 스킬
+- **스킬바 (`RPGSkillBar.tsx`)**: 이미지가 있으면 버튼 전체에 아이콘 이미지 표시, 없으면 이모지 폴백
+- **쿨다운 표현 개선**: 위→아래로 어두운 영역이 줄어드는 방식 (이미지 위에 `bg-black/70` 오버레이)
+- **키 표시 위치 변경**: 버튼 내부 → 버튼 아래 별도 텍스트로 이동
+
+### 직업 도감 스킬 아이콘 표시
+- **`ClassSkillDisplay.tsx`**: 스킬 카드에 48×48 아이콘 이미지 표시
+- 아이콘 + 스킬명 + 키 뱃지를 가로 배치로 리디자인
+
+### 수정 파일
+- `src/renderer/drawMapDecorations.ts`: 숲 테마 이미지 로딩 + 5개 장식 함수에 이미지 분기 추가
+- `src/components/ui/RPGSkillBar.tsx`: 스킬 아이콘 이미지 렌더링 + 쿨다운/키 표시 개선
+- `src/components/ui/ClassSkillDisplay.tsx`: 도감 스킬 카드에 아이콘 이미지 추가
+- `src/utils/heroImages.ts`: 캐릭터 이미지 경로 `heroes/` 하위로 변경
+- `src/utils/unitImages.ts`: boss2 이미지 경로 `heroes/` 하위로 변경
+
+### 새 파일
+- `src/constants/skillIconConfig.ts`: 스킬 아이콘 이미지 경로 매핑
+- `public/img/units/RPG/map/`: gress.png, stone.png, rock.png, tree.png, pool.png
+- `public/img/units/RPG/skill_icon/`: 24개 스킬 아이콘 이미지
+
 ## [1.24.6] - 2026-03-09
 
 ### 맵 테마 시스템 (RPG 모드)

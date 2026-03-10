@@ -3,6 +3,47 @@ import { MapThemeConfig } from '../constants/mapThemeConfig';
 import { MapTheme } from '../types/rpg';
 
 // ============================================
+// 맵 장식 이미지 에셋 (테마별)
+// ============================================
+
+interface DecorationImages {
+  grass: HTMLImageElement | null;
+  rockSmall: HTMLImageElement | null;
+  rockLarge: HTMLImageElement | null;
+  tree: HTMLImageElement | null;
+  puddle: HTMLImageElement | null;
+}
+
+const _forestImages: DecorationImages = {
+  grass: null,
+  rockSmall: null,
+  rockLarge: null,
+  tree: null,
+  puddle: null,
+};
+let _forestImagesLoaded = false;
+
+function loadForestImages() {
+  if (_forestImagesLoaded) return;
+  _forestImagesLoaded = true;
+
+  const paths: [keyof DecorationImages, string][] = [
+    ['grass', '/img/units/RPG/map/gress.png'],
+    ['rockSmall', '/img/units/RPG/map/stone.png'],
+    ['rockLarge', '/img/units/RPG/map/rock.png'],
+    ['tree', '/img/units/RPG/map/tree.png'],
+    ['puddle', '/img/units/RPG/map/pool.png'],
+  ];
+
+  for (const [key, path] of paths) {
+    const img = new Image();
+    img.onload = () => { _forestImages[key] = img; };
+    img.onerror = () => { /* fallback to canvas primitives */ };
+    img.src = path;
+  }
+}
+
+// ============================================
 // 장식 요소 타입
 // ============================================
 
@@ -250,8 +291,20 @@ function drawGrass(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
   size: number, variant: number,
-  colors: MapThemeConfig['decorations']['grass']
+  colors: MapThemeConfig['decorations']['grass'],
+  themeId?: MapTheme
 ) {
+  // 숲 테마: 이미지 에셋 사용
+  if (themeId === 'forest' && _forestImages.grass) {
+    const imgW = size * 3;
+    const imgH = size * 2.5;
+    ctx.save();
+    ctx.globalAlpha = 0.6 + variant * 0.3;
+    ctx.drawImage(_forestImages.grass, x - imgW / 2, y - imgH * 0.7, imgW, imgH);
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
   ctx.translate(x, y);
 
@@ -282,8 +335,19 @@ function drawRock(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
   size: number, variant: number, rotation: number,
-  colors: MapThemeConfig['decorations']['rock']
+  colors: MapThemeConfig['decorations']['rock'],
+  themeId?: MapTheme
 ) {
+  // 숲 테마: 이미지 에셋 사용 (작은 돌)
+  if (themeId === 'forest' && _forestImages.rockSmall) {
+    const imgSize = size * 2.5;
+    ctx.save();
+    ctx.globalAlpha = 0.75 + variant * 0.2;
+    ctx.drawImage(_forestImages.rockSmall, x - imgSize / 2, y - imgSize / 2, imgSize, imgSize);
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
   ctx.translate(x, y);
   ctx.rotate(rotation);
@@ -316,8 +380,28 @@ function drawPuddle(
   ctx: CanvasRenderingContext2D,
   x: number, y: number,
   size: number, variant: number, gameTime: number,
-  colors: MapThemeConfig['decorations']['puddle']
+  colors: MapThemeConfig['decorations']['puddle'],
+  themeId?: MapTheme
 ) {
+  // 숲 테마: 이미지 에셋 사용 + 반짝임 애니메이션 오버레이
+  if (themeId === 'forest' && _forestImages.puddle) {
+    const imgW = size * 3;
+    const imgH = size * 1.8;
+    const shimmer = Math.sin(gameTime * 1.5 + variant * 10) * 0.08 + 0.85;
+    ctx.save();
+    ctx.globalAlpha = shimmer;
+    ctx.drawImage(_forestImages.puddle, x - imgW / 2, y - imgH / 2, imgW, imgH);
+    // 반짝임 하이라이트 오버레이
+    const hlX = x + Math.sin(gameTime * 0.8 + variant * 5) * size * 0.3;
+    const hlY = y + Math.cos(gameTime * 0.6 + variant * 3) * size * 0.15;
+    ctx.beginPath();
+    ctx.ellipse(hlX, hlY, size * 0.2, size * 0.1, 0, 0, Math.PI * 2);
+    ctx.fillStyle = `rgba(180, 220, 255, ${(shimmer - 0.77) * 0.8})`;
+    ctx.fill();
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
 
   const shimmer = Math.sin(gameTime * 1.5 + variant * 10) * 0.03 + 0.12;
@@ -397,6 +481,17 @@ function drawBoundaryTree(
   size: number, variant: number,
   theme: MapThemeConfig
 ) {
+  // 숲 테마: 이미지 에셋 사용
+  if (theme.id === 'forest' && _forestImages.tree) {
+    const imgH = size * 3;
+    const imgW = imgH * 0.85;
+    ctx.save();
+    ctx.globalAlpha = 0.8 + variant * 0.2;
+    ctx.drawImage(_forestImages.tree, x - imgW / 2, y - imgH * 0.85, imgW, imgH);
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
 
   const trunkW = size * 0.15;
@@ -436,6 +531,17 @@ function drawBoundaryRock(
   size: number, variant: number,
   theme: MapThemeConfig
 ) {
+  // 숲 테마: 이미지 에셋 사용 (큰 바위)
+  if (theme.id === 'forest' && _forestImages.rockLarge) {
+    const imgH = size * 2.5;
+    const imgW = imgH * 0.8;
+    ctx.save();
+    ctx.globalAlpha = 0.8 + variant * 0.15;
+    ctx.drawImage(_forestImages.rockLarge, x - imgW / 2, y - imgH * 0.6, imgW, imgH);
+    ctx.restore();
+    return;
+  }
+
   ctx.save();
 
   const points = 6;
@@ -598,6 +704,9 @@ export function drawMapDecorations(
 ) {
   ensureCache(theme);
 
+  // 숲 테마일 때 이미지 에셋 로드 트리거
+  if (theme.id === 'forest') loadForestImages();
+
   const pad = 60;
   const dc = theme.decorations;
 
@@ -608,13 +717,13 @@ export function drawMapDecorations(
 
     switch (d.type) {
       case 'grass':
-        drawGrass(ctx, sx, sy, d.size, d.variant, dc.grass);
+        drawGrass(ctx, sx, sy, d.size, d.variant, dc.grass, theme.id);
         break;
       case 'rock':
-        drawRock(ctx, sx, sy, d.size, d.variant, d.rotation, dc.rock);
+        drawRock(ctx, sx, sy, d.size, d.variant, d.rotation, dc.rock, theme.id);
         break;
       case 'puddle':
-        drawPuddle(ctx, sx, sy, d.size, d.variant, gameTime, dc.puddle);
+        drawPuddle(ctx, sx, sy, d.size, d.variant, gameTime, dc.puddle, theme.id);
         break;
       case 'torch':
         drawTorch(ctx, sx, sy, d.variant, gameTime, dc.torch);
@@ -631,6 +740,8 @@ export function drawNaturalBoundary(
   theme: MapThemeConfig
 ) {
   ensureCache(theme);
+
+  if (theme.id === 'forest') loadForestImages();
 
   const pad = 50;
 

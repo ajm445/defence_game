@@ -1,12 +1,14 @@
 import React from 'react';
 import { HeroClass, AdvancedHeroClass } from '../../types/rpg';
 import { CLASS_SKILLS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, AdvancedSkillConfig } from '../../constants/rpgConfig';
+import { SKILL_ICON_IMAGES } from '../../constants/skillIconConfig';
 import { classColors } from './ClassCard';
 
 interface SkillInfo {
   key: string;
   keyLabel: string;  // 실제 키보드 키
   type: 'auto' | 'skill' | 'ultimate';  // 스킬 타입
+  skillType: string; // 스킬 타입 ID (아이콘 매핑용)
   name: string;
   cooldown: number;
   description: string;
@@ -39,6 +41,7 @@ export const ClassSkillDisplay: React.FC<ClassSkillDisplayProps> = ({
       key: 'W',
       keyLabel: 'Shift',
       type: 'skill',
+      skillType: advWSkill.type,
       name: advWSkill.name,
       cooldown: advWSkill.cooldown,
       description: advWSkill.description,
@@ -49,6 +52,7 @@ export const ClassSkillDisplay: React.FC<ClassSkillDisplayProps> = ({
       key: 'W',
       keyLabel: 'Shift',
       type: 'skill',
+      skillType: baseSkills.w.type,
       name: baseSkills.w.name,
       cooldown: baseSkills.w.cooldown,
       description: baseSkills.w.description,
@@ -63,6 +67,7 @@ export const ClassSkillDisplay: React.FC<ClassSkillDisplayProps> = ({
       key: 'E',
       keyLabel: 'R',
       type: 'ultimate',
+      skillType: advESkill.type,
       name: advESkill.name,
       cooldown: advESkill.cooldown,
       description: advESkill.description,
@@ -75,6 +80,7 @@ export const ClassSkillDisplay: React.FC<ClassSkillDisplayProps> = ({
       key: 'E',
       keyLabel: 'R',
       type: 'ultimate',
+      skillType: baseSkills.e.type,
       name: baseSkills.e.name,
       cooldown: baseSkills.e.cooldown,
       description: baseSkills.e.description,
@@ -112,29 +118,44 @@ export const ClassSkillDisplay: React.FC<ClassSkillDisplayProps> = ({
                   : 'border-gray-600 bg-gray-800/50'}
               `}
             >
-              {/* 헤더: 키 + 타입 */}
-              <div className="flex items-center justify-between mb-3">
-                {/* 스킬 키 뱃지 */}
-                <span className={`
-                  px-3 py-1 rounded text-xs font-bold
-                  ${skill.isAdvanced
-                    ? 'bg-orange-500 text-white'
-                    : `${colors.bg} ${colors.text} border ${colors.border}`}
-                `}>
-                  {skill.keyLabel}
-                </span>
+              {/* 헤더: 아이콘 + 스킬명 + 키 */}
+              <div className="flex items-center gap-3 mb-3">
+                {/* 스킬 아이콘 */}
+                {SKILL_ICON_IMAGES[skill.skillType] ? (
+                  <img
+                    src={SKILL_ICON_IMAGES[skill.skillType]}
+                    alt={skill.name}
+                    className="w-12 h-12 rounded-lg object-cover border border-gray-600 flex-shrink-0"
+                    draggable={false}
+                  />
+                ) : (
+                  <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl flex-shrink-0 ${skill.isAdvanced ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-gray-700/50 border border-gray-600'}`}>
+                    {skill.type === 'skill' ? '⚔️' : '💫'}
+                  </div>
+                )}
 
-                {/* 스킬 타입 */}
-                <span className={`text-xs ${typeInfo.color}`}>
-                  {typeInfo.label}
-                </span>
+                <div className="flex-1 min-w-0">
+                  {/* 스킬명 */}
+                  <p className={`font-bold text-base ${skill.isAdvanced ? 'text-orange-300' : 'text-white'}`}>
+                    {skill.name}
+                    {skill.isAdvanced && <span className="text-orange-400 ml-1">★</span>}
+                  </p>
+                  {/* 키 + 타입 */}
+                  <div className="flex items-center gap-2 mt-0.5">
+                    <span className={`
+                      px-2 py-0.5 rounded text-[10px] font-bold
+                      ${skill.isAdvanced
+                        ? 'bg-orange-500 text-white'
+                        : `${colors.bg} ${colors.text} border ${colors.border}`}
+                    `}>
+                      {skill.keyLabel}
+                    </span>
+                    <span className={`text-xs ${typeInfo.color}`}>
+                      {typeInfo.label}
+                    </span>
+                  </div>
+                </div>
               </div>
-
-              {/* 스킬명 */}
-              <p className={`font-bold text-base mb-2 ${skill.isAdvanced ? 'text-orange-300' : 'text-white'}`}>
-                {skill.name}
-                {skill.isAdvanced && <span className="text-orange-400 ml-1">★</span>}
-              </p>
 
               {/* 쿨다운 */}
               <p className="text-sm text-yellow-400 mb-3">

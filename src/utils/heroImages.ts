@@ -44,7 +44,7 @@ export function getHeroImagePath(
   // 전직한 경우 전직 이미지
   const imageName = ADVANCED_CLASS_IMAGE_NAMES[advancedClass];
   const suffix = tier === 2 ? '2' : '';
-  return `/img/units/RPG/${imageName}${suffix}.png`;
+  return `/img/units/RPG/heroes/${imageName}${suffix}.png`;
 }
 
 /**
