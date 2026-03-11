@@ -1,6 +1,7 @@
 import { useEffect, useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { usePlayersStore } from '../stores/usePlayersStore';
+import { ADMIN_BASE } from '../config';
 
 const AVATAR_COLORS = [
   'from-blue-500 to-blue-600',
@@ -365,7 +366,7 @@ export function PlayersPage() {
                     className={`hover:bg-slate-700/40 cursor-pointer transition-all duration-150 border-b border-slate-700/30 ${
                       index % 2 === 0 ? 'bg-slate-800/20' : 'bg-slate-800/40'
                     }`}
-                    onClick={() => navigate(`/admin/players/${player.id}`)}
+                    onClick={() => navigate(`${ADMIN_BASE}/players/${player.id}`)}
                   >
                     <td className="px-6 py-4">
                       <div className="flex items-center gap-4">
@@ -457,7 +458,7 @@ export function PlayersPage() {
                 <div
                   key={player.id}
                   className="p-4 hover:bg-slate-700/30 cursor-pointer transition-colors active:bg-slate-700/50"
-                  onClick={() => navigate(`/admin/players/${player.id}`)}
+                  onClick={() => navigate(`${ADMIN_BASE}/players/${player.id}`)}
                 >
                   <div className="flex items-center justify-between gap-4">
                     <div className="flex items-center gap-3 min-w-0">

@@ -1,11 +1,11 @@
 import { Router, Response } from 'express';
 import { getSupabaseAdmin } from '../../services/supabaseAdmin';
-import { requireAdmin, AuthenticatedRequest } from '../../middleware/adminAuth';
+import { AuthenticatedRequest } from '../../middleware/adminAuth';
 
 const router = Router();
 
 // GET /api/admin/feedback/stats - 피드백 통계 요약
-router.get('/stats', requireAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+router.get('/stats', async (_req: AuthenticatedRequest, res: Response) => {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection error' });
@@ -44,7 +44,7 @@ router.get('/stats', requireAdmin, async (_req: AuthenticatedRequest, res: Respo
 });
 
 // GET /api/admin/feedback - 피드백 목록 (페이지네이션 + 필터)
-router.get('/', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection error' });
@@ -129,7 +129,7 @@ router.get('/', requireAdmin, async (req: AuthenticatedRequest, res: Response) =
 });
 
 // DELETE /api/admin/feedback/:id - 피드백 삭제
-router.delete('/:id', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/:id', async (req: AuthenticatedRequest, res: Response) => {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection error' });

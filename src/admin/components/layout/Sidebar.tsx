@@ -1,9 +1,10 @@
 import { NavLink } from 'react-router-dom';
 import { useAdminAuthStore } from '../../stores/useAdminAuthStore';
+import { ADMIN_BASE } from '../../config';
 
 const navItems = [
   {
-    path: '/admin/dashboard',
+    path: `${ADMIN_BASE}/dashboard`,
     label: '대시보드',
     description: '통계 및 현황',
     icon: (
@@ -13,7 +14,7 @@ const navItems = [
     ),
   },
   {
-    path: '/admin/players',
+    path: `${ADMIN_BASE}/players`,
     label: '플레이어',
     description: '계정 관리',
     icon: (
@@ -23,7 +24,7 @@ const navItems = [
     ),
   },
   {
-    path: '/admin/monitoring',
+    path: `${ADMIN_BASE}/monitoring`,
     label: '모니터링',
     description: '실시간 현황',
     icon: (
@@ -33,7 +34,7 @@ const navItems = [
     ),
   },
   {
-    path: '/admin/feedback',
+    path: `${ADMIN_BASE}/feedback`,
     label: '피드백',
     description: '유저 평가 관리',
     icon: (
@@ -43,7 +44,7 @@ const navItems = [
     ),
   },
   {
-    path: '/admin/maintenance',
+    path: `${ADMIN_BASE}/maintenance`,
     label: '점검',
     description: '서버 점검 관리',
     icon: (

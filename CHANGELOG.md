@@ -1,5 +1,39 @@
 # Changelog
 
+## [1.24.8] - 2026-03-11
+
+### 관리자 페이지 보안 강화
+
+#### 인증 미들웨어 라우터 레벨 적용
+- **`adminRouter.ts`에 `requireAdmin` 미들웨어 일괄 적용**: 기존 per-route 방식 → 라우터 레벨로 변경
+- `/auth` (login, verify)만 공개, 나머지 5개 라우터(players, bans, stats, feedback, maintenance)는 라우터 마운트 시점에 인증 필수
+- 각 하위 라우터에서 중복 `requireAdmin` 제거, `requireSuperAdmin`만 유지
+- 새 route 추가 시 인증 누락 방지 (안전한 기본값)
+
+#### 관리자 경로 비공개화
+- **`VITE_ADMIN_PATH` 환경변수**: 관리자 페이지 URL 경로를 환경변수로 설정 (기본값: `admin`)
+- 프로덕션에서 추측 불가능한 경로로 변경하면 `/admin` 접속 시 관리자 페이지 노출 안 됨
+- 모든 하드코딩된 `/admin/` 경로를 `ADMIN_BASE` 상수로 교체 (14개 파일)
+
+#### 수정 파일
+- `server/src/api/admin/adminRouter.ts`: requireAdmin 라우터 레벨 적용
+- `server/src/api/admin/adminPlayersRouter.ts`: 중복 requireAdmin 제거
+- `server/src/api/admin/adminBanRouter.ts`: 중복 requireAdmin 제거
+- `server/src/api/admin/adminStatsRouter.ts`: 중복 requireAdmin 제거
+- `server/src/api/admin/adminFeedbackRouter.ts`: 중복 requireAdmin 제거
+- `server/src/api/admin/adminMaintenanceRouter.ts`: 중복 requireAdmin 제거
+- `src/main.tsx`: 동적 admin 경로 적용
+- `src/admin/components/layout/AdminLayout.tsx`: 동적 경로
+- `src/admin/components/layout/Header.tsx`: 동적 경로
+- `src/admin/components/layout/Sidebar.tsx`: 동적 경로
+- `src/admin/pages/AdminLoginPage.tsx`: 동적 경로
+- `src/admin/pages/PlayerDetailPage.tsx`: 동적 경로
+- `src/admin/pages/PlayersPage.tsx`: 동적 경로
+- `.env.example`: VITE_ADMIN_PATH 예시 추가
+
+#### 새 파일
+- `src/admin/config.ts`: ADMIN_BASE 상수 (환경변수에서 경로 읽기)
+
 ## [1.24.7] - 2026-03-10
 
 ### 에셋 폴더 구조 정리

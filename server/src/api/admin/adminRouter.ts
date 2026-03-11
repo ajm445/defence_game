@@ -1,4 +1,5 @@
 import { Router } from 'express';
+import { requireAdmin } from '../../middleware/adminAuth';
 import adminAuthRouter from './adminAuthRouter';
 import adminPlayersRouter from './adminPlayersRouter';
 import adminBanRouter from './adminBanRouter';
@@ -8,22 +9,14 @@ import adminMaintenanceRouter from './adminMaintenanceRouter';
 
 const router = Router();
 
-// 인증 라우터
+// 인증 라우터 (login, verify는 공개 엔드포인트이므로 미들웨어 없이 마운트)
 router.use('/auth', adminAuthRouter);
 
-// 플레이어 관리 라우터
-router.use('/players', adminPlayersRouter);
-
-// 밴 관리 라우터
-router.use('/bans', adminBanRouter);
-
-// 통계 라우터
-router.use('/stats', adminStatsRouter);
-
-// 피드백 관리 라우터
-router.use('/feedback', adminFeedbackRouter);
-
-// 점검 관리 라우터
-router.use('/maintenance', adminMaintenanceRouter);
+// 이하 모든 라우터는 requireAdmin 미들웨어 필수
+router.use('/players', requireAdmin, adminPlayersRouter);
+router.use('/bans', requireAdmin, adminBanRouter);
+router.use('/stats', requireAdmin, adminStatsRouter);
+router.use('/feedback', requireAdmin, adminFeedbackRouter);
+router.use('/maintenance', requireAdmin, adminMaintenanceRouter);
 
 export default router;

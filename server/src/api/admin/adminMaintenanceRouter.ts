@@ -1,5 +1,5 @@
 import { Router, Response } from 'express';
-import { requireAdmin, AuthenticatedRequest } from '../../middleware/adminAuth';
+import { AuthenticatedRequest } from '../../middleware/adminAuth';
 import {
   getMaintenanceState,
   activateMaintenance,
@@ -9,12 +9,12 @@ import {
 const router = Router();
 
 // GET /api/admin/maintenance/status - 점검 상태 조회
-router.get('/status', requireAdmin, (_req: AuthenticatedRequest, res: Response) => {
+router.get('/status', (_req: AuthenticatedRequest, res: Response) => {
   res.json(getMaintenanceState());
 });
 
 // POST /api/admin/maintenance/activate - 점검 모드 활성화
-router.post('/activate', requireAdmin, (req: AuthenticatedRequest, res: Response) => {
+router.post('/activate', (req: AuthenticatedRequest, res: Response) => {
   const { minutes, message } = req.body;
 
   if (typeof minutes !== 'number' || minutes < 0 || minutes > 120) {
@@ -32,7 +32,7 @@ router.post('/activate', requireAdmin, (req: AuthenticatedRequest, res: Response
 });
 
 // POST /api/admin/maintenance/deactivate - 점검 모드 해제
-router.post('/deactivate', requireAdmin, (_req: AuthenticatedRequest, res: Response) => {
+router.post('/deactivate', (_req: AuthenticatedRequest, res: Response) => {
   deactivateMaintenance();
   console.log('[Maintenance] 점검 모드 해제');
 

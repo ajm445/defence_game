@@ -1,6 +1,7 @@
 import { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuthStore } from '../stores/useAdminAuthStore';
+import { ADMIN_BASE } from '../config';
 
 export function AdminLoginPage() {
   const [username, setUsername] = useState('');
@@ -11,7 +12,7 @@ export function AdminLoginPage() {
 
   useEffect(() => {
     if (isAuthenticated) {
-      navigate('/admin/dashboard');
+      navigate(`${ADMIN_BASE}/dashboard`);
     }
   }, [isAuthenticated, navigate]);
 
@@ -25,7 +26,7 @@ export function AdminLoginPage() {
 
     const success = await login(username.trim(), password);
     if (success) {
-      navigate('/admin/dashboard');
+      navigate(`${ADMIN_BASE}/dashboard`);
     }
   };
 

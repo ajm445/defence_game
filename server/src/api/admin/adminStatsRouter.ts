@@ -1,12 +1,12 @@
 import { Router, Response } from 'express';
 import { getSupabaseAdmin } from '../../services/supabaseAdmin';
-import { requireAdmin, AuthenticatedRequest } from '../../middleware/adminAuth';
+import { AuthenticatedRequest } from '../../middleware/adminAuth';
 import { players, getLoggedInUserCount } from '../../state/players';
 
 const router = Router();
 
 // GET /api/admin/stats/overview - 전체 통계 개요
-router.get('/overview', requireAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+router.get('/overview', async (_req: AuthenticatedRequest, res: Response) => {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection error' });
@@ -79,7 +79,7 @@ router.get('/overview', requireAdmin, async (_req: AuthenticatedRequest, res: Re
 });
 
 // GET /api/admin/stats/class-popularity - 클래스별 인기도
-router.get('/class-popularity', requireAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+router.get('/class-popularity', async (_req: AuthenticatedRequest, res: Response) => {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection error' });
@@ -145,7 +145,7 @@ router.get('/class-popularity', requireAdmin, async (_req: AuthenticatedRequest,
 });
 
 // GET /api/admin/stats/game-modes - 게임 모드별 통계
-router.get('/game-modes', requireAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+router.get('/game-modes', async (_req: AuthenticatedRequest, res: Response) => {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection error' });
@@ -195,7 +195,7 @@ router.get('/game-modes', requireAdmin, async (_req: AuthenticatedRequest, res: 
 });
 
 // GET /api/admin/stats/user-growth - 사용자 증가 추이 (최근 30일)
-router.get('/user-growth', requireAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+router.get('/user-growth', async (_req: AuthenticatedRequest, res: Response) => {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection error' });
@@ -257,7 +257,7 @@ router.get('/user-growth', requireAdmin, async (_req: AuthenticatedRequest, res:
 });
 
 // GET /api/admin/stats/games-daily - 일별 게임 수 (최근 30일)
-router.get('/games-daily', requireAdmin, async (_req: AuthenticatedRequest, res: Response) => {
+router.get('/games-daily', async (_req: AuthenticatedRequest, res: Response) => {
   const supabase = getSupabaseAdmin();
   if (!supabase) {
     return res.status(500).json({ error: 'Database connection error' });

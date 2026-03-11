@@ -1,12 +1,12 @@
 import { Router, Response } from 'express';
 import { getSupabaseAdmin } from '../../services/supabaseAdmin';
-import { requireAdmin, requireSuperAdmin, AuthenticatedRequest } from '../../middleware/adminAuth';
+import { requireSuperAdmin, AuthenticatedRequest } from '../../middleware/adminAuth';
 import { onlineUserIds } from '../../state/players';
 
 const router = Router();
 
 // GET /api/admin/players - 플레이어 목록 (페이지네이션, 검색, 필터)
-router.get('/', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   const {
     page = '1',
     limit = '20',
@@ -112,7 +112,7 @@ router.get('/', requireAdmin, async (req: AuthenticatedRequest, res: Response) =
 });
 
 // GET /api/admin/players/:id - 플레이어 상세 정보
-router.get('/:id', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/:id', async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
 
   const supabase = getSupabaseAdmin();
@@ -227,7 +227,7 @@ router.get('/:id', requireAdmin, async (req: AuthenticatedRequest, res: Response
 });
 
 // PATCH /api/admin/players/:id - 플레이어 정보 수정 (Super Admin만)
-router.patch('/:id', requireAdmin, requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.patch('/:id', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { nickname, playerLevel, playerExp, role } = req.body;
 
@@ -291,7 +291,7 @@ router.patch('/:id', requireAdmin, requireSuperAdmin, async (req: AuthenticatedR
 });
 
 // PATCH /api/admin/players/:id/class/:className - 클래스 진행 정보 수정 (Super Admin만)
-router.patch('/:id/class/:className', requireAdmin, requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.patch('/:id/class/:className', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const { id, className } = req.params;
   const { classLevel, classExp, sp, statUpgrades } = req.body;
 
@@ -364,7 +364,7 @@ router.patch('/:id/class/:className', requireAdmin, requireSuperAdmin, async (re
 });
 
 // DELETE /api/admin/players/:id - 플레이어 삭제 (Super Admin만)
-router.delete('/:id', requireAdmin, requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/:id', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
 
   const supabase = getSupabaseAdmin();

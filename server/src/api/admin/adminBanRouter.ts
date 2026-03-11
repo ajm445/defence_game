@@ -1,11 +1,11 @@
 import { Router, Response } from 'express';
 import { getSupabaseAdmin } from '../../services/supabaseAdmin';
-import { requireAdmin, requireSuperAdmin, AuthenticatedRequest } from '../../middleware/adminAuth';
+import { requireSuperAdmin, AuthenticatedRequest } from '../../middleware/adminAuth';
 
 const router = Router();
 
 // POST /api/admin/players/:id/ban - 플레이어 밴 처리 (Super Admin만)
-router.post('/:id/ban', requireAdmin, requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.post('/:id/ban', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
   const { reason, expiresAt } = req.body;
 
@@ -101,7 +101,7 @@ router.post('/:id/ban', requireAdmin, requireSuperAdmin, async (req: Authenticat
 });
 
 // DELETE /api/admin/players/:id/ban - 밴 해제 (Super Admin만)
-router.delete('/:id/ban', requireAdmin, requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.delete('/:id/ban', requireSuperAdmin, async (req: AuthenticatedRequest, res: Response) => {
   const { id } = req.params;
 
   const supabase = getSupabaseAdmin();
@@ -166,7 +166,7 @@ router.delete('/:id/ban', requireAdmin, requireSuperAdmin, async (req: Authentic
 });
 
 // GET /api/admin/bans - 밴 목록 조회
-router.get('/', requireAdmin, async (req: AuthenticatedRequest, res: Response) => {
+router.get('/', async (req: AuthenticatedRequest, res: Response) => {
   const {
     page = '1',
     limit = '20',

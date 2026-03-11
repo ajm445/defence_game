@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { Outlet, useNavigate, useLocation } from 'react-router-dom';
 import { useAdminAuthStore } from '../../stores/useAdminAuthStore';
 import { Sidebar, MobileNav } from './Sidebar';
+import { ADMIN_BASE } from '../../config';
 
 export function AdminLayout() {
   const navigate = useNavigate();
@@ -14,7 +15,7 @@ export function AdminLayout() {
 
   useEffect(() => {
     if (!isLoading && !isAuthenticated) {
-      navigate('/admin/login', { replace: true });
+      navigate(`${ADMIN_BASE}/login`, { replace: true });
     }
   }, [isAuthenticated, isLoading, navigate]);
 
@@ -80,7 +81,7 @@ function HeaderActions() {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/admin/login');
+    navigate(`${ADMIN_BASE}/login`);
   };
 
   return (

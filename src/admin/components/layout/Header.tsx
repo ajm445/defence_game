@@ -1,6 +1,7 @@
 import { useState } from 'react';
 import { useNavigate } from 'react-router-dom';
 import { useAdminAuthStore } from '../../stores/useAdminAuthStore';
+import { ADMIN_BASE } from '../../config';
 
 interface HeaderProps {
   title: string;
@@ -13,7 +14,7 @@ export function Header({ title }: HeaderProps) {
 
   const handleLogout = async () => {
     await logout();
-    navigate('/admin/login');
+    navigate(`${ADMIN_BASE}/login`);
   };
 
   return (

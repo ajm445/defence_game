@@ -2,6 +2,7 @@ import { useEffect, useState } from 'react';
 import { useParams, useNavigate } from 'react-router-dom';
 import { usePlayersStore } from '../stores/usePlayersStore';
 import { useAdminAuthStore } from '../stores/useAdminAuthStore';
+import { ADMIN_BASE } from '../config';
 
 const CLASS_NAMES: Record<string, string> = {
   archer: '궁수',
@@ -89,7 +90,7 @@ export function PlayerDetailPage() {
         </svg>
         <p className="text-slate-400 mb-4">플레이어를 찾을 수 없습니다</p>
         <button
-          onClick={() => navigate('/admin/players')}
+          onClick={() => navigate(`${ADMIN_BASE}/players`)}
           className="text-blue-400 hover:text-blue-300 font-medium"
         >
           플레이어 목록으로 돌아가기
@@ -104,7 +105,7 @@ export function PlayerDetailPage() {
     <div className="space-y-8">
       {/* 뒤로가기 버튼 */}
       <button
-        onClick={() => navigate('/admin/players')}
+        onClick={() => navigate(`${ADMIN_BASE}/players`)}
         className="flex items-center gap-2 text-slate-400 hover:text-white transition-colors px-4 py-2 -ml-4 rounded-xl hover:bg-slate-800/50"
       >
         <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
@@ -517,7 +518,7 @@ export function PlayerDetailPage() {
           onClose={() => setShowDeleteConfirm(false)}
           onConfirm={async () => {
             const success = await deletePlayer(player.id);
-            if (success) navigate('/admin/players');
+            if (success) navigate(`${ADMIN_BASE}/players`);
           }}
         />
       )}
