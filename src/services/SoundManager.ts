@@ -31,7 +31,13 @@ export type SoundType =
   | 'laser_attack';
 
 // BGM 타입
-export type BGMType = 'rpg_battle' | 'rpg_boss' | 'rts_battle' | 'victory' | 'defeat';
+export type BGMType = 'rpg_main' | 'rpg_battle' | 'rpg_boss' | 'rts_battle' | 'victory' | 'defeat';
+
+// MP3 기반 BGM 매핑 (path, baseVolume)
+const BGM_MP3_MAP: Partial<Record<BGMType, { path: string; baseVolume: number }>> = {
+  rpg_main: { path: '/sound/main_bgm.mp3', baseVolume: 0.3 },
+  rpg_battle: { path: '/sound/RPG_ingame_bgm.mp3', baseVolume: 0.3 },
+};
 
 class SoundManager {
   private static instance: SoundManager;
@@ -55,6 +61,16 @@ class SoundManager {
   private bgmOscillators: OscillatorNode[] = [];
   private bgmGains: GainNode[] = [];
   private bgmIntervalId: number | null = null;
+
+  // MP3 BGM 관련
+  private bgmAudio: HTMLAudioElement | null = null;
+  private bgmAudioCache: Map<string, HTMLAudioElement> = new Map();
+  private bgmBaseVolume: number = 1; // MP3 자체 기본 볼륨
+  // Web Audio API 기반 심리스 루프
+  private bgmSource: AudioBufferSourceNode | null = null;
+  private bgmMp3Gain: GainNode | null = null;
+  private bgmBufferCache: Map<string, AudioBuffer> = new Map();
+  private bgmPlaying: boolean = false; // 실제 재생 중 여부
 
   private constructor() {}
 
@@ -112,6 +128,12 @@ class SoundManager {
     if (this.bgmGain) {
       this.bgmGain.gain.value = muted ? 0 : this.bgmVolume;
     }
+    if (this.bgmMp3Gain) {
+      this.bgmMp3Gain.gain.value = muted ? 0 : this.bgmVolume * this.bgmBaseVolume;
+    }
+    if (this.bgmAudio) {
+      this.bgmAudio.volume = muted ? 0 : this.bgmVolume * this.bgmBaseVolume;
+    }
   }
 
   public isMuted(): boolean {
@@ -131,6 +153,12 @@ class SoundManager {
     this.bgmVolume = Math.max(0, Math.min(1, value));
     if (this.bgmGain && !this.muted) {
       this.bgmGain.gain.value = this.bgmVolume;
+    }
+    if (this.bgmMp3Gain && !this.muted) {
+      this.bgmMp3Gain.gain.value = this.bgmVolume * this.bgmBaseVolume;
+    }
+    if (this.bgmAudio && !this.muted) {
+      this.bgmAudio.volume = this.bgmVolume * this.bgmBaseVolume;
     }
   }
 
@@ -154,7 +182,7 @@ class SoundManager {
       return;
     }
 
-    if (this.currentBGM === bgmType) {
+    if (this.currentBGM === bgmType && this.bgmPlaying) {
       return; // 이미 같은 BGM 재생 중
     }
 
@@ -170,15 +198,20 @@ class SoundManager {
       });
     }
 
+    // MP3 기반 BGM 확인
+    const mp3Info = BGM_MP3_MAP[bgmType];
+    if (mp3Info) {
+      this.bgmBaseVolume = mp3Info.baseVolume;
+      this.playMP3BGM(mp3Info.path);
+      return;
+    }
+
     // 뮤트 상태면 BGM 시작은 하되 볼륨은 0
     if (this.bgmGain) {
       this.bgmGain.gain.value = this.muted ? 0 : this.bgmVolume;
     }
 
     switch (bgmType) {
-      case 'rpg_battle':
-        this.playRPGBattleBGM();
-        break;
       case 'rpg_boss':
         this.playRPGBossBGM();
         break;
@@ -192,6 +225,16 @@ class SoundManager {
    * BGM 중지
    */
   public stopBGM(): void {
+    // Web Audio API BGM 소스 중지
+    this.stopBGMSource();
+
+    // HTMLAudioElement 폴백 BGM 중지
+    if (this.bgmAudio) {
+      this.bgmAudio.pause();
+      this.bgmAudio.currentTime = 0;
+      this.bgmAudio = null;
+    }
+
     // 오실레이터 중지
     for (const osc of this.bgmOscillators) {
       try {
@@ -216,6 +259,7 @@ class SoundManager {
     }
 
     this.currentBGM = null;
+    this.bgmPlaying = false;
   }
 
   /**
@@ -226,7 +270,147 @@ class SoundManager {
   }
 
   /**
-   * RPG 전투 BGM - 긴장감 있는 앰비언트 루프
+   * MP3 파일 기반 BGM 재생 (Web Audio API - 심리스 루프)
+   */
+  private async playMP3BGM(src: string): Promise<void> {
+    const ctx = this.audioContext;
+    if (!ctx) return;
+
+    // Resume if suspended (브라우저 정책)
+    if (ctx.state === 'suspended') {
+      await ctx.resume().catch(() => {});
+    }
+
+    // 캐시에서 AudioBuffer 가져오기
+    let buffer = this.bgmBufferCache.get(src);
+    if (!buffer) {
+      try {
+        const response = await fetch(src);
+        const arrayBuffer = await response.arrayBuffer();
+        const rawBuffer = await ctx.decodeAudioData(arrayBuffer);
+        buffer = this.trimSilence(ctx, rawBuffer);
+        this.bgmBufferCache.set(src, buffer);
+      } catch {
+        // 디코딩 실패 시 HTMLAudioElement 폴백
+        this.playMP3BGMFallback(src);
+        return;
+      }
+    }
+
+    // async 대기 중에 BGM이 변경/중지되었으면 재생하지 않음
+    if (!this.currentBGM) return;
+
+    // 기존 소스 중지
+    this.stopBGMSource();
+
+    // 게인 노드 생성
+    const gainNode = ctx.createGain();
+    gainNode.gain.value = this.muted ? 0 : this.bgmVolume * this.bgmBaseVolume;
+    gainNode.connect(ctx.destination);
+    this.bgmMp3Gain = gainNode;
+
+    // AudioBufferSourceNode 생성 (심리스 루프)
+    const source = ctx.createBufferSource();
+    source.buffer = buffer;
+    source.loop = true;
+    // 크로스페이드 루프 구간 설정 (앞뒤 50ms 겹침)
+    const fadeSamples = Math.min(Math.floor(buffer.sampleRate * 0.05), buffer.length / 4);
+    source.loopStart = fadeSamples / buffer.sampleRate;
+    source.loopEnd = buffer.duration;
+    source.connect(gainNode);
+    source.start(0);
+    this.bgmSource = source;
+    this.bgmPlaying = true;
+  }
+
+  /**
+   * HTMLAudioElement 폴백 (AudioBuffer 디코딩 실패 시)
+   */
+  private playMP3BGMFallback(src: string): void {
+    let audio = this.bgmAudioCache.get(src);
+    if (!audio) {
+      audio = new Audio(src);
+      audio.loop = true;
+      audio.preload = 'auto';
+      this.bgmAudioCache.set(src, audio);
+    }
+
+    audio.volume = this.muted ? 0 : this.bgmVolume * this.bgmBaseVolume;
+    audio.currentTime = 0;
+    this.bgmAudio = audio;
+
+    audio.play().then(() => {
+      this.bgmPlaying = true;
+    }).catch(() => {});
+  }
+
+  /**
+   * Web Audio API BGM 소스 중지
+   */
+  private stopBGMSource(): void {
+    if (this.bgmSource) {
+      try {
+        this.bgmSource.stop();
+        this.bgmSource.disconnect();
+      } catch { /* 이미 중지됨 */ }
+      this.bgmSource = null;
+    }
+    if (this.bgmMp3Gain) {
+      this.bgmMp3Gain.disconnect();
+      this.bgmMp3Gain = null;
+    }
+  }
+
+  /**
+   * AudioBuffer 앞뒤 무음 트리밍
+   * MP3 인코더가 추가하는 패딩 제거 → 심리스 루프
+   */
+  private trimSilence(ctx: AudioContext, source: AudioBuffer): AudioBuffer {
+    const channels = source.numberOfChannels;
+    const sampleRate = source.sampleRate;
+    const length = source.length;
+    const threshold = 0.005; // 무음 판별 임계값
+
+    // 첫 번째 채널 기준으로 무음 구간 탐색
+    const data = source.getChannelData(0);
+
+    // 앞쪽 무음 끝 지점
+    let startSample = 0;
+    for (let i = 0; i < length; i++) {
+      if (Math.abs(data[i]) > threshold) {
+        startSample = Math.max(0, i - 64); // 약간의 여유
+        break;
+      }
+    }
+
+    // 뒷쪽 무음 시작 지점
+    let endSample = length;
+    for (let i = length - 1; i >= 0; i--) {
+      if (Math.abs(data[i]) > threshold) {
+        endSample = Math.min(length, i + 64);
+        break;
+      }
+    }
+
+    // 트리밍할 게 없으면 원본 반환
+    if (startSample === 0 && endSample === length) {
+      return source;
+    }
+
+    const trimmedLength = endSample - startSample;
+    const trimmed = ctx.createBuffer(channels, trimmedLength, sampleRate);
+    for (let ch = 0; ch < channels; ch++) {
+      const src = source.getChannelData(ch);
+      const dst = trimmed.getChannelData(ch);
+      for (let i = 0; i < trimmedLength; i++) {
+        dst[i] = src[startSample + i];
+      }
+    }
+    return trimmed;
+  }
+
+  /**
+   * RPG 전투 BGM - 긴장감 있는 앰비언트 루프 (프로시저럴 - MP3 미사용 시 폴백)
    */
   private playRPGBattleBGM(): void {
     const ctx = this.audioContext!;

@@ -126,6 +126,12 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   }, [saveBlockedPlayers]);
 
   // 인라인 모달 ESC 키로 닫기
+  // RPG 메인 BGM 재생 (클래스 선택에서 이미 재생 중이면 무시됨)
+  useEffect(() => {
+    soundManager.init();
+    soundManager.playBGM('rpg_main');
+  }, []);
+
   useEffect(() => {
     const anyModalOpen = showCreateRoomModal || !!privateRoomToJoin || showJoinInput;
     if (!anyModalOpen) return;
@@ -1791,7 +1797,6 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                       <span className={`font-bold text-sm ${isSelected ? colors.text : 'text-gray-400'}`}>
                         {config.name}
                       </span>
-                      <span className="text-gray-500 text-xs mt-0.5">{config.nameEn}</span>
                       <span className={`text-xs mt-0.5 ${isSelected ? colors.text : 'text-gray-500'}`} style={{ opacity: 0.7 }}>
                         Lv.{config.recommendedLevel}+
                       </span>
@@ -1841,7 +1846,6 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                       <span className={`font-bold text-sm ${isSelected ? tc.text : 'text-gray-400'}`}>
                         {theme.name}
                       </span>
-                      <span className="text-gray-500 text-xs mt-0.5">{theme.nameEn}</span>
                     </button>
                   );
                 })}

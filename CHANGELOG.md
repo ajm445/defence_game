@@ -1,5 +1,44 @@
 # Changelog
 
+## [1.25.0] - 2026-03-12
+
+### MP3 BGM 시스템 추가
+- **Web Audio API 기반 심리스 루프**: MP3 디코딩 후 `AudioBufferSourceNode`로 재생, 끊김 없는 루프
+- **자동 무음 트리밍**: MP3 인코더 패딩 자동 제거 (`trimSilence`)
+- **BGM 캐싱**: `AudioBuffer` 캐시로 재로드 없이 즉시 전환
+- **HTMLAudioElement 폴백**: `decodeAudioData` 실패 시 자동 대체
+- **개별 기본 볼륨 (`baseVolume`)**: MP3별 자체 볼륨 설정, 마스터 볼륨과 곱연산
+- **BGM 타입 추가**: `rpg_main` (메인/로비), `rpg_battle` (인게임) MP3 매핑
+- **재생 안정성**: `bgmPlaying` 플래그로 async 로드 중 중복 호출 시에도 정확한 상태 추적
+
+### BGM 적용 화면
+- **로그인 화면**: 첫 사용자 인터랙션(클릭/키입력/터치) 시 메인 BGM 자동 시작
+- **메인 메뉴**: 진입 시 메인 BGM 재생
+- **RPG 클래스 선택 / 코옵 로비**: 메인 BGM 유지 (동일 BGM이면 재시작 안 함)
+- **인게임**: 기존 `rpg_battle` 호출이 자동으로 MP3 인게임 BGM 재생
+
+### 배경 이미지 적용
+- **메인 메뉴 / 로그인 / 게임 선택 화면**: `background.png` 배경 이미지 + 어두운 그라데이션 오버레이 (45~65% 불투명도)
+- 기존 `bg-menu-gradient` CSS 배경 → 이미지 기반으로 교체
+
+### 로그인 화면 UX 개선
+- **안내 문구 개선**: "로그인하여 진행 상황을 저장하세요" → "계정을 만들어 진행 상황을 저장하거나, 게스트로 바로 시작하세요"
+- **탭 버튼 설명 추가**: 로그인("기존 계정"), 회원가입("새 계정 생성"), 바로 시작("가입 없이 체험")
+- **게스트 탭 리브랜딩**: "게스트" → "바로 시작" (🎮 아이콘, 초록색 강조)
+- **게스트 안내 톤 변경**: 경고(노란색) → 긍정(초록색) "바로 체험할 수 있습니다!" + 제한사항은 작은 글씨로
+
+### UI 텍스트 정리
+- **영어 텍스트 한글화**: "Press a button to start" → "버튼을 눌러 시작하세요"
+- **방 생성 모달 영어 제거**: 난이도 영문명(Easy, Normal 등), 맵 테마 영문명(Forest 등) 삭제
+
+### 수정 파일
+- `src/services/SoundManager.ts`: MP3 BGM 시스템, 심리스 루프, 볼륨 제어
+- `src/components/screens/LoginScreen.tsx`: BGM 시작, 배경 이미지, UX 개선
+- `src/components/screens/MainMenu.tsx`: BGM, 배경 이미지, 텍스트 한글화
+- `src/components/screens/GameTypeSelectScreen.tsx`: 배경 이미지
+- `src/components/screens/RPGClassSelectScreen.tsx`: 메인 BGM 재생
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: 메인 BGM 재생, 모달 영어 제거
+
 ## [1.24.8] - 2026-03-11
 
 ### 관리자 페이지 보안 강화

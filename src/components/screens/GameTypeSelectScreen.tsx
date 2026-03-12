@@ -36,7 +36,7 @@ export const GameTypeSelectScreen: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden" style={{ background: `linear-gradient(to bottom, rgba(10,15,30,0.45), rgba(10,15,30,0.65)), url('/img/units/background.png') center/cover no-repeat` }}>
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/3 w-96 h-96 bg-neon-cyan/5 rounded-full blur-3xl animate-pulse-slow" />

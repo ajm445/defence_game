@@ -128,6 +128,25 @@ export const LoginScreen: React.FC = () => {
     };
   }, []);
 
+  // 첫 사용자 인터랙션 시 메인 BGM 시작
+  useEffect(() => {
+    const startBGM = () => {
+      soundManager.init();
+      soundManager.playBGM('rpg_main');
+      window.removeEventListener('click', startBGM);
+      window.removeEventListener('keydown', startBGM);
+      window.removeEventListener('touchstart', startBGM);
+    };
+    window.addEventListener('click', startBGM);
+    window.addEventListener('keydown', startBGM);
+    window.addEventListener('touchstart', startBGM);
+    return () => {
+      window.removeEventListener('click', startBGM);
+      window.removeEventListener('keydown', startBGM);
+      window.removeEventListener('touchstart', startBGM);
+    };
+  }, []);
+
   const apiEnabled = isApiConfigured();
 
   const handleModeChange = useCallback((newMode: AuthMode) => {
@@ -259,7 +278,7 @@ export const LoginScreen: React.FC = () => {
   }, [setScreen]);
 
   return (
-    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden" style={{ background: `linear-gradient(to bottom, rgba(10,15,30,0.45), rgba(10,15,30,0.65)), url('/img/units/background.png') center/cover no-repeat` }}>
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-purple-500/5 rounded-full blur-3xl animate-pulse-slow" />
@@ -275,7 +294,7 @@ export const LoginScreen: React.FC = () => {
 
         <div style={{ height: '20px' }} />
 
-        <p className="text-gray-400 text-sm mb-10">로그인하여 진행 상황을 저장하세요</p>
+        <p className="text-gray-400 text-sm mb-10">계정을 만들어 진행 상황을 저장하거나, 게스트로 바로 시작하세요</p>
 
         <div style={{ height: '20px' }} />
 
@@ -306,6 +325,7 @@ export const LoginScreen: React.FC = () => {
             >
               <span className="text-2xl">🔑</span>
               <span className="font-bold text-sm">로그인</span>
+              <span className={`text-xs ${mode === 'login' ? 'text-gray-300' : 'text-gray-500'}`}>기존 계정</span>
             </button>
             <button
               onClick={() => handleModeChange('signup')}
@@ -317,17 +337,19 @@ export const LoginScreen: React.FC = () => {
             >
               <span className="text-2xl">✨</span>
               <span className="font-bold text-sm">회원가입</span>
+              <span className={`text-xs ${mode === 'signup' ? 'text-gray-300' : 'text-gray-500'}`}>새 계정 생성</span>
             </button>
             <button
               onClick={() => handleModeChange('guest')}
               className={`flex-1 flex flex-col items-center gap-2 py-4 px-4 rounded-lg border-2 transition-all duration-300 cursor-pointer ${
                 mode === 'guest'
-                  ? 'bg-gray-600/20 border-gray-500 text-white'
+                  ? 'bg-green-600/20 border-green-500 text-white'
                   : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
               }`}
             >
-              <span className="text-2xl">👤</span>
-              <span className="font-bold text-sm">게스트</span>
+              <span className="text-2xl">🎮</span>
+              <span className="font-bold text-sm">바로 시작</span>
+              <span className={`text-xs ${mode === 'guest' ? 'text-green-300' : 'text-gray-500'}`}>가입 없이 체험</span>
             </button>
           </div>
         )}
@@ -510,10 +532,13 @@ export const LoginScreen: React.FC = () => {
         {/* 게스트 로그인 */}
         {(mode === 'guest' || !apiEnabled) && (
           <div className="w-full space-y-5">
-            <div className="bg-yellow-500/10 border border-yellow-500/30 rounded-md p-5">
-              <p className="text-yellow-300 text-sm text-center leading-relaxed">
-                ⚠️ 게스트 모드에서는 진행 상황이 저장되지 않으며,<br />
-                RPG 모드에서 <span className="font-bold">궁수만</span> 사용할 수 있습니다.
+            <div className="bg-green-500/10 border border-green-500/30 rounded-md p-5">
+              <p className="text-green-300 text-sm text-center leading-relaxed mb-2">
+                🎮 가입 없이 바로 게임을 체험할 수 있습니다!
+              </p>
+              <p className="text-gray-400 text-xs text-center leading-relaxed">
+                ※ 진행 상황이 저장되지 않으며, RPG 모드에서 <span className="font-bold text-gray-300">궁수만</span> 사용 가능합니다.<br />
+                회원가입 시 모든 캐릭터 해금 및 랭킹 참여가 가능합니다.
               </p>
             </div>
 

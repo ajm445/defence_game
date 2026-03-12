@@ -170,6 +170,12 @@ export const RPGClassSelectScreen: React.FC = () => {
     }
   }, [selectedClass, selectClass]);
 
+  // RPG 메인 BGM 재생
+  useEffect(() => {
+    soundManager.init();
+    soundManager.playBGM('rpg_main');
+  }, []);
+
   const handleSelectClass = useCallback((heroClass: HeroClass) => {
     // 해금 확인
     if (!isCharacterUnlocked(heroClass, playerLevel, isGuest)) {

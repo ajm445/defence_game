@@ -41,6 +41,12 @@ export const MainMenu: React.FC = () => {
     soundManager.setMuted(soundMuted);
   }, [soundVolume, soundMuted]);
 
+  // 메인 메뉴 BGM 재생
+  useEffect(() => {
+    soundManager.init();
+    soundManager.playBGM('rpg_main');
+  }, []);
+
   // 피드백 작성 여부 확인 (로그인 + 비게스트만)
   useEffect(() => {
     if (isAuthenticated && !isGuest && profile) {
@@ -177,7 +183,7 @@ export const MainMenu: React.FC = () => {
   };
 
   return (
-    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
+    <div className="fixed inset-0 flex flex-col items-center justify-center overflow-hidden" style={{ background: `linear-gradient(to bottom, rgba(10,15,30,0.45), rgba(10,15,30,0.65)), url('/img/units/background.png') center/cover no-repeat` }}>
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         {/* 움직이는 원형 글로우 */}
@@ -311,11 +317,11 @@ export const MainMenu: React.FC = () => {
 
       {/* 하단 정보 - 메인 컨테이너 기준으로 배치 */}
       <div className="absolute bottom-8 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2 pointer-events-none z-10">
-        <div className="text-gray-400 text-xs tracking-widest uppercase">
-          Press a button to start
+        <div className="text-gray-400 text-xs tracking-widest">
+          버튼을 눌러 시작하세요
         </div>
         <div className="text-gray-600 text-[10px] mt-1">
-          © 2026 제작자. All rights reserved.
+          © 2026 제작자. All Rights Reserved.
         </div>
       </div>
 
