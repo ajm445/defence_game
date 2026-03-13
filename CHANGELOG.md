@@ -34,8 +34,17 @@
 - **토글 활성 상태 시각화**: ON 상태 시 아이콘에 보라빛 틴트 오버레이
 - **비활성화 아이콘 처리**: 스킬 이미지가 배경 스타일을 가리던 문제 해결
 
-### 직업 선택 모달 캐릭터 이미지
+### 직업 선택 시스템 개선
 - **코옵 로비 직업 선택**: 이모지 아이콘 → 실제 캐릭터 유닛 이미지로 교체
+- **전직 반영**: 유저의 전직/강화 정보에 따라 직업 카드에 전직 이미지, 이름, 설명, 스탯 자동 반영
+- **실제 스탯 표시**: SP 업그레이드 보너스가 반영된 실제 게임 적용 수치 표시
+- **전직 단계 뱃지**: 1차 전직(★), 2차 강화(★★) 노란색 별 표시
+- **영어 직업명 제거**: 직업 선택 모달에서 영어 이름 제거
+
+### 직업 도감 개선
+- **캐릭터 이미지 적용**: 직업 상세 헤더의 이모지 → 실제 캐릭터 유닛 이미지로 교체
+- **영어 직업명 제거**: 전직 사이드바 목록, 전직 경로에서 영어 이름 제거
+- **전직 목록 UI 개선**: 계열별 구분선 + 여백 추가, 글씨 크기 확대, 가독성 향상
 
 ### DM 시스템 버그 수정
 - **내 메시지 읽지 않음 배지 버그**: 내가 보낸 DM이 unread 카운트에 포함되던 문제 수정 (`isSentByMe` 플래그)
@@ -44,17 +53,19 @@
 ### BGM 수정
 - **RTS 튜토리얼 후 BGM 미재생**: React useEffect cleanup 순서 문제 → 50ms 딜레이로 해결
 
-### 수정 파일 (17개)
+### 수정 파일 (20개)
 - `src/components/ui/SoundSettingsButton.tsx` (신규): 재사용 가능한 소리 설정 버튼+모달
 - `src/components/screens/MainMenu.tsx`: 설정 모달 제거, 소리 버튼, 게스트 프로필 비활성화, BGM 딜레이
 - `src/components/screens/ProfileScreen.tsx`: 계정 관리 섹션, 수직 중앙 정렬, 화면별 분기
 - `src/components/screens/LoginScreen.tsx`: 소리 설정 버튼 추가
 - `src/components/screens/GameTypeSelectScreen.tsx`: 소리 설정 버튼 추가
 - `src/components/screens/RPGClassSelectScreen.tsx`: 소리 설정 버튼 추가
-- `src/components/screens/RPGCoopLobbyScreen.tsx`: 직업 선택 모달 캐릭터 이미지
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: 직업 선택 모달 전직 반영 + 실제 스탯 표시 + 영어명 제거
 - `src/components/ui/FriendSidebar.tsx`: 소리 설정 버튼 배치, DM 알림 글로우
 - `src/components/ui/SoundControl.tsx`: 인게임 소리 변경 시 설정 저장
 - `src/components/ui/RPGSkillBar.tsx`: 저격수 보스 전용 타겟, 다크나이트 쿨다운, 비활성화 시각화
+- `src/components/ui/ClassEncyclopediaModal.tsx`: 직업 도감 캐릭터 이미지, 영어명 제거, 사이드바 UI 개선
+- `src/components/ui/ClassAdvancementPath.tsx`: 전직 경로 영어명 제거
 - `src/stores/useAuthStore.ts`: 소리 설정 로직 개편 (localStorage + DB 이중 저장)
 - `src/stores/useFriendStore.ts`: DM unread 버그 수정 (`isSentByMe`)
 - `src/hooks/useFriendMessages.ts`: DM_SENT 시 `isSentByMe` 전달

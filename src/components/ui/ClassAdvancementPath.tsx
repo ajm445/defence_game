@@ -71,7 +71,6 @@ export const ClassAdvancementPath: React.FC<ClassAdvancementPathProps> = ({
                   <p className={`font-bold text-sm ${isSelected ? 'text-orange-300' : 'text-white'}`}>
                     {advConfig.name}
                   </p>
-                  <p className="text-gray-500 text-xs">{advConfig.nameEn}</p>
                 </div>
                 {isSelected && (
                   <span className="text-orange-400 ml-1">★</span>

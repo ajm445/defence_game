@@ -15,6 +15,7 @@ import { ClassSkillDisplay } from './ClassSkillDisplay';
 import { ClassAdvancementPath } from './ClassAdvancementPath';
 import { soundManager } from '../../services/SoundManager';
 import { Emoji } from '../common/Emoji';
+import { getHeroImagePath } from '../../utils/heroImages';
 
 type TabType = 'basic' | 'advanced';
 
@@ -213,29 +214,31 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
               </div>
             ) : (
               // 전직 직업 목록
-              <div className="space-y-5">
-                {CLASS_LIST.map((heroClass) => {
+              <div>
+                {CLASS_LIST.map((heroClass, idx) => {
                   const baseConf = CLASS_CONFIGS[heroClass];
                   const advOptions = ADVANCEMENT_OPTIONS[heroClass];
                   const classColor = classColors[heroClass];
 
-                  // 계열별 배경/테두리 색상
-                  const sectionStyles: Record<HeroClass, string> = {
-                    warrior: 'bg-red-500/10 border-red-500/30',
-                    archer: 'bg-green-500/10 border-green-500/30',
-                    knight: 'bg-blue-500/10 border-blue-500/30',
-                    mage: 'bg-purple-500/10 border-purple-500/30',
+                  const sectionBorderColors: Record<HeroClass, string> = {
+                    warrior: 'border-red-500/40',
+                    archer: 'border-green-500/40',
+                    knight: 'border-blue-500/40',
+                    mage: 'border-purple-500/40',
                   };
 
                   return (
-                    <div
-                      key={heroClass}
-                      className={`p-3 rounded-lg border ${sectionStyles[heroClass]}`}
-                    >
-                      <p className={`text-xs font-bold mb-2 ${classColor.text}`}>
-                        <Emoji emoji={baseConf.emoji} size={12} className="mr-1" /> {baseConf.name} 계열
-                      </p>
-                      <div className="space-y-1.5">
+                    <div key={heroClass}>
+                      {/* 계열 구분 여백 */}
+                      {idx > 0 && <div className="h-4 border-b border-gray-700/40 mb-4" />}
+                      {/* 계열 헤더 */}
+                      <div className={`flex items-center gap-1.5 px-2 py-1 mb-1.5`}>
+                        <Emoji emoji={baseConf.emoji} size={14} />
+                        <span className={`text-xs font-bold ${classColor.text}`}>{baseConf.name} 계열</span>
+                        <div className={`flex-1 border-b ${sectionBorderColors[heroClass]} ml-1`} />
+                      </div>
+                      {/* 전직 버튼 */}
+                      <div className="space-y-1 pl-1">
                         {advOptions.map((advClass) => {
                           const advConf = ADVANCED_CLASS_CONFIGS[advClass];
                           const isSelected = selectedAdvancedClass === advClass;
@@ -245,19 +248,16 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                               key={advClass}
                               onClick={() => handleAdvancedClassSelect(advClass)}
                               className={`
-                                w-full flex items-center gap-2 p-2 rounded-lg border transition-all cursor-pointer
+                                w-full flex items-center gap-2.5 px-3 py-2 rounded-md transition-all cursor-pointer
                                 ${isSelected
-                                  ? 'border-orange-500 bg-orange-500/30'
-                                  : 'border-gray-600/50 bg-gray-800/50 hover:border-gray-500 hover:bg-gray-800/70'}
+                                  ? 'bg-orange-500/25 text-orange-300'
+                                  : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'}
                               `}
                             >
                               <Emoji emoji={advConf.emoji} size={18} />
-                              <div className="text-left flex-1">
-                                <p className={`font-bold text-xs ${isSelected ? 'text-orange-300' : 'text-white'}`}>
-                                  {advConf.name}
-                                </p>
-                                <p className="text-[10px] text-gray-500">{advConf.nameEn}</p>
-                              </div>
+                              <span className={`font-bold text-sm ${isSelected ? 'text-orange-300' : ''}`}>
+                                {advConf.name}
+                              </span>
                             </button>
                           );
                         })}
@@ -274,10 +274,17 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
             {/* 직업 헤더 */}
             <div className="flex items-start gap-4 mb-8">
               <div className={`
-                w-20 h-20 rounded-xl flex items-center justify-center text-5xl
+                w-20 h-20 rounded-xl flex items-center justify-center overflow-hidden
                 bg-gradient-to-br ${colors.gradient} border-2 ${colors.border}
               `}>
-                <Emoji emoji={activeTab === 'advanced' && advConfig ? advConfig.emoji : baseConfig.emoji} size={48} />
+                <img
+                  src={activeTab === 'advanced' && selectedAdvancedClass
+                    ? getHeroImagePath(selectedBaseClass, selectedAdvancedClass)
+                    : getHeroImagePath(selectedBaseClass)}
+                  alt={activeTab === 'advanced' && advConfig ? advConfig.name : baseConfig.name}
+                  className="w-16 h-16 object-contain drop-shadow-[0_2px_6px_rgba(0,0,0,0.5)]"
+                  draggable={false}
+                />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">

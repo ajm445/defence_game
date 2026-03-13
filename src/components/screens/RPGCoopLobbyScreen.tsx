@@ -4,11 +4,11 @@ import { useRPGStore, useMultiplayer } from '../../stores/useRPGStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useAuthProfile, useAuthIsGuest, useAuthStore } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
-import { CLASS_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { CLASS_CONFIGS, DIFFICULTY_CONFIGS, ADVANCED_CLASS_CONFIGS, SECOND_ENHANCEMENT_MULTIPLIER } from '../../constants/rpgConfig';
 import { MAP_THEME_LIST } from '../../constants/mapThemeConfig';
 import { AdvancedHeroClass } from '../../types/rpg';
 import type { MapTheme } from '../../types/rpg';
-import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked, createDefaultStatUpgrades } from '../../types/auth';
+import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked, createDefaultStatUpgrades, getStatBonus } from '../../types/auth';
 import type { HeroClass, RPGDifficulty } from '../../types/rpg';
 import type { WaitingCoopRoomInfo } from '@shared/types/rpgNetwork';
 import { wsClient } from '../../services/WebSocketClient';
@@ -1566,7 +1566,38 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             {/* 직업 카드들 */}
             <div className="flex gap-6">
               {CLASS_LIST.map((heroClass) => {
-                const config = CLASS_CONFIGS[heroClass];
+                const baseConfig = CLASS_CONFIGS[heroClass];
+                const progress = classProgress.find(p => p.className === heroClass);
+                const advClass = progress?.advancedClass as AdvancedHeroClass | undefined;
+                const tier = progress?.tier;
+                const advConfig = advClass ? ADVANCED_CLASS_CONFIGS[advClass] : null;
+
+                // 전직 시 전직 스탯, 아니면 기본 스탯
+                const displayName = advConfig ? advConfig.name : baseConfig.name;
+                const displayDesc = advConfig ? advConfig.description : baseConfig.description;
+                const upgrades = progress?.statUpgrades || createDefaultStatUpgrades();
+                // createHeroUnit과 동일한 계산 (Math.floor 사용)
+                const baseStats = advConfig ? {
+                  hp: tier === 2 ? Math.floor(advConfig.stats.hp * SECOND_ENHANCEMENT_MULTIPLIER) : advConfig.stats.hp,
+                  attack: tier === 2 ? Math.floor(advConfig.stats.attack * SECOND_ENHANCEMENT_MULTIPLIER) : advConfig.stats.attack,
+                  attackSpeed: tier === 2 ? advConfig.stats.attackSpeed / SECOND_ENHANCEMENT_MULTIPLIER : advConfig.stats.attackSpeed,
+                  speed: tier === 2 ? Math.floor(advConfig.stats.speed * SECOND_ENHANCEMENT_MULTIPLIER) : advConfig.stats.speed,
+                  range: tier === 2 ? Math.floor(advConfig.stats.range * SECOND_ENHANCEMENT_MULTIPLIER) : advConfig.stats.range,
+                } : {
+                  hp: baseConfig.hp,
+                  attack: baseConfig.attack,
+                  attackSpeed: baseConfig.attackSpeed,
+                  speed: baseConfig.speed,
+                  range: baseConfig.range,
+                };
+                const displayStats = {
+                  hp: baseStats.hp + getStatBonus('hp', upgrades.hp, tier),
+                  attack: baseStats.attack + getStatBonus('attack', upgrades.attack, tier),
+                  attackSpeed: Math.max(0.3, baseStats.attackSpeed - getStatBonus('attackSpeed', upgrades.attackSpeed, tier)),
+                  speed: baseStats.speed + getStatBonus('speed', upgrades.speed, tier),
+                  range: baseStats.range + getStatBonus('range', upgrades.range, tier),
+                };
+
                 const isSelected = selectedClass === heroClass;
                 const isLocked = !isCharacterUnlocked(heroClass, playerLevel, isGuest);
                 const unlockLevel = CHARACTER_UNLOCK_LEVELS[heroClass];
@@ -1645,14 +1676,21 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                       </div>
                     )}
 
+                    {/* 전직 단계 표시 */}
+                    {advConfig && !isLocked && (
+                      <div className="absolute top-3 left-3 z-20 text-yellow-400 text-sm drop-shadow-[0_1px_2px_rgba(0,0,0,0.8)]">
+                        {tier === 2 ? '★★' : '★'}
+                      </div>
+                    )}
+
                     {/* 컨텐츠 */}
                     <div className={`relative h-full flex flex-col items-center justify-center p-6 ${isLocked ? 'opacity-50' : ''}`}
                     style={{ paddingLeft: '5px', paddingRight: '5px' }}>
                       {/* 캐릭터 이미지 */}
                       <div className={`mb-4 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
                         <img
-                          src={getHeroImagePath(heroClass)}
-                          alt={config.name}
+                          src={getHeroImagePath(heroClass, advClass, tier)}
+                          alt={displayName}
                           className="w-20 h-20 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
                           draggable={false}
                         />
@@ -1661,14 +1699,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                       <div style={{ height: '30px' }} />
 
                       {/* 직업명 */}
-                      <h2 className="font-game text-2xl text-white mb-1">{config.name}</h2>
-                      <p className="text-gray-400 text-sm mb-4">{config.nameEn}</p>
+                      <h2 className="font-game text-2xl text-white mb-4">{displayName}</h2>
 
                       <div style={{ height: '10px' }} />
 
                       {/* 설명 */}
                       <p className="text-gray-300 text-xs text-center mb-4 px-2">
-                        {config.description}
+                        {displayDesc}
                       </p>
 
                       <div style={{ height: '10px' }} />
@@ -1677,23 +1714,23 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                       <div className="w-full space-y-1 text-xs">
                         <div className="flex justify-between px-2">
                           <span className="text-gray-400">HP</span>
-                          <span className="text-white font-bold">{config.hp}</span>
+                          <span className="text-white font-bold">{displayStats.hp}</span>
                         </div>
                         <div className="flex justify-between px-2">
                           <span className="text-gray-400">공격력</span>
-                          <span className="text-red-400 font-bold">{config.attack}</span>
+                          <span className="text-red-400 font-bold">{displayStats.attack}</span>
                         </div>
                         <div className="flex justify-between px-2">
                           <span className="text-gray-400">공속</span>
-                          <span className="text-yellow-400 font-bold">{config.attackSpeed}초</span>
+                          <span className="text-yellow-400 font-bold">{displayStats.attackSpeed.toFixed(2)}초</span>
                         </div>
                         <div className="flex justify-between px-2">
                           <span className="text-gray-400">이동속도</span>
-                          <span className="text-blue-400 font-bold">{config.speed}</span>
+                          <span className="text-blue-400 font-bold">{displayStats.speed.toFixed(1)}</span>
                         </div>
                         <div className="flex justify-between px-2">
                           <span className="text-gray-400">사거리</span>
-                          <span className="text-green-400 font-bold">{config.range}</span>
+                          <span className="text-green-400 font-bold">{displayStats.range}</span>
                         </div>
                       </div>
                     </div>
