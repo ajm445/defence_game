@@ -115,7 +115,8 @@ export function drawEnemyBase(
   camera: { x: number; y: number; zoom: number },
   _canvasWidth: number,
   _canvasHeight: number,
-  gameTime: number = 0
+  gameTime: number = 0,
+  allBasesDestroyed: boolean = false
 ): void {
   // 다른 엔티티와 동일한 좌표 변환
   const screenX = base.x - camera.x;
@@ -127,6 +128,9 @@ export function drawEnemyBase(
   const hpPercent = base.hp / base.maxHp;
 
   if (base.destroyed) {
+    // 보스 출현 시 (모든 기지 파괴) 잔해/텍스트 숨김
+    if (allBasesDestroyed) return;
+
     // 파괴된 기지 - 잔해
     ctx.save();
     ctx.translate(screenX, screenY);
@@ -388,8 +392,9 @@ export function drawAllEnemyBases(
   canvasHeight: number,
   gameTime: number = 0
 ): void {
+  const allDestroyed = bases.length > 0 && bases.every(b => b.destroyed);
   for (const base of bases) {
-    drawEnemyBase(ctx, base, camera, canvasWidth, canvasHeight, gameTime);
+    drawEnemyBase(ctx, base, camera, canvasWidth, canvasHeight, gameTime, allDestroyed);
   }
 }
 

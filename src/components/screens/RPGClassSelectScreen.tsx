@@ -10,6 +10,7 @@ import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
 import { createMultiplayerRoom, joinMultiplayerRoom } from '../../hooks/useNetworkSync';
 import { Emoji } from '../common/Emoji';
+import { SoundSettingsButton } from '../ui/SoundSettingsButton';
 
 interface ClassCardProps {
   heroClass: HeroClass;
@@ -413,21 +414,24 @@ export const RPGClassSelectScreen: React.FC = () => {
         )}
       </div>
 
-      {/* 우측 상단 프로필 버튼 */}
-      <button
-        onClick={handleProfile}
-        className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2 bg-gray-800/80 hover:bg-gray-700/80 border border-gray-600 hover:border-yellow-500/50 rounded-lg transition-all cursor-pointer group"
-      >
-        <Emoji emoji="👤" size={20} />
-        <div className="text-left">
-          <p className="text-white text-sm font-bold group-hover:text-yellow-400 transition-colors">
-            {profile?.nickname || '게스트'}
-          </p>
-          <p className="text-gray-400 text-xs">
-            Lv.{playerLevel}
-          </p>
-        </div>
-      </button>
+      {/* 우측 상단 프로필 + 소리 설정 버튼 */}
+      <div className="absolute top-6 right-6 z-20 flex items-center gap-3">
+        <SoundSettingsButton />
+        <button
+          onClick={handleProfile}
+          className="flex items-center gap-2 px-4 py-2 bg-gray-800/80 hover:bg-gray-700/80 border border-gray-600 hover:border-yellow-500/50 rounded-lg transition-all cursor-pointer group"
+        >
+          <Emoji emoji="👤" size={20} />
+          <div className="text-left">
+            <p className="text-white text-sm font-bold group-hover:text-yellow-400 transition-colors">
+              {profile?.nickname || '게스트'}
+            </p>
+            <p className="text-gray-400 text-xs">
+              Lv.{playerLevel}
+            </p>
+          </div>
+        </button>
+      </div>
 
       {/* 코너 장식 */}
       {!isMobile && !isTablet && (<>

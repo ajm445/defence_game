@@ -1218,30 +1218,20 @@ function executeAdvancedESkill(
       const chargeTime = 3.0;
       const skillDamage = Math.floor(damage * 10.0);
 
-      // 타겟팅: 마우스 위치 기준 가장 가까운 적, 보스 우선 (무제한 사거리)
+      // 타겟팅: 마우스 위치 기준 가장 가까운 보스 (보스만 타겟 가능, 무제한 사거리)
       let targetEnemy: RPGEnemy | null = null;
-      let closestBoss: RPGEnemy | null = null;
-      let closestNormal: RPGEnemy | null = null;
       let closestBossDist = Infinity;
-      let closestNormalDist = Infinity;
 
       for (const enemy of enemies) {
         if (enemy.hp <= 0) continue;
+        if (!isBossType(enemy.type)) continue;  // 보스만 타겟 가능
         const dist = distance(targetX, targetY, enemy.x, enemy.y);
-        if (isBossType(enemy.type)) {
-          if (dist < closestBossDist) {
-            closestBossDist = dist;
-            closestBoss = enemy;
-          }
-        } else {
-          if (dist < closestNormalDist) {
-            closestNormalDist = dist;
-            closestNormal = enemy;
-          }
+        if (dist < closestBossDist) {
+          closestBossDist = dist;
+          targetEnemy = enemy;
         }
       }
 
-      targetEnemy = closestBoss || closestNormal;
       if (!targetEnemy) return false;
 
       // 3초 시전 (이동/공격 불가)
@@ -1644,12 +1634,34 @@ export function updatePendingSkills(ctx: SkillContext): void {
           startTime: state.gameTime,
         });
       } else if (skill.type === 'snipe') {
-        // 저격: targetId로 단일 적 타격 (이펙트는 시전 시 이미 생성됨, 중복 생성 금지)
+        // 저격: 시전자 → 타겟 보스 경로에 있는 가장 가까운 적 타격
         const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        const casterX = caster ? caster.x : skill.position.x;
+        const casterY = caster ? caster.y : skill.position.y;
+
         if (skill.targetId) {
           const targetEnemy = state.enemies.find(e => e.id === skill.targetId && e.hp > 0);
           if (targetEnemy) {
-            applyDamageToEnemy(ctx, targetEnemy.id, skill.damage, caster);
+            // 경로 상 가장 먼저 만나는 적 찾기
+            const hitWidth = 30; // 탄환 경로 폭 (반경)
+            let closestInPath: typeof targetEnemy | null = null;
+            let closestDistSq = Infinity;
+
+            for (const enemy of state.enemies) {
+              if (enemy.hp <= 0) continue;
+              const enemyHitRadius = isBossType(enemy.type) ? 44 : 22;
+              const lineDist = pointToLineDistance(enemy.x, enemy.y, casterX, casterY, targetEnemy.x, targetEnemy.y);
+              if (lineDist <= hitWidth + enemyHitRadius) {
+                const dSq = distanceSquared(casterX, casterY, enemy.x, enemy.y);
+                if (dSq < closestDistSq) {
+                  closestDistSq = dSq;
+                  closestInPath = enemy;
+                }
+              }
+            }
+
+            const hitTarget = closestInPath || targetEnemy;
+            applyDamageToEnemy(ctx, hitTarget.id, skill.damage, caster);
           }
         }
       } else {

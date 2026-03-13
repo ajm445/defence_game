@@ -443,26 +443,20 @@ export function drawHero(
   ctx.shadowColor = glowColor;
   ctx.shadowBlur = isOtherPlayer ? 25 : 20;
 
-  // 외부 오라 (직업별 색상, 다른 플레이어는 시안색 혼합)
-  const auraColor = isOtherPlayer ? '#00d4ff' : classVisual.color;
-  const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 40);
-  gradient.addColorStop(0, auraColor + '60');
-  gradient.addColorStop(0.5, auraColor + '20');
-  gradient.addColorStop(1, 'transparent');
-  ctx.fillStyle = gradient;
+  // 타원형 그림자 (캐릭터 발 아래 접지감 표현)
+  const shadowColor = isOtherPlayer ? '#00d4ff' : classVisual.color;
+  ctx.save();
+  ctx.translate(screenX, screenY + 18);
+  ctx.scale(1, 0.45);
+  const shadowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, 28);
+  shadowGradient.addColorStop(0, shadowColor + '50');
+  shadowGradient.addColorStop(0.6, shadowColor + '20');
+  shadowGradient.addColorStop(1, 'transparent');
+  ctx.fillStyle = shadowGradient;
   ctx.beginPath();
-  ctx.arc(screenX, screenY, 40, 0, Math.PI * 2);
+  ctx.arc(0, 0, 28, 0, Math.PI * 2);
   ctx.fill();
-
-  // 메인 원
-  ctx.fillStyle = '#1a1a35';
-  ctx.strokeStyle = isOtherPlayer ? '#00d4ff' : classVisual.color;
-  ctx.lineWidth = isOtherPlayer ? 4 : 3;
-
-  ctx.beginPath();
-  ctx.arc(screenX, screenY, 25, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
+  ctx.restore();
 
   ctx.restore();
 
@@ -502,46 +496,25 @@ export function drawHero(
     drawEmoji(ctx, emoji, screenX, screenY, 28);
   }
 
-  // 피격 시 빨간색 오버레이 깜빡임 효과
+  // 피격 시 빨간색 깜빡임 효과 (글로우 + 투명도 변화)
   if (isDamageBlinking) {
     ctx.save();
-    // 빠르게 깜빡이는 효과 (0.05초 간격)
     const blinkPhase = Math.floor(timeSinceDamage / 0.05) % 2;
     if (blinkPhase === 0) {
-      // 빨간색 오버레이
-      ctx.globalCompositeOperation = 'source-atop';
-      ctx.fillStyle = 'rgba(255, 50, 50, 0.6)';
-      ctx.beginPath();
-      ctx.arc(screenX, screenY, 30, 0, Math.PI * 2);
-      ctx.fill();
-
-      // 빨간색 외곽 글로우
-      ctx.globalCompositeOperation = 'source-over';
+      // 빨간색 글로우
       ctx.shadowColor = '#ff3333';
-      ctx.shadowBlur = 20;
-      ctx.strokeStyle = 'rgba(255, 50, 50, 0.8)';
-      ctx.lineWidth = 4;
+      ctx.shadowBlur = 25;
+      const dmgGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 35);
+      dmgGradient.addColorStop(0, 'rgba(255, 50, 50, 0.4)');
+      dmgGradient.addColorStop(0.6, 'rgba(255, 50, 50, 0.15)');
+      dmgGradient.addColorStop(1, 'transparent');
+      ctx.fillStyle = dmgGradient;
       ctx.beginPath();
-      ctx.arc(screenX, screenY, 28, 0, Math.PI * 2);
-      ctx.stroke();
+      ctx.arc(screenX, screenY, 35, 0, Math.PI * 2);
+      ctx.fill();
     }
     ctx.restore();
   }
-
-  // 캐릭터 레벨 배지 (계정 레벨)
-  ctx.fillStyle = '#1a1a35';
-  ctx.strokeStyle = '#ffd700';
-  ctx.lineWidth = 2;
-  ctx.beginPath();
-  ctx.arc(screenX + 25, screenY - 20, 12, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
-
-  ctx.font = 'bold 12px Arial';
-  ctx.fillStyle = '#ffd700';
-  ctx.textAlign = 'center';
-  ctx.textBaseline = 'middle';
-  ctx.fillText(`${hero.characterLevel}`, screenX + 25, screenY - 20);
 
   // 닉네임 표시
   if (nickname) {
@@ -554,11 +527,11 @@ export function drawHero(
     const textWidth = ctx.measureText(nickname).width;
     ctx.fillStyle = 'rgba(0, 0, 0, 0.6)';
     ctx.beginPath();
-    ctx.roundRect(screenX - textWidth / 2 - 4, screenY - 56, textWidth + 8, 14, 3);
+    ctx.roundRect(screenX - textWidth / 2 - 4, screenY - 46, textWidth + 8, 14, 3);
     ctx.fill();
 
     ctx.fillStyle = isOtherPlayer ? '#60a5fa' : '#fbbf24';
-    ctx.fillText(nickname, screenX, screenY - 49);
+    ctx.fillText(nickname, screenX, screenY - 39);
   }
 
   // 체력바 배경
@@ -568,7 +541,7 @@ export function drawHero(
 
   ctx.fillStyle = '#1a1a25';
   ctx.beginPath();
-  ctx.roundRect(screenX - hpBarWidth / 2, screenY - 40, hpBarWidth, hpBarHeight, 3);
+  ctx.roundRect(screenX - hpBarWidth / 2, screenY - 30, hpBarWidth, hpBarHeight, 3);
   ctx.fill();
 
   // 체력바
@@ -577,7 +550,7 @@ export function drawHero(
   ctx.beginPath();
   ctx.roundRect(
     screenX - hpBarWidth / 2 + 1,
-    screenY - 39,
+    screenY - 29,
     (hpBarWidth - 2) * hpPercent,
     hpBarHeight - 2,
     2
@@ -692,25 +665,31 @@ export function drawRPGEnemy(
     ctx.shadowBlur = 30;
   }
 
-  // 외부 원
+  // 타원형 그림자 (유닛 발 아래 접지감 표현)
   const bossColor = isBoss2 ? '#9900ff' : '#ff0000';
-  const gradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, baseRadius);
-  gradient.addColorStop(0, (isAnyBoss ? bossColor : '#ef4444') + '40');
-  gradient.addColorStop(1, 'transparent');
-  ctx.fillStyle = gradient;
+  const enemyShadowColor = isAnyBoss ? bossColor : '#ef4444';
+  const shadowRadiusX = isAnyBoss ? 36 : 18;
+  const shadowOffsetY = isAnyBoss ? 28 : 14;
+  ctx.save();
+  ctx.translate(screenX, screenY + shadowOffsetY);
+  ctx.scale(1, 0.45);
+  const shadowGradient = ctx.createRadialGradient(0, 0, 0, 0, 0, shadowRadiusX);
+  shadowGradient.addColorStop(0, enemyShadowColor + '45');
+  shadowGradient.addColorStop(0.6, enemyShadowColor + '18');
+  shadowGradient.addColorStop(1, 'transparent');
+  ctx.fillStyle = shadowGradient;
   ctx.beginPath();
-  ctx.arc(screenX, screenY, baseRadius, 0, Math.PI * 2);
+  ctx.arc(0, 0, shadowRadiusX, 0, Math.PI * 2);
   ctx.fill();
-
-  // 메인 원
-  ctx.fillStyle = isAnyBoss ? (isBoss2 ? '#1a0a2a' : '#2a0a0a') : '#1a1a25';
-  ctx.strokeStyle = isTarget ? '#ff6600' : (isAnyBoss ? bossColor : '#ef4444');
-  ctx.lineWidth = isTarget ? 3 : (isAnyBoss ? 4 : 2);
-
-  ctx.beginPath();
-  ctx.arc(screenX, screenY, mainRadius, 0, Math.PI * 2);
-  ctx.fill();
-  ctx.stroke();
+  // 타겟 표시 링 (타겟팅된 적만)
+  if (isTarget) {
+    ctx.strokeStyle = '#ff6600';
+    ctx.lineWidth = 2;
+    ctx.beginPath();
+    ctx.arc(0, 0, shadowRadiusX + 4, 0, Math.PI * 2);
+    ctx.stroke();
+  }
+  ctx.restore();
 
   ctx.restore();
 
@@ -739,7 +718,7 @@ export function drawRPGEnemy(
   // 체력바
   const hpBarWidth = isAnyBoss ? 80 : 26;
   const hpBarHeight = isAnyBoss ? 8 : 4;
-  const hpBarY = isAnyBoss ? -60 : -35;
+  const hpBarY = isAnyBoss ? -60 : -25;
   const hpPercent = enemy.hp / enemy.maxHp;
 
   ctx.fillStyle = '#1a1a25';

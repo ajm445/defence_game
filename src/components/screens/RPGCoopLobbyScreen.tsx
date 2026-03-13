@@ -27,6 +27,7 @@ import { ClassEncyclopediaModal } from '../ui/ClassEncyclopediaModal';
 import { RankingModal } from '../ui/RankingModal';
 import { LobbyChat } from '../ui/LobbyChat';
 import { Emoji } from '../common/Emoji';
+import { getHeroImagePath } from '../../utils/heroImages';
 
 // 난이도 색상 설정
 const difficultyColors: Record<RPGDifficulty, { bg: string; border: string; text: string; hoverBg: string }> = {
@@ -1647,9 +1648,14 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                     {/* 컨텐츠 */}
                     <div className={`relative h-full flex flex-col items-center justify-center p-6 ${isLocked ? 'opacity-50' : ''}`}
                     style={{ paddingLeft: '5px', paddingRight: '5px' }}>
-                      {/* 이모지 아이콘 */}
-                      <div className={`text-7xl mb-4 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
-                        {config.emoji}
+                      {/* 캐릭터 이미지 */}
+                      <div className={`mb-4 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
+                        <img
+                          src={getHeroImagePath(heroClass)}
+                          alt={config.name}
+                          className="w-20 h-20 object-contain drop-shadow-[0_2px_8px_rgba(0,0,0,0.5)]"
+                          draggable={false}
+                        />
                       </div>
 
                       <div style={{ height: '30px' }} />

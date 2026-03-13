@@ -4,6 +4,7 @@ import { useAuthStore, useAuthStatus } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
 import { Emoji } from '../common/Emoji';
+import { SoundSettingsButton } from '../ui/SoundSettingsButton';
 
 export const GameTypeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -167,6 +168,11 @@ export const GameTypeSelectScreen: React.FC = () => {
           style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}>
           뒤로 가기
         </button>
+      </div>
+
+      {/* 우측 상단 소리 설정 버튼 */}
+      <div className="absolute top-6 right-6 z-20">
+        <SoundSettingsButton />
       </div>
 
       {/* 코너 장식 */}

@@ -123,6 +123,8 @@ export const ProfileScreen: React.FC = () => {
   const isMobile = useUIStore((s) => s.isMobile);
   const isTablet = useUIStore((s) => s.isTablet);
   const signOut = useAuthStore((state) => state.signOut);
+  const changePassword = useAuthStore((state) => state.changePassword);
+  const deleteAccount = useAuthStore((state) => state.deleteAccount);
   const profile = useAuthProfile();
   const isGuest = useAuthIsGuest();
   const classProgress = useClassProgress();
@@ -135,8 +137,20 @@ export const ProfileScreen: React.FC = () => {
   const rtsScreens = ['modeSelect', 'difficultySelect', 'lobby'];
   const isFromRTS = previousScreen && rtsScreens.includes(previousScreen);
 
+  // 메인 메뉴에서 접근했는지 확인 (계정 관리 표시용)
+  const isFromMenu = previousScreen === 'menu';
+
   // 업그레이드 모달 상태
   const [selectedClass, setSelectedClass] = useState<HeroClass | null>(null);
+
+  // 계정 관리 상태 (비밀번호 변경, 회원 탈퇴)
+  const [showAccountSection, setShowAccountSection] = useState(false);
+  const [currentPassword, setCurrentPassword] = useState('');
+  const [newPassword, setNewPassword] = useState('');
+  const [confirmPassword, setConfirmPassword] = useState('');
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [accountError, setAccountError] = useState<string | null>(null);
+  const [accountSuccess, setAccountSuccess] = useState<string | null>(null);
 
   // 콘텐츠가 뷰포트 높이를 초과하면 비례 축소
   const contentRef = useRef<HTMLDivElement>(null);
@@ -152,20 +166,20 @@ export const ProfileScreen: React.FC = () => {
       if (contentHeight > viewportHeight) {
         const scale = (viewportHeight / contentHeight) * 0.95;
         el.style.transform = `scale(${Math.min(1, scale)})`;
-        el.style.transformOrigin = 'top center';
+        el.style.transformOrigin = 'center center';
       }
     };
 
     updateScale();
     window.addEventListener('resize', updateScale);
     return () => window.removeEventListener('resize', updateScale);
-  }, [classProgress, stats, isLoading, isGuest, isFromRTS]);
+  }, [classProgress, stats, isLoading, isGuest, isFromRTS, showAccountSection, showDeleteConfirm]);
 
   useEffect(() => {
-    if (profile && !isGuest && !isFromRTS) {
+    if (profile && !isGuest && !isFromRTS && !isFromMenu) {
       loadProfileData();
     }
-  }, [profile, isGuest, loadProfileData, isFromRTS]);
+  }, [profile, isGuest, loadProfileData, isFromRTS, isFromMenu]);
 
   const expProgress = getPlayerExpProgress();
 
@@ -181,6 +195,62 @@ export const ProfileScreen: React.FC = () => {
     await signOut();
     setScreen('menu');
   }, [signOut, setScreen]);
+
+  const handleChangePassword = useCallback(async () => {
+    if (!currentPassword) {
+      setAccountError('현재 비밀번호를 입력해주세요.');
+      return;
+    }
+    if (!newPassword) {
+      setAccountError('새 비밀번호를 입력해주세요.');
+      return;
+    }
+    if (newPassword.length < 6) {
+      setAccountError('새 비밀번호는 6자 이상이어야 합니다.');
+      return;
+    }
+    if (newPassword !== confirmPassword) {
+      setAccountError('새 비밀번호가 일치하지 않습니다.');
+      return;
+    }
+    if (currentPassword === newPassword) {
+      setAccountError('현재 비밀번호와 다른 비밀번호를 입력해주세요.');
+      return;
+    }
+
+    soundManager.play('ui_click');
+    const result = await changePassword(currentPassword, newPassword);
+    if (result.success) {
+      setAccountSuccess('비밀번호가 변경되었습니다.');
+      setAccountError(null);
+      setCurrentPassword('');
+      setNewPassword('');
+      setConfirmPassword('');
+    } else {
+      setAccountError(result.error || '비밀번호 변경에 실패했습니다.');
+    }
+  }, [currentPassword, newPassword, confirmPassword, changePassword]);
+
+  const handleDeleteAccount = useCallback(async () => {
+    soundManager.play('ui_click');
+    const result = await deleteAccount();
+    if (result.success) {
+      setScreen('menu');
+    } else {
+      setAccountError(result.error || '회원 탈퇴에 실패했습니다.');
+    }
+  }, [deleteAccount, setScreen]);
+
+  const handleToggleAccountSection = useCallback(() => {
+    soundManager.play('ui_click');
+    setShowAccountSection((prev) => !prev);
+    setAccountError(null);
+    setAccountSuccess(null);
+    setCurrentPassword('');
+    setNewPassword('');
+    setConfirmPassword('');
+    setShowDeleteConfirm(false);
+  }, []);
 
   const handleOpenModal = useCallback((heroClass: HeroClass) => {
     setSelectedClass(heroClass);
@@ -220,7 +290,7 @@ export const ProfileScreen: React.FC = () => {
   }
 
   return (
-    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center overflow-hidden">
+    <div className="fixed inset-0 bg-menu-gradient grid-overlay flex flex-col items-center justify-center overflow-hidden">
       {/* 배경 효과 */}
       <div className="absolute inset-0 overflow-hidden pointer-events-none">
         <div className="absolute top-1/4 left-1/4 w-96 h-96 bg-yellow-500/5 rounded-full blur-3xl animate-pulse-slow" />
@@ -228,7 +298,7 @@ export const ProfileScreen: React.FC = () => {
       </div>
 
       {/* 메인 컨텐츠 (뷰포트 초과 시 비례 축소) */}
-      <div ref={contentRef} className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-4xl px-4 pt-10 pb-8">
+      <div ref={contentRef} className="relative z-10 flex flex-col items-center animate-fade-in w-full max-w-4xl px-4 py-8">
         {/* 타이틀 */}
         <h1 className={`font-game text-3xl md:text-4xl mb-6 ${isFromRTS ? 'text-neon-cyan' : 'text-yellow-400'}`}>
           {isFromRTS ? '프로필' : '프로필'}
@@ -306,8 +376,8 @@ export const ProfileScreen: React.FC = () => {
           )}
         </div>
 
-        {/* RPG 모드에서만 통계 및 클래스 진행 표시 */}
-        {!isFromRTS && (
+        {/* RPG 모드에서만 통계 및 클래스 진행 표시 (메인 메뉴에서는 제외) */}
+        {!isFromRTS && !isFromMenu && (
           <>
             <div style={{ height: '15px' }} />
 
@@ -378,6 +448,133 @@ export const ProfileScreen: React.FC = () => {
                   );
                 })}
               </div>
+            </div>
+          </>
+        )}
+
+        {/* 계정 관리 섹션 - 메인 메뉴에서 접근 + 비게스트만 */}
+        {isFromMenu && !isGuest && (
+          <>
+            <div style={{ height: '15px' }} />
+
+            <div className="w-full">
+              <button
+                onClick={handleToggleAccountSection}
+                className="w-full flex items-center justify-between bg-gray-800/50 rounded-xl border border-gray-700 hover:border-gray-500 p-4 transition-all cursor-pointer"
+              >
+                <span className="text-gray-300 font-bold"><Emoji emoji="🔧" size={16} className="mr-2" />계정 관리</span>
+                <svg
+                  className={`w-5 h-5 text-gray-400 transition-transform duration-200 ${showAccountSection ? 'rotate-180' : ''}`}
+                  fill="none" stroke="currentColor" viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M19 9l-7 7-7-7" />
+                </svg>
+              </button>
+
+              {showAccountSection && (
+                <div className="mt-2 bg-gray-800/50 rounded-xl border border-gray-700 p-6 space-y-6">
+                  {/* 에러/성공 메시지 */}
+                  {accountError && (
+                    <div className="p-3 bg-red-500/10 border border-red-500/30 rounded-lg">
+                      <p className="text-red-400 text-sm text-center">{accountError}</p>
+                    </div>
+                  )}
+                  {accountSuccess && (
+                    <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
+                      <p className="text-green-400 text-sm text-center">{accountSuccess}</p>
+                    </div>
+                  )}
+
+                  {/* 비밀번호 변경 */}
+                  <div>
+                    <h4 className="text-white font-bold mb-4"><Emoji emoji="🔒" size={16} className="mr-1" /> 비밀번호 변경</h4>
+                    <div className="space-y-3">
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">현재 비밀번호</label>
+                        <input
+                          type="password"
+                          value={currentPassword}
+                          onChange={(e) => setCurrentPassword(e.target.value)}
+                          placeholder="현재 비밀번호 입력..."
+                          className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-yellow-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">새 비밀번호</label>
+                        <input
+                          type="password"
+                          value={newPassword}
+                          onChange={(e) => setNewPassword(e.target.value)}
+                          placeholder="새 비밀번호 입력 (6자 이상)..."
+                          className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-yellow-500 focus:outline-none"
+                        />
+                      </div>
+                      <div>
+                        <label className="block text-gray-400 text-sm mb-1">새 비밀번호 확인</label>
+                        <input
+                          type="password"
+                          value={confirmPassword}
+                          onChange={(e) => setConfirmPassword(e.target.value)}
+                          placeholder="새 비밀번호 다시 입력..."
+                          className="w-full px-4 py-3 bg-gray-700/50 border border-gray-600 rounded-lg text-white focus:border-yellow-500 focus:outline-none"
+                        />
+                      </div>
+                      <button
+                        onClick={handleChangePassword}
+                        className="w-full py-3 bg-yellow-500/20 hover:bg-yellow-500/30 text-yellow-400 border border-yellow-500/50 hover:border-yellow-500 rounded-lg transition-all cursor-pointer"
+                      >
+                        비밀번호 변경
+                      </button>
+                    </div>
+                  </div>
+
+                  {/* 구분선 */}
+                  <div className="h-px bg-gray-700" />
+
+                  {/* 회원 탈퇴 */}
+                  <div>
+                    {!showDeleteConfirm ? (
+                      <>
+                        <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
+                          <h4 className="text-red-400 font-bold mb-2"><Emoji emoji="⚠️" size={16} className="mr-1" /> 회원 탈퇴</h4>
+                          <p className="text-gray-400 text-sm">
+                            계정을 삭제하면 모든 게임 데이터(레벨, 통계, 진행 상황)가 영구적으로 삭제됩니다.
+                          </p>
+                        </div>
+                        <button
+                          onClick={() => setShowDeleteConfirm(true)}
+                          className="mt-3 w-full py-3 bg-red-500/20 hover:bg-red-500/30 text-red-400 border border-red-500/50 hover:border-red-500 rounded-lg transition-all cursor-pointer"
+                        >
+                          회원 탈퇴
+                        </button>
+                      </>
+                    ) : (
+                      <>
+                        <div className="p-4 bg-red-500/20 border border-red-500 rounded-lg">
+                          <h4 className="text-red-400 font-bold mb-2 text-center">정말 탈퇴하시겠습니까?</h4>
+                          <p className="text-gray-300 text-sm text-center">
+                            이 작업은 되돌릴 수 없습니다.
+                          </p>
+                        </div>
+                        <div className="mt-3 flex gap-3">
+                          <button
+                            onClick={() => setShowDeleteConfirm(false)}
+                            className="flex-1 py-3 bg-gray-700 hover:bg-gray-600 text-gray-300 rounded-lg transition-colors cursor-pointer"
+                          >
+                            취소
+                          </button>
+                          <button
+                            onClick={handleDeleteAccount}
+                            className="flex-1 py-3 bg-red-600 hover:bg-red-700 text-white rounded-lg transition-all cursor-pointer"
+                          >
+                            확인, 탈퇴합니다
+                          </button>
+                        </div>
+                      </>
+                    )}
+                  </div>
+                </div>
+              )}
             </div>
           </>
         )}

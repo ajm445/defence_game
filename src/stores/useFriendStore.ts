@@ -68,7 +68,7 @@ interface FriendState {
   updateOnlinePlayerMode: (playerId: string, gameMode: 'rts' | 'rpg' | null) => void;
 
   // DM 액션
-  addDMMessage: (friendUserId: string, message: DirectMessage) => void;
+  addDMMessage: (friendUserId: string, message: DirectMessage, isSentByMe?: boolean) => void;
   mergeDMHistory: (conversations: { friendUserId: string; messages: DirectMessage[] }[]) => void;
   openDMChat: (friendId: string) => void;
   closeDMChat: () => void;
@@ -201,7 +201,7 @@ export const useFriendStore = create<FriendState>((set) => ({
       ),
     })),
 
-  addDMMessage: (friendUserId, message) =>
+  addDMMessage: (friendUserId, message, isSentByMe = false) =>
     set((state) => {
       const existing = state.dmConversations.get(friendUserId) || [];
       // 중복 방지: 같은 ID 메시지가 이미 있으면 무시
@@ -211,9 +211,9 @@ export const useFriendStore = create<FriendState>((set) => ({
       const newConversations = new Map(state.dmConversations);
       newConversations.set(friendUserId, [...existing, message]);
 
-      // 창이 열려 있지 않으면 unread 증가
+      // 내가 보낸 메시지는 unread 증가하지 않음, 창이 열려 있으면 역시 증가 안 함
       const newUnread = new Map(state.dmUnreadCounts);
-      if (state.activeDMFriendId !== friendUserId) {
+      if (!isSentByMe && state.activeDMFriendId !== friendUserId) {
         newUnread.set(friendUserId, (newUnread.get(friendUserId) || 0) + 1);
       }
       return { dmConversations: newConversations, dmUnreadCounts: newUnread };

@@ -96,8 +96,8 @@ const FOREST_THEME: MapThemeConfig = {
   },
 
   grid: {
-    mainColor: 'rgba(0, 245, 255, 0.05)',
-    subColor: 'rgba(0, 245, 255, 0.02)',
+    mainColor: 'rgba(0, 245, 255, 0)',
+    subColor: 'rgba(0, 245, 255, 0)',
   },
 
   zoneTints: {
@@ -167,8 +167,8 @@ const ICE_THEME: MapThemeConfig = {
   },
 
   grid: {
-    mainColor: 'rgba(150, 200, 255, 0.04)',
-    subColor: 'rgba(150, 200, 255, 0.015)',
+    mainColor: 'rgba(150, 200, 255, 0)',
+    subColor: 'rgba(150, 200, 255, 0)',
   },
 
   zoneTints: {
@@ -238,8 +238,8 @@ const VOLCANO_THEME: MapThemeConfig = {
   },
 
   grid: {
-    mainColor: 'rgba(255, 100, 30, 0.04)',
-    subColor: 'rgba(255, 100, 30, 0.015)',
+    mainColor: 'rgba(255, 100, 30, 0)',
+    subColor: 'rgba(255, 100, 30, 0)',
   },
 
   zoneTints: {
@@ -309,8 +309,8 @@ const SHADOW_THEME: MapThemeConfig = {
   },
 
   grid: {
-    mainColor: 'rgba(180, 100, 255, 0.04)',
-    subColor: 'rgba(180, 100, 255, 0.015)',
+    mainColor: 'rgba(180, 100, 255, 0)',
+    subColor: 'rgba(180, 100, 255, 0)',
   },
 
   zoneTints: {

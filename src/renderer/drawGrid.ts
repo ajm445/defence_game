@@ -7,8 +7,8 @@ export function drawGrid(
   canvasHeight: number,
   gridColors?: { mainColor: string; subColor: string }
 ) {
-  const mainColor = gridColors?.mainColor ?? 'rgba(0, 245, 255, 0.05)';
-  const subColor = gridColors?.subColor ?? 'rgba(0, 245, 255, 0.02)';
+  const mainColor = gridColors?.mainColor ?? 'rgba(0, 245, 255, 0)';
+  const subColor = gridColors?.subColor ?? 'rgba(0, 245, 255, 0)';
 
   const gridSize = 100;
   const startX = -camera.x % gridSize;

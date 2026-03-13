@@ -15,6 +15,7 @@ import { soundManager } from '../../services/SoundManager';
 import { useFriendMessages } from '../../hooks/useFriendMessages';
 import { DMChatWindow } from './DMChatWindow';
 import { Emoji } from '../common/Emoji';
+import { SoundSettingsButton } from './SoundSettingsButton';
 import type { FriendInfo, OnlinePlayerInfo, FriendRequestInfo } from '@shared/types/friendNetwork';
 
 interface FriendSidebarProps {
@@ -186,6 +187,11 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
           </svg>
         </button>
 
+        {/* 소리 설정 버튼 (사이드바 왼쪽) */}
+        <div className="absolute -left-16 top-6 z-20">
+          <SoundSettingsButton />
+        </div>
+
         <div className="flex flex-col items-center gap-3 mt-4">
           <div className="relative">
             <Emoji emoji="👥" size={18} />
@@ -203,6 +209,9 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
     );
   }
 
+  // 전체 읽지 않은 DM 수
+  const totalUnreadDM = Array.from(dmUnreadCounts.values()).reduce((sum, count) => sum + count, 0);
+
   // DM 대상 친구 정보
   const dmFriend = activeDMFriendId ? friends.find(f => f.id === activeDMFriendId) : null;
 
@@ -218,6 +227,10 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
           />
         </div>
       )}
+      {/* 소리 설정 버튼 (사이드바 왼쪽) */}
+      <div className="absolute -left-16 top-6 z-20">
+        <SoundSettingsButton />
+      </div>
       {/* 왼쪽 중앙 접기 버튼 */}
       <button
         onClick={toggleCollapse}
@@ -256,13 +269,18 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
         </button>
         <button
           onClick={() => handleTabChange('friends')}
-          className={`flex-1 py-2 text-xs transition-colors cursor-pointer ${
+          className={`flex-1 py-2 text-xs transition-colors cursor-pointer relative ${
             activeTab === 'friends'
               ? 'text-neon-cyan border-b-2 border-neon-cyan bg-neon-cyan/10'
-              : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
+              : totalUnreadDM > 0
+                ? 'text-neon-cyan animate-pulse bg-neon-cyan/10'
+                : 'text-gray-400 hover:text-white hover:bg-gray-800/50'
           }`}
         >
           친구 ({friends.length})
+          {totalUnreadDM > 0 && activeTab !== 'friends' && (
+            <span className="absolute -top-0.5 right-1.5 w-2 h-2 bg-neon-cyan rounded-full animate-ping" />
+          )}
         </button>
         <button
           onClick={() => handleTabChange('requests')}
@@ -505,6 +523,7 @@ const RequestsList: React.FC<{
   if (pendingRequests.length === 0 && sentRequests.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
+        <div style={{ height: '10px' }} />
         <span className="mb-2"><Emoji emoji="📬" size={24} /></span>
         <p className="text-xs">친구 요청이 없습니다</p>
       </div>

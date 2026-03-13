@@ -106,7 +106,9 @@ const getSkillLabel = (key: string): string => {
 
 const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHoverStart, onHoverEnd, disabled, disabledReason, active }) => {
   const isOnCooldown = skill.currentCooldown > 0;
-  const cooldownPercent = isOnCooldown ? (skill.currentCooldown / skill.cooldown) * 100 : 0;
+  // 토글 스킬(cooldown=0)은 reuseCooldown 2초 기준으로 퍼센트 계산
+  const effectiveCooldown = skill.cooldown > 0 ? skill.cooldown : 2;
+  const cooldownPercent = isOnCooldown ? Math.min((skill.currentCooldown / effectiveCooldown) * 100, 100) : 0;
   const isDisabled = active ? false : (isOnCooldown || disabled);
 
   const skillImagePath = SKILL_ICON_IMAGES[skill.type];
@@ -140,13 +142,23 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
           <img
             src={skillImagePath}
             alt={skill.name}
-            className="absolute inset-0 w-full h-full object-cover rounded-md"
+            className={`absolute inset-0 w-full h-full object-cover rounded-md ${isDisabled && !isOnCooldown ? 'grayscale brightness-50' : ''}`}
             draggable={false}
           />
         ) : (
           <div className="relative z-10 flex items-center justify-center h-full">
             <span style={{ fontSize: 'clamp(1.25rem, 2vw, 1.5rem)' }}>{skillEmoji}</span>
           </div>
+        )}
+
+        {/* 토글 활성 오버레이 (보라빛 틴트) */}
+        {active && skillImagePath && (
+          <div className="absolute inset-0 bg-purple-500/30 rounded-md" />
+        )}
+
+        {/* 비활성화 오버레이 (타겟 없음 등) */}
+        {disabled && !isOnCooldown && (
+          <div className="absolute inset-0 bg-black/50 rounded-md z-10" />
         )}
 
         {/* 쿨다운 오버레이 — 위에서 아래로 줄어듦 */}
@@ -200,12 +212,14 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
   );
 };
 
-// 스나이퍼 E 스킬 타겟 존재 여부 체크
+// 스나이퍼 E 스킬 타겟 존재 여부 체크 (보스만 타겟 가능)
 function checkSniperTarget(hero: HeroUnit, enemies: RPGEnemy[], mouseX: number, mouseY: number): boolean {
   const targetAngle = Math.atan2(mouseY - hero.y, mouseX - hero.x);
 
   for (const enemy of enemies) {
     if (enemy.hp <= 0) continue;
+    // 보스만 궁극기 타겟으로 유효
+    if (enemy.type !== 'boss' && enemy.type !== 'boss2') continue;
     const enemyAngle = Math.atan2(enemy.y - hero.y, enemy.x - hero.x);
     const angleDiff = Math.abs(enemyAngle - targetAngle);
     const normalizedDiff = Math.min(angleDiff, 2 * Math.PI - angleDiff);
@@ -330,7 +344,7 @@ export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
   const getSkillDisabledState = (skill: Skill): { disabled: boolean; reason?: string } => {
     // 스나이퍼 E 스킬: 타겟 없으면 비활성화
     if (hero.advancedClass === 'sniper' && skill.key === 'E' && !hasSniperTarget) {
-      return { disabled: true, reason: '타겟 없음 (마우스 방향 30도 내)' };
+      return { disabled: true, reason: '보스 타겟 없음 (마우스 방향 30도 내)' };
     }
     return { disabled: false };
   };

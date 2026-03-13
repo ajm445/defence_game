@@ -4,6 +4,7 @@ import { useAuthStore, useAuthError, useAuthIsLoading } from '../../stores/useAu
 import { soundManager } from '../../services/SoundManager';
 import { checkNicknameAvailability, checkUsernameAvailability } from '../../services/authService';
 import { Emoji } from '../common/Emoji';
+import { SoundSettingsButton } from '../ui/SoundSettingsButton';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -584,6 +585,11 @@ export const LoginScreen: React.FC = () => {
         >
           뒤로 가기
         </button>
+      </div>
+
+      {/* 우측 상단 소리 설정 버튼 */}
+      <div className="absolute top-6 right-6 z-20">
+        <SoundSettingsButton />
       </div>
 
       {/* 코너 장식 */}

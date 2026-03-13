@@ -1,5 +1,69 @@
 # Changelog
 
+## [1.25.2] - 2026-03-13
+
+### 소리 설정 시스템 개편
+- **로그인 전 소리 설정 가능**: localStorage 기반으로 비로그인/게스트도 소리 설정 가능
+- **설정 영속성 개선**: 로그아웃 후에도 소리 설정 유지, 로그인 시 DB 값으로 동기화
+- **재사용 가능한 `SoundSettingsButton` 컴포넌트**: 모든 화면에서 동일한 소리 설정 UI 제공
+- **소리 설정 버튼 배치**: 로그인, 메인 메뉴, 게임 타입 선택, 클래스 선택 화면에 추가. FriendSidebar가 있는 화면은 사이드바 내부에 배치 (접기/펼치기 연동)
+- **인게임 SoundControl 설정 저장**: 인게임에서 변경한 소리 설정도 DB/localStorage에 반영
+
+### 메인 메뉴 / 프로필 화면 재구성
+- **메인 메뉴 설정 간소화**: 기존 설정 모달(소리+비밀번호+탈퇴) → 소리 설정 버튼만 유지
+- **프로필 화면 계정 관리**: 비밀번호 변경, 회원 탈퇴 기능을 메인 메뉴에서 접근한 프로필 화면으로 이동 (접이식 섹션)
+- **게스트 프로필 버튼 비활성화**: 메인 메뉴에서 게스트 상태 시 프로필 버튼 비활성화
+- **프로필 화면 수직 중앙 정렬**: `justify-center` + `transformOrigin: center center`
+- **화면별 프로필 분기**: 메인 메뉴 → 기본 정보 + 계정 관리, 게임 모드 → 통계 + 클래스 진행
+
+### RPG 인게임 비주얼 개선
+- **타원형 그림자**: 영웅/적 캐릭터의 원형 베이스를 타원형 접지 그림자로 교체 (ctx.scale 활용)
+- **캐릭터 레벨 배지 제거**: 인게임 캐릭터 위 레벨 표시 삭제 (좌측 상단 UI와 중복)
+- **피격 효과 개선**: `source-atop` 기반 원형 오버레이 → 방사형 그라디언트 글로우로 변경
+- **체력바 간격 축소**: 영웅/적 체력바와 캐릭터 간 세로 간격 줄임
+- **격자선 숨김**: 모든 맵 테마의 격자 색상 알파를 0으로 변경 (코드 유지)
+- **적 기지 파괴 표시 숨김**: 모든 기지 파괴 시(보스 출현) DESTROYED 텍스트 및 잔해 렌더링 숨김
+
+### 저격수 궁극기(E 스킬) 리워크
+- **보스 전용 타겟**: 저격수 궁극기는 보스만 타겟 가능 (일반 유닛 불가, 보스 없으면 비활성화)
+- **경로 피격 시스템**: 시전자→보스 탄환 경로(폭 30px)에 다른 적이 있으면 가장 가까운 적이 대신 피격
+- **비활성화 시각 피드백**: 스킬 아이콘 이미지에 grayscale + 어둡게 처리 + 반투명 오버레이
+
+### 스킬바 아이콘 시스템 개선
+- **다크나이트 토글 스킬 쿨다운 수정**: `cooldown=0` 토글 스킬에서 0 나누기 → `reuseCooldown(2초)` 기준으로 퍼센트 계산
+- **토글 활성 상태 시각화**: ON 상태 시 아이콘에 보라빛 틴트 오버레이
+- **비활성화 아이콘 처리**: 스킬 이미지가 배경 스타일을 가리던 문제 해결
+
+### 직업 선택 모달 캐릭터 이미지
+- **코옵 로비 직업 선택**: 이모지 아이콘 → 실제 캐릭터 유닛 이미지로 교체
+
+### DM 시스템 버그 수정
+- **내 메시지 읽지 않음 배지 버그**: 내가 보낸 DM이 unread 카운트에 포함되던 문제 수정 (`isSentByMe` 플래그)
+- **친구 탭 메시지 알림**: 온라인/요청 탭에서도 읽지 않은 DM이 있으면 친구 탭에 neon-cyan 글로우 + ping 도트 표시
+
+### BGM 수정
+- **RTS 튜토리얼 후 BGM 미재생**: React useEffect cleanup 순서 문제 → 50ms 딜레이로 해결
+
+### 수정 파일 (17개)
+- `src/components/ui/SoundSettingsButton.tsx` (신규): 재사용 가능한 소리 설정 버튼+모달
+- `src/components/screens/MainMenu.tsx`: 설정 모달 제거, 소리 버튼, 게스트 프로필 비활성화, BGM 딜레이
+- `src/components/screens/ProfileScreen.tsx`: 계정 관리 섹션, 수직 중앙 정렬, 화면별 분기
+- `src/components/screens/LoginScreen.tsx`: 소리 설정 버튼 추가
+- `src/components/screens/GameTypeSelectScreen.tsx`: 소리 설정 버튼 추가
+- `src/components/screens/RPGClassSelectScreen.tsx`: 소리 설정 버튼 추가
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: 직업 선택 모달 캐릭터 이미지
+- `src/components/ui/FriendSidebar.tsx`: 소리 설정 버튼 배치, DM 알림 글로우
+- `src/components/ui/SoundControl.tsx`: 인게임 소리 변경 시 설정 저장
+- `src/components/ui/RPGSkillBar.tsx`: 저격수 보스 전용 타겟, 다크나이트 쿨다운, 비활성화 시각화
+- `src/stores/useAuthStore.ts`: 소리 설정 로직 개편 (localStorage + DB 이중 저장)
+- `src/stores/useFriendStore.ts`: DM unread 버그 수정 (`isSentByMe`)
+- `src/hooks/useFriendMessages.ts`: DM_SENT 시 `isSentByMe` 전달
+- `src/renderer/drawHero.ts`: 타원형 그림자, 레벨 배지 제거, 피격 효과, 체력바 간격
+- `src/renderer/drawGrid.ts`: 기본 격자 알파 0
+- `src/constants/mapThemeConfig.ts`: 4개 테마 격자 알파 0
+- `src/renderer/drawNexusEntities.ts`: 보스 출현 시 DESTROYED 숨김
+- `server/src/game/rpgServerSkillSystem.ts`: 저격 보스 전용 타겟 + 경로 피격 시스템
+
 ## [1.25.1] - 2026-03-13
 
 ### 크로스 플랫폼 이모지 통일 (Twemoji)

@@ -184,7 +184,7 @@ export function useFriendMessages() {
           break;
 
         case 'DM_SENT':
-          addDMMessage(message.message.toUserId, message.message);
+          addDMMessage(message.message.toUserId, message.message, true);
           break;
 
         case 'DM_HISTORY':

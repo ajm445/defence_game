@@ -163,7 +163,7 @@ const syncSoundSettings = (profile: PlayerProfile) => {
   let muted: boolean;
 
   if (!profile.isGuest) {
-    // 로그인 사용자: DB 값만 사용
+    // 로그인 사용자: DB 값 사용
     volume = profile.soundVolume ?? 0.5;
     muted = profile.soundMuted ?? false;
   } else {
@@ -183,6 +183,9 @@ const syncSoundSettings = (profile: PlayerProfile) => {
   soundManager.setVolume(volume);
   soundManager.setBGMVolume(volume); // BGM도 마스터 볼륨과 동기화
   soundManager.setMuted(muted);
+
+  // localStorage에도 항상 동기화 (로그아웃 후에도 유지)
+  saveSoundSettingsToStorage(volume, muted);
 };
 
 export const useAuthStore = create<AuthStore>()(
@@ -315,8 +318,7 @@ export const useAuthStore = create<AuthStore>()(
       // 세션 삭제
       clearSessionFromStorage();
 
-      // 로그아웃 시 localStorage 사운드 설정 삭제 (다른 계정과 혼동 방지)
-      clearSoundSettingsFromStorage();
+      // 로그아웃 시에도 localStorage 사운드 설정 유지 (로그인 전 소리 설정 보존)
 
       set({
         status: 'unauthenticated',
@@ -471,7 +473,19 @@ export const useAuthStore = create<AuthStore>()(
     // 사운드 설정 저장
     saveSoundSettings: async (volume, muted) => {
       const { user, profile } = get();
-      if (!user || !profile) return;
+
+      // UIStore와 soundManager 동기화 (항상 수행)
+      useUIStore.getState().setSoundVolume(volume);
+      useUIStore.getState().setSoundMuted(muted);
+      soundManager.setVolume(volume);
+      soundManager.setBGMVolume(volume); // BGM도 마스터 볼륨과 동기화
+      soundManager.setMuted(muted);
+
+      // 로그인 전이거나 프로필 없으면 localStorage에만 저장
+      if (!user || !profile) {
+        saveSoundSettingsToStorage(volume, muted);
+        return;
+      }
 
       // 새 프로필 생성
       const newProfile = { ...profile, soundVolume: volume, soundMuted: muted };
@@ -479,18 +493,12 @@ export const useAuthStore = create<AuthStore>()(
       // 로컬 프로필 업데이트
       set({ profile: newProfile });
 
-      // UIStore와 soundManager 동기화
-      useUIStore.getState().setSoundVolume(volume);
-      useUIStore.getState().setSoundMuted(muted);
-      soundManager.setVolume(volume);
-      soundManager.setBGMVolume(volume); // BGM도 마스터 볼륨과 동기화
-      soundManager.setMuted(muted);
-
       if (profile.isGuest) {
         // 게스트: localStorage에만 저장
         saveSoundSettingsToStorage(volume, muted);
       } else {
-        // 로그인 사용자: DB에만 저장
+        // 로그인 사용자: DB + localStorage 모두 저장
+        saveSoundSettingsToStorage(volume, muted);
         const success = await updateSoundSettings(user.id, volume, muted);
         if (!success) {
           console.error('Failed to save sound settings to server');

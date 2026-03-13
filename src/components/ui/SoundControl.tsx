@@ -1,5 +1,6 @@
 import React, { useState, useEffect } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
+import { useAuthStore } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 import { Emoji } from '../common/Emoji';
 
@@ -8,6 +9,7 @@ export const SoundControl: React.FC = () => {
   const soundVolume = useUIStore((state) => state.soundVolume);
   const setSoundVolume = useUIStore((state) => state.setSoundVolume);
   const toggleSoundMuted = useUIStore((state) => state.toggleSoundMuted);
+  const saveSoundSettings = useAuthStore((state) => state.saveSoundSettings);
 
   const [showSlider, setShowSlider] = useState(false);
 
@@ -23,12 +25,15 @@ export const SoundControl: React.FC = () => {
 
   const handleToggleMute = () => {
     toggleSoundMuted();
+    const newMuted = !soundMuted;
+    saveSoundSettings(soundVolume, newMuted);
     soundManager.play('ui_click');
   };
 
   const handleVolumeChange = (e: React.ChangeEvent<HTMLInputElement>) => {
     const newVolume = parseFloat(e.target.value);
     setSoundVolume(newVolume);
+    saveSoundSettings(newVolume, soundMuted);
   };
 
   const handleMouseEnter = () => {
