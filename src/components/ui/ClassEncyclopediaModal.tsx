@@ -238,7 +238,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                         <div className={`flex-1 border-b ${sectionBorderColors[heroClass]} ml-1`} />
                       </div>
                       {/* 전직 버튼 */}
-                      <div className="space-y-1 pl-1">
+                      <div className="space-y-2">
                         {advOptions.map((advClass) => {
                           const advConf = ADVANCED_CLASS_CONFIGS[advClass];
                           const isSelected = selectedAdvancedClass === advClass;
@@ -248,16 +248,16 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                               key={advClass}
                               onClick={() => handleAdvancedClassSelect(advClass)}
                               className={`
-                                w-full flex items-center gap-2.5 px-3 py-2 rounded-md transition-all cursor-pointer
+                                w-full flex items-center gap-3 p-3 rounded-lg border-2 transition-all cursor-pointer
                                 ${isSelected
-                                  ? 'bg-orange-500/25 text-orange-300'
-                                  : 'text-gray-300 hover:bg-gray-700/50 hover:text-white'}
+                                  ? `${classColor.border} ${classColor.bg}`
+                                  : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'}
                               `}
                             >
-                              <Emoji emoji={advConf.emoji} size={18} />
-                              <span className={`font-bold text-sm ${isSelected ? 'text-orange-300' : ''}`}>
+                              <Emoji emoji={advConf.emoji} size={24} />
+                              <p className={`font-bold text-sm ${isSelected ? classColor.text : 'text-white'}`}>
                                 {advConf.name}
-                              </span>
+                              </p>
                             </button>
                           );
                         })}
@@ -437,12 +437,14 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
               />
             </div>
 
-            {/* 전직 경로 */}
-            <ClassAdvancementPath
-              heroClass={selectedBaseClass}
-              selectedAdvancedClass={activeTab === 'advanced' ? selectedAdvancedClass ?? undefined : undefined}
-              onAdvancedClassSelect={activeTab === 'advanced' ? handleAdvancedClassSelect : undefined}
-            />
+            {/* 전직 경로 (전직 탭에서만 표시) */}
+            {activeTab === 'advanced' && (
+              <ClassAdvancementPath
+                heroClass={selectedBaseClass}
+                selectedAdvancedClass={selectedAdvancedClass ?? undefined}
+                onAdvancedClassSelect={handleAdvancedClassSelect}
+              />
+            )}
           </div>
         </div>
       </div>
