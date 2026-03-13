@@ -9,6 +9,7 @@ import { CHARACTER_UNLOCK_LEVELS, isCharacterUnlocked, createDefaultStatUpgrades
 import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
 import { createMultiplayerRoom, joinMultiplayerRoom } from '../../hooks/useNetworkSync';
+import { Emoji } from '../common/Emoji';
 
 interface ClassCardProps {
   heroClass: HeroClass;
@@ -80,7 +81,7 @@ const ClassCard: React.FC<ClassCardProps> = ({ heroClass, isSelected, isLocked, 
       {/* 잠금 오버레이 */}
       {isLocked && (
         <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-10 rounded-xl">
-          <span className="text-4xl mb-2">🔒</span>
+          <span className="mb-2"><Emoji emoji="🔒" size={36} /></span>
           <p className="text-gray-300 text-sm font-bold">
             {isGuest ? '회원 전용' : `Lv.${unlockLevel} 필요`}
           </p>
@@ -100,8 +101,8 @@ const ClassCard: React.FC<ClassCardProps> = ({ heroClass, isSelected, isLocked, 
       <div className={`relative h-full flex flex-col items-center justify-center p-6 ${isLocked ? 'opacity-50' : ''}`}
       style={{ paddingLeft: '5px', paddingRight: '5px' }}>
         {/* 이모지 아이콘 */}
-        <div className={`text-7xl mb-4 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
-          {config.emoji}
+        <div className={`mb-4 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
+          <Emoji emoji={config.emoji} size={70} />
         </div>
 
         <div style={{ height: '30px' }} />
@@ -417,7 +418,7 @@ export const RPGClassSelectScreen: React.FC = () => {
         onClick={handleProfile}
         className="absolute top-6 right-6 z-20 flex items-center gap-2 px-4 py-2 bg-gray-800/80 hover:bg-gray-700/80 border border-gray-600 hover:border-yellow-500/50 rounded-lg transition-all cursor-pointer group"
       >
-        <span className="text-xl">👤</span>
+        <Emoji emoji="👤" size={20} />
         <div className="text-left">
           <p className="text-white text-sm font-bold group-hover:text-yellow-400 transition-colors">
             {profile?.nickname || '게스트'}

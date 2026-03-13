@@ -14,6 +14,7 @@ import { soundManager } from '../../services/SoundManager';
 
 import { useFriendMessages } from '../../hooks/useFriendMessages';
 import { DMChatWindow } from './DMChatWindow';
+import { Emoji } from '../common/Emoji';
 import type { FriendInfo, OnlinePlayerInfo, FriendRequestInfo } from '@shared/types/friendNetwork';
 
 interface FriendSidebarProps {
@@ -187,7 +188,7 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
 
         <div className="flex flex-col items-center gap-3 mt-4">
           <div className="relative">
-            <span className="text-lg">👥</span>
+            <Emoji emoji="👥" size={18} />
             {pendingCount > 0 && (
               <span className="absolute -top-1 -right-1 w-4 h-4 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
                 {pendingCount}
@@ -231,7 +232,7 @@ export const FriendSidebar: React.FC<FriendSidebarProps> = ({ currentRoomId }) =
       {/* 헤더 */}
       <div className="px-3 py-3 border-b border-gray-700">
         <h3 className="text-white font-bold text-sm flex items-center gap-2">
-          <span>👥</span>
+          <Emoji emoji="👥" size={16} />
           <span>{TAB_TITLES[activeTab]}</span>
           {pendingCount > 0 && (
             <span className="w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
@@ -332,7 +333,7 @@ const OnlineList: React.FC<{
   if (players.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-        <span className="text-2xl mb-2">🌐</span>
+        <span className="mb-2"><Emoji emoji="🌐" size={24} /></span>
         <p className="text-xs">온라인 플레이어가 없습니다</p>
       </div>
     );
@@ -349,7 +350,7 @@ const OnlineList: React.FC<{
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="relative flex-shrink-0">
-              <span className="text-base">👤</span>
+              <Emoji emoji="👤" size={16} />
               <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ${
                 player.isMe ? 'bg-neon-cyan' : 'bg-green-400'
               }`} />
@@ -413,7 +414,7 @@ const FriendsList: React.FC<{
   if (friends.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-        <span className="text-2xl mb-2">👥</span>
+        <span className="mb-2"><Emoji emoji="👥" size={24} /></span>
         <p className="text-xs">친구가 없습니다</p>
         <p className="text-xs mt-1 text-gray-600">온라인 탭에서 추가하세요</p>
       </div>
@@ -429,7 +430,7 @@ const FriendsList: React.FC<{
         >
           <div className="flex items-center gap-2 min-w-0 flex-1">
             <div className="relative flex-shrink-0">
-              <span className="text-base">👤</span>
+              <Emoji emoji="👤" size={16} />
               <div
                 className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ${
                   friend.isOnline ? 'bg-green-400' : 'bg-gray-500'
@@ -504,7 +505,7 @@ const RequestsList: React.FC<{
   if (pendingRequests.length === 0 && sentRequests.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-        <span className="text-2xl mb-2">📬</span>
+        <span className="mb-2"><Emoji emoji="📬" size={24} /></span>
         <p className="text-xs">친구 요청이 없습니다</p>
       </div>
     );
@@ -525,7 +526,7 @@ const RequestsList: React.FC<{
                 className="flex items-center justify-between px-3 py-2"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <span className="text-base">👤</span>
+                  <Emoji emoji="👤" size={16} />
                   <div className="min-w-0 flex-1">
                     <p className="text-white text-xs font-medium truncate">
                       {request.fromUserName}
@@ -568,7 +569,7 @@ const RequestsList: React.FC<{
                 className="flex items-center justify-between px-3 py-2"
               >
                 <div className="flex items-center gap-2 min-w-0 flex-1">
-                  <span className="text-base">👤</span>
+                  <Emoji emoji="👤" size={16} />
                   <div className="min-w-0 flex-1">
                     <p className="text-white text-xs font-medium truncate">
                       {request.toUserName}

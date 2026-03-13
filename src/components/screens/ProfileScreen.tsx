@@ -18,6 +18,7 @@ import {
 import { HeroClass } from '../../types/rpg';
 import { soundManager } from '../../services/SoundManager';
 import { CharacterUpgradeModal } from '../ui/CharacterUpgradeModal';
+import { Emoji } from '../common/Emoji';
 
 const ClassProgressCard: React.FC<{
   heroClass: HeroClass;
@@ -70,7 +71,7 @@ const ClassProgressCard: React.FC<{
       {!isUnlocked && (
         <div className="absolute inset-0 flex items-center justify-center bg-black/40 rounded-lg pointer-events-none z-10">
           <div className="text-center">
-            <span className="text-2xl">🔒</span>
+            <Emoji emoji="🔒" size={24} />
             <p className="text-gray-400 text-xs mt-1">
               {isGuest ? '회원 전용' : `Lv.${unlockLevel} 필요`}
             </p>
@@ -79,7 +80,7 @@ const ClassProgressCard: React.FC<{
       )}
 
       <div className="flex items-center gap-3 mb-3">
-        <span className="text-3xl">{displayEmoji}</span>
+        <Emoji emoji={displayEmoji} size={30} />
         <div>
           <h3 className="text-white font-bold">
             {displayName}
@@ -246,7 +247,7 @@ export const ProfileScreen: React.FC = () => {
         style={{ paddingTop: '5px', paddingBottom: '7px', paddingLeft: '5px', paddingRight: '5px' }}>
           <div className="flex items-center gap-4 mb-6">
             <div className="w-16 h-16 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-3xl">
-              {isGuest ? '👤' : '⭐'}
+              {isGuest ? <Emoji emoji="👤" size={32} /> : <Emoji emoji="⭐" size={32} />}
             </div>
             <div className="flex-1">
               <div className="flex items-center gap-2">
@@ -297,7 +298,7 @@ export const ProfileScreen: React.FC = () => {
             <div className="mt-4 p-3 bg-yellow-500/10 border border-yellow-500/30 rounded-lg"
             style={{ paddingLeft: '5px', paddingRight: '5px' }}>
               <p className="text-yellow-300 text-sm text-center">
-                ⚠️ 게스트 모드에서는 진행 상황이 저장되지 않습니다.
+                <Emoji emoji="⚠️" size={14} /> 게스트 모드에서는 진행 상황이 저장되지 않습니다.
                 <br />
                 계정을 만들어 진행 상황을 저장하세요!
               </p>
@@ -313,7 +314,7 @@ export const ProfileScreen: React.FC = () => {
             {/* 통계 섹션 */}
             {!isGuest && stats && (
               <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6">
-                <h3 className="text-lg text-white font-bold mb-4">📊 통계</h3>
+                <h3 className="text-lg text-white font-bold mb-4"><Emoji emoji="📊" size={18} className="mr-1" /> 통계</h3>
                 {isLoading ? (
                   <div className="text-center text-gray-400 py-4">로딩 중...</div>
                 ) : (
@@ -335,7 +336,7 @@ export const ProfileScreen: React.FC = () => {
                     <div className="text-center">
                       {stats.favoriteClass ? (
                         <>
-                          <p className="text-2xl">{CLASS_CONFIGS[stats.favoriteClass].emoji}</p>
+                          <p className="text-2xl"><Emoji emoji={CLASS_CONFIGS[stats.favoriteClass].emoji} size={24} /></p>
                           <p className="text-gray-400 text-sm">선호 직업</p>
                         </>
                       ) : (
@@ -355,7 +356,7 @@ export const ProfileScreen: React.FC = () => {
             {/* 클래스 진행 상황 */}
             <div className="w-full bg-gray-800/50 rounded-xl border border-gray-700 p-6 mb-6"
             style={{ paddingTop: '5px', paddingBottom: '8px', paddingLeft: '5px', paddingRight: '5px' }}>
-              <h3 className="text-lg text-white font-bold mb-4">🎮 클래스 진행</h3>
+              <h3 className="text-lg text-white font-bold mb-4"><Emoji emoji="🎮" size={18} className="mr-1" /> 클래스 진행</h3>
               <div style={{ height: '5px' }} />
               <div className="grid grid-cols-1 md:grid-cols-2 gap-4"
               style={{ paddingLeft: '5px', paddingRight: '5px' }}>

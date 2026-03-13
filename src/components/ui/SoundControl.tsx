@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { soundManager } from '../../services/SoundManager';
+import { Emoji } from '../common/Emoji';
 
 export const SoundControl: React.FC = () => {
   const soundMuted = useUIStore((state) => state.soundMuted);
@@ -54,7 +55,7 @@ export const SoundControl: React.FC = () => {
         }`}
         title={`사운드: ${soundMuted ? 'OFF' : 'ON'} (M)`}
       >
-        {soundMuted ? '🔇' : soundVolume > 0.5 ? '🔊' : soundVolume > 0 ? '🔉' : '🔈'}
+        {soundMuted ? <Emoji emoji="🔇" size={16} /> : soundVolume > 0.5 ? <Emoji emoji="🔊" size={16} /> : soundVolume > 0 ? <Emoji emoji="🔉" size={16} /> : <Emoji emoji="🔈" size={16} />}
       </button>
 
       {/* 볼륨 슬라이더 (버튼과 연결되도록 패딩 추가) */}

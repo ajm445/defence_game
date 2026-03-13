@@ -12,6 +12,7 @@ import {
 import { wsClient } from '../../services/WebSocketClient';
 import { soundManager } from '../../services/SoundManager';
 import { useFriendMessages } from '../../hooks/useFriendMessages';
+import { Emoji } from '../common/Emoji';
 import type { FriendInfo, OnlinePlayerInfo, FriendRequestInfo } from '@shared/types/friendNetwork';
 
 interface FriendPanelProps {
@@ -104,7 +105,7 @@ export const FriendPanel: React.FC<FriendPanelProps> = ({ onInviteToRoom, curren
         onClick={togglePanel}
         className="relative flex items-center gap-2 px-3 py-2 bg-gray-800/80 border border-gray-600 rounded-lg hover:border-neon-cyan transition-all cursor-pointer"
       >
-        <span className="text-lg">👥</span>
+        <Emoji emoji="👥" size={20} />
         <span className="text-gray-300 text-sm">친구</span>
         {pendingCount > 0 && (
           <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white text-xs rounded-full flex items-center justify-center">
@@ -228,7 +229,7 @@ const FriendList: React.FC<{
   if (friends.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-        <span className="text-3xl mb-2">👥</span>
+        <span className="text-3xl mb-2"><Emoji emoji="👥" size={20} /></span>
         <p className="text-sm">친구가 없습니다</p>
         <p className="text-xs mt-1">온라인 탭에서 친구를 추가하세요</p>
       </div>
@@ -249,7 +250,7 @@ const FriendList: React.FC<{
                   friend.isOnline ? 'bg-green-400' : 'bg-gray-500'
                 }`}
               />
-              <span className="text-xl">👤</span>
+              <Emoji emoji="👤" size={20} />
             </div>
             <div>
               <p className="text-white text-sm font-medium">{friend.name}</p>
@@ -294,7 +295,7 @@ const OnlinePlayerList: React.FC<{
   if (players.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-        <span className="text-3xl mb-2">🌐</span>
+        <span className="mb-2"><Emoji emoji="🌐" size={24} /></span>
         <p className="text-sm">온라인 플레이어가 없습니다</p>
       </div>
     );
@@ -311,7 +312,7 @@ const OnlinePlayerList: React.FC<{
         >
           <div className="flex items-center gap-3">
             <div className="relative">
-              <span className="text-xl">👤</span>
+              <Emoji emoji="👤" size={20} />
               <div className={`absolute -bottom-0.5 -right-0.5 w-2 h-2 rounded-full ${
                 player.isMe ? 'bg-neon-cyan' : 'bg-green-400'
               }`} />
@@ -361,7 +362,7 @@ const RequestList: React.FC<{
   if (pendingRequests.length === 0 && sentRequests.length === 0) {
     return (
       <div className="flex flex-col items-center justify-center py-8 text-gray-500">
-        <span className="text-3xl mb-2">📬</span>
+        <span className="mb-2"><Emoji emoji="📬" size={24} /></span>
         <p className="text-sm">친구 요청이 없습니다</p>
       </div>
     );
@@ -382,7 +383,7 @@ const RequestList: React.FC<{
                 className="flex items-center justify-between px-4 py-3"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-xl">👤</span>
+                  <Emoji emoji="👤" size={20} />
                   <div>
                     <p className="text-white text-sm font-medium">
                       {request.fromUserName}
@@ -425,7 +426,7 @@ const RequestList: React.FC<{
                 className="flex items-center justify-between px-4 py-3"
               >
                 <div className="flex items-center gap-3">
-                  <span className="text-xl">👤</span>
+                  <Emoji emoji="👤" size={20} />
                   <div>
                     <p className="text-white text-sm font-medium">
                       {request.toUserName}

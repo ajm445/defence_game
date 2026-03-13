@@ -7,6 +7,7 @@ import { useAuthStore } from '../../stores/useAuthStore';
 import { useProfileStore } from '../../stores/useProfileStore';
 import { soundManager } from '../../services/SoundManager';
 import { CONFIG } from '../../constants/config';
+import { Emoji } from '../common/Emoji';
 
 export const GameOverScreen: React.FC = () => {
   const gameMode = useGameStore((state) => state.gameMode);
@@ -144,8 +145,8 @@ export const GameOverScreen: React.FC = () => {
       {/* 결과 */}
       <div className="relative z-10 flex flex-col items-center">
         {/* 아이콘 */}
-        <div className={`text-8xl mb-6 ${victory ? 'animate-float' : ''}`}>
-          {isDraw ? '🤝' : victory ? '🏆' : '💀'}
+        <div className={`mb-6 ${victory ? 'animate-float' : ''}`}>
+          <Emoji emoji={isDraw ? '🤝' : victory ? '🏆' : '💀'} size={80} />
         </div>
 
         <div style={{ height: '30px' }} />
@@ -175,7 +176,7 @@ export const GameOverScreen: React.FC = () => {
         {expResult && expResult.playerExpGained > 0 && (
           <div className="flex flex-col items-center gap-2 mb-6">
             <div className="flex items-center gap-2 text-yellow-400">
-              <span className="text-2xl">⭐</span>
+              <Emoji emoji="⭐" size={24} />
               <span className="text-xl font-bold">+{expResult.playerExpGained} EXP</span>
             </div>
             {expResult.playerLeveledUp && expResult.newPlayerLevel && (

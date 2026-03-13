@@ -2,6 +2,7 @@ import React, { useEffect, useRef, useState, useCallback } from 'react';
 import { useTutorialStore, TUTORIAL_STEPS, TutorialConditionType, HighlightTarget } from '../../stores/useTutorialStore';
 import { useGameStore } from '../../stores/useGameStore';
 import { useUIStore } from '../../stores/useUIStore';
+import { Emoji } from '../common/Emoji';
 
 // 하이라이트 요소의 위치 정보
 interface HighlightRect {
@@ -194,7 +195,7 @@ export const TutorialOverlay: React.FC = () => {
         onClick={() => setShowOverlay(true)}
         className="fixed top-20 left-4 z-50 bg-dark-800/90 border border-neon-cyan/50 rounded-lg px-3 py-2 text-neon-cyan text-sm hover:bg-dark-700 transition-colors animate-pulse"
       >
-        <span className="mr-2">📖</span>
+        <Emoji emoji="📖" size={14} className="mr-2" />
         튜토리얼 ({currentStepIndex + 1}/{TUTORIAL_STEPS.length})
       </button>
     );
@@ -318,7 +319,7 @@ export const TutorialOverlay: React.FC = () => {
           {/* 헤더 */}
           <div className="flex items-center justify-between mb-4">
             <div className="flex items-center gap-2">
-              <span className="text-2xl">📖</span>
+              <Emoji emoji="📖" size={24} />
               <span className="text-neon-cyan font-bold">튜토리얼</span>
             </div>
             <div className="flex items-center gap-2">
@@ -357,7 +358,7 @@ export const TutorialOverlay: React.FC = () => {
           {currentStep.conditionHint && currentStep.conditionType !== 'none' && (
             <div className="bg-neon-cyan/10 border border-neon-cyan/30 rounded-lg px-3 py-2 mb-4">
               <div className="flex items-center gap-2 text-neon-cyan text-sm">
-                <span className="animate-pulse">👆</span>
+                <span className="animate-pulse"><Emoji emoji="👆" size={14} /></span>
                 <span>{isTouchDevice ? currentStep.conditionHint.replace(/클릭/g, '터치') : currentStep.conditionHint}</span>
               </div>
             </div>

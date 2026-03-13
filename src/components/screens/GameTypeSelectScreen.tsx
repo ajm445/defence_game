@@ -3,6 +3,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthStatus } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 import { wsClient } from '../../services/WebSocketClient';
+import { Emoji } from '../common/Emoji';
 
 export const GameTypeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -67,8 +68,8 @@ export const GameTypeSelectScreen: React.FC = () => {
             {/* 컨텐츠 */}
             <div className="relative h-full flex flex-col items-center justify-center p-8">
               {/* 아이콘 */}
-              <div className="text-7xl mb-6 group-hover:scale-110 transition-transform duration-300">
-                🏰
+              <div className="mb-6 group-hover:scale-110 transition-transform duration-300">
+                <Emoji emoji="🏰" size={70} />
               </div>
 
               <div style={{ height: '30px' }} />
@@ -115,8 +116,8 @@ export const GameTypeSelectScreen: React.FC = () => {
             {/* 컨텐츠 */}
             <div className="relative h-full flex flex-col items-center justify-center p-8">
               {/* 아이콘 */}
-              <div className="text-7xl mb-6 group-hover:scale-110 transition-transform duration-300">
-                ⚔️
+              <div className="mb-6 group-hover:scale-110 transition-transform duration-300">
+                <Emoji emoji="⚔️" size={70} />
               </div>
 
               <div style={{ height: '30px' }} />

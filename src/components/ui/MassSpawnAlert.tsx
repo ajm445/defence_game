@@ -1,5 +1,6 @@
 import React from 'react';
 import { useUIStore } from '../../stores/useUIStore';
+import { Emoji } from '../common/Emoji';
 
 export const MassSpawnAlert: React.FC = () => {
   const massSpawnAlert = useUIStore((state) => state.massSpawnAlert);
@@ -14,7 +15,7 @@ export const MassSpawnAlert: React.FC = () => {
           style={{ padding: 'clamp(1.5rem, 4vw, 2rem) clamp(2rem, 6vw, 3rem)' }}
         >
           <div className="text-center">
-            <div style={{ fontSize: 'clamp(2.5rem, 6vw, 3.75rem)' }} className="mb-4">⚠️</div>
+            <div className="mb-4"><Emoji emoji="⚠️" size="clamp(2.5rem, 6vw, 3.75rem)" /></div>
             <h2 className="font-bold text-red-400 mb-2 animate-bounce" style={{ fontSize: 'clamp(1.5rem, 4vw, 2.25rem)' }}>
               대량 발생!
             </h2>

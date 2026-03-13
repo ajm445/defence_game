@@ -1,6 +1,7 @@
 import React, { useState, useEffect, useRef, useCallback } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
 import { isTabletGameActive } from '../../hooks/useDeviceDetect';
+import { Emoji } from '../common/Emoji';
 
 function isFullscreenSupported(): boolean {
   const isIPhone = /iPhone/.test(navigator.userAgent) && !(window as any).MSStream;
@@ -110,7 +111,7 @@ export const OrientationPrompt: React.FC = () => {
   if (isTouchDevice && isPortrait) {
     return (
       <div className="fixed inset-0 z-[9999] bg-dark-900 flex flex-col items-center justify-center gap-6">
-        <div className="text-6xl animate-rotate-phone">📱</div>
+        <div className="animate-rotate-phone"><Emoji emoji="📱" size={60} /></div>
         <div className="text-white text-xl font-bold text-center px-8">
           가로로 회전해주세요
         </div>
@@ -128,7 +129,7 @@ export const OrientationPrompt: React.FC = () => {
         className="fixed inset-0 z-[9999] bg-black/80 flex flex-col items-center justify-center gap-4 cursor-pointer"
         onClick={handleEnterFullscreen}
       >
-        <div className="text-5xl">🔲</div>
+        <div><Emoji emoji="🔲" size={48} /></div>
         <div className="text-white text-lg font-bold text-center px-8">
           화면을 터치하여 전체화면으로 전환
         </div>

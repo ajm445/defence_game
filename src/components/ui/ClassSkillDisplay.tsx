@@ -3,6 +3,7 @@ import { HeroClass, AdvancedHeroClass } from '../../types/rpg';
 import { CLASS_SKILLS, ADVANCED_W_SKILLS, ADVANCED_E_SKILLS, AdvancedSkillConfig } from '../../constants/rpgConfig';
 import { SKILL_ICON_IMAGES } from '../../constants/skillIconConfig';
 import { classColors } from './ClassCard';
+import { Emoji } from '../common/Emoji';
 
 interface SkillInfo {
   key: string;
@@ -98,7 +99,7 @@ export const ClassSkillDisplay: React.FC<ClassSkillDisplayProps> = ({
   return (
     <div className="w-full">
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">⚔️</span>
+        <Emoji emoji="⚔️" size={18} />
         <h3 className="text-white font-bold">스킬</h3>
         {showAdvancedSkills && advancedClass && (
           <span className="text-xs text-orange-400 ml-2">전직 스킬</span>
@@ -130,7 +131,7 @@ export const ClassSkillDisplay: React.FC<ClassSkillDisplayProps> = ({
                   />
                 ) : (
                   <div className={`w-12 h-12 rounded-lg flex items-center justify-center text-2xl flex-shrink-0 ${skill.isAdvanced ? 'bg-orange-500/20 border border-orange-500/50' : 'bg-gray-700/50 border border-gray-600'}`}>
-                    {skill.type === 'skill' ? '⚔️' : '💫'}
+                    {skill.type === 'skill' ? <Emoji emoji="⚔️" size={24} /> : <Emoji emoji="💫" size={24} />}
                   </div>
                 )}
 

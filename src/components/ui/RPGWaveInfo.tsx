@@ -1,5 +1,6 @@
 import React from 'react';
 import { useRPGEnemies, useNexus, useEnemyBases, useRPGGamePhase } from '../../stores/useRPGStore';
+import { Emoji } from '../common/Emoji';
 
 export const RPGWaveInfo: React.FC = () => {
   const enemies = useRPGEnemies();
@@ -29,7 +30,7 @@ export const RPGWaveInfo: React.FC = () => {
         `}>
           {isBossPhase ? (
             <>
-              <span className="mr-2">👹</span>
+              <span className="mr-2"><Emoji emoji="👹" size={20} /></span>
               보스 페이즈
             </>
           ) : (
@@ -46,7 +47,7 @@ export const RPGWaveInfo: React.FC = () => {
       {/* 넥서스 상태 */}
       <div className="mb-3">
         <div className="flex items-center gap-2 mb-1">
-          <span className="text-cyan-400">💎</span>
+          <span className="text-cyan-400"><Emoji emoji="💎" size={16} /></span>
           <span className="text-sm text-gray-400">넥서스</span>
         </div>
         <div className="h-3 bg-dark-700 rounded-full overflow-hidden">
@@ -108,10 +109,10 @@ export const RPGWaveInfo: React.FC = () => {
       <div className="mt-3 pt-3 border-t border-dark-600/50">
         <div className="text-xs text-gray-400">
           {isBossPhase
-            ? '⚔️ 보스를 모두 처치하세요!'
+            ? <><Emoji emoji="⚔️" size={14} /> 보스를 모두 처치하세요!</>
             : destroyedBases < 2
-              ? '🎯 적 기지를 파괴하세요!'
-              : '⏳ 보스 등장 준비 중...'}
+              ? <><Emoji emoji="🎯" size={14} /> 적 기지를 파괴하세요!</>
+              : <><Emoji emoji="⏳" size={14} /> 보스 등장 준비 중...</>}
         </div>
       </div>
     </div>
@@ -133,7 +134,7 @@ export const RPGGameAlert: React.FC<{
       bgColor: 'from-red-500/20 to-orange-500/20',
       borderColor: 'border-red-500/50',
       textColor: 'text-red-400',
-      emoji: '👹',
+      emoji: <Emoji emoji="👹" size={48} />,
     },
     base_destroyed: {
       title: '기지 파괴!',
@@ -141,7 +142,7 @@ export const RPGGameAlert: React.FC<{
       bgColor: 'from-green-500/20 to-emerald-500/20',
       borderColor: 'border-green-500/50',
       textColor: 'text-green-400',
-      emoji: '💥',
+      emoji: <Emoji emoji="💥" size={48} />,
     },
     victory: {
       title: '승리!',
@@ -149,7 +150,7 @@ export const RPGGameAlert: React.FC<{
       bgColor: 'from-yellow-500/20 to-amber-500/20',
       borderColor: 'border-yellow-500/50',
       textColor: 'text-yellow-400',
-      emoji: '🏆',
+      emoji: <Emoji emoji="🏆" size={48} />,
     },
     defeat: {
       title: '패배',
@@ -157,7 +158,7 @@ export const RPGGameAlert: React.FC<{
       bgColor: 'from-gray-500/20 to-gray-600/20',
       borderColor: 'border-gray-500/50',
       textColor: 'text-gray-400',
-      emoji: '💀',
+      emoji: <Emoji emoji="💀" size={48} />,
     },
   };
 

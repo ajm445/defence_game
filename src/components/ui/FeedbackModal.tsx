@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import { getMyFeedback, submitFeedback, getFeedbackSummary } from '../../services/feedbackService';
 import { soundManager } from '../../services/SoundManager';
+import { Emoji } from '../common/Emoji';
 
 interface FeedbackModalProps {
   isOpen: boolean;
@@ -117,7 +118,7 @@ export const FeedbackModal: React.FC<FeedbackModalProps> = ({ isOpen, onClose, o
           ) : submitSuccess ? (
             /* 제출 성공 화면 */
             <div className="flex flex-col items-center gap-4 py-4">
-              <div className="text-4xl">✅</div>
+              <div><Emoji emoji="✅" size={36} /></div>
               <p className="text-green-400 font-bold text-lg">
                 피드백이 {hasExisting ? '수정' : '등록'}되었습니다!
               </p>

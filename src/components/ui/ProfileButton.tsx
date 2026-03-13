@@ -3,6 +3,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useAuthProfile, useAuthIsGuest } from '../../stores/useAuthStore';
 import { useProfileStore } from '../../stores/useProfileStore';
 import { soundManager } from '../../services/SoundManager';
+import { Emoji } from '../common/Emoji';
 
 interface ProfileButtonProps {
   className?: string;
@@ -44,7 +45,7 @@ export const ProfileButton: React.FC<ProfileButtonProps> = ({ className = '' }) 
           className="rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center shadow-md flex-shrink-0"
           style={{ width: 'clamp(1.75rem, 2.5vw, 3rem)', height: 'clamp(1.75rem, 2.5vw, 3rem)', fontSize: 'clamp(0.875rem, 1.5vw, 1.5rem)' }}
         >
-          {isGuest ? '👤' : '⭐'}
+          {isGuest ? <Emoji emoji="👤" size="clamp(0.875rem, 1.5vw, 1.5rem)" /> : <Emoji emoji="⭐" size="clamp(0.875rem, 1.5vw, 1.5rem)" />}
         </div>
 
         {/* 정보 영역 */}

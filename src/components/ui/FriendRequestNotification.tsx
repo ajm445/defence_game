@@ -2,6 +2,7 @@ import React, { useCallback, useEffect, useState } from 'react';
 import { usePendingRequests, useFriendStore } from '../../stores/useFriendStore';
 import { wsClient } from '../../services/WebSocketClient';
 import { soundManager } from '../../services/SoundManager';
+import { Emoji } from '../common/Emoji';
 import type { FriendRequestInfo } from '@shared/types/friendNetwork';
 
 const removePendingRequest = useFriendStore.getState().removePendingRequest;
@@ -57,7 +58,7 @@ export const FriendRequestNotification: React.FC = () => {
     <div className="fixed left-1/2 -translate-x-1/2 z-50 animate-slide-down" style={{ top: 'clamp(3rem, 8vh, 5rem)' }}>
       <div className="flex items-center bg-gray-900/95 border border-neon-cyan/50 rounded-xl shadow-2xl backdrop-blur-sm" style={{ gap: 'clamp(0.5rem, 1.5vw, 1rem)', padding: 'clamp(0.5rem, 1.5vw, 1rem) clamp(0.75rem, 2vw, 1.5rem)' }}>
         <div className="flex items-center gap-3">
-          <span className="text-2xl">👤</span>
+          <Emoji emoji="👤" size={24} />
           <div>
             <p className="text-neon-cyan text-sm font-medium">친구 요청</p>
             <p className="text-white">

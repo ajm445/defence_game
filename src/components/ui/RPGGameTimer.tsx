@@ -1,5 +1,6 @@
 import React from 'react';
 import { useRPGStore } from '../../stores/useRPGStore';
+import { Emoji } from '../common/Emoji';
 
 export const RPGGameTimer: React.FC = () => {
   const gameTime = useRPGStore((state) => state.gameTime);
@@ -15,7 +16,7 @@ export const RPGGameTimer: React.FC = () => {
       >
         <div className="flex items-center gap-2">
           {/* 타이머 아이콘 */}
-          <span className="text-neon-cyan" style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1rem)' }}>⏱️</span>
+          <span className="text-neon-cyan"><Emoji emoji="⏱️" size="clamp(0.875rem, 1.4vw, 1rem)" /></span>
 
           {/* 시간 표시 */}
           <div

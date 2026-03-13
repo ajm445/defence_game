@@ -4,6 +4,7 @@ import { useRPGStore } from '../../stores/useRPGStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { wsClient } from '../../services/WebSocketClient';
 import { soundManager } from '../../services/SoundManager';
+import { Emoji } from '../common/Emoji';
 import type { GameInviteInfo } from '@shared/types/friendNetwork';
 
 interface GameInviteNotificationProps {
@@ -101,7 +102,7 @@ export const GameInviteNotification: React.FC<GameInviteNotificationProps> = ({ 
     <div className="fixed z-50 animate-slide-down" style={{ top: 'clamp(0.5rem, 2vh, 1rem)', right: 'clamp(4rem, 18vw, 17.5rem)' }}>
       <div className="flex items-center bg-gray-900/95 border border-green-500/50 rounded-xl shadow-2xl backdrop-blur-sm" style={{ gap: 'clamp(0.5rem, 1.5vw, 1rem)', padding: 'clamp(0.5rem, 1.5vw, 1rem) clamp(0.75rem, 2vw, 1.5rem)' }}>
         <div className="flex items-center gap-3">
-          <span className="text-2xl">🎮</span>
+          <Emoji emoji="🎮" size={24} />
           <div>
             <p className="text-green-400 text-sm font-medium">게임 초대</p>
             <p className="text-white">
@@ -112,7 +113,7 @@ export const GameInviteNotification: React.FC<GameInviteNotificationProps> = ({ 
             </p>
             {visibleInvite.isPrivate && (
               <p className="text-yellow-400 text-xs mt-1">
-                🔒 비밀방 (초대로만 입장 가능)
+                <Emoji emoji="🔒" size={12} className="mr-1" /> 비밀방 (초대로만 입장 가능)
               </p>
             )}
             <p className="text-gray-500 text-xs mt-1">

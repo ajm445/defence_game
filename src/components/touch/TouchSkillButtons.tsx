@@ -4,6 +4,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { SkillType } from '../../types/rpg';
 import { sendSkillUse } from '../../hooks/useNetworkSync';
 import { soundManager } from '../../services/SoundManager';
+import { Emoji } from '../common/Emoji';
 
 interface TouchSkillButtonProps {
   slot: 'W' | 'E';
@@ -141,7 +142,7 @@ const TouchSkillButton: React.FC<TouchSkillButtonProps> = ({
         )}
 
         <div className={`relative z-10 flex flex-col items-center justify-center h-full ${isDisabled && !active ? 'opacity-40' : ''}`}>
-          <span className="text-3xl">{icon}</span>
+          <Emoji emoji={icon} size={30} />
           <span className="text-[11px] text-white/60 font-bold">{label}</span>
         </div>
 

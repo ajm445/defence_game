@@ -1,5 +1,18 @@
 # Changelog
 
+## [1.25.1] - 2026-03-13
+
+### 크로스 플랫폼 이모지 통일 (Twemoji)
+- **전체 컴포넌트 이모지 → `<Emoji>` 컴포넌트 교체**: 36개 파일에서 직접 사용하던 유니코드 이모지를 Twemoji SVG 기반 `<Emoji>` 컴포넌트로 일괄 교체
+- **크로스 플랫폼 일관성**: Windows, Mac, Linux, iOS, Android 등 OS별로 다르게 보이던 이모지가 모든 환경에서 동일한 Twitter(Twemoji) 스타일로 렌더링
+- **적용 범위**: 화면(로그인, 메인 메뉴, 게임 선택, 모드 선택, 클래스 선택, 코옵 로비, 게임 오버, 프로필, 튜토리얼), UI 컴포넌트(영웅 패널, 스킬바, 웨이브 정보, 타이머, 레벨업, 전직 알림, 직업 도감, 캐릭터 업그레이드, 랭킹, 피드백, 친구 패널/사이드바, 초대 알림, 서버 상태바, 사운드 컨트롤, 일시정지 버튼, 프로필 버튼, 대량 스폰 알림, 점검 알림, 화면 회전 안내, 에러 바운더리), 터치 UI(스킬 버튼)
+
+### 수정 파일 (36개)
+- `src/components/screens/`: LoginScreen, MainMenu, GameTypeSelectScreen, ModeSelectScreen, RPGClassSelectScreen, RPGCoopLobbyScreen, GameOverScreen, ProfileScreen, RPGTutorialScreen
+- `src/components/ui/`: RPGHeroPanel, RPGWaveInfo, RPGTutorialOverlay, RPGGameTimer, ClassCard, ClassSkillDisplay, ClassAdvancementPath, ClassEncyclopediaModal, CharacterUpgradeModal, RankingModal, FeedbackModal, LevelUpNotification, SecondEnhancementNotification, FriendPanel, FriendSidebar, FriendRequestNotification, GameInviteNotification, ServerStatusBar, ProfileButton, PauseButton, SoundControl, MassSpawnAlert, MaintenanceToast, OrientationPrompt, TutorialOverlay
+- `src/components/touch/`: TouchSkillButtons
+- `src/components/`: ErrorBoundary
+
 ## [1.25.0] - 2026-03-12
 
 ### MP3 BGM 시스템 추가

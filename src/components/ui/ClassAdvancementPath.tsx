@@ -2,6 +2,7 @@ import React from 'react';
 import { HeroClass, AdvancedHeroClass } from '../../types/rpg';
 import { CLASS_CONFIGS, ADVANCED_CLASS_CONFIGS, ADVANCEMENT_OPTIONS, JOB_ADVANCEMENT_REQUIREMENTS } from '../../constants/rpgConfig';
 import { classColors } from './ClassCard';
+import { Emoji } from '../common/Emoji';
 
 interface ClassAdvancementPathProps {
   heroClass: HeroClass;
@@ -22,7 +23,7 @@ export const ClassAdvancementPath: React.FC<ClassAdvancementPathProps> = ({
   return (
     <div className="w-full">
       <div className="flex items-center gap-2 mb-4">
-        <span className="text-lg">📈</span>
+        <Emoji emoji="📈" size={18} />
         <h3 className="text-white font-bold">전직 경로</h3>
       </div>
 
@@ -32,7 +33,7 @@ export const ClassAdvancementPath: React.FC<ClassAdvancementPathProps> = ({
           flex flex-col items-center p-3 rounded-xl border-2
           ${colors.border} ${colors.bg}
         `}>
-          <span className="text-3xl mb-1">{baseConfig.emoji}</span>
+          <span className="mb-1"><Emoji emoji={baseConfig.emoji} size={30} /></span>
           <p className="text-white font-bold text-sm">{baseConfig.name}</p>
           <p className="text-gray-400 text-xs">기본</p>
         </div>
@@ -65,7 +66,7 @@ export const ClassAdvancementPath: React.FC<ClassAdvancementPathProps> = ({
                   ${onAdvancedClassSelect ? 'cursor-pointer' : 'cursor-default'}
                 `}
               >
-                <span className="text-2xl">{advConfig.emoji}</span>
+                <Emoji emoji={advConfig.emoji} size={24} />
                 <div className="text-left">
                   <p className={`font-bold text-sm ${isSelected ? 'text-orange-300' : 'text-white'}`}>
                     {advConfig.name}
@@ -95,7 +96,7 @@ export const ClassAdvancementPath: React.FC<ClassAdvancementPathProps> = ({
           flex flex-col items-center p-3 rounded-xl border-2 border-dashed
           border-orange-500/50 bg-orange-500/10
         `}>
-          <span className="text-2xl mb-1">⭐⭐</span>
+          <span className="mb-1"><Emoji emoji="⭐" size={24} /><Emoji emoji="⭐" size={24} /></span>
           <p className="text-orange-300 font-bold text-sm">2차 강화</p>
           <p className="text-gray-400 text-xs text-center">
             스탯 ×1.2
@@ -106,7 +107,7 @@ export const ClassAdvancementPath: React.FC<ClassAdvancementPathProps> = ({
       {/* 설명 */}
       <div className="mt-4 p-3 bg-gray-800/30 rounded-lg">
         <div className="flex items-start gap-2 text-xs text-gray-400">
-          <span className="text-yellow-400">💡</span>
+          <Emoji emoji="💡" size={14} />
           <div>
             <p className="mb-1">
               <span className="text-yellow-400">Lv.{minClassLevel}</span>에 1차 전직이 가능합니다.

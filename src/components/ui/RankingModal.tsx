@@ -3,6 +3,7 @@ import { DifficultyRanking, RankingDifficulty, getDifficultyRankings } from '../
 import { CLASS_CONFIGS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
 import { HeroClass, AdvancedHeroClass } from '../../types/rpg';
 import { soundManager } from '../../services/SoundManager';
+import { Emoji } from '../common/Emoji';
 
 interface RankingModalProps {
   isOpen: boolean;
@@ -115,7 +116,7 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">🏆</span>
+            <Emoji emoji="🏆" size={24} />
             <h1 className="text-xl font-bold text-white">
               <span className={currentDiffTab.color}>{currentDiffTab.label}</span> 난이도 랭킹
             </h1>
@@ -172,7 +173,7 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
             </div>
           ) : rankings.length === 0 ? (
             <div className="flex flex-col items-center justify-center py-12">
-              <span className="text-4xl mb-3">📭</span>
+              <span className="mb-3"><Emoji emoji="📭" size={36} /></span>
               <p className="text-gray-400">아직 클리어 기록이 없습니다.</p>
               <p className="text-gray-500 text-sm mt-1">
                 {activeTab}인 {currentDiffTab.label} 난이도를 클리어하고 첫 기록을 세워보세요!
@@ -213,7 +214,7 @@ export const RankingModal: React.FC<RankingModalProps> = ({ isOpen, onClose }) =
                     {/* 순위 */}
                     <div className={`text-center font-bold ${isTop3 ? rankColors[rank as 1 | 2 | 3] : 'text-gray-400'}`}>
                       {isTop3 ? (
-                        <span className="text-lg">{rankEmoji[rank as 1 | 2 | 3]}</span>
+                        <Emoji emoji={rankEmoji[rank as 1 | 2 | 3]} size={20} />
                       ) : (
                         rank
                       )}

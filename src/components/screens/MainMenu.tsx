@@ -4,6 +4,7 @@ import { useAuthStore, useAuthProfile, useAuthStatus, useAuthIsGuest } from '../
 import { soundManager } from '../../services/SoundManager';
 import { FeedbackModal } from '../ui/FeedbackModal';
 import { getMyFeedback } from '../../services/feedbackService';
+import { Emoji } from '../common/Emoji';
 
 export const MainMenu: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -255,7 +256,7 @@ export const MainMenu: React.FC = () => {
                 <div className="absolute inset-0 bg-gradient-to-b from-transparent via-white/5 to-transparent opacity-0 group-hover:opacity-100 group-hover:animate-[scanline_2s_linear_infinite] pointer-events-none" />
                 <div className="relative flex items-center justify-center gap-3">
                   <div className="w-6 h-6 rounded-full bg-gradient-to-br from-yellow-500 to-orange-500 flex items-center justify-center text-xs">
-                    {profile.isGuest ? '👤' : '⭐'}
+                    {profile.isGuest ? <Emoji emoji="👤" size={16} /> : <Emoji emoji="⭐" size={16} />}
                   </div>
                   <span className="font-game text-xl tracking-wider text-yellow-400 group-hover:text-white transition-colors duration-300">
                     {profile.nickname}
@@ -335,7 +336,7 @@ export const MainMenu: React.FC = () => {
               className="w-12 h-12 rounded-full bg-dark-700/80 border border-gray-600 hover:border-neon-cyan hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group"
               title="게임 피드백"
             >
-              <span className="text-2xl group-hover:scale-110 transition-transform duration-300">📝</span>
+              <span className="group-hover:scale-110 transition-transform duration-300"><Emoji emoji="📝" size={24} /></span>
             </button>
           )}
           {/* 설정 버튼 */}
@@ -343,7 +344,7 @@ export const MainMenu: React.FC = () => {
             onClick={handleOpenSettings}
             className="w-12 h-12 rounded-full bg-dark-700/80 border border-gray-600 hover:border-yellow-500 hover:bg-dark-600/80 transition-all duration-300 flex items-center justify-center cursor-pointer group"
           >
-            <span className="text-2xl group-hover:rotate-90 transition-transform duration-300">⚙️</span>
+            <span className="group-hover:rotate-90 transition-transform duration-300"><Emoji emoji="⚙️" size={24} /></span>
           </button>
         </div>
       )}
@@ -376,7 +377,7 @@ export const MainMenu: React.FC = () => {
       {showSettings && (
         <div className="fixed inset-0 bg-black/50 backdrop-blur-sm z-30 flex items-center justify-center">
           <div className="bg-dark-800/95 rounded-xl p-6 border border-gray-600 min-w-[380px] max-w-[420px] animate-fade-in">
-            <h3 className="text-white font-bold text-xl mb-4 text-center">⚙️ 설정</h3>
+            <h3 className="text-white font-bold text-xl mb-4 text-center"><><Emoji emoji="⚙️" size={20} className="inline-flex" /> 설정</></h3>
 
             {/* 탭 버튼 - 일반 회원만 표시 */}
             {!isGuest && (
@@ -389,7 +390,7 @@ export const MainMenu: React.FC = () => {
                       : 'bg-dark-600 border border-gray-600 text-gray-400 hover:border-gray-500'
                   }`}
                 >
-                  🔊 소리
+                  <><Emoji emoji="🔊" size={16} className="inline-flex" /> 소리</>
                 </button>
                 <button
                   onClick={() => { setSettingsTab('profile'); setSettingsError(null); setSettingsSuccess(null); setCurrentPassword(''); setNewPassword(''); setConfirmPassword(''); }}
@@ -399,7 +400,7 @@ export const MainMenu: React.FC = () => {
                       : 'bg-dark-600 border border-gray-600 text-gray-400 hover:border-gray-500'
                   }`}
                 >
-                  🔒 보안
+                  <><Emoji emoji="🔒" size={16} className="inline-flex" /> 보안</>
                 </button>
                 <button
                   onClick={() => { setSettingsTab('danger'); setSettingsError(null); setSettingsSuccess(null); setShowDeleteConfirm(false); }}
@@ -409,7 +410,7 @@ export const MainMenu: React.FC = () => {
                       : 'bg-dark-600 border border-gray-600 text-gray-400 hover:border-gray-500'
                   }`}
                 >
-                  ⚠️ 계정
+                  <><Emoji emoji="⚠️" size={16} className="inline-flex" /> 계정</>
                 </button>
               </div>
             )}
@@ -455,7 +456,7 @@ export const MainMenu: React.FC = () => {
                         : 'bg-green-500/20 border-green-500 text-green-400'
                     }`}
                   >
-                    {soundMuted ? '🔇 꺼짐' : '🔊 켜짐'}
+                    {soundMuted ? <><Emoji emoji="🔇" size={16} className="inline-flex" /> 꺼짐</> : <><Emoji emoji="🔊" size={16} className="inline-flex" /> 켜짐</>}
                   </button>
                 </div>
 
@@ -533,7 +534,7 @@ export const MainMenu: React.FC = () => {
                 {!showDeleteConfirm ? (
                   <>
                     <div className="p-4 bg-red-500/10 border border-red-500/30 rounded-lg">
-                      <h4 className="text-red-400 font-bold mb-2">⚠️ 회원 탈퇴</h4>
+                      <h4 className="text-red-400 font-bold mb-2"><><Emoji emoji="⚠️" size={16} className="inline-flex" /> 회원 탈퇴</></h4>
                       <p className="text-gray-400 text-sm">
                         계정을 삭제하면 모든 게임 데이터(레벨, 통계, 진행 상황)가 영구적으로 삭제됩니다.
                       </p>

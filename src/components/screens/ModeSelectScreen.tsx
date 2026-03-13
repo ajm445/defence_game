@@ -5,6 +5,7 @@ import { useTutorialStore } from '../../stores/useTutorialStore';
 import { soundManager } from '../../services/SoundManager';
 import { ProfileButton } from '../ui/ProfileButton';
 import { FriendSidebar } from '../ui/FriendSidebar';
+import { Emoji } from '../common/Emoji';
 
 export const ModeSelectScreen: React.FC = () => {
   const setScreen = useUIStore((state) => state.setScreen);
@@ -60,7 +61,7 @@ export const ModeSelectScreen: React.FC = () => {
               <div className="absolute inset-0 border-2 border-green-500/50 rounded-lg group-hover:border-green-400 group-hover:shadow-[0_0_20px_rgba(34,197,94,0.3)] transition-all duration-300" />
 
               <div className="relative h-full flex flex-col items-center justify-center p-6">
-                <div className="text-6xl mb-4">📖</div>
+                <div className="mb-4"><Emoji emoji="📖" size={60} /></div>
                 <br></br>
                 <h2 className="font-game text-xl text-white mb-2">튜토리얼</h2>
                 <p className="text-gray-400 text-sm text-center">
@@ -85,7 +86,7 @@ export const ModeSelectScreen: React.FC = () => {
               <div className="absolute inset-0 border-2 border-neon-cyan/50 rounded-lg group-hover:border-neon-cyan group-hover:shadow-neon-cyan transition-all duration-300" />
 
               <div className="relative h-full flex flex-col items-center justify-center p-6">
-                <div className="text-6xl mb-4">🤖</div>
+                <div className="mb-4"><Emoji emoji="🤖" size={60} /></div>
                 <br></br>
                 <h2 className="font-game text-xl text-white mb-2">AI 대전</h2>
                 <p className="text-gray-400 text-sm text-center">
@@ -110,7 +111,7 @@ export const ModeSelectScreen: React.FC = () => {
               <div className="absolute inset-0 border-2 border-neon-purple/50 rounded-lg group-hover:border-neon-purple group-hover:shadow-neon-purple transition-all duration-300" />
 
               <div className="relative h-full flex flex-col items-center justify-center p-6">
-                <div className="text-6xl mb-4">⚔️</div>
+                <div className="mb-4"><Emoji emoji="⚔️" size={60} /></div>
                 <br></br>
                 <h2 className="font-game text-xl text-white mb-2">1vs1 대전</h2>
                 <p className="text-gray-400 text-sm text-center">

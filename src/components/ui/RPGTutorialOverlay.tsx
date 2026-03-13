@@ -11,6 +11,7 @@ import {
 } from '../../stores/useRPGTutorialStore';
 import { useUIStore } from '../../stores/useUIStore';
 import { soundManager } from '../../services/SoundManager';
+import { Emoji } from '../common/Emoji';
 
 interface RPGTutorialOverlayProps {
   onSkip: () => void;
@@ -105,7 +106,7 @@ export const RPGTutorialOverlay: React.FC<RPGTutorialOverlayProps> = ({
           onClick={handleToggleMinimize}
           className="flex items-center gap-2 px-4 py-2 bg-gradient-to-r from-green-600 to-green-700 rounded-lg shadow-lg border border-green-400/50 hover:from-green-500 hover:to-green-600 transition-all cursor-pointer"
         >
-          <span className="text-lg">📖</span>
+          <Emoji emoji="📖" size={18} />
           <span className="text-white font-bold text-sm">
             튜토리얼 ({currentStepIndex + 1}/{RPG_TUTORIAL_STEPS.length})
           </span>
@@ -122,7 +123,7 @@ export const RPGTutorialOverlay: React.FC<RPGTutorialOverlayProps> = ({
         {/* 헤더 */}
         <div className="flex items-center justify-between px-4 py-3 border-b border-green-500/30 bg-green-900/30 rounded-t-xl">
           <div className="flex items-center gap-2">
-            <span className="text-xl">📖</span>
+            <Emoji emoji="📖" size={20} />
             <span className="text-green-400 font-bold">튜토리얼</span>
             <span className="text-gray-400 text-sm">
               ({currentStepIndex + 1}/{RPG_TUTORIAL_STEPS.length})
@@ -178,7 +179,7 @@ export const RPGTutorialOverlay: React.FC<RPGTutorialOverlayProps> = ({
         {currentStep.conditionType !== 'none' && !isConditionMet && (
           <div className="px-4 pb-3">
             <div className="flex items-center gap-2 text-yellow-400 text-xs bg-yellow-900/20 rounded-lg px-3 py-2 border border-yellow-500/30">
-              <span className="animate-pulse">⏳</span>
+              <span className="animate-pulse"><Emoji emoji="⏳" size={14} /></span>
               <span>조건을 충족하면 자동으로 다음 단계로 넘어갑니다</span>
             </div>
           </div>

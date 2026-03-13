@@ -14,6 +14,7 @@ import { ClassCard, classColors } from './ClassCard';
 import { ClassSkillDisplay } from './ClassSkillDisplay';
 import { ClassAdvancementPath } from './ClassAdvancementPath';
 import { soundManager } from '../../services/SoundManager';
+import { Emoji } from '../common/Emoji';
 
 type TabType = 'basic' | 'advanced';
 
@@ -133,7 +134,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
         {/* 헤더 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-700">
           <div className="flex items-center gap-3">
-            <span className="text-2xl">📚</span>
+            <Emoji emoji="📚" size={24} />
             <h1 className="text-xl font-bold text-white">직업 도감</h1>
           </div>
           <button
@@ -196,7 +197,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                         ${locked ? 'opacity-60' : ''}
                       `}
                     >
-                      <span className="text-2xl">{config.emoji}</span>
+                      <Emoji emoji={config.emoji} size={24} />
                       <div className="text-left">
                         <p className={`font-bold text-sm ${isSelected ? classColor.text : 'text-white'}`}>
                           {config.name}
@@ -205,7 +206,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                           {locked ? `Lv.${unlockLevel} 해금` : unlockLevel === 1 ? '기본' : `Lv.${unlockLevel}`}
                         </p>
                       </div>
-                      {locked && <span className="ml-auto text-sm">🔒</span>}
+                      {locked && <span className="ml-auto"><Emoji emoji="🔒" size={14} /></span>}
                     </button>
                   );
                 })}
@@ -232,7 +233,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                       className={`p-3 rounded-lg border ${sectionStyles[heroClass]}`}
                     >
                       <p className={`text-xs font-bold mb-2 ${classColor.text}`}>
-                        {baseConf.emoji} {baseConf.name} 계열
+                        <Emoji emoji={baseConf.emoji} size={12} className="mr-1" /> {baseConf.name} 계열
                       </p>
                       <div className="space-y-1.5">
                         {advOptions.map((advClass) => {
@@ -250,7 +251,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                                   : 'border-gray-600/50 bg-gray-800/50 hover:border-gray-500 hover:bg-gray-800/70'}
                               `}
                             >
-                              <span className="text-lg">{advConf.emoji}</span>
+                              <Emoji emoji={advConf.emoji} size={18} />
                               <div className="text-left flex-1">
                                 <p className={`font-bold text-xs ${isSelected ? 'text-orange-300' : 'text-white'}`}>
                                   {advConf.name}
@@ -276,7 +277,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                 w-20 h-20 rounded-xl flex items-center justify-center text-5xl
                 bg-gradient-to-br ${colors.gradient} border-2 ${colors.border}
               `}>
-                {activeTab === 'advanced' && advConfig ? advConfig.emoji : baseConfig.emoji}
+                <Emoji emoji={activeTab === 'advanced' && advConfig ? advConfig.emoji : baseConfig.emoji} size={48} />
               </div>
               <div className="flex-1">
                 <div className="flex items-center gap-2">
@@ -290,7 +291,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                   )}
                   {isLocked && (
                     <span className="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded-full">
-                      🔒 Lv.{CHARACTER_UNLOCK_LEVELS[selectedBaseClass]} 필요
+                      <Emoji emoji="🔒" size={12} className="mr-1" /> Lv.{CHARACTER_UNLOCK_LEVELS[selectedBaseClass]} 필요
                     </span>
                   )}
                 </div>
@@ -305,7 +306,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
               {/* 기본 정보 */}
               <div className="p-5 bg-gray-800/30 rounded-xl border border-gray-700">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-lg">📊</span>
+                  <Emoji emoji="📊" size={18} />
                   <h3 className="text-white font-bold">기본 정보</h3>
                   {activeTab === 'advanced' && (
                     <span className="text-xs text-orange-400 ml-auto">1차 전직 기준</span>
@@ -313,23 +314,23 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                 </div>
                 <div className="space-y-3 text-sm">
                   <div className="flex justify-between">
-                    <span className="text-gray-400">❤️ HP</span>
+                    <span className="text-gray-400"><Emoji emoji="❤️" size={14} className="mr-1" /> HP</span>
                     <span className="text-white font-bold">{displayStats.hp}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">⚔️ 공격력</span>
+                    <span className="text-gray-400"><Emoji emoji="⚔️" size={14} className="mr-1" /> 공격력</span>
                     <span className="text-red-400 font-bold">{displayStats.attack}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">⚡ 공격속도</span>
+                    <span className="text-gray-400"><Emoji emoji="⚡" size={14} className="mr-1" /> 공격속도</span>
                     <span className="text-yellow-400 font-bold">{displayStats.attackSpeed}초</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">👟 이동속도</span>
+                    <span className="text-gray-400"><Emoji emoji="👟" size={14} className="mr-1" /> 이동속도</span>
                     <span className="text-blue-400 font-bold">{displayStats.speed}</span>
                   </div>
                   <div className="flex justify-between">
-                    <span className="text-gray-400">🎯 사거리</span>
+                    <span className="text-gray-400"><Emoji emoji="🎯" size={14} className="mr-1" /> 사거리</span>
                     <span className="text-green-400 font-bold">{displayStats.range}</span>
                   </div>
                 </div>
@@ -345,7 +346,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
               {/* 패시브 / 특수 효과 */}
               <div className="p-5 bg-gray-800/30 rounded-xl border border-gray-700">
                 <div className="flex items-center gap-2 mb-4">
-                  <span className="text-lg">✨</span>
+                  <Emoji emoji="✨" size={18} />
                   <h3 className="text-white font-bold">
                     {activeTab === 'advanced' ? '특수 효과' : '패시브'}
                   </h3>
@@ -355,43 +356,43 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                   <div className="space-y-3 text-sm">
                     {advConfig.specialEffects.damageReduction && (
                       <div className="flex justify-between">
-                        <span className="text-gray-400">🛡️ 피해 감소</span>
+                        <span className="text-gray-400"><Emoji emoji="🛡️" size={14} className="mr-1" /> 피해 감소</span>
                         <span className="text-blue-400 font-bold">{advConfig.specialEffects.damageReduction * 100}%</span>
                       </div>
                     )}
                     {advConfig.specialEffects.lifestealMultiplier && (
                       <div className="flex justify-between">
-                        <span className="text-gray-400">🩸 피해흡혈 배율</span>
+                        <span className="text-gray-400"><Emoji emoji="🩸" size={14} className="mr-1" /> 피해흡혈 배율</span>
                         <span className="text-red-400 font-bold">×{advConfig.specialEffects.lifestealMultiplier}</span>
                       </div>
                     )}
                     {advConfig.specialEffects.lifesteal && (
                       <div className="flex justify-between">
-                        <span className="text-gray-400">🩸 피해흡혈</span>
+                        <span className="text-gray-400"><Emoji emoji="🩸" size={14} className="mr-1" /> 피해흡혈</span>
                         <span className="text-red-400 font-bold">{advConfig.specialEffects.lifesteal * 100}%</span>
                       </div>
                     )}
                     {advConfig.specialEffects.critChance && (
                       <div className="flex justify-between">
-                        <span className="text-gray-400">💥 크리티컬 확률</span>
+                        <span className="text-gray-400"><Emoji emoji="💥" size={14} className="mr-1" /> 크리티컬 확률</span>
                         <span className="text-orange-400 font-bold">{advConfig.specialEffects.critChance * 100}%</span>
                       </div>
                     )}
                     {advConfig.specialEffects.multiTarget && (
                       <div className="flex justify-between">
-                        <span className="text-gray-400">🎯 동시 공격</span>
+                        <span className="text-gray-400"><Emoji emoji="🎯" size={14} className="mr-1" /> 동시 공격</span>
                         <span className="text-green-400 font-bold">{advConfig.specialEffects.multiTarget}명</span>
                       </div>
                     )}
                     {advConfig.specialEffects.bossBonus && (
                       <div className="flex justify-between">
-                        <span className="text-gray-400">👹 보스 추가 데미지</span>
+                        <span className="text-gray-400"><Emoji emoji="👹" size={14} className="mr-1" /> 보스 추가 데미지</span>
                         <span className="text-purple-400 font-bold">+{advConfig.specialEffects.bossBonus * 100}%</span>
                       </div>
                     )}
                     {advConfig.specialEffects.healAlly && (
                       <div className="text-green-400 text-sm">
-                        💚 아군 치유 가능
+                        <Emoji emoji="💚" size={14} className="mr-1" /> 아군 치유 가능
                       </div>
                     )}
                     {advConfig.specialEffects.basicAttackHeal && (

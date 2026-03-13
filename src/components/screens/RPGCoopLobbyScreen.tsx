@@ -26,6 +26,7 @@ import { ServerStatusBar } from '../ui/ServerStatusBar';
 import { ClassEncyclopediaModal } from '../ui/ClassEncyclopediaModal';
 import { RankingModal } from '../ui/RankingModal';
 import { LobbyChat } from '../ui/LobbyChat';
+import { Emoji } from '../common/Emoji';
 
 // 난이도 색상 설정
 const difficultyColors: Record<RPGDifficulty, { bg: string; border: string; text: string; hoverBg: string }> = {
@@ -875,7 +876,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                       : 'border-gray-700 text-gray-600 cursor-not-allowed'
                 }`}
               >
-                🌐 공개
+                <Emoji emoji="🌐" size={14} className="mr-1" /> 공개
               </button>
               <button
                 onClick={() => {
@@ -893,7 +894,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                       : 'border-gray-700 text-gray-600 cursor-not-allowed'
                 }`}
               >
-                🔒 비밀
+                <Emoji emoji="🔒" size={14} className="mr-1" /> 비밀
               </button>
             </div>
             {/* 난이도 */}
@@ -990,7 +991,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           style={{ paddingLeft: 5, paddingRight: 5 }}
         >
           <div className="flex items-center gap-3">
-            <span className="text-xl">{displayEmoji}</span>
+            <Emoji emoji={displayEmoji} size={20} />
             <div>
               <p className={`font-bold ${isMe ? 'text-neon-cyan' : 'text-white'}`}>
                 {player.name}
@@ -1062,7 +1063,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               : 'border-neon-cyan/50 bg-neon-cyan/10 hover:bg-neon-cyan/20 cursor-pointer'
           }`}
         >
-          <span className="text-xl">{displayEmoji}</span>
+          <Emoji emoji={displayEmoji} size={20} />
           <span className={isMyReady ? 'text-gray-400' : 'text-neon-cyan'}>
             {displayName}
             {myProgress?.tier === 2 && <span className="ml-1 text-orange-400">★★</span>}
@@ -1099,7 +1100,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         {timeoutWarning && (
           <div className="w-full p-3 rounded-lg bg-yellow-500/20 border border-yellow-500 animate-pulse">
             <p className="text-yellow-400 text-sm text-center font-medium">
-              ⚠️ {timeoutWarning}
+              <Emoji emoji="⚠️" size={16} className="mr-1" /> {timeoutWarning}
             </p>
           </div>
         )}
@@ -1196,7 +1197,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           const displayEmoji = advConfig ? advConfig.emoji : baseConfig.emoji;
           return (
             <div key={player.id} className="text-center px-4">
-              <span className="text-2xl">{displayEmoji}</span>
+              <Emoji emoji={displayEmoji} size={24} />
               <p className="text-white font-bold">{player.name}</p>
               <p className="text-gray-500 text-xs">
                 {displayName}
@@ -1253,7 +1254,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               className="px-3 py-1 text-sm text-yellow-400 border border-yellow-500/50 rounded-lg hover:bg-yellow-500/10 transition-all cursor-pointer flex items-center gap-1"
               style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
             >
-              <span>📚</span> 직업 도감
+              <Emoji emoji="📚" size={16} /> 직업 도감
             </button>
             <button
               onClick={() => {
@@ -1263,7 +1264,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
               className="px-3 py-1 text-sm text-green-400 border border-green-500/50 rounded-lg hover:bg-green-500/10 transition-all cursor-pointer flex items-center gap-1"
               style={{ paddingLeft: '10px', paddingRight: '10px', paddingTop: '5px', paddingBottom: '5px' }}
             >
-              <span>📖</span> 튜토리얼
+              <Emoji emoji="📖" size={16} /> 튜토리얼
             </button>
             <button
               onClick={() => setShowJoinInput(true)}
@@ -1331,14 +1332,14 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                 )}
                 {/* 비밀방 아이콘 */}
                 {room.isPrivate && !isInGame && (
-                  <div className="absolute top-3 right-1 text-yellow-400 text-lg" title="비밀방">
-                    🔒
+                  <div className="absolute top-3 right-1 text-yellow-400" title="비밀방">
+                    <Emoji emoji="🔒" size={20} />
                   </div>
                 )}
 
                 {/* 호스트 정보 */}
                 <div className="flex items-center gap-3 mb-3">
-                  <span className="text-3xl">{displayEmoji}</span>
+                  <Emoji emoji={displayEmoji} size={30} />
                   <div className="flex-1 min-w-0">
                     <p className="text-white font-bold text-lg truncate">
                       {room.hostName}
@@ -1626,7 +1627,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                     {/* 잠금 오버레이 */}
                     {isLocked && (
                       <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-10 rounded-xl">
-                        <span className="text-4xl mb-2">🔒</span>
+                        <span className="mb-2"><Emoji emoji="🔒" size={36} /></span>
                         <p className="text-gray-300 text-sm font-bold">
                           {isGuest ? '회원 전용' : `Lv.${unlockLevel} 필요`}
                         </p>
@@ -1744,7 +1745,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                       : 'border-gray-600 hover:border-green-500/70 hover:bg-green-500/10'
                   }`}
                 >
-                  <span className="text-3xl mb-2">🌐</span>
+                  <span className="mb-2"><Emoji emoji="🌐" size={30} /></span>
                   <span className={`font-bold ${selectedRoomType === 'public' ? 'text-green-400' : 'text-gray-400'}`}>공개방</span>
                   <span className="text-gray-500 text-xs mt-1">누구나 참가</span>
                 </button>
@@ -1761,7 +1762,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                       : 'border-gray-600 hover:border-neon-purple/70 hover:bg-neon-purple/10'
                   }`}
                 >
-                  <span className="text-3xl mb-2">🔒</span>
+                  <span className="mb-2"><Emoji emoji="🔒" size={30} /></span>
                   <span className={`font-bold ${selectedRoomType === 'private' ? 'text-neon-purple' : 'text-gray-400'}`}>비밀방</span>
                   <span className="text-gray-500 text-xs mt-1">코드로 참가</span>
                 </button>
@@ -1842,7 +1843,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
                           : `border-gray-600 ${tc.hoverBorder} ${tc.hoverBg}`
                       }`}
                     >
-                      <span className="text-2xl mb-1">{themeEmojis[theme.id]}</span>
+                      <span className="mb-1"><Emoji emoji={themeEmojis[theme.id]} size={24} /></span>
                       <span className={`font-bold text-sm ${isSelected ? tc.text : 'text-gray-400'}`}>
                         {theme.name}
                       </span>
@@ -1900,13 +1901,13 @@ export const RPGCoopLobbyScreen: React.FC = () => {
           >
             {/* 타이틀 */}
             <div className="flex items-center gap-3 mb-4">
-              <span className="text-3xl">🔒</span>
+              <Emoji emoji="🔒" size={30} />
               <h2 className="font-game text-2xl text-yellow-400">비밀방</h2>
             </div>
 
             {/* 방 정보 */}
             <div className="flex items-center gap-3 mb-6 px-4 py-3 bg-gray-800/50 rounded-lg">
-              <span className="text-2xl">{CLASS_CONFIGS[privateRoomToJoin.hostHeroClass].emoji}</span>
+              <Emoji emoji={CLASS_CONFIGS[privateRoomToJoin.hostHeroClass].emoji} size={24} />
               <div>
                 <p className="text-white font-bold">{privateRoomToJoin.hostName}</p>
                 <p className="text-gray-500 text-sm">{privateRoomToJoin.playerCount}/{privateRoomToJoin.maxPlayers}명</p>

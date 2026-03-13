@@ -1,5 +1,6 @@
 import React, { useEffect, useState } from 'react';
 import { useUIStore } from '../../stores/useUIStore';
+import { Emoji } from '../common/Emoji';
 
 /**
  * 닫을 수 있는 점검 토스트 (로비/메뉴 등 인게임 외 화면)
@@ -16,7 +17,7 @@ export const MaintenanceToast: React.FC = () => {
   return (
     <div className="fixed top-4 left-1/2 -translate-x-1/2 z-[9999] animate-fade-in">
       <div className="flex items-center gap-3 px-5 py-3 bg-yellow-500/20 border border-yellow-500/60 rounded-lg backdrop-blur-md shadow-lg max-w-lg">
-        <span className="text-yellow-400 text-lg flex-shrink-0">🔧</span>
+        <span className="text-yellow-400 text-lg flex-shrink-0"><Emoji emoji="🔧" size={18} /></span>
         <p className="text-yellow-200 text-sm font-medium">{notice}</p>
         <button
           onClick={() => setMaintenanceNotice(null)}
@@ -53,7 +54,7 @@ export const MaintenanceAlert: React.FC = () => {
     <div className="fixed top-20 inset-x-0 flex justify-center z-[9999] pointer-events-none">
       <div className="glass-dark rounded-xl px-6 py-3 border border-yellow-500/50 shadow-lg animate-[fadeInOut_5s_ease-in-out]">
         <div className="flex items-center gap-3">
-          <span className="text-yellow-400">🔧</span>
+          <span className="text-yellow-400"><Emoji emoji="🔧" size={16} /></span>
           <span className="text-yellow-300 font-medium text-sm">{alert}</span>
         </div>
       </div>

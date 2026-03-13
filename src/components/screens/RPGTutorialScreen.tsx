@@ -6,6 +6,7 @@ import { RPGHeroPanel } from '../ui/RPGHeroPanel';
 import { RPGSkillBar } from '../ui/RPGSkillBar';
 import { RPGGameTimer } from '../ui/RPGGameTimer';
 import { RPGUpgradePanel } from '../ui/RPGUpgradePanel';
+import { Emoji } from '../common/Emoji';
 import { RPGScreenEffects } from '../ui/RPGScreenEffects';
 import { RPGDamageNumbers } from '../ui/RPGDamageNumbers';
 import { Notification } from '../ui/Notification';
@@ -442,14 +443,14 @@ export const RPGTutorialScreen: React.FC = () => {
             <div className="mb-6 space-y-3">
               <div className="p-3 bg-green-500/10 border border-green-500/30 rounded-lg">
                 <p className="text-green-300 text-sm">
-                  <span className="font-bold text-green-400">📈 레벨 시스템</span><br/>
+                  <span className="font-bold text-green-400"><Emoji emoji="📈" size={14} className="mr-1" /> 레벨 시스템</span><br/>
                   게임을 플레이하면 경험치를 획득하여 레벨이 올라갑니다.<br/>
                   레벨이 오르면 능력치가 강화되어 더 높은 난이도에 도전할 수 있습니다!
                 </p>
               </div>
               <div className="p-3 bg-purple-500/10 border border-purple-500/30 rounded-lg">
                 <p className="text-purple-300 text-sm">
-                  <span className="font-bold text-purple-400">🔓 캐릭터 해금</span><br/>
+                  <span className="font-bold text-purple-400"><Emoji emoji="🔓" size={14} className="mr-1" /> 캐릭터 해금</span><br/>
                   레벨을 올리면 새로운 캐릭터를 해금할 수 있습니다.<br/>
                   각 캐릭터는 고유한 스킬과 플레이 스타일을 가지고 있습니다!
                 </p>

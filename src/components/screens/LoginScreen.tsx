@@ -3,6 +3,7 @@ import { useUIStore } from '../../stores/useUIStore';
 import { useAuthStore, useAuthError, useAuthIsLoading } from '../../stores/useAuthStore';
 import { soundManager } from '../../services/SoundManager';
 import { checkNicknameAvailability, checkUsernameAvailability } from '../../services/authService';
+import { Emoji } from '../common/Emoji';
 
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
@@ -302,7 +303,7 @@ export const LoginScreen: React.FC = () => {
         {maintenanceMessage && (
           <div className="w-full mb-8 p-6 bg-yellow-500/15 border-2 border-yellow-500/50 rounded-lg text-center">
             <div style={{ height: '5px' }} />
-            <div className="text-3xl mb-3">🔧</div>
+            <div className="mb-3"><Emoji emoji="🔧" size={30} /></div>
             <h2 className="text-yellow-300 font-bold text-lg mb-2">점검 중입니다</h2>
             <p className="text-yellow-200/80 text-sm">{maintenanceMessage}</p>
             <p className="text-gray-400 text-xs mt-3">잠시 후 다시 시도해주세요.</p>
@@ -323,7 +324,7 @@ export const LoginScreen: React.FC = () => {
                   : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
               }`}
             >
-              <span className="text-2xl">🔑</span>
+              <Emoji emoji="🔑" size={24} />
               <span className="font-bold text-sm">로그인</span>
               <span className={`text-xs ${mode === 'login' ? 'text-gray-300' : 'text-gray-500'}`}>기존 계정</span>
             </button>
@@ -335,7 +336,7 @@ export const LoginScreen: React.FC = () => {
                   : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
               }`}
             >
-              <span className="text-2xl">✨</span>
+              <Emoji emoji="✨" size={24} />
               <span className="font-bold text-sm">회원가입</span>
               <span className={`text-xs ${mode === 'signup' ? 'text-gray-300' : 'text-gray-500'}`}>새 계정 생성</span>
             </button>
@@ -347,7 +348,7 @@ export const LoginScreen: React.FC = () => {
                   : 'bg-gray-800/50 border-gray-700 text-gray-400 hover:border-gray-500 hover:text-white'
               }`}
             >
-              <span className="text-2xl">🎮</span>
+              <Emoji emoji="🎮" size={24} />
               <span className="font-bold text-sm">바로 시작</span>
               <span className={`text-xs ${mode === 'guest' ? 'text-green-300' : 'text-gray-500'}`}>가입 없이 체험</span>
             </button>
@@ -534,7 +535,7 @@ export const LoginScreen: React.FC = () => {
           <div className="w-full space-y-5">
             <div className="bg-green-500/10 border border-green-500/30 rounded-md p-5">
               <p className="text-green-300 text-sm text-center leading-relaxed mb-2">
-                🎮 가입 없이 바로 게임을 체험할 수 있습니다!
+                <Emoji emoji="🎮" size={14} className="mr-1" /> 가입 없이 바로 게임을 체험할 수 있습니다!
               </p>
               <p className="text-gray-400 text-xs text-center leading-relaxed">
                 ※ 진행 상황이 저장되지 않으며, RPG 모드에서 <span className="font-bold text-gray-300">궁수만</span> 사용 가능합니다.<br />

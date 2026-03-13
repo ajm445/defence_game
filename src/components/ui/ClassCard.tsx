@@ -1,6 +1,7 @@
 import React from 'react';
 import { HeroClass, AdvancedHeroClass } from '../../types/rpg';
 import { CLASS_CONFIGS, ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { Emoji } from '../common/Emoji';
 
 // 클래스별 색상 테마
 export const classColors: Record<HeroClass, { bg: string; border: string; text: string; gradient: string; glow: string }> = {
@@ -65,7 +66,6 @@ export const ClassCard: React.FC<ClassCardProps> = ({
     ? 'w-28 h-36 p-2'
     : 'w-36 h-44 p-3';
 
-  const emojiSize = size === 'small' ? 'text-3xl' : 'text-4xl';
   const nameSize = size === 'small' ? 'text-sm' : 'text-base';
   const subTextSize = size === 'small' ? 'text-[10px]' : 'text-xs';
 
@@ -94,7 +94,7 @@ export const ClassCard: React.FC<ClassCardProps> = ({
       {/* 잠금 오버레이 */}
       {isLocked && (
         <div className="absolute inset-0 bg-black/50 flex flex-col items-center justify-center z-10 rounded-xl">
-          <span className="text-2xl mb-1">🔒</span>
+          <span className="mb-1"><Emoji emoji="🔒" size={24} /></span>
           <p className="text-gray-300 text-xs font-bold">Lv.{unlockLevel}</p>
         </div>
       )}
@@ -109,8 +109,8 @@ export const ClassCard: React.FC<ClassCardProps> = ({
       {/* 컨텐츠 */}
       <div className={`relative h-full flex flex-col items-center justify-center ${isLocked ? 'opacity-50' : ''}`}>
         {/* 이모지 아이콘 */}
-        <div className={`${emojiSize} mb-2 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
-          {displayEmoji}
+        <div className={`mb-2 transform ${!isLocked ? 'group-hover:scale-110' : ''} transition-transform`}>
+          <Emoji emoji={displayEmoji} size={size === 'small' ? 30 : 36} />
         </div>
 
         {/* 직업명 */}

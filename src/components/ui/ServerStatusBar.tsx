@@ -1,6 +1,7 @@
 import React, { useEffect, useState } from 'react';
 import { useServerStatus } from '../../stores/useFriendStore';
 import { wsClient } from '../../services/WebSocketClient';
+import { Emoji } from '../common/Emoji';
 
 export const ServerStatusBar: React.FC = () => {
   const serverStatus = useServerStatus();
@@ -76,7 +77,7 @@ export const ServerStatusBar: React.FC = () => {
 
       {/* 활성 게임 */}
       <div className="flex items-center gap-2">
-        <span className="text-yellow-400">🎮</span>
+        <span className="text-yellow-400"><Emoji emoji="🎮" size={16} /></span>
         <span className="text-gray-400">게임 중</span>
         <span className="text-white font-bold">{serverStatus.activeGames}</span>
       </div>
@@ -85,7 +86,7 @@ export const ServerStatusBar: React.FC = () => {
 
       {/* 대기방 */}
       <div className="flex items-center gap-2">
-        <span className="text-blue-400">🚪</span>
+        <span className="text-blue-400"><Emoji emoji="🚪" size={16} /></span>
         <span className="text-gray-400">대기방</span>
         <span className="text-white font-bold">{serverStatus.waitingRooms}</span>
       </div>

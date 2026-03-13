@@ -3,6 +3,7 @@ import { useHero, useRPGStats, useUpgradeLevels, useGold, useIsMultiplayer, useO
 import { HeroClass, BuffType, HeroUnit, AdvancedHeroClass } from '../../types/rpg';
 import { calculateAllUpgradeBonuses } from '../../game/rpg/goldSystem';
 import { ADVANCED_CLASS_CONFIGS } from '../../constants/rpgConfig';
+import { Emoji } from '../common/Emoji';
 
 // 직업별 표시 정보
 const CLASS_DISPLAY: Record<HeroClass, { emoji: string; name: string; color: string; bgColor: string }> = {
@@ -66,7 +67,7 @@ const CircularBuffIcon: React.FC<{
       </svg>
       {/* 이모지 */}
       <div className="absolute inset-0 flex items-center justify-center">
-        <span style={{ fontSize: size * 0.5 }}>{emoji}</span>
+        <Emoji emoji={emoji} size={size * 0.5} />
       </div>
     </div>
   );
@@ -114,7 +115,7 @@ export const RPGHeroPanel: React.FC = () => {
       {/* 골드 표시 */}
       <div className="flex items-center justify-between border-b border-dark-600/50" style={{ marginBottom: 'clamp(0.5rem, 1vw, 0.75rem)', paddingBottom: 'clamp(0.25rem, 0.8vw, 0.5rem)' }}>
         <div className="flex items-center gap-2">
-          <span style={{ fontSize: 'clamp(1rem, 1.6vw, 1.25rem)' }}>💰</span>
+          <Emoji emoji="💰" size="clamp(1rem, 1.6vw, 1.25rem)" />
           <span className="font-bold text-yellow-400" style={{ fontSize: 'clamp(0.875rem, 1.4vw, 1.125rem)' }}>{gold}</span>
         </div>
         <div className="text-xs text-gray-400">
@@ -129,7 +130,7 @@ export const RPGHeroPanel: React.FC = () => {
             className={`rounded-full bg-gradient-to-br ${classInfo.bgColor} border-2 border-current ${classInfo.color} flex items-center justify-center`}
             style={{ width: 'clamp(2.5rem, 4vw, 3.5rem)', height: 'clamp(2.5rem, 4vw, 3.5rem)' }}
           >
-            <span style={{ fontSize: 'clamp(1.25rem, 2.2vw, 1.875rem)' }}>{classInfo.emoji}</span>
+            <Emoji emoji={classInfo.emoji} size="clamp(1.25rem, 2.2vw, 1.875rem)" />
           </div>
           {/* 캐릭터 레벨 배지 */}
           <div
@@ -188,25 +189,25 @@ export const RPGHeroPanel: React.FC = () => {
       {/* 스탯 정보 (업그레이드 보너스 포함) */}
       <div className="grid grid-cols-4 gap-2 text-center text-xs">
         <div className="bg-dark-700/50 rounded-lg p-2">
-          <div className="text-red-400">⚔️ 공격</div>
+          <div className="text-red-400"><Emoji emoji="⚔️" size="1em" /> 공격</div>
           <div className="text-white font-bold">
             {hero.baseAttack + upgradeBonuses.attackBonus}
           </div>
         </div>
         <div className="bg-dark-700/50 rounded-lg p-2">
-          <div className="text-cyan-400">⚡ 공속</div>
+          <div className="text-cyan-400"><Emoji emoji="⚡" size="1em" /> 공속</div>
           <div className="text-white font-bold">
             {(hero.config.attackSpeed ?? 1.0).toFixed(2)}s
           </div>
         </div>
         <div className="bg-dark-700/50 rounded-lg p-2">
-          <div className="text-blue-400">👟 속도</div>
+          <div className="text-blue-400"><Emoji emoji="👟" size="1em" /> 속도</div>
           <div className="text-white font-bold">
             {(hero.baseSpeed + upgradeBonuses.speedBonus).toFixed(2)}
           </div>
         </div>
         <div className="bg-dark-700/50 rounded-lg p-2">
-          <div className="text-yellow-400">🎯 사거리</div>
+          <div className="text-yellow-400"><Emoji emoji="🎯" size="1em" /> 사거리</div>
           <div className="text-white font-bold">{hero.config.range}</div>
         </div>
       </div>
@@ -235,7 +236,7 @@ const AllyHeroBar: React.FC<{ hero: HeroUnit }> = ({ hero }) => {
     <div className={`flex items-center gap-2 bg-dark-700/50 rounded-lg p-2 ${isDead ? 'opacity-50' : ''}`}>
       {/* 직업 아이콘 */}
       <div className={`w-8 h-8 rounded-full bg-gradient-to-br ${classInfo.bgColor} flex items-center justify-center`}>
-        <span className="text-lg">{classInfo.emoji}</span>
+        <Emoji emoji={classInfo.emoji} size="1.125rem" />
       </div>
       {/* HP 바 */}
       <div className="flex-1">

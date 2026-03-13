@@ -25,6 +25,7 @@ import {
   formatPassiveValue,
   getPassiveDescription,
 } from '../../game/rpg/passiveSystem';
+import { Emoji } from '../common/Emoji';
 
 interface CharacterUpgradeModalProps {
   heroClass: HeroClass;
@@ -201,8 +202,8 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
       >
         {/* 헤더 */}
         <div className="flex items-center gap-4 mb-6" style={{ paddingLeft: '5px', paddingRight: '5px' }}>
-          <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${classColors[heroClass]} flex items-center justify-center text-4xl`}>
-            {displayConfig.emoji}
+          <div className={`w-16 h-16 rounded-full bg-gradient-to-br ${classColors[heroClass]} flex items-center justify-center`}>
+            <Emoji emoji={displayConfig.emoji} size={36} />
           </div>
           <div className="flex-1">
             <h2 className="text-2xl text-white font-bold">
@@ -230,7 +231,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
         {/* 잠금 상태 */}
         {!isUnlocked && (
           <div className="bg-gray-800/50 rounded-lg p-4 mb-4 text-center">
-            <span className="text-4xl">🔒</span>
+            <Emoji emoji="🔒" size={36} />
             <p className="text-gray-400 mt-2">이 캐릭터는 아직 해금되지 않았습니다.</p>
           </div>
         )}
@@ -350,7 +351,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
             // 전직 완료 상태
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
-                <span className="text-3xl">{ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].emoji}</span>
+                <Emoji emoji={ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].emoji} size={30} />
                 <div className="flex-1">
                   <div className="text-yellow-400 font-bold">
                     {ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].name}
@@ -379,15 +380,15 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
               onClick={handleShowJobAdvancement}
               className="w-full py-3 bg-gradient-to-r from-yellow-500/30 to-orange-500/30 hover:from-yellow-500/50 hover:to-orange-500/50 rounded-lg text-yellow-300 font-bold transition-all cursor-pointer border border-yellow-500/50 flex items-center justify-center gap-2"
             >
-              <span className="text-xl">⚔️</span>
+              <Emoji emoji="⚔️" size={20} />
               전직하기
-              <span className="text-xl">⚔️</span>
+              <Emoji emoji="⚔️" size={20} />
             </button>
           ) : (
             // 전직 불가 상태
             <div className="p-3 bg-gray-700/50 rounded-lg">
               <div className="flex items-center gap-2">
-                <span className="text-2xl">🔒</span>
+                <Emoji emoji="🔒" size={24} />
                 <div className="text-gray-400">
                   <span className="text-white font-bold">Lv.{JOB_ADVANCEMENT_REQUIREMENTS.minClassLevel}</span>
                   에 전직 가능 (현재 Lv.{progress.classLevel})
@@ -447,7 +448,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
 
                       {/* 직업 헤더 */}
                       <div className="flex items-center gap-3 mb-3">
-                        <span className="text-4xl">{advConfig.emoji}</span>
+                        <Emoji emoji={advConfig.emoji} size={36} />
                         <div>
                           <div className="text-white font-bold text-lg">
                             {advConfig.name}
@@ -650,7 +651,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
                   style={{ paddingRight: '5px' }}
                 >
                   <div className="flex items-center gap-3">
-                    <span className="text-2xl">{statConfig.icon}</span>
+                    <Emoji emoji={statConfig.icon} size={24} />
                     <div>
                       <div className="flex items-center gap-2">
                         <span className="text-white font-medium">{statConfig.name}</span>
