@@ -20,20 +20,16 @@
 
 ## 모션별 권장 프레임 수
 
-렌더 크기 40×50px 기준, 과도한 프레임은 시각적 차이 미미 + 에셋 용량 증가.
+렌더 크기 40×50px 기준. **2×2 그리드 레이아웃** (500×600px × 4프레임 → 약 1000×1200px 시트).
 
 | 모션 | 프레임 수 | 용도 |
 |------|----------|------|
-| **Idle (대기)** | 4 | 호흡/출렁임 루프 |
 | **Walk (이동)** | 4 | 걷기 사이클 루프 |
 | **Basic Attack (기본공격)** | 4 | 예비→스윙→타격→복귀 |
 | **W Skill** | 4 | 스킬별 고유 모션 |
 | **E Skill** | 4 | 스킬별 고유 모션 |
-| **Hit (피격)** | 2 | 빠른 경직 |
-| **Death (사망)** | 3 | 쓰러지는 시퀀스 |
-| **Stun (기절)** | 2 | 비틀거리는 루프 |
 
-**캐릭터당 총 27프레임** (다크나이트만 E_off 2프레임 추가 → 29프레임)
+**캐릭터당 총 16프레임, 4개 스프라이트 시트**
 
 ---
 
@@ -42,23 +38,23 @@
 | # | 캐릭터 | 모션 수 | 프레임 합계 |
 |---|--------|---------|------------|
 | **기본 직업** | | | |
-| 1 | Warrior (전사) | 8 | 27 |
-| 2 | Archer (궁수) | 8 | 27 |
-| 3 | Knight (기사) | 8 | 27 |
-| 4 | Mage (마법사) | 8 | 27 |
+| 1 | Warrior (전사) | 4 | 16 |
+| 2 | Archer (궁수) | 4 | 16 |
+| 3 | Knight (기사) | 4 | 16 |
+| 4 | Mage (마법사) | 4 | 16 |
 | **전직** | | | |
-| 5 | Berserker (버서커) | 8 | 27 |
-| 6 | Guardian (가디언) | 8 | 27 |
-| 7 | Sniper (저격수) | 8 | 27 |
-| 8 | Ranger (레인저) | 8 | 27 |
-| 9 | Paladin (팔라딘) | 8 | 27 |
-| 10 | DarkKnight (다크나이트) | 9 | 29 |
-| 11 | Archmage (대마법사) | 8 | 27 |
-| 12 | Healer (힐러) | 8 | 27 |
+| 5 | Berserker (버서커) | 4 | 16 |
+| 6 | Guardian (가디언) | 4 | 16 |
+| 7 | Sniper (저격수) | 4 | 16 |
+| 8 | Ranger (레인저) | 4 | 16 |
+| 9 | Paladin (팔라딘) | 4 | 16 |
+| 10 | DarkKnight (다크나이트) | 4 | 16 |
+| 11 | Archmage (대마법사) | 4 | 16 |
+| 12 | Healer (힐러) | 4 | 16 |
 
-**Tier 1 총합**: 326프레임 (98개 스프라이트 시트)
-**Tier 2 추가 시**: +218프레임 (64개 스프라이트 시트)
-**최종 합계**: ~544프레임, ~162개 스프라이트 시트
+**Tier 1 총합**: 192프레임 (48개 스프라이트 시트)
+**Tier 2 추가 시**: +128프레임 (32개 스프라이트 시트)
+**최종 합계**: ~320프레임, ~80개 스프라이트 시트
 
 ---
 
@@ -228,40 +224,49 @@
 ### 공통 스타일 프리픽스 (모든 프롬프트 앞에 반드시 포함)
 
 ```
-Create a horizontal sprite sheet on a transparent background.
+Create a 2x2 grid sprite sheet (4 frames) on a transparent background.
 The art style must exactly match the reference image:
 chibi/super-deformed (2-3 head proportions), skeleton/skull face
 with large black hollow eyes, thick black outlines, cartoon-style
 shading, detailed equipment. Each frame should be the same size
-(approximately 500x600px per frame), arranged left-to-right in
-a single horizontal row. The character faces RIGHT in all frames.
+(approximately 500x600px per frame), arranged in a 2x2 grid
+(top-left = frame 1, top-right = frame 2, bottom-left = frame 3,
+bottom-right = frame 4). The character faces RIGHT in all frames.
 Maintain perfect consistency in character design, colors,
 proportions, and equipment details across all frames.
+
+CRITICAL RULES:
+- All visual elements (weapons, slash effects, motion blur, energy effects,
+  particles) MUST stay COMPLETELY within each frame's boundary.
+  NO part of any frame should bleed or extend into adjacent frames.
+- The character must be the SAME SIZE in all 4 frames. Keep the character
+  centered and at consistent scale — do not make the character smaller
+  in crouching/action poses.
+- Leave adequate margin (at least 30px) between the character/effects
+  and the frame edges to prevent any clipping.
+```
+
+### 기존 스프라이트 수정 프롬프트 (전사/궁수용)
+
+기존 2×2 스프라이트 시트가 있지만 프레임 간 이미지 잘림이 있는 경우, 해당 시트를 참조 이미지로 첨부하고 아래 프리픽스를 사용합니다:
+
+```
+Based on the attached sprite sheet, regenerate this 2x2 grid sprite sheet
+(4 frames) on a transparent background. Keep the EXACT same character design,
+art style, colors, poses, and animation sequence. Fix the following issues:
+- Ensure ALL visual elements (weapons, slash arcs, motion blur, energy effects)
+  stay COMPLETELY within each frame's boundary with NO bleeding into adjacent frames.
+- Keep the character at the SAME SIZE across all 4 frames.
+- Leave at least 30px margin from frame edges.
+- Maintain transparent background.
+Each frame should be approximately 500x600px, arranged in a 2x2 grid.
 ```
 
 ---
 
 ### 1. WARRIOR (전사)
 
-#### 1-1. Idle (4프레임)
-```
-Generate a 4-frame idle animation sprite sheet for this chibi skeleton warrior character.
-
-Character: A cute chibi skeleton warrior wearing a gray riveted iron helmet,
-chainmail armor with a brown tunic, brown leather belt with buckle, and brown
-boots. He holds a short iron sword in his right hand and a small round wooden
-shield with metal rim in his left hand. His face is a white skull with large
-black hollow eyes and a small frowning mouth.
-
-Frame 1: Standing neutral pose, slight lean.
-Frame 2: Very subtle downward body shift (breathing in) - body lowers ~2px, sword arm relaxes slightly.
-Frame 3: Return to neutral pose.
-Frame 4: Very subtle upward body shift (breathing out) - body raises ~2px, slight helmet tilt.
-
-Gentle, subtle breathing loop. Minimal movement.
-```
-
-#### 1-2. Walk (4프레임)
+#### 1-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton warrior.
 
@@ -276,7 +281,7 @@ Bouncy, cute walk matching chibi proportions. Small steps with body bob.
 Shield in front, sword at side.
 ```
 
-#### 1-3. Basic Attack - 강타 (4프레임)
+#### 1-2. Basic Attack - 강타 (4프레임)
 ```
 Generate a 4-frame melee attack sprite sheet for this chibi skeleton warrior.
 
@@ -290,7 +295,7 @@ Frame 4 (Recovery): Returns to neutral, sword coming back to rest.
 Powerful but cute. Wide AoE slash (120-degree arc). 80px range melee.
 ```
 
-#### 1-4. W Skill - 돌진 Charge (4프레임)
+#### 1-3. W Skill - 돌진 Charge (4프레임)
 ```
 Generate a 4-frame charge/dash attack sprite sheet for this chibi skeleton warrior.
 
@@ -304,7 +309,7 @@ Frame 4 (Landing): Skidding to stop. Sword swings forward for finishing slash. B
 200px forward dash attack. Convey speed and power.
 ```
 
-#### 1-5. E Skill - 광전사 Berserker Rage (4프레임)
+#### 1-4. E Skill - 광전사 Berserker Rage (4프레임)
 ```
 Generate a 4-frame power-up buff activation sprite sheet for this chibi skeleton warrior.
 
@@ -318,58 +323,11 @@ Frame 4 (Empowered): Battle-ready aggressive stance with flame effects on hands/
 Berserker rage buff (attack +50%, speed +30%). Wild and powerful.
 ```
 
-#### 1-6. Hit (2프레임)
-```
-Generate a 2-frame hit reaction sprite sheet for this chibi skeleton warrior.
-
-Character: [Warrior 외형]
-
-Frame 1: Recoils backward from impact. Head snaps back, body leans away. Shield arm flinches up. Impact star near body.
-Frame 2: Hunched from pain. Body compressed. Eyes squeezed smaller. Vibration on outline.
-```
-
-#### 1-7. Death (3프레임)
-```
-Generate a 3-frame death animation sprite sheet for this chibi skeleton warrior.
-
-Character: [Warrior 외형]
-
-Frame 1: Stumbles, leaning far backward. Sword dropping. Shield tilting. Eyes wide in shock.
-Frame 2: Falling sideways/backward. Nearly horizontal. Equipment separating. Eyes X-shaped.
-Frame 3: Collapsed on ground. Sword and shield nearby. Ghost wisps rising. Semi-transparent.
-```
-
-#### 1-8. Stun (2프레임)
-```
-Generate a 2-frame stun/daze loop sprite sheet for this chibi skeleton warrior.
-
-Character: [Warrior 외형]
-
-Frame 1: Swaying left ~15 degrees. Spiral/dizzy eyes. Sword drooping. Yellow stars above head.
-Frame 2: Swaying right ~15 degrees. Different spiral angle. Stars shifted.
-```
-
 ---
 
 ### 2. ARCHER (궁수)
 
-#### 2-1. Idle (4프레임)
-```
-Generate a 4-frame idle sprite sheet for this chibi skeleton archer.
-
-Character: A cute chibi skeleton archer wearing a gray riveted iron helmet,
-dark green tunic, brown leather arm guards, and brown boots. He holds a
-wooden bow with a nocked arrow. White skull face with large black hollow eyes.
-
-Frame 1: Standing neutral, bow held down at rest, arrow loosely nocked.
-Frame 2: Subtle body bob down, bow arm relaxes.
-Frame 3: Return to neutral.
-Frame 4: Subtle body bob up, slight head tilt.
-
-Gentle breathing idle loop. Bow held but not drawn.
-```
-
-#### 2-2. Walk (4프레임)
+#### 2-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton archer.
 
@@ -383,7 +341,7 @@ Frame 4: Feet passing center. Body at lowest point.
 Light, quick footsteps - fastest class. Bouncy chibi walk.
 ```
 
-#### 2-3. Basic Attack - 속사 (4프레임)
+#### 2-2. Basic Attack - 속사 (4프레임)
 ```
 Generate a 4-frame bow shot sprite sheet for this chibi skeleton archer.
 
@@ -397,7 +355,7 @@ Frame 4 (Recovery): Follow-through. Bow arm extended, draw hand relaxing. Bowstr
 Clean, snappy ranged attack. Arrow visible in frames 1-3. 180px range.
 ```
 
-#### 2-4. W Skill - 관통 화살 Pierce Arrow (4프레임)
+#### 2-3. W Skill - 관통 화살 Pierce Arrow (4프레임)
 ```
 Generate a 4-frame piercing shot sprite sheet for this chibi skeleton archer.
 
@@ -411,7 +369,7 @@ Frame 4 (Follow-through): Recovers from shot. Green wisps dissipating.
 Pierces all enemies in 300px line. Much more powerful than basic attack. Green (#22c55e) energy.
 ```
 
-#### 2-5. E Skill - 화살 비 Arrow Storm (4프레임)
+#### 2-4. E Skill - 화살 비 Arrow Storm (4프레임)
 ```
 Generate a 4-frame rain of arrows ultimate sprite sheet for this chibi skeleton archer.
 
@@ -425,31 +383,11 @@ Frame 4 (Complete): Returns to stance. Green particles fading upward. Confident 
 Summons arrow rain on 150px radius target area. Dramatic ultimate.
 ```
 
-#### 2-6~2-8. Hit/Death/Stun
-> Warrior 공통 모션 템플릿 참조, 캐릭터 설명만 Archer로 교체
-
 ---
 
 ### 3. KNIGHT (기사)
 
-#### 3-1. Idle (4프레임)
-```
-Generate a 4-frame idle sprite sheet for this chibi skeleton knight (tank).
-
-Character: A cute chibi skeleton knight with an oversized round wooden shield
-covering most of his body. Gray riveted iron helmet, green tunic, brown boots.
-VERY large black eyes appearing timid/shy, peeking over the shield top.
-Shield has metal rim with center boss. He hides behind the shield.
-
-Frame 1: Peeking over shield, eyes visible.
-Frame 2: Sinking lower behind shield, only top of skull/eyes visible. Shy breathing.
-Frame 3: Rising back to frame 1 position.
-Frame 4: Slight shield tilt, body shifts. Still peeking.
-
-Timid/tank personality - always hiding behind his big shield.
-```
-
-#### 3-2. Walk (4프레임)
+#### 3-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton knight.
 
@@ -463,7 +401,7 @@ Frame 4: Body bobs down. Heavy landing.
 Slow, heavy walk - slowest class. Big shield bounces/sways each step.
 ```
 
-#### 3-3. Basic Attack - 방패 타격 (4프레임)
+#### 3-2. Basic Attack - 방패 타격 (4프레임)
 ```
 Generate a 4-frame shield bash sprite sheet for this chibi skeleton knight.
 
@@ -477,7 +415,7 @@ Frame 4 (Recovery): Shield pulling back to defensive position. Returns to hiding
 Attacks WITH the shield. Heavy and impactful. 80px range, W cooldown reduction on hit.
 ```
 
-#### 3-4. W Skill - 방패 돌진 Shield Charge (4프레임)
+#### 3-3. W Skill - 방패 돌진 Shield Charge (4프레임)
 ```
 Generate a 4-frame shield charge sprite sheet for this chibi skeleton knight.
 
@@ -491,7 +429,7 @@ Frame 4 (Slam): Impact pose. Blue shockwave. Stun stars at impact.
 150px dash + 2-second stun. Blue (#3b82f6) energy.
 ```
 
-#### 3-5. E Skill - 철벽 방어 Iron Defense (4프레임)
+#### 3-4. E Skill - 철벽 방어 Iron Defense (4프레임)
 ```
 Generate a 4-frame ultimate defense sprite sheet for this chibi skeleton knight.
 
@@ -505,31 +443,11 @@ Frame 4 (Sustain): Blue shield barrier sustained. Confident defensive stance. Bl
 Team HP 20% heal + 70% damage reduction for 5 seconds. Protective, noble.
 ```
 
-#### 3-6~3-8. Hit/Death/Stun
-> 공통 모션 템플릿 참조, Knight 외형으로 교체
-
 ---
 
 ### 4. MAGE (마법사)
 
-#### 4-1. Idle (4프레임)
-```
-Generate a 4-frame idle sprite sheet for this chibi skeleton mage.
-
-Character: A cute chibi skeleton mage with a large dark navy wizard hat
-decorated with white stars and crescent moons. Gray-white beard and mustache
-over skull face with large black hollow eyes. Dark navy robe with star/moon
-patterns. Wooden staff with glowing purple (#a855f7) energy orb on top.
-
-Frame 1: Standing neutral, staff upright. Purple orb glows steadily.
-Frame 2: Subtle body sway, orb pulses brighter. Beard shifts.
-Frame 3: Return to neutral, orb dims slightly.
-Frame 4: Slight hat wobble, orb pulses again.
-
-Mystical idle with staff orb pulsing rhythmically.
-```
-
-#### 4-2. Walk (4프레임)
+#### 4-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton mage.
 
@@ -543,7 +461,7 @@ Frame 4: Feet center. Body lowers. Robe settles.
 Wizard shuffling walk. Robe and hat sway with movement.
 ```
 
-#### 4-3. Basic Attack - 마법 화살 (4프레임)
+#### 4-2. Basic Attack - 마법 화살 (4프레임)
 ```
 Generate a 4-frame magic missile sprite sheet for this chibi skeleton mage.
 
@@ -557,7 +475,7 @@ Frame 4 (Recovery): Staff lowering. Purple energy dissipating. Return to rest.
 Elegant magical ranged attack. Purple (#a855f7). 210px range - longest in game.
 ```
 
-#### 4-4. W Skill - 화염구 Fireball (4프레임)
+#### 4-3. W Skill - 화염구 Fireball (4프레임)
 ```
 Generate a 4-frame fireball spell sprite sheet for this chibi skeleton mage.
 
@@ -571,7 +489,7 @@ Frame 4 (Aftermath): Smoke wisps from staff/hand. Robes settling. Ember particle
 Powerful AoE - 80px explosion. Orange-red fire contrasting usual purple.
 ```
 
-#### 4-5. E Skill - 운석 낙하 Meteor Shower (4프레임)
+#### 4-4. E Skill - 운석 낙하 Meteor Shower (4프레임)
 ```
 Generate a 4-frame ultimate meteor spell sprite sheet for this chibi skeleton mage.
 
@@ -585,31 +503,11 @@ Frame 4 (Command): One arm pointing forward (directing meteors). Energy streams 
 Most powerful spell - 400% damage, 150px radius. 3-second cast. Devastating, epic.
 ```
 
-#### 4-6~4-8. Hit/Death/Stun
-> 공통 모션 템플릿 참조, Mage 외형으로 교체
-
 ---
 
 ### 5. BERSERKER (버서커) - Warrior 전직
 
-#### 5-1. Idle (4프레임)
-```
-Generate a 4-frame idle sprite sheet for this chibi skeleton berserker.
-
-Character: A chibi skeleton berserker in ornate black armor with gold trim,
-full enclosed helmet with red feather plume. One eye visible through visor.
-Large two-handed steel greatsword on right shoulder. Brown wooden shield
-with golden lion emblem on left arm. Chainmail, dark green tunic.
-
-Frame 1: Standing with greatsword on shoulder. Menacing forward lean.
-Frame 2: Body shifts, sword adjusts. Subtle breathing.
-Frame 3: Return to neutral. Eye narrows.
-Frame 4: Weight shifts. Sword re-gripped.
-
-Aggressive, ready-to-fight idle. More menacing than base warrior.
-```
-
-#### 5-2. Walk (4프레임)
+#### 5-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton berserker.
 
@@ -619,7 +517,7 @@ Frame 1-4: Heavy, aggressive marching. Greatsword on shoulder while walking.
 Red plume bounces. Heavier footfalls than base warrior.
 ```
 
-#### 5-3. Basic Attack - 대검 강타 (4프레임)
+#### 5-2. Basic Attack - 대검 강타 (4프레임)
 ```
 Generate a 4-frame greatsword slash sprite sheet for this chibi skeleton berserker.
 
@@ -633,7 +531,7 @@ Frame 4 (Recovery): Pulling greatsword back to shoulder. Red energy fading.
 Heavier, slower, more devastating than base warrior. Red (#ff3300) energy.
 ```
 
-#### 5-4. W Skill - 피의 돌진 Blood Rush (4프레임)
+#### 5-3. W Skill - 피의 돌진 Blood Rush (4프레임)
 ```
 Generate a 4-frame blood rush dash sprite sheet for this chibi skeleton berserker.
 
@@ -647,7 +545,7 @@ Frame 4 (Slash-through): Finishing slash as momentum ends. Blood energy explodes
 200px dash with lifesteal (50% healed). Blood/dark red. More aggressive than warrior's charge.
 ```
 
-#### 5-5. E Skill - 광란 Rage (4프레임)
+#### 5-4. E Skill - 광란 Rage (4프레임)
 ```
 Generate a 4-frame rage activation sprite sheet for this chibi skeleton berserker.
 
@@ -661,31 +559,11 @@ Frame 4 (Battle Ready): Enraged combat stance. Continuous flames. Greatsword agg
 +80% attack/speed, +50% damage taken. Terrifyingly powerful but reckless. Crimson fire.
 ```
 
-#### 5-6~5-8. Hit/Death/Stun
-> 공통 모션 템플릿 참조, Berserker 외형으로 교체
-
 ---
 
 ### 6. GUARDIAN (가디언) - Warrior 전직
 
-#### 6-1. Idle (4프레임)
-```
-Generate a 4-frame idle sprite sheet for this chibi skeleton guardian.
-
-Character: A chibi skeleton guardian in heavy black and gold armor,
-full enclosed helmet with red plume, red cape. Spiked flail/morningstar
-in right hand. Ornate large shield with golden lion emblem in left.
-Very bulky, tanky appearance.
-
-Frame 1: Standing solid. Flail hanging at side. Shield forward. Immovable presence.
-Frame 2: Subtle weight shift. Cape sways. Flail chain clinks.
-Frame 3: Return to neutral. Blue (#00aaff) energy glimmers on shield.
-Frame 4: Slight readjustment. Cape settles.
-
-Rock-solid defensive idle. Immovable guardian feel.
-```
-
-#### 6-2. Walk (4프레임)
+#### 6-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton guardian.
 
@@ -695,7 +573,7 @@ Frame 1-4: Very heavy, deliberate march. Shield always forward.
 Flail swings gently with each step. Cape flows behind. Ground-shaking steps.
 ```
 
-#### 6-3. Basic Attack - 플레일 강타 (4프레임)
+#### 6-2. Basic Attack - 플레일 강타 (4프레임)
 ```
 Generate a 4-frame flail smash sprite sheet for this chibi skeleton guardian.
 
@@ -709,7 +587,7 @@ Frame 4 (Recovery): Flail bounces back. Chain going slack. Return to guard stanc
 Heavy crushing melee. Each hit reduces W cooldown by 1 second. Blue (#00aaff).
 ```
 
-#### 6-4. W Skill - 수호의 돌진 Guardian Rush (4프레임)
+#### 6-3. W Skill - 수호의 돌진 Guardian Rush (4프레임)
 ```
 Generate a 4-frame guardian shield charge sprite sheet for this chibi skeleton guardian.
 
@@ -723,7 +601,7 @@ Frame 4 (Protect): Protective stance. Blue dome expands to cover allies. Shield 
 150px dash + 2-second stun + ally damage reduction. Blue (#00aaff).
 ```
 
-#### 6-5. E Skill - 보호막 Shield (4프레임)
+#### 6-4. E Skill - 보호막 Shield (4프레임)
 ```
 Generate a 4-frame team shield ultimate sprite sheet for this chibi skeleton guardian.
 
@@ -737,31 +615,11 @@ Frame 4 (Sustain): Dome established. Vigilant stance. Blue particles floating in
 Team 50% damage reduction for 5 seconds. Impenetrable fortress.
 ```
 
-#### 6-6~6-8. Hit/Death/Stun
-> 공통 모션 템플릿 참조, Guardian 외형으로 교체
-
 ---
 
 ### 7. SNIPER (저격수) - Archer 전직
 
-#### 7-1. Idle (4프레임)
-```
-Generate a 4-frame idle sprite sheet for this chibi skeleton sniper.
-
-Character: A chibi skeleton sniper with a dark ornate helmet with wing
-decorations and skull emblem, dark green tunic with dark armor, brown boots.
-Holds a large scoped crossbow/rifle-style weapon with both hands.
-White skull face with large black eyes.
-
-Frame 1: Standing with crossbow-rifle held across body. Alert, watchful.
-Frame 2: Subtle adjustment of weapon. Eyes scanning.
-Frame 3: Return to neutral. Scope glints.
-Frame 4: Weight shift. Weapon re-gripped.
-
-Tactical, precise idle. Always scanning for targets.
-```
-
-#### 7-2. Walk (4프레임)
+#### 7-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton sniper.
 
@@ -771,7 +629,7 @@ Frame 1-4: Careful, tactical walking. Crossbow-rifle held ready at hip level.
 Head on a swivel. Precise footsteps. Military-style movement.
 ```
 
-#### 7-3. Basic Attack - 정밀 사격 (4프레임)
+#### 7-2. Basic Attack - 정밀 사격 (4프레임)
 ```
 Generate a 4-frame precision shot sprite sheet for this chibi skeleton sniper.
 
@@ -785,7 +643,7 @@ Frame 4 (Cycle): Chambering next round. Recovering from recoil. Ready for next s
 50% critical hit chance (2x damage). Purple (#9933ff). Tactical/precise.
 ```
 
-#### 7-4. W Skill - 후방 도약 Backflip Shot (4프레임)
+#### 7-3. W Skill - 후방 도약 Backflip Shot (4프레임)
 ```
 Generate a 4-frame backflip evasion shot sprite sheet for this chibi skeleton sniper.
 
@@ -799,7 +657,7 @@ Frame 4 (Land): Smooth landing 150px behind. Kneeling pose. Purple swiftness aur
 Jump backward 150px while shooting + speed buff. Agile, tactical. Purple (#9933ff).
 ```
 
-#### 7-5. E Skill - 저격 Snipe (4프레임)
+#### 7-4. E Skill - 저격 Snipe (4프레임)
 ```
 Generate a 4-frame ultimate snipe sprite sheet for this chibi skeleton sniper.
 
@@ -813,31 +671,11 @@ Frame 4 (Fire): MASSIVE shot - enormous purple energy beam launches. Extreme rec
 Boss-only, 1000% damage, 3-second channel, infinite range. Most powerful single-target attack. Devastating purple beam.
 ```
 
-#### 7-6~7-8. Hit/Death/Stun
-> 공통 모션 템플릿 참조, Sniper 외형으로 교체
-
 ---
 
 ### 8. RANGER (레인저) - Archer 전직
 
-#### 8-1. Idle (4프레임)
-```
-Generate a 4-frame idle sprite sheet for this chibi skeleton ranger.
-
-Character: A chibi skeleton ranger with ornate dark helmet with wing
-decorations and skull emblem, dark green tunic with dark armor, brown boots,
-quiver of arrows on back. Wields a wooden longbow.
-White skull face with large black eyes.
-
-Frame 1: Standing relaxed but alert. Bow at side. One hand on quiver.
-Frame 2: Body shifts. Fingers brush arrow feathers in quiver.
-Frame 3: Return to neutral. Eyes scanning.
-Frame 4: Weight shift. Bow tapped against leg.
-
-Seasoned hunter idle. Casual readiness.
-```
-
-#### 8-2. Walk (4프레임)
+#### 8-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton ranger.
 
@@ -847,7 +685,7 @@ Frame 1-4: Swift, light-footed walk. Bow in one hand, other hand near quiver.
 Nimble, ranger-style movement. Quick steps.
 ```
 
-#### 8-3. Basic Attack - 다중 사격 (4프레임)
+#### 8-2. Basic Attack - 다중 사격 (4프레임)
 ```
 Generate a 4-frame multi-target bow attack sprite sheet for this chibi skeleton ranger.
 
@@ -861,7 +699,7 @@ Frame 4 (Recovery): Hand already reaching for next arrows. Amber wisps fading.
 Hits up to 5 targets simultaneously. Fast multi-shot. Amber (#ff9922).
 ```
 
-#### 8-4. W Skill - 다중 화살 Multi Arrow (4프레임)
+#### 8-3. W Skill - 다중 화살 Multi Arrow (4프레임)
 ```
 Generate a 4-frame fan barrage sprite sheet for this chibi skeleton ranger.
 
@@ -875,7 +713,7 @@ Frame 4 (Follow-through): Bow hand extended. 5 amber trails visible. Quick recov
 5 arrows in 45-degree fan, each 100% damage, 300px piercing. Amber (#ff9922).
 ```
 
-#### 8-5. E Skill - 화살 폭풍 Arrow Storm (4프레임)
+#### 8-4. E Skill - 화살 폭풍 Arrow Storm (4프레임)
 ```
 Generate a 4-frame rapid-fire buff sprite sheet for this chibi skeleton ranger.
 
@@ -889,30 +727,11 @@ Frame 4 (Sustained): Continuous rapid-fire state. Double speed arrows. Amber win
 6 seconds of double attack speed. Amber (#ff9922). Speed and volume of fire.
 ```
 
-#### 8-6~8-8. Hit/Death/Stun
-> 공통 모션 템플릿 참조, Ranger 외형으로 교체
-
 ---
 
 ### 9. PALADIN (팔라딘) - Knight 전직
 
-#### 9-1. Idle (4프레임)
-```
-Generate a 4-frame idle sprite sheet for this chibi skeleton paladin.
-
-Character: A chibi skeleton paladin in silver-and-gold round helmet with visor,
-silver plate armor. Ornate round shield with golden lion emblem. Skull face
-with large timid black eyes. Shy but holy. Golden light around shield.
-
-Frame 1: Peeking over ornate shield. Golden sparkles around.
-Frame 2: Slight holy glow pulse on shield. Body shifts.
-Frame 3: Return to neutral. Golden particles float.
-Frame 4: Shield adjusts. Holy aura dims then brightens.
-
-Timid but holy. Golden divine energy around the shield.
-```
-
-#### 9-2. Walk (4프레임)
+#### 9-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton paladin.
 
@@ -922,7 +741,7 @@ Frame 1-4: Slow, dignified march. Shield forward with golden glow.
 Holy sparkles trail behind. Heavy but graceful steps.
 ```
 
-#### 9-3. Basic Attack - 신성 방패 타격 (4프레임)
+#### 9-2. Basic Attack - 신성 방패 타격 (4프레임)
 ```
 Generate a 4-frame holy shield bash sprite sheet for this chibi skeleton paladin.
 
@@ -936,7 +755,7 @@ Frame 4 (Recovery): Shield returns. Golden healing particles float toward ally p
 Each attack heals nearby allies 5% max HP. Gold (#ffcc00) holy energy.
 ```
 
-#### 9-4. W Skill - 신성한 돌진 Holy Charge (4프레임)
+#### 9-3. W Skill - 신성한 돌진 Holy Charge (4프레임)
 ```
 Generate a 4-frame holy charge sprite sheet for this chibi skeleton paladin.
 
@@ -950,7 +769,7 @@ Frame 4 (Stand): Protective stance. Golden energy lingering. Shield glowing.
 150px dash + 1.5-second stun + ally 10% heal. Gold (#ffcc00) holy.
 ```
 
-#### 9-5. E Skill - 신성한 빛 Divine Light (4프레임)
+#### 9-4. E Skill - 신성한 빛 Divine Light (4프레임)
 ```
 Generate a 4-frame divine ultimate sprite sheet for this chibi skeleton paladin.
 
@@ -964,31 +783,11 @@ Frame 4 (Invincible): Golden invincibility barrier. Full team invincible 3 secon
 Team 30% heal + 3-second invincibility. Most powerful defensive ultimate. Divine, awe-inspiring. Gold (#ffcc00).
 ```
 
-#### 9-6~9-8. Hit/Death/Stun
-> 공통 모션 템플릿 참조, Paladin 외형으로 교체
-
 ---
 
 ### 10. DARK KNIGHT (다크나이트) - Knight 전직
 
-#### 10-1. Idle (4프레임)
-```
-Generate a 4-frame dark idle sprite sheet for this chibi skeleton dark knight.
-
-Character: A chibi skeleton dark knight in black armor with red glowing runes.
-Helmet has gold trim with red runic inscriptions. Skull face with menacing
-RED glowing eyes. Dark round shield with red-eyed golden lion. Short sword
-wreathed in purple (#9900cc) energy. Dark mist/shadows at feet.
-
-Frame 1: Standing menacingly. Purple sword energy flickers. Dark mist shifts.
-Frame 2: Red eyes pulse brighter. Mist rises. Sword crackles.
-Frame 3: Shadow tendrils reach outward. Eyes dim. Mist settles.
-Frame 4: Armor runes pulse red. Sword energy shifts. Mist swirls opposite.
-
-Dark, ominous. Purple and dark red. Living darkness around character.
-```
-
-#### 10-2. Walk (4프레임)
+#### 10-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton dark knight.
 
@@ -998,7 +797,7 @@ Frame 1-4: Menacing stride. Dark mist trails from feet with each step.
 Purple sword energy flickers. Red eyes glow steadily. Ominous, heavy steps.
 ```
 
-#### 10-3. Basic Attack - 흡혈 공격 (4프레임)
+#### 10-2. Basic Attack - 흡혈 공격 (4프레임)
 ```
 Generate a 4-frame life-stealing sword strike sprite sheet for this chibi skeleton dark knight.
 
@@ -1012,7 +811,7 @@ Frame 4 (Absorb): Absorbs stolen life. Brief red glow. Purple sword stabilizes. 
 20% lifesteal on basic attacks. Dark purple sword + red lifesteal particles.
 ```
 
-#### 10-4. W Skill - 암흑 찌르기 Dark Pierce (4프레임)
+#### 10-3. W Skill - 암흑 찌르기 Dark Pierce (4프레임)
 ```
 Generate a 4-frame dark piercing thrust sprite sheet for this chibi skeleton dark knight.
 
@@ -1026,7 +825,7 @@ Frame 4 (Aftermath): Energy lance dissipating. Character recovering. Dark energy
 1-sec cast, 20% HP cost, 350% damage, 150x80px area. Sacrificial, devastating. Dark purple (#9900cc).
 ```
 
-#### 10-5. E Skill (ON) - 어둠의 칼날 활성화 Dark Blade (4프레임)
+#### 10-4. E Skill (ON) - 어둠의 칼날 활성화 Dark Blade (4프레임)
 ```
 Generate a 4-frame dark blade toggle activation sprite sheet for this chibi skeleton dark knight.
 
@@ -1040,44 +839,11 @@ Frame 4 (Sustained): Sustained toggle state. Dark aura pulsing. Aggressive wide 
 Toggle: HP drain 5%/sec, 120% attack/sec to enemies in 150px. Auto-off at HP≤10%. Dark purple (#9900cc) + crimson.
 ```
 
-#### 10-6. E Skill (OFF) - 어둠의 칼날 해제 (2프레임)
-```
-Generate a 2-frame dark blade deactivation sprite sheet for this chibi skeleton dark knight.
-
-Character: [DarkKnight 외형]
-
-Frame 1 (Release): Dark energy rapidly collapsing. Aura shrinking. Flames extinguishing. Sword fading. Exhausted appearance.
-Frame 2 (Deactivated): All dark energy gone. Fatigued stance. Sword back to faint purple. Mist reduced to minimal. Heavy breathing, slight slump.
-
-Deactivation of toggle. 2-second cooldown. "Powering down" feel.
-```
-
-#### 10-7~10-9. Hit/Death/Stun
-> 공통 모션 템플릿 참조, DarkKnight 외형으로 교체
-
 ---
 
 ### 11. ARCHMAGE (대마법사) - Mage 전직
 
-#### 11-1. Idle (4프레임)
-```
-Generate a 4-frame idle sprite sheet for this chibi skeleton archmage.
-
-Character: A chibi skeleton archmage with a large purple wizard hat decorated
-with golden moons, stars, and golden band. Skull face with GLOWING PURPLE
-EYES and gray-white beard/mustache. Purple robe with gold trim. Staff with
-swirling purple energy orb in right hand. Left hand holds smaller floating
-purple energy orb. Purple energy radiates from him.
-
-Frame 1: Standing mystically. Both orbs glow. Purple energy ambient.
-Frame 2: Orbs pulse brighter. Beard sways. Energy particles shift.
-Frame 3: Return to neutral. Orbs dim slightly.
-Frame 4: Hat wobbles. Orbs pulse in alternating pattern. Energy shifts.
-
-Powerful mystical idle. Dual orbs pulsing. More intense than base mage.
-```
-
-#### 11-2. Walk (4프레임)
+#### 11-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton archmage.
 
@@ -1087,7 +853,7 @@ Frame 1-4: Dignified wizardly walk. Both orbs float alongside.
 Purple energy trails from movement. Robe and hat sway. Mystical presence.
 ```
 
-#### 11-3. Basic Attack - 강화 마법 화살 (4프레임)
+#### 11-2. Basic Attack - 강화 마법 화살 (4프레임)
 ```
 Generate a 4-frame empowered magic missile sprite sheet for this chibi skeleton archmage.
 
@@ -1101,7 +867,7 @@ Frame 4 (Recovery): Energy returns to both orbs. Magical afterglow. Return to po
 1.5x boss damage bonus. More powerful than base mage. Purple (#a855f7).
 ```
 
-#### 11-4. W Skill - 폭발 화염구 Inferno (4프레임)
+#### 11-3. W Skill - 폭발 화염구 Inferno (4프레임)
 ```
 Generate a 4-frame inferno spell sprite sheet for this chibi skeleton archmage.
 
@@ -1115,7 +881,7 @@ Frame 4 (Aftermath): Charred ground beneath. Smoke and embers rising. Purple fla
 250% damage + 50% larger + 3-second burn DoT. Orange-red + purple.
 ```
 
-#### 11-5. E Skill - 메테오 샤워 Meteor Shower (4프레임)
+#### 11-4. E Skill - 메테오 샤워 Meteor Shower (4프레임)
 ```
 Generate a 4-frame ultimate meteor shower sprite sheet for this chibi skeleton archmage.
 
@@ -1129,32 +895,11 @@ Frame 4 (Apocalypse): Peak destruction. Multiple simultaneous impacts. Purple en
 10 meteors over 5 seconds, each 300%, 100px radius, 300px total area. Most devastating AoE ultimate. Apocalyptic. Purple + orange fire.
 ```
 
-#### 11-6~11-8. Hit/Death/Stun
-> 공통 모션 템플릿 참조, Archmage 외형으로 교체
-
 ---
 
 ### 12. HEALER (힐러) - Mage 전직
 
-#### 12-1. Idle (4프레임)
-```
-Generate a 4-frame idle sprite sheet for this chibi skeleton healer/priest.
-
-Character: A chibi skeleton healer in white and blue hooded robe with gold
-trim and cross patterns. Blue cross on hood. Skull face with warm brown/golden
-eyes. Ornate white-gold-blue vestments. Golden staff with yellow gemstone
-(trident-shaped head). Golden sparkles and runic symbols float around.
-Holy, serene aura.
-
-Frame 1: Standing serenely. Staff gem glows warmly. Golden sparkles. Peaceful.
-Frame 2: Gentle sway. Sparkles shift. Green (#00ff88) healing aura at feet (passive).
-Frame 3: Return to center. Faint green pulse radiating outward.
-Frame 4: Hood shifts. Sparkles rearrange. Golden light pulses.
-
-Serene, holy healing presence. Passive heal aura visible as subtle green glow at feet.
-```
-
-#### 12-2. Walk (4프레임)
+#### 12-1. Walk (4프레임)
 ```
 Generate a 4-frame walk cycle sprite sheet for this chibi skeleton healer.
 
@@ -1165,7 +910,7 @@ Golden sparkles trail behind. Healing aura follows.
 Serene, calming movement. Robes flow gently.
 ```
 
-#### 12-3. Basic Attack - 신성 마법 (4프레임)
+#### 12-2. Basic Attack - 신성 마법 (4프레임)
 ```
 Generate a 4-frame holy magic missile sprite sheet for this chibi skeleton healer.
 
@@ -1179,7 +924,7 @@ Frame 4 (Recovery): Staff lowers. Green healing particles linger (passive aura).
 Mint-green (#00ff88) + gold theme. Same power as base mage. 252px range.
 ```
 
-#### 12-4. W Skill - 치유의 빛 Healing Light (4프레임)
+#### 12-3. W Skill - 치유의 빛 Healing Light (4프레임)
 ```
 Generate a 4-frame healing light spell sprite sheet for this chibi skeleton healer.
 
@@ -1193,7 +938,7 @@ Frame 4 (Fade): Beam fading. Green healing particles linger. Golden sparkles set
 Damages enemies AND heals allies in same 150px area. Green healing + gold damage.
 ```
 
-#### 12-5. E Skill - 생명의 샘 Spring of Life (4프레임)
+#### 12-4. E Skill - 생명의 샘 Spring of Life (4프레임)
 ```
 Generate a 4-frame ultimate healing fountain sprite sheet for this chibi skeleton healer.
 
@@ -1207,60 +952,18 @@ Frame 4 (Sustain): Sustained healing fountain. Green pulses every second (10% HP
 10 seconds of 10% HP/sec to all allies in 500px. Follows healer. Strongest sustained healing. Miracle of life. Green (#00ff88) + gold.
 ```
 
-#### 12-6~12-8. Hit/Death/Stun
-> 공통 모션 템플릿 참조, Healer 외형으로 교체
-
----
-
-## 공통 모션 템플릿 (Hit/Death/Stun)
-
-모든 캐릭터에 동일한 구조. **[직업명]**과 **[외형 설명]**만 교체.
-
-### Hit (피격) - 2프레임
-```
-Generate a 2-frame hit reaction sprite sheet for this chibi skeleton [직업명].
-
-Character: [외형 설명]
-
-Frame 1: Recoils backward from impact. Head snaps back, body leans away.
-[무기] arm flinches. Small impact star near body.
-Frame 2: Hunched from pain. Body compressed. Eyes squeezed smaller.
-Vibration on body outline.
-```
-
-### Death (사망) - 3프레임
-```
-Generate a 3-frame death animation sprite sheet for this chibi skeleton [직업명].
-
-Character: [외형 설명]
-
-Frame 1: Stumbles backward. [무기] dropping. Eyes wide in shock.
-Frame 2: Falling sideways. Equipment separating. Eyes X-shaped/dark.
-Frame 3: Collapsed on ground. Ghost wisps rising. Semi-transparent.
-Equipment scattered nearby.
-```
-
-### Stun (기절) - 2프레임
-```
-Generate a 2-frame stun/daze loop sprite sheet for this chibi skeleton [직업명].
-
-Character: [외형 설명]
-
-Frame 1: Swaying left ~15 degrees. Spiral/dizzy eyes. [무기] drooping.
-Yellow stars circling above head.
-Frame 2: Swaying right ~15 degrees. Different spiral angle.
-Stars shifted position.
-```
-
 ---
 
 ## 프롬프트 사용 팁
 
-1. **참조 이미지 첨부 필수** - 해당 캐릭터의 기존 에셋 이미지를 함께 첨부
-2. **Tier 2** - "Based on this Tier 2 version of the character" 명시 + tier2 이미지 첨부
-3. **일관성** - 한 캐릭터의 모든 모션을 연속 생성하면 스타일 일관성 향상
-4. **크기 통일** - "Each frame approximately 500x600px" 필수
-5. **공통 모션** - 템플릿에 캐릭터 설명만 교체하여 사용
+1. **새 캐릭터** - 해당 캐릭터의 정적 이미지(`public/img/units/` 또는 `RPG/heroes/`)를 참조로 첨부
+2. **기존 스프라이트 수정 (전사/궁수)** - 기존 2×2 스프라이트 시트를 참조로 첨부 + "기존 스프라이트 수정 프롬프트" 사용
+3. **Tier 2** - "Based on this Tier 2 version of the character" 명시 + tier2 이미지 첨부
+4. **일관성** - 한 캐릭터의 모든 모션을 연속 생성하면 스타일 일관성 향상
+5. **크기 통일** - "Each frame approximately 500x600px" 필수
+6. **2×2 그리드** - 모든 시트는 2×2 배열 (좌상→우상→좌하→우하 = 프레임 1→2→3→4)
+7. **프레임 경계** - 무기/이펙트가 프레임 경계를 넘지 않도록 반드시 확인
+8. **캐릭터 크기** - 4프레임 모두 캐릭터 크기가 동일해야 함 (웅크린 포즈도 동일 스케일)
 
 ## 에셋 파일 위치
 

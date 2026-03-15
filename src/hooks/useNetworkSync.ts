@@ -15,6 +15,7 @@ import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
 import { distance } from '../utils/math';
 import type { SerializedGameState, SerializedEffectState, PlayerInput } from '../../shared/types/hostBasedNetwork';
+import { preloadMotionSprites } from '../utils/spriteMotion';
 import type { CoopServerMessage, CoopPlayerInfo } from '../../shared/types/rpgNetwork';
 import type { HeroUnit, SkillType, Buff, MapTheme, HeroClass, AdvancedHeroClass } from '../types/rpg';
 import type { CharacterStatUpgrades } from '../types/auth';
@@ -225,6 +226,15 @@ function handleGameStartServerAuth(message: any) {
   console.log(`  - myPlayerId: ${finalState.multiplayer.myPlayerId}`);
   console.log(`  - myHeroId: ${finalState.multiplayer.myHeroId}`);
   console.log(`  - hero: ${finalState.hero?.id}`);
+
+  // 모션 스프라이트 미리 로드 (모든 플레이어 영웅)
+  for (const p of players) {
+    preloadMotionSprites(
+      p.heroClass as HeroClass,
+      p.advancedClass as AdvancedHeroClass | undefined,
+      p.tier as 1 | 2 | undefined
+    );
+  }
 
   // 게임 화면으로 전환 (직접 호출하여 확실하게 전환)
   useUIStore.getState().resetGameUI();

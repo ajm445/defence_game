@@ -13,6 +13,7 @@ import { soundManager } from '../services/SoundManager';
 import { useUIStore } from './useUIStore';
 import { distance } from '../utils/math';
 import { isBossType } from '../utils/bossUtils';
+import { preloadMotionSprites, resetAllAnimStates } from '../utils/spriteMotion';
 
 // 버프 공유 범위 상수 (useNetworkSync.ts와 동일)
 const BERSERKER_SHARE_RANGE = 300;
@@ -660,6 +661,8 @@ export const useRPGStore = create<RPGStore>()(
       // 난이도가 전달되지 않으면 스토어의 선택된 난이도 사용
       const gameDifficulty = difficulty || state.selectedDifficulty;
       const hero = createHeroUnit(heroClass, characterLevel, statUpgrades, advancedClass, tier);
+      // 모션 스프라이트 미리 로드
+      preloadMotionSprites(heroClass, advancedClass as AdvancedHeroClass | undefined, tier);
       set({
         ...initialState,
         running: true,
@@ -808,6 +811,8 @@ export const useRPGStore = create<RPGStore>()(
     resetGame: () => {
       // BGM 중지
       soundManager.stopBGM();
+      // 스프라이트 애니메이션 상태 초기화
+      resetAllAnimStates();
       const state = get();
       set({
         ...initialState,

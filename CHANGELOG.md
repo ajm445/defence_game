@@ -1,5 +1,42 @@
 # Changelog
 
+## [1.26.0] - 2026-03-15
+
+### 캐릭터 스프라이트 모션 시스템
+- **스프라이트 애니메이션 엔진**: 2×2 그리드 스프라이트 시트 기반 프레임 애니메이션 시스템 신규 구현 (`spriteMotion.ts`)
+- **모션 타입**: Walk(이동 루프), Attack(기본공격), W Skill(돌진 등), E Skill(궁극기) 4종
+- **모션 감지**: 쿨다운 점프 감지 방식으로 RPG 서버 권위 모델에서 공격/스킬 사용 시점 자동 포착
+- **스프라이트 방향 보정**: 캐릭터/모션별 좌우 반전 설정 (`SPRITE_FACES_RIGHT`)으로 정적 이미지와 방향 통일
+- **정적 이미지 폴백**: 스프라이트 미존재 캐릭터는 자동으로 기존 정적 이미지 사용
+- **게임 시작 시 프리로드**: 싱글/멀티 모두 게임 시작 시 해당 영웅의 모션 스프라이트 미리 로드
+- **게임 리셋 시 정리**: `resetAllAnimStates()` 호출로 애니메이션 상태 초기화
+
+### 스킬 이펙트 색상 수정
+- **서버 이펙트에 heroClass/advancedClass 추가**: 기존 Q스킬만 포함하던 `heroClass`를 W/E 스킬 이펙트 27개에 일괄 추가
+- **직업별 이펙트 색상 정상 적용**: 궁수 스킬이 전사 색상(주황)으로 표시되던 문제 해결
+
+### 스킬바 쿨다운 UI 수정
+- **쿨다운 쉐도우 시작 타이밍 수정**: 스킬 사용 직후 100%부터 시작 (기존: 서버 지연으로 60~70%부터 시작)
+- **쿨다운 오버레이 전환**: `transition-all` → `height 0.1s linear`으로 서버 업데이트 간격에 맞춘 부드러운 전환
+
+### 렌더링 안정성
+- **drawSkillEffect 음수 반지름 방어**: `elapsed < 0` 또는 `duration <= 0` 시 즉시 return (렌더 루프 중단 방지)
+
+### 스프라이트 에셋
+- **전사 모션 스프라이트 4종**: walk, attack, w_charge, e_rage
+- **궁수 모션 스프라이트 4종**: walk, attack, w_pierce, e_arrow_rain
+- **기사 모션 스프라이트 1종**: walk (2×2 시트)
+- **스프라이트 생성 가이드 문서 업데이트**: 프레임 경계 잘림 방지 규칙, 기존 스프라이트 수정 프롬프트 추가
+
+### 수정 파일 (10개)
+- `src/utils/spriteMotion.ts` (신규): 스프라이트 모션 시스템 전체
+- `src/renderer/drawHero.ts`: 모션 스프라이트 → 정적 이미지 → 이모지 폴백 체인
+- `src/hooks/useNetworkSync.ts`: 멀티플레이 게임 시작 시 모션 프리로드
+- `src/stores/useRPGStore.ts`: 싱글플레이 프리로드 + 게임 리셋 시 애니메이션 정리
+- `src/components/ui/RPGSkillBar.tsx`: 쿨다운 쉐도우 타이밍 + 전환 수정
+- `server/src/game/rpgServerSkillSystem.ts`: 스킬 이펙트 27개에 heroClass/advancedClass 추가
+- `docs/sprite-motion-prompts.md`: 프레임 경계 규칙, 기존 스프라이트 수정 프롬프트, 사용 팁 업데이트
+
 ## [1.25.3] - 2026-03-15
 
 ### 네트워크 최적화: 델타 직렬화 + 이펙트 스트림 분리

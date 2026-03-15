@@ -424,6 +424,7 @@ function executeWSkill(
 
       ctx.state.activeSkillEffects.push({
         type: 'warrior_w' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
         radius: dashDistance,
@@ -459,6 +460,7 @@ function executeWSkill(
 
       ctx.state.activeSkillEffects.push({
         type: 'archer_w' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
         radius: pierceDistance,
@@ -506,6 +508,7 @@ function executeWSkill(
 
       ctx.state.activeSkillEffects.push({
         type: 'knight_w' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
         radius: dashDistance,
@@ -538,6 +541,7 @@ function executeWSkill(
 
       ctx.state.activeSkillEffects.push({
         type: 'mage_w' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: targetX, y: targetY },
         direction: { x: dirX, y: dirY },
         radius,
@@ -594,6 +598,7 @@ function executeESkill(
 
       ctx.state.activeSkillEffects.push({
         type: 'warrior_e' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         duration: 1.0,
         startTime: gameTime,
@@ -626,6 +631,7 @@ function executeESkill(
 
       ctx.state.activeSkillEffects.push({
         type: 'archer_e' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: targetX, y: targetY },
         radius,
         damage: skillDamage,
@@ -659,6 +665,7 @@ function executeESkill(
 
       ctx.state.activeSkillEffects.push({
         type: 'knight_e' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         duration: 1.0,
         startTime: gameTime,
@@ -682,6 +689,7 @@ function executeESkill(
       });
       ctx.state.activeSkillEffects.push({
         type: 'mage_e' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: targetX, y: targetY },
         radius,
         damage: 0,
@@ -766,6 +774,7 @@ function executeAdvancedWSkill(
 
       state.activeSkillEffects.push({
         type: 'blood_rush' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
         damage: skillDamage,
@@ -828,6 +837,7 @@ function executeAdvancedWSkill(
 
       state.activeSkillEffects.push({
         type: 'guardian_rush' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
         radius: dashDistance,
@@ -894,6 +904,7 @@ function executeAdvancedWSkill(
 
       state.activeSkillEffects.push({
         type: 'backflip_shot' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
         damage: skillDamage,
@@ -944,6 +955,7 @@ function executeAdvancedWSkill(
 
       state.activeSkillEffects.push({
         type: 'multi_arrow' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
         radius: pierceDistance,
@@ -1012,6 +1024,7 @@ function executeAdvancedWSkill(
 
       state.activeSkillEffects.push({
         type: 'holy_charge' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
         radius: dashDistance,
@@ -1055,6 +1068,7 @@ function executeAdvancedWSkill(
       // 시전 이펙트 (heroId로 영웅 추적)
       state.activeSkillEffects.push({
         type: 'heavy_strike' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
         damage: skillDamage,
@@ -1105,6 +1119,7 @@ function executeAdvancedWSkill(
 
       state.activeSkillEffects.push({
         type: 'inferno' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: targetX, y: targetY },
         radius,
         damage: skillDamage,
@@ -1158,6 +1173,7 @@ function executeAdvancedWSkill(
 
       state.activeSkillEffects.push({
         type: 'healing_light' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: targetX, y: targetY },  // 타겟 위치 사용
         radius: healRadius,
         duration: 0.5,
@@ -1203,6 +1219,7 @@ function executeAdvancedESkill(
 
       state.activeSkillEffects.push({
         type: 'rage' as any,  // 클라이언트 렌더러와 일치
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         duration: 1.0,
         startTime: gameTime,
@@ -1226,6 +1243,7 @@ function executeAdvancedESkill(
 
       state.activeSkillEffects.push({
         type: 'shield' as any,  // 클라이언트 렌더러와 일치
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         radius: 500,
         duration: 1.0,
@@ -1275,6 +1293,7 @@ function executeAdvancedESkill(
       // 시전 이펙트 (조준선 표시, heroId로 영웅 추적, targetId로 타겟 추적)
       state.activeSkillEffects.push({
         type: 'snipe' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         targetPosition: { x: targetEnemy.x, y: targetEnemy.y },
         damage: skillDamage,
@@ -1300,6 +1319,7 @@ function executeAdvancedESkill(
 
       state.activeSkillEffects.push({
         type: 'arrow_storm' as any,  // 클라이언트 렌더러와 일치
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         duration: 1.0,
         startTime: gameTime,
@@ -1332,6 +1352,7 @@ function executeAdvancedESkill(
 
       state.activeSkillEffects.push({
         type: 'divine_light' as any,  // 클라이언트 렌더러와 일치
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         radius: 500,
         duration: 1.0,
@@ -1385,6 +1406,7 @@ function executeAdvancedESkill(
         // 지속 이펙트 (무한 지속, heroId로 캐릭터 따라다님)
         state.activeSkillEffects.push({
           type: 'dark_blade' as any,
+          heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
           position: { x: hero.x, y: hero.y },
           radius: 150,
           damage: 0,
@@ -1437,6 +1459,7 @@ function executeAdvancedESkill(
       // 전체 범위 표시 이펙트
       state.activeSkillEffects.push({
         type: 'meteor_shower' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: targetX, y: targetY },
         radius: areaRadius,
         damage: meteorDamage,
@@ -1487,6 +1510,7 @@ function executeAdvancedESkill(
 
       state.activeSkillEffects.push({
         type: 'spring_of_life' as any,
+        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: skillX, y: skillY },
         radius,
         duration: duration,  // 10초간 이펙트 유지
@@ -1650,6 +1674,7 @@ export function updatePendingSkills(ctx: SkillContext): void {
         // 충격파 이펙트 (전방 방향 정보 포함)
         state.activeSkillEffects.push({
           type: 'heavy_strike_impact' as any,
+          heroClass: caster?.heroClass, advancedClass: caster?.advancedClass as any,
           position: { x: hitX, y: hitY },
           direction: { x: dir.x, y: dir.y },
           radius: skill.radius,
@@ -1710,8 +1735,10 @@ export function updatePendingSkills(ctx: SkillContext): void {
 
         // 실행 이펙트 추가 (힐 스킬, dark_blade는 메인 이펙트가 유지되므로 제외)
         if (skill.type !== 'dark_blade') {
+          const effectCaster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
           state.activeSkillEffects.push({
             type: skill.type,
+            heroClass: effectCaster?.heroClass, advancedClass: effectCaster?.advancedClass as any,
             position: skill.position,
             radius: skill.radius,
             damage: skill.damage,

@@ -104,10 +104,26 @@ const getSkillLabel = (key: string): string => {
   return key;
 };
 
+// 쿨다운 사이클별 최대값 추적 (스킬 타입 → 최대 currentCooldown)
+const cooldownMaxRef = new Map<string, number>();
+
 const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHoverStart, onHoverEnd, disabled, disabledReason, active }) => {
   const isOnCooldown = skill.currentCooldown > 0;
-  // 토글 스킬(cooldown=0)은 reuseCooldown 2초 기준으로 퍼센트 계산
-  const effectiveCooldown = skill.cooldown > 0 ? skill.cooldown : 2;
+
+  // 쿨다운 시작 시 최대값 기록, 쿨다운 끝나면 리셋
+  if (isOnCooldown) {
+    const prev = cooldownMaxRef.get(skill.type) || 0;
+    if (skill.currentCooldown > prev) {
+      cooldownMaxRef.set(skill.type, skill.currentCooldown);
+    }
+  } else {
+    cooldownMaxRef.delete(skill.type);
+  }
+
+  // 토글 스킬(cooldown=0)은 reuseCooldown 2초 기준
+  const baseCooldown = skill.cooldown > 0 ? skill.cooldown : 2;
+  // 실제 관측된 최대 쿨다운과 baseCooldown 중 큰 값 사용
+  const effectiveCooldown = Math.max(baseCooldown, cooldownMaxRef.get(skill.type) || 0);
   const cooldownPercent = isOnCooldown ? Math.min((skill.currentCooldown / effectiveCooldown) * 100, 100) : 0;
   const isDisabled = active ? false : (isOnCooldown || disabled);
 
@@ -165,8 +181,8 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
         {isOnCooldown && (
           <>
             <div
-              className="absolute top-0 left-0 right-0 bg-black/70 transition-all"
-              style={{ height: `${cooldownPercent}%` }}
+              className="absolute top-0 left-0 right-0 bg-black/70"
+              style={{ height: `${cooldownPercent}%`, transition: 'height 0.1s linear' }}
             />
             <div className="absolute inset-0 flex items-center justify-center z-20">
               <span className="font-bold text-white drop-shadow-[0_1px_3px_rgba(0,0,0,0.9)]" style={{ fontSize: 'clamp(0.875rem, 1.5vw, 1.125rem)' }}>

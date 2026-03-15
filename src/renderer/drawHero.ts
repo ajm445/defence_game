@@ -3,6 +3,7 @@ import { Camera, UnitType } from '../types';
 import { drawEmoji } from '../utils/canvasEmoji';
 import { drawUnitImage } from '../utils/unitImages';
 import { drawHeroImage } from '../utils/heroImages';
+import { drawMotionSprite } from '../utils/spriteMotion';
 import { RPG_CONFIG, ADVANCED_CLASS_CONFIGS } from '../constants/rpgConfig';
 
 // 직업별 이미지 매핑 및 색상 설정
@@ -460,36 +461,74 @@ export function drawHero(
 
   ctx.restore();
 
-  // 영웅 아이콘 (전직 시 전직 이미지, 아니면 기본 직업 이미지)
+  // 영웅 아이콘 (모션 스프라이트 → 정적 이미지 → 이모지 폴백)
   // 원본 이미지가 왼쪽을 바라보므로, 오른쪽을 바라볼 때 flip
   const flipHero = hero.facingRight;
   let imageDrawn = false;
 
-  // 전직한 경우 전직 이미지 사용
-  if (hero.advancedClass) {
-    imageDrawn = drawHeroImage(
+  // 렌더 크기 결정
+  const renderW = hero.advancedClass ? 40 : 30;
+  const renderH = hero.advancedClass ? 50 : 40;
+
+  // 1. 모션 스프라이트 시도
+  try {
+    // 스킬 쿨다운 추출 (공격/스킬 모션 감지용)
+    let skillCooldowns: { Q: number; W: number; E: number } | undefined;
+    if (Array.isArray(hero.skills) && hero.skills.length >= 3) {
+      skillCooldowns = {
+        Q: hero.skills[0]?.currentCooldown ?? 0,
+        W: hero.skills[1]?.currentCooldown ?? 0,
+        E: hero.skills[2]?.currentCooldown ?? 0,
+      };
+    }
+
+    imageDrawn = drawMotionSprite(
       ctx,
+      hero.id || `hero_${hero.heroClass}`,
       hero.heroClass,
-      hero.advancedClass as AdvancedHeroClass,
+      hero.advancedClass as AdvancedHeroClass | undefined,
       hero.tier,
+      hero.state,
+      hero.dashState,
+      hero.castingUntil,
+      hero.darkBladeActive,
+      skillCooldowns,
+      gameTime,
       screenX,
       screenY,
-      40,  // 전직 이미지는 조금 더 크게
-      50,
+      renderW,
+      renderH,
       flipHero
     );
-
-    // 전직 이미지 실패 시 기본 이미지로 폴백
-    if (!imageDrawn) {
-      imageDrawn = drawUnitImage(ctx, classVisual.unitType, screenX, screenY, 30, flipHero, 40);
-    }
-  } else {
-    // 기본 직업 이미지
-    imageDrawn = drawUnitImage(ctx, classVisual.unitType, screenX, screenY, 30, flipHero, 40);
+  } catch {
+    imageDrawn = false;
   }
 
+  // 2. 모션 스프라이트 없으면 정적 이미지 폴백
   if (!imageDrawn) {
-    // 전직한 경우 전직 이모지 사용
+    if (hero.advancedClass) {
+      imageDrawn = drawHeroImage(
+        ctx,
+        hero.heroClass,
+        hero.advancedClass as AdvancedHeroClass,
+        hero.tier,
+        screenX,
+        screenY,
+        renderW,
+        renderH,
+        flipHero
+      );
+
+      if (!imageDrawn) {
+        imageDrawn = drawUnitImage(ctx, classVisual.unitType, screenX, screenY, 30, flipHero, 40);
+      }
+    } else {
+      imageDrawn = drawUnitImage(ctx, classVisual.unitType, screenX, screenY, 30, flipHero, 40);
+    }
+  }
+
+  // 3. 이모지 폴백
+  if (!imageDrawn) {
     const emoji = hero.advancedClass
       ? ADVANCED_CLASS_CONFIGS[hero.advancedClass as AdvancedHeroClass]?.emoji || classVisual.emoji
       : classVisual.emoji;
@@ -836,6 +875,7 @@ export function drawSkillEffect(
   const screenX = effect.position.x - camera.x;
   const screenY = effect.position.y - camera.y;
   const elapsed = gameTime - effect.startTime;
+  if (elapsed < 0 || effect.duration <= 0) return; // 시간 역전 또는 무효 duration 방어
   const progress = Math.min(1, elapsed / effect.duration);
 
   ctx.save();
