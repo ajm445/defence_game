@@ -22,7 +22,10 @@ const MOTION_CONFIG: Record<MotionType, { fps: number; loop: boolean; holdTime: 
 };
 
 // 스프라이트가 오른쪽을 바라보는 경우 → flip 반전 필요
+// 새 스프라이트는 모두 왼쪽 방향으로 생성 (정적 이미지와 동일) → 반전 불필요
+// 기존 오른쪽 방향 스프라이트가 있으면 여기에 추가
 const SPRITE_FACES_RIGHT = new Set<string>([
+  // 기존 스프라이트 (왼쪽으로 재생성 시 제거)
   'warrior_attack', 'warrior_w', 'warrior_e',
   'archer',
 ]);

@@ -235,7 +235,16 @@ with large black hollow eyes, thick black outlines, cartoon-style
 shading, detailed equipment. Each frame should be the same size
 (approximately 500x600px per frame), arranged in a 2x2 grid
 (top-left = frame 1, top-right = frame 2, bottom-left = frame 3,
-bottom-right = frame 4). The character faces RIGHT in all frames.
+bottom-right = frame 4).
+
+The character MUST face LEFT in ALL 4 frames. Do NOT mix directions —
+every frame must show the character facing the same left direction.
+
+The 4 frames must form a SMOOTH, CONTINUOUS animation sequence.
+Each frame should flow naturally into the next like keyframes of an
+animation: Frame 1 → 2 → 3 → 4. The poses should transition gradually
+with no sudden jumps in position, angle, or posture.
+
 Maintain perfect consistency in character design, colors,
 proportions, and equipment details across all frames.
 
@@ -247,6 +256,7 @@ CRITICAL RULES — MUST FOLLOW STRICTLY:
   energy effects, particles, shadows — MUST remain 100% inside its own
   quadrant. If a sword swing or effect would extend past the divider line,
   make it SMALLER so it fits. This is the #1 most important rule.
+- ALL frames must face LEFT. No exceptions. No frame should face right.
 - The character must be the SAME SIZE in all 4 frames. Keep the character
   centered within each quadrant and at consistent scale — do not make the
   character smaller in crouching/action poses.
@@ -257,23 +267,6 @@ CRITICAL RULES — MUST FOLLOW STRICTLY:
 ```
 
 > **후처리**: 생성된 이미지에서 배경 제거(remove.bg 등) 후, `node scripts/combine-sprites.js` 로 개별 프레임을 2×2 시트로 합성하거나 그대로 사용. 구분선이 있으므로 이미지 편집 도구에서 4등분으로 잘라 개별 프레임으로 분리 가능.
-
-### 기존 스프라이트 수정 프롬프트 (전사/궁수용)
-
-기존 2×2 스프라이트 시트가 있지만 프레임 간 이미지 잘림이 있는 경우, 해당 시트를 참조 이미지로 첨부하고 아래 프리픽스를 사용합니다:
-
-```
-Based on the attached sprite sheet, regenerate this 2x2 grid sprite sheet
-(4 frames) on a WHITE background with THIN BLACK DIVIDER LINES separating
-the 4 quadrants (one horizontal + one vertical line at center).
-Keep the EXACT same character design, art style, colors, poses, and
-animation sequence. Fix the following issues:
-- Ensure ALL visual elements (weapons, slash arcs, motion blur, energy effects)
-  stay COMPLETELY within each frame's quadrant — nothing crosses the divider lines.
-- Keep the character at the SAME SIZE across all 4 frames.
-- Leave at least 30px margin from divider lines and edges.
-Each frame should be approximately 500x600px, arranged in a 2x2 grid.
-```
 
 ---
 
