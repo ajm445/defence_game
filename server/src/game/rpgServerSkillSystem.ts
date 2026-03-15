@@ -26,6 +26,14 @@ export interface SkillContext {
 }
 
 /**
+ * 스킬 타겟 최대 사거리 (hero 위치로부터)
+ * Q: 기본 공격 → hero.config.range 사용 (별도 검증 불필요, 내부에서 체크)
+ * W/E: 방향 기반 스킬은 검증 불필요, 타겟 위치 기반 스킬만 검증
+ * 저격수 E는 무제한 사거리 (보스 전용) → 예외
+ */
+const MAX_SKILL_TARGET_DISTANCE = 1000; // px (화면 대각선 ~800px + 여유)
+
+/**
  * 스킬 실행 (Q/W/E)
  */
 export function executeSkill(
@@ -37,6 +45,22 @@ export function executeSkill(
 ): void {
   if (hero.isDead) {
     return;
+  }
+
+  // 스킬 타겟 사거리 검증 (W/E 스킬 중 targetX/targetY를 영역 중심으로 사용하는 경우)
+  // Q스킬은 내부에서 attackRange 체크, 방향 기반 스킬은 dirX/dirY만 사용하므로 영향 없음
+  if (skillSlot !== 'Q') {
+    const advClass = hero.advancedClass as string | undefined;
+    // 저격수 E는 무제한 사거리 (보스 전용 스킬) → 예외
+    const isUnlimitedRange = skillSlot === 'E' && advClass === 'sniper';
+    if (!isUnlimitedRange) {
+      const dx = targetX - hero.x;
+      const dy = targetY - hero.y;
+      const distSq = dx * dx + dy * dy;
+      if (distSq > MAX_SKILL_TARGET_DISTANCE * MAX_SKILL_TARGET_DISTANCE) {
+        return;
+      }
+    }
   }
 
   // 스킬 쿨다운 체크 (캐시된 직접 참조 사용)

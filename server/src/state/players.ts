@@ -16,17 +16,25 @@ export interface Player {
 // 전역 플레이어 맵 (WebSocket ID -> Player)
 export const players = new Map<string, Player>();
 
+// userId → Player 인덱스 (O(1) 조회용)
+const playersByUserId = new Map<string, Player>();
+
 // 온라인 사용자 ID Set (빠른 조회용)
 export const onlineUserIds = new Set<string>();
 
-// 사용자 ID로 플레이어 찾기
+// userId 인덱스 등록 (로그인 시 호출)
+export function indexPlayerByUserId(userId: string, player: Player): void {
+  playersByUserId.set(userId, player);
+}
+
+// userId 인덱스 제거 (로그아웃/연결 해제 시 호출)
+export function removePlayerUserIdIndex(userId: string): void {
+  playersByUserId.delete(userId);
+}
+
+// 사용자 ID로 플레이어 찾기 (O(1))
 export function getPlayerByUserId(userId: string): Player | undefined {
-  for (const player of players.values()) {
-    if (player.userId === userId) {
-      return player;
-    }
-  }
-  return undefined;
+  return playersByUserId.get(userId);
 }
 
 // 현재 온라인인 사용자 ID 목록 반환

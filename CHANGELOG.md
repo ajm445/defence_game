@@ -1,5 +1,51 @@
 # Changelog
 
+## [1.25.3] - 2026-03-15
+
+### 네트워크 최적화: 델타 직렬화 + 이펙트 스트림 분리
+- **델타 게임 상태 전송**: 풀 스냅샷(10프레임마다) + 델타 업데이트(변경된 필드만 전송) 시스템 도입, 네트워크 대역폭 절감
+- **시각 이펙트 15Hz 분리 스트림**: 데미지 숫자, 기본공격 이펙트, 넥서스 레이저, 보스 스킬 이펙트를 코어 게임 상태(30Hz)와 분리하여 15Hz로 전송
+- **입력 시퀀스 ACK 프로토콜**: 클라이언트 입력에 seq 번호 추가, 서버가 처리한 시퀀스를 ACK로 반환
+- **숫자 양자화**: 좌표/HP 정수화(`Math.round`), 쿨다운 0.1초 단위, gameTime 0.1초 단위 양자화로 JSON 크기 절감
+- **dirty flags 기반 변경 감지**: nexus HP, 적 기지 HP, 골드, 업그레이드, 통계 각각 독립 변경 추적
+
+### 서버 보안 강화
+- **글로벌 메시지 속도 제한**: 연결당 초당 120 메시지 제한, 3회 경고 초과 시 연결 종료
+- **이동 속도 검증 (속도핵 방지)**: 서버에서 영웅 이동 속도 대비 비합리적 위치 변경 감지 및 차단 (버프/넉백 고려)
+- **스킬 타겟 사거리 검증**: W/E 스킬의 타겟 좌표가 영웅 위치 기준 1000px 초과 시 무시 (저격수 E 예외)
+- **스킬 좌표 유효성 검증**: `targetX`/`targetY` 좌표 유효성 체크 추가
+- **입력 필드 검증 강화**: `timestamp`, `seq` 필드의 타입 및 범위 검증
+- **DB/소셜/채팅 레이트 리미터 추가**: 로그인(5초), 친구 목록(200ms), DM(500ms), 로비 채팅(500ms), 관리자 인증(3초) 등 12종 추가
+
+### 서버 인프라 개선
+- **Ping/Pong 좀비 연결 감지**: 30초 간격 ping 전송, pong 미응답 시 연결 자동 종료
+- **userId 인덱스 O(1) 조회**: `getPlayerByUserId` 전체 순회(O(n)) → `Map` 인덱스(O(1)) 전환
+- **방 목록 브로드캐스트 디바운싱**: 100ms 디바운싱으로 방 생성/삭제 시 중복 브로드캐스트 방지
+- **넉백 직후 속도 검증 완화**: 보스 넉백으로 큰 거리 이동 시 1초간 속도 검증 면제
+- **연결 해제 시 정리 강화**: `lastProcessedSeq`, `inputQueues`, `connectionThrottles`, `aliveConnections` 정리
+
+### 클라이언트 개선
+- **델타 상태 적용**: undefined 필드는 이전 값 유지 (`?? prev.xxx` 패턴)
+- **이펙트 스트림 수신 처리**: `COOP_GAME_EFFECTS` 메시지 핸들러 + `applyEffectState` 스토어 액션 추가
+- **타입 안전성 향상**: `useNetworkSync`의 `any` 타입 → `HeroClass`, `AdvancedHeroClass`, `CharacterStatUpgrades`, `MapTheme` 등 구체적 타입으로 교체
+
+### 수정 파일 (15개)
+- `server/src/game/RPGServerGameEngine.ts`: 델타 직렬화, 이펙트 분리 브로드캐스트, dirty flags, 입력 ACK, 속도 검증
+- `server/src/game/rpgServerGameSystems.ts`: `serializeDeltaGameState`, `serializeEffectState`, 숫자 양자화
+- `server/src/game/RPGCoopGameRoom.ts`: 이펙트 브로드캐스트 콜백
+- `server/src/game/rpgServerSkillSystem.ts`: 스킬 타겟 사거리 검증
+- `server/src/game/rpgServerBossSystem.ts`: 넉백 시간 기록 (`_lastKnockbackTime`)
+- `server/src/game/rpgServerTypes.ts`: `_lastKnockbackTime` 필드 추가
+- `server/src/websocket/WebSocketServer.ts`: 글로벌 메시지 스로틀, Ping/Pong, 연결 정리
+- `server/src/websocket/MessageHandler.ts`: 12종 레이트 리미터 적용, userId 인덱스 등록/해제, 입력 검증 강화
+- `server/src/middleware/rateLimiter.ts`: 12종 레이트 리미터 추가
+- `server/src/state/players.ts`: userId → Player 인덱스 (`indexPlayerByUserId`, `removePlayerUserIdIndex`)
+- `server/src/room/CoopRoomManager.ts`: 방 목록 브로드캐스트 100ms 디바운싱
+- `shared/types/hostBasedNetwork.ts`: `SerializedEffectState` 타입, 델타 optional 필드, `seq`/`frameId`/`inputAcks`
+- `shared/types/rpgNetwork.ts`: `COOP_GAME_EFFECTS` 메시지 타입
+- `src/hooks/useNetworkSync.ts`: 이펙트 핸들러, 입력 ACK, 타입 안전성 개선
+- `src/stores/useRPGStore.ts`: `applyEffectState` 액션, 델타 상태 적용
+
 ## [1.25.2] - 2026-03-13
 
 ### 소리 설정 시스템 개편

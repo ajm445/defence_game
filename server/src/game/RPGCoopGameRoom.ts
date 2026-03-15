@@ -9,7 +9,7 @@ import type {
   CoopPlayerInfo,
   RPGCoopGameState,
 } from '../../../shared/types/rpgNetwork';
-import type { SerializedGameState, PlayerInput } from '../../../shared/types/hostBasedNetwork';
+import type { SerializedGameState, SerializedEffectState, PlayerInput } from '../../../shared/types/hostBasedNetwork';
 
 // 게임 종료 후 준비 체크 타임아웃 (10초)
 const READY_CHECK_TIMEOUT = 10000;
@@ -103,7 +103,8 @@ export class RPGCoopGameRoom {
         this.playerInfos,
         this.difficulty as RPGDifficulty,
         (state) => this.broadcastGameState(state),
-        (result) => this.handleGameOverFromEngine(result)
+        (result) => this.handleGameOverFromEngine(result),
+        (effects) => this.broadcastEffects(effects)
       );
       this.gameEngine.start();
     } catch (error) {
@@ -130,6 +131,23 @@ export class RPGCoopGameRoom {
     const jsonString = JSON.stringify({
       type: 'COOP_GAME_STATE',
       state,
+    });
+    for (const playerId of this.playerIds) {
+      const player = players.get(playerId);
+      if (player) {
+        sendPreStringifiedMessage(player.ws, jsonString);
+      }
+    }
+  }
+
+  /**
+   * 시각 이펙트 브로드캐스트 (15Hz 분리 스트림)
+   * JSON.stringify를 1회만 수행
+   */
+  private broadcastEffects(effects: SerializedEffectState): void {
+    const jsonString = JSON.stringify({
+      type: 'COOP_GAME_EFFECTS',
+      effects,
     });
     for (const playerId of this.playerIds) {
       const player = players.get(playerId);

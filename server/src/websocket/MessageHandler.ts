@@ -1,5 +1,5 @@
 import type { ClientMessage } from '../../../shared/types/network';
-import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOffline, setOnlineStatusCallback, getPlayerByUserId, getLoggedInUserCount, setPlayerGameMode, type GameMode } from '../state/players';
+import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOffline, setOnlineStatusCallback, getPlayerByUserId, getLoggedInUserCount, setPlayerGameMode, indexPlayerByUserId, removePlayerUserIdIndex, type GameMode } from '../state/players';
 import { isMaintenanceActive } from '../state/maintenance';
 import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import { verifyAdminToken } from '../middleware/adminAuth';
@@ -183,6 +183,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     // 사용자 인증 메시지
     case 'USER_LOGIN':
+      if (!rateLimiters.login.checkAndUpdate(playerId)) return;
       handleUserLogin(playerId, (message as any).userId, (message as any).nickname, (message as any).isGuest, (message as any).level);
       break;
 
@@ -191,6 +192,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       break;
 
     case 'CHANGE_GAME_MODE':
+      if (!rateLimiters.modeChange.checkAndUpdate(playerId)) return;
       handleChangeGameMode(playerId, (message as any).gameMode);
       break;
 
@@ -212,6 +214,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       break;
 
     case 'GET_COOP_ROOM_LIST':
+      if (!rateLimiters.roomList.checkAndUpdate(playerId)) return;
       handleGetCoopRoomList(playerId);
       break;
 
@@ -290,6 +293,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     // 관리자 WebSocket 메시지
     case 'ADMIN_SUBSCRIBE':
+      if (!rateLimiters.adminAuth.checkAndUpdate(playerId)) return;
       handleAdminSubscribe(playerId, (message as any).token);
       break;
 
@@ -303,52 +307,64 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 
     // 친구 시스템 메시지
     case 'GET_FRIENDS_LIST':
+      if (!rateLimiters.friendsList.checkAndUpdate(playerId)) return;
       handleGetFriendsList(playerId);
       break;
 
     case 'GET_ONLINE_PLAYERS':
+      if (!rateLimiters.onlinePlayers.checkAndUpdate(playerId)) return;
       handleGetOnlinePlayers(playerId);
       break;
 
     case 'SEND_FRIEND_REQUEST':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleSendFriendRequest(playerId, (message as any).targetUserId);
       break;
 
     case 'RESPOND_FRIEND_REQUEST':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleRespondFriendRequest(playerId, (message as any).requestId, (message as any).accept);
       break;
 
     case 'CANCEL_FRIEND_REQUEST':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleCancelFriendRequest(playerId, (message as any).requestId);
       break;
 
     case 'REMOVE_FRIEND':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleRemoveFriend(playerId, (message as any).friendId);
       break;
 
     case 'SEND_GAME_INVITE':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleSendGameInvite(playerId, (message as any).friendId, (message as any).roomId);
       break;
 
     case 'RESPOND_GAME_INVITE':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleRespondGameInvite(playerId, (message as any).inviteId, (message as any).accept);
       break;
 
     case 'GET_SERVER_STATUS':
+      if (!rateLimiters.serverStatus.checkAndUpdate(playerId)) return;
       handleGetServerStatus(playerId);
       break;
 
     // DM (개인 메시지)
     case 'SEND_DM':
+      if (!rateLimiters.dm.checkAndUpdate(playerId)) return;
       handleSendDM(playerId, (message as any).targetUserId, (message as any).content);
       break;
 
     case 'GET_DM_HISTORY':
+      if (!rateLimiters.dmHistory.checkAndUpdate(playerId)) return;
       handleGetDMHistory(playerId);
       break;
 
     // 로비 채팅
     case 'LOBBY_CHAT_SEND':
+      if (!rateLimiters.lobbyChat.checkAndUpdate(playerId)) return;
       handleLobbyChatSend(playerId, (message as any).content);
       break;
 
@@ -416,6 +432,7 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
         }
 
         // 기존 플레이어 정리
+        if (existingPlayer.userId) removePlayerUserIdIndex(existingPlayer.userId);
         existingPlayer.userId = null;
         players.delete(existingPlayer.id);
       }
@@ -483,6 +500,11 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
   player.name = nickname;
   player.userId = isGuest ? null : userId;
 
+  // userId 인덱스 등록 (O(1) 조회용)
+  if (!isGuest && userId) {
+    indexPlayerByUserId(userId, player);
+  }
+
   // 온라인 사용자 목록에 추가 (게스트가 아닌 경우)
   // await로 호출하여 브로드캐스트 완료를 보장
   if (!isGuest && userId) {
@@ -524,6 +546,7 @@ function handleUserLogout(playerId: string, userId: string, nickname: string): v
   // WebSocket 연결 종료 (close 이벤트에서 방 정리 등 처리됨)
   // userId를 먼저 null로 설정하여 close 핸들러에서 중복 로그아웃 처리 방지
   if (player) {
+    if (userId) removePlayerUserIdIndex(userId);
     player.userId = null;
     player.ws.close();
   }
@@ -971,12 +994,26 @@ function handlePlayerInput(playerId: string, input: any): void {
       console.warn(`[Security] Invalid input position from ${playerId}`);
       return;
     }
-    if (input.skillUsed && !isValidSkillSlot(input.skillUsed.skillSlot)) {
-      console.warn(`[Security] Invalid input skillSlot from ${playerId}`);
-      return;
+    if (input.skillUsed) {
+      if (!isValidSkillSlot(input.skillUsed.skillSlot)) {
+        console.warn(`[Security] Invalid input skillSlot from ${playerId}`);
+        return;
+      }
+      if (!isValidRPGCoordinate(input.skillUsed.targetX, input.skillUsed.targetY)) {
+        console.warn(`[Security] Invalid skill target coordinates from ${playerId}`);
+        return;
+      }
     }
     if (input.upgradeRequested && !isValidUpgradeType(input.upgradeRequested)) {
       console.warn(`[Security] Invalid input upgradeType from ${playerId}`);
+      return;
+    }
+    if (input.timestamp !== undefined && (typeof input.timestamp !== 'number' || !Number.isFinite(input.timestamp))) {
+      console.warn(`[Security] Invalid input timestamp from ${playerId}`);
+      return;
+    }
+    if (input.seq !== undefined && (typeof input.seq !== 'number' || !Number.isFinite(input.seq) || input.seq < 0)) {
+      console.warn(`[Security] Invalid input seq from ${playerId}`);
       return;
     }
   }

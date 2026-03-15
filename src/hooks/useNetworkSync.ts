@@ -14,9 +14,10 @@ import { applyStunToEnemy } from '../game/rpg/enemyAI';
 import { effectManager } from '../effects';
 import { soundManager } from '../services/SoundManager';
 import { distance } from '../utils/math';
-import type { SerializedGameState, PlayerInput } from '../../shared/types/hostBasedNetwork';
+import type { SerializedGameState, SerializedEffectState, PlayerInput } from '../../shared/types/hostBasedNetwork';
 import type { CoopServerMessage, CoopPlayerInfo } from '../../shared/types/rpgNetwork';
-import type { HeroUnit, SkillType, Buff } from '../types/rpg';
+import type { HeroUnit, SkillType, Buff, MapTheme, HeroClass, AdvancedHeroClass } from '../types/rpg';
+import type { CharacterStatUpgrades } from '../types/auth';
 
 // 버프 공유 범위 설정
 const BERSERKER_SHARE_RANGE = 300; // 광전사 버프 공유 범위
@@ -54,6 +55,11 @@ export function useNetworkSync() {
             console.log('[NetworkSync] COOP_GAME_STATE 수신, gameTime:', message.state?.gameTime);
           }
           handleGameStateFromServer(message.state);
+          break;
+
+        // 시각 이펙트 스트림 (15Hz 분리)
+        case 'COOP_GAME_EFFECTS':
+          handleEffectsFromServer(message.effects);
           break;
 
         // 호스트 변경
@@ -174,6 +180,9 @@ export function useNetworkSync() {
 function handleGameStartServerAuth(message: any) {
   const { playerIndex, players, difficulty, mapTheme } = message;
 
+  // 입력 시퀀스 카운터 리셋
+  resetInputSeq();
+
   // 방장 정보 확인 (UI 목적: 일시정지, 재시작, 설정 변경 등)
   const hostPlayer = players.find((p: CoopPlayerInfo) => p.isHost);
   const hostPlayerId = hostPlayer?.id || null;
@@ -203,7 +212,7 @@ function handleGameStartServerAuth(message: any) {
 
   // 맵 테마 설정
   if (mapTheme) {
-    useRPGStore.setState({ mapTheme: mapTheme as any });
+    useRPGStore.setState({ mapTheme: mapTheme as MapTheme });
   }
 
   // 게임 초기화 (서버가 게임 로직 실행, 클라이언트는 상태 수신만)
@@ -232,8 +241,23 @@ function handleGameStateFromServer(serializedState: SerializedGameState) {
   const state = useRPGStore.getState();
   const myHeroId = state.multiplayer.myHeroId;
 
+  // 입력 ACK 확인 (최신 처리된 시퀀스 번호)
+  if (serializedState.inputAcks && state.multiplayer.myPlayerId) {
+    const ackedSeq = serializedState.inputAcks[state.multiplayer.myPlayerId];
+    if (ackedSeq != null) {
+      _lastAckedSeq = ackedSeq;
+    }
+  }
+
   // 게임 상태 적용 (myHeroId가 null이어도 applySerializedState에서 처리)
   state.applySerializedState(serializedState, myHeroId);
+}
+
+/**
+ * 서버로부터 시각 이펙트 수신 (15Hz 분리 스트림)
+ */
+function handleEffectsFromServer(effects: SerializedEffectState) {
+  useRPGStore.getState().applyEffectState(effects);
 }
 
 function handleHostChanged(newHostPlayerId: string, newHostName?: string) {
@@ -365,7 +389,7 @@ function handleReturnToLobby(message?: any) {
     }
     // 맵 테마도 복원
     if (message.mapTheme) {
-      useRPGStore.setState({ mapTheme: message.mapTheme as any });
+      useRPGStore.setState({ mapTheme: message.mapTheme as MapTheme });
     }
   } else {
     useRPGStore.getState().setMultiplayerState({ connectionState: 'in_lobby' });
@@ -947,6 +971,23 @@ function handleMaintenanceNotice(message: { message: string; remainingMinutes: n
 }
 
 // ============================================
+// 입력 시퀀스 ACK 프로토콜
+// ============================================
+let _inputSeqCounter = 0;
+let _lastAckedSeq = 0;
+
+/** 마지막으로 서버가 ACK한 입력 시퀀스 번호 */
+export function getLastAckedSeq(): number {
+  return _lastAckedSeq;
+}
+
+/** 입력 시퀀스 카운터 리셋 (게임 시작 시) */
+export function resetInputSeq(): void {
+  _inputSeqCounter = 0;
+  _lastAckedSeq = 0;
+}
+
+// ============================================
 // 클라이언트 입력 전송 함수들
 // ============================================
 
@@ -966,6 +1007,7 @@ export function sendMoveDirection(direction: { x: number; y: number } | null) {
     // 클라이언트 실제 위치 전송 (보스 스킬 데미지 계산용)
     position: hero ? { x: hero.x, y: hero.y } : undefined,
     timestamp: Date.now(),
+    seq: ++_inputSeqCounter,
   };
 
   // 새 서버 권위 모델 메시지 타입 사용
@@ -989,6 +1031,7 @@ export function sendSkillUse(skillSlot: 'Q' | 'W' | 'E', targetX: number, target
     position: hero ? { x: hero.x, y: hero.y } : undefined,
     skillUsed: { skillSlot, targetX, targetY },
     timestamp: Date.now(),
+    seq: ++_inputSeqCounter,
   };
 
   // 새 서버 권위 모델 메시지 타입 사용
@@ -1013,6 +1056,7 @@ export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'gol
     position: hero ? { x: hero.x, y: hero.y } : undefined,
     upgradeRequested: upgradeType,
     timestamp: Date.now(),
+    seq: ++_inputSeqCounter,
   };
 
   // 새 서버 권위 모델 메시지 타입 사용
@@ -1028,12 +1072,12 @@ export function sendUpgradeRequest(upgradeType: 'attack' | 'speed' | 'hp' | 'gol
  */
 export function createMultiplayerRoom(
   playerName: string,
-  heroClass: any,
+  heroClass: HeroClass,
   characterLevel?: number,
-  statUpgrades?: any,
+  statUpgrades?: CharacterStatUpgrades,
   isPrivate?: boolean,
   difficulty?: string,
-  advancedClass?: string,
+  advancedClass?: AdvancedHeroClass,
   tier?: 1 | 2,
   mapTheme?: string
 ) {
@@ -1042,7 +1086,7 @@ export function createMultiplayerRoom(
     connectionState: 'connecting',
   });
 
-  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false, difficulty ?? 'easy', advancedClass as any, tier, mapTheme ?? 'forest');
+  wsClient.createCoopRoom(playerName, heroClass, characterLevel, statUpgrades, isPrivate ?? false, difficulty ?? 'easy', advancedClass, tier, mapTheme ?? 'forest');
 }
 
 /**
@@ -1051,10 +1095,10 @@ export function createMultiplayerRoom(
 export function joinMultiplayerRoom(
   roomCode: string,
   playerName: string,
-  heroClass: any,
+  heroClass: HeroClass,
   characterLevel?: number,
-  statUpgrades?: any,
-  advancedClass?: string,
+  statUpgrades?: CharacterStatUpgrades,
+  advancedClass?: AdvancedHeroClass,
   tier?: 1 | 2
 ) {
   useRPGStore.getState().setMultiplayerState({
@@ -1062,7 +1106,7 @@ export function joinMultiplayerRoom(
     connectionState: 'connecting',
   });
 
-  wsClient.joinCoopRoom(roomCode, playerName, heroClass, characterLevel, statUpgrades, advancedClass as any, tier);
+  wsClient.joinCoopRoom(roomCode, playerName, heroClass, characterLevel, statUpgrades, advancedClass, tier);
 }
 
 /**
@@ -1092,10 +1136,10 @@ export function startMultiplayerGame() {
 export function joinRoomByInvite(
   roomCode: string,
   playerName: string,
-  heroClass: any,
+  heroClass: HeroClass,
   characterLevel?: number,
-  statUpgrades?: any,
-  advancedClass?: string,
+  statUpgrades?: CharacterStatUpgrades,
+  advancedClass?: AdvancedHeroClass,
   tier?: 1 | 2
 ) {
   useRPGStore.getState().setMultiplayerState({
@@ -1105,5 +1149,5 @@ export function joinRoomByInvite(
 
   // 초대를 통한 입장이므로 일반 코드 입장과 동일하게 처리
   // (서버에서 초대 유효성은 이미 검증됨)
-  wsClient.joinCoopRoom(roomCode, playerName, heroClass, characterLevel, statUpgrades, advancedClass as any, tier);
+  wsClient.joinCoopRoom(roomCode, playerName, heroClass, characterLevel, statUpgrades, advancedClass, tier);
 }

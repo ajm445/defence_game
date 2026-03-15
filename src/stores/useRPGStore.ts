@@ -6,7 +6,7 @@ import { RPG_CONFIG, CLASS_CONFIGS, CLASS_SKILLS, NEXUS_CONFIG, ENEMY_BASE_CONFI
 import { createInitialPassiveState, getPassiveFromCharacterLevel } from '../game/rpg/passiveSystem';
 import { createInitialUpgradeLevels, getUpgradeCost, canUpgrade, getGoldReward, calculateAllUpgradeBonuses, UpgradeType } from '../game/rpg/goldSystem';
 import { CharacterStatUpgrades, createDefaultStatUpgrades, getStatBonus } from '../types/auth';
-import type { MultiplayerState, PlayerInput, SerializedGameState, SerializedHero, SerializedEnemy } from '../../shared/types/hostBasedNetwork';
+import type { MultiplayerState, PlayerInput, SerializedGameState, SerializedEffectState, SerializedHero, SerializedEnemy } from '../../shared/types/hostBasedNetwork';
 import type { CoopPlayerInfo } from '../../shared/types/rpgNetwork';
 import { wsClient } from '../services/WebSocketClient';
 import { soundManager } from '../services/SoundManager';
@@ -259,6 +259,8 @@ interface RPGActions {
   // 게임 상태 직렬화/역직렬화
   serializeGameState: () => SerializedGameState;
   applySerializedState: (state: SerializedGameState, myHeroId: string | null) => void;
+  // 시각 이펙트 스트림 적용 (15Hz 분리 수신)
+  applyEffectState: (effects: SerializedEffectState) => void;
 
   // 다른 플레이어 영웅 보간 업데이트 (클라이언트용)
   updateOtherHeroesInterpolation: () => void;
@@ -2911,20 +2913,23 @@ export const useRPGStore = create<RPGStore>()(
       // myHero가 null이면 (서버에서 내 영웅을 보내지 않은 경우) 기존 로컬 영웅 유지
       const heroToSet = myHero !== null ? myHero : currentState.hero;
 
-      // 클라이언트 기지 파괴 감지: 기존 상태와 비교하여 새로 파괴된 기지 확인
-      const previousBases = currentState.enemyBases;
-      const newBases = serializedState.enemyBases;
-      for (const newBase of newBases) {
-        const prevBase = previousBases.find(b => b.id === newBase.id);
-        // 이전에 파괴되지 않았고, 새로 파괴된 경우
-        if (prevBase && !prevBase.destroyed && newBase.destroyed) {
-          // 기지 파괴 사운드 및 알림
-          soundManager.play('victory');
-          const showNotification = useUIStore.getState().showNotification;
-          showNotification('적 기지 파괴!');
+      // 클라이언트 기지 파괴 감지: 기존 상태와 비교하여 새로 파괴된 기지 확인 (델타에서 enemyBases가 없으면 스킵)
+      if (serializedState.enemyBases) {
+        const previousBases = currentState.enemyBases;
+        for (const newBase of serializedState.enemyBases) {
+          const prevBase = previousBases.find(b => b.id === newBase.id);
+          // 이전에 파괴되지 않았고, 새로 파괴된 경우
+          if (prevBase && !prevBase.destroyed && newBase.destroyed) {
+            // 기지 파괴 사운드 및 알림
+            soundManager.play('victory');
+            const showNotification = useUIStore.getState().showNotification;
+            showNotification('적 기지 파괴!');
+          }
         }
       }
 
+      // 델타 업데이트: optional 필드는 이전 값 유지
+      const prev = currentState;
       set({
         gameTime: serializedState.gameTime,
         gamePhase: serializedState.gamePhase,
@@ -2937,38 +2942,43 @@ export const useRPGStore = create<RPGStore>()(
         enemiesInterpolation: newEnemiesInterpolation,
         personalKills: myKills,
         enemies,
-        nexus: serializedState.nexus,
-        // enemyBases 역직렬화: Array를 Set으로 변환
-        enemyBases: serializedState.enemyBases.map(base => ({
-          ...base,
-          attackers: new Set(Array.isArray((base as unknown as { attackers: string[] }).attackers) ? (base as unknown as { attackers: string[] }).attackers : []),
-        })),
-        gold: myGold,  // 내 골드 적용
-        upgradeLevels: myUpgrades,  // 내 업그레이드 적용
-        // activeSkillEffects: 서버 이펙트 사용 (호스트가 권위)
-        // 클라이언트에서 자동 공격 제거 후, 모든 공격 이펙트는 호스트에서 생성됨
-        // 따라서 서버 이펙트를 그대로 사용 (내 영웅 이펙트 포함)
-        activeSkillEffects: serializedState.activeSkillEffects || [],
-        basicAttackEffects: serializedState.basicAttackEffects || [],
-        // 넥서스 레이저 이펙트: 타임스탬프를 클라이언트 시간으로 갱신
-        // 서버(호스트)와 클라이언트의 시스템 시계 차이로 인한 렌더링 문제 방지
-        nexusLaserEffects: (serializedState.nexusLaserEffects || []).map(effect => ({
-          ...effect,
-          timestamp: Date.now(),
-        })),
-        bossSkillExecutedEffects: serializedState.bossSkillExecutedEffects || [],
-        pendingSkills: serializedState.pendingSkills,
-        bossSkillWarnings: serializedState.bossSkillWarnings || [],
-        bossActiveZones: serializedState.bossActiveZones || [],
-        damageNumbers: serializedState.damageNumbers || [],
+        // 델타: nexus/enemyBases/gold/upgradeLevels/stats는 undefined면 이전 값 유지
+        nexus: serializedState.nexus ?? prev.nexus,
+        enemyBases: serializedState.enemyBases
+          ? serializedState.enemyBases.map(base => ({
+              ...base,
+              attackers: new Set(Array.isArray((base as unknown as { attackers: string[] }).attackers) ? (base as unknown as { attackers: string[] }).attackers : []),
+            }))
+          : prev.enemyBases,
+        gold: myGold,  // 내 골드 적용 (hero에서 추출)
+        upgradeLevels: myUpgrades,  // 내 업그레이드 적용 (hero에서 추출)
+        // 게임플레이 이펙트: 코어 스트림에서 수신 (항상 포함)
+        activeSkillEffects: serializedState.activeSkillEffects ?? prev.activeSkillEffects,
+        pendingSkills: serializedState.pendingSkills ?? prev.pendingSkills,
+        bossSkillWarnings: serializedState.bossSkillWarnings ?? prev.bossSkillWarnings,
+        bossActiveZones: serializedState.bossActiveZones ?? prev.bossActiveZones,
+        // 시각 이펙트: 15Hz 분리 스트림에서 수신 (코어에 포함되지 않으면 이전 값 유지)
         lastDamageTime: newLastDamageTime,  // 클라이언트 피격 화면 효과용
         camera: newCamera,  // 클라이언트 부활 시 카메라 자동 고정
         running: serializedState.running,
         paused: serializedState.paused,
         gameOver: serializedState.gameOver,
         victory: serializedState.victory,
-        lastSpawnTime: serializedState.lastSpawnTime,
-        stats: serializedState.stats,
+        lastSpawnTime: serializedState.lastSpawnTime ?? prev.lastSpawnTime,
+        stats: serializedState.stats ?? prev.stats,
+      });
+    },
+
+    applyEffectState: (effects: SerializedEffectState) => {
+      set({
+        basicAttackEffects: effects.basicAttackEffects || [],
+        // 넥서스 레이저 이펙트: 타임스탬프를 클라이언트 시간으로 갱신
+        nexusLaserEffects: (effects.nexusLaserEffects || []).map(effect => ({
+          ...effect,
+          timestamp: Date.now(),
+        })),
+        bossSkillExecutedEffects: effects.bossSkillExecutedEffects || [],
+        damageNumbers: effects.damageNumbers || [],
       });
     },
 

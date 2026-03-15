@@ -22,6 +22,8 @@ export interface PlayerInput {
   };
   upgradeRequested?: 'attack' | 'speed' | 'hp' | 'attackSpeed' | 'goldRate' | 'range';
   timestamp: number;
+  // 입력 시퀀스 번호 (ACK 프로토콜용)
+  seq?: number;
 }
 
 // ============================================
@@ -128,37 +130,42 @@ export interface SerializedGameState {
   gamePhase: RPGGamePhase;
   heroes: SerializedHero[];
   enemies: SerializedEnemy[];
-  nexus: Nexus;
-  enemyBases: EnemyBase[];
-  gold: number;
-  upgradeLevels: UpgradeLevels;
-  activeSkillEffects: SkillEffect[];
-  basicAttackEffects: BasicAttackEffect[];
-  nexusLaserEffects: NexusLaserEffect[];
-  pendingSkills: PendingSkill[];
-  // 보스 스킬 경고
-  bossSkillWarnings: BossSkillWarning[];
-  // 보스 스킬 실행 이펙트 (네트워크 동기화용)
-  bossSkillExecutedEffects: BossSkillExecutedEffect[];
-  // Boss2 공허의 영역 지속 장판
-  bossActiveZones: BossVoidZone[];
-  // 플로팅 데미지 숫자 (데미지/힐 표시용)
-  damageNumbers: DamageNumber[];
+  // 델타 프레임에서 생략 가능한 필드 (undefined면 이전 값 유지)
+  nexus?: Nexus;
+  enemyBases?: EnemyBase[];
+  gold?: number;
+  upgradeLevels?: UpgradeLevels;
+  // 게임플레이 이펙트 (항상 포함)
+  activeSkillEffects?: SkillEffect[];
+  pendingSkills?: PendingSkill[];
+  bossSkillWarnings?: BossSkillWarning[];
+  bossActiveZones?: BossVoidZone[];
   // 게임 상태
   running: boolean;
   paused: boolean;
   gameOver: boolean;
   victory: boolean;
   // 스폰 관련
-  lastSpawnTime: number;
+  lastSpawnTime?: number;
   // 통계
-  stats: {
+  stats?: {
     totalKills: number;
     totalGoldEarned: number;
     basesDestroyed: number;
     bossesKilled: number;
     timePlayed: number;
   };
+  // 델타/ACK 메타데이터
+  frameId?: number;
+  inputAcks?: Record<string, number>;
+}
+
+// 시각 이펙트 스트림 (15Hz 분리 전송)
+export interface SerializedEffectState {
+  damageNumbers: DamageNumber[];
+  basicAttackEffects: BasicAttackEffect[];
+  nexusLaserEffects: NexusLaserEffect[];
+  bossSkillExecutedEffects: BossSkillExecutedEffect[];
 }
 
 // ============================================
@@ -183,6 +190,8 @@ export type ServerMessage =
     }
   // 게임 상태 (서버가 직접 브로드캐스트)
   | { type: 'COOP_GAME_STATE'; state: SerializedGameState }
+  // 시각 이펙트 스트림 (15Hz 분리 전송)
+  | { type: 'COOP_GAME_EFFECTS'; effects: SerializedEffectState }
   // 방장 변경 (로비 관리용)
   | { type: 'COOP_HOST_CHANGED'; newHostPlayerId: string }
   // 새 방장 권한 부여 (로비 관리용)

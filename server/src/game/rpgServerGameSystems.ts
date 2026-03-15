@@ -10,7 +10,7 @@
 
 import type { RPGEnemy, EnemyBaseId, UpgradeLevels, RPGDifficulty } from '../../../src/types/rpg';
 import type { ServerHero, ServerGameState, ServerEnemyBase, ServerNexus } from './rpgServerTypes';
-import type { SerializedGameState, SerializedHero, SerializedEnemy } from '../../../shared/types/hostBasedNetwork';
+import type { SerializedGameState, SerializedHero, SerializedEnemy, SerializedEffectState } from '../../../shared/types/hostBasedNetwork';
 import {
   NEXUS_CONFIG,
   GOLD_CONFIG,
@@ -293,21 +293,20 @@ export function cleanupEffects(state: ServerGameState): void {
 }
 
 /**
- * 게임 상태 직렬화
+ * 영웅/적 직렬화 (매 프레임 공통)
  */
-export function serializeGameState(state: ServerGameState): SerializedGameState {
-  // 영웅 직렬화
+function serializeHeroes(state: ServerGameState): SerializedHero[] {
   const heroes: SerializedHero[] = [];
   for (const hero of state.heroes.values()) {
     heroes.push({
       id: hero.id,
       playerId: hero.playerId || '',
       heroClass: hero.heroClass,
-      x: hero.x,
-      y: hero.y,
-      hp: hero.hp,
-      maxHp: hero.maxHp,
-      attack: hero.config?.attack || hero.baseAttack || 50,
+      x: Math.round(hero.x),
+      y: Math.round(hero.y),
+      hp: Math.round(hero.hp),
+      maxHp: Math.round(hero.maxHp),
+      attack: Math.round(hero.config?.attack || hero.baseAttack || 50),
       attackSpeed: hero.config?.attackSpeed || hero.baseAttackSpeed || 1,
       speed: hero.config?.speed || hero.baseSpeed || 3,
       range: hero.config?.range || 50,
@@ -323,11 +322,11 @@ export function serializeGameState(state: ServerGameState): SerializedGameState 
       facingAngle: hero.facingAngle,
       buffs: hero.buffs || [],
       passiveGrowth: hero.passiveGrowth || { currentValue: 0, currentLevel: 0, overflowValue: 0 },
-      // hero._skill 캐시에서 쿨다운 참조 (find 호출 제거)
+      // hero._skill 캐시에서 쿨다운 참조 (find 호출 제거), 0.1초 단위 양자화
       skillCooldowns: {
-        Q: hero._skillQ.currentCooldown,
-        W: hero._skillW.currentCooldown,
-        E: hero._skillE.currentCooldown,
+        Q: Math.round(hero._skillQ.currentCooldown * 10) / 10,
+        W: Math.round(hero._skillW.currentCooldown * 10) / 10,
+        E: Math.round(hero._skillE.currentCooldown * 10) / 10,
       },
       moveDirection: hero.moveDirection,
       state: hero.state,
@@ -341,18 +340,20 @@ export function serializeGameState(state: ServerGameState): SerializedGameState 
       darkBladeActive: hero.darkBladeActive || false,
     });
   }
+  return heroes;
+}
 
-  // 적 직렬화 (단일 패스 - filter+map 중간 배열 제거)
+function serializeEnemies(state: ServerGameState): SerializedEnemy[] {
   const enemies: SerializedEnemy[] = [];
   for (const e of state.enemies) {
     if (e.hp <= 0) continue;
     enemies.push({
       id: e.id,
       type: e.type,
-      x: e.x,
-      y: e.y,
-      hp: e.hp,
-      maxHp: e.maxHp,
+      x: Math.round(e.x),
+      y: Math.round(e.y),
+      hp: Math.round(e.hp),
+      maxHp: Math.round(e.maxHp),
       goldReward: e.goldReward,
       targetHeroId: e.targetHeroId,
       aggroOnHero: e.aggroOnHero,
@@ -363,29 +364,123 @@ export function serializeGameState(state: ServerGameState): SerializedGameState 
       dashState: e.dashState,
     });
   }
+  return enemies;
+}
 
+/**
+ * 게임 상태 직렬화 (풀 스냅샷)
+ */
+export function serializeGameState(state: ServerGameState): SerializedGameState {
   return {
-    gameTime: state.gameTime,
+    gameTime: Math.round(state.gameTime * 10) / 10,
     gamePhase: state.gamePhase,
-    heroes,
-    enemies,
-    nexus: state.nexus,
-    enemyBases: state.enemyBases,
+    heroes: serializeHeroes(state),
+    enemies: serializeEnemies(state),
+    nexus: {
+      ...state.nexus,
+      x: Math.round(state.nexus.x),
+      y: Math.round(state.nexus.y),
+      hp: Math.round(state.nexus.hp),
+      maxHp: Math.round(state.nexus.maxHp),
+    },
+    enemyBases: state.enemyBases.map(b => ({
+      ...b,
+      x: Math.round(b.x),
+      y: Math.round(b.y),
+      hp: Math.round(b.hp),
+      maxHp: Math.round(b.maxHp),
+    })),
     gold: state.gold,
     upgradeLevels: state.upgradeLevels,
     activeSkillEffects: state.activeSkillEffects,
-    basicAttackEffects: state.basicAttackEffects,
-    nexusLaserEffects: state.nexusLaserEffects,
     pendingSkills: state.pendingSkills,
     bossSkillWarnings: state.bossSkillWarnings,
-    bossSkillExecutedEffects: state.bossSkillExecutedEffects,
     bossActiveZones: state.bossActiveZones,
-    damageNumbers: state.damageNumbers,
     running: state.running,
     paused: state.paused,
     gameOver: state.gameOver,
     victory: state.victory,
     lastSpawnTime: state.lastSpawnTime,
     stats: state.stats,
+  };
+}
+
+/**
+ * 델타 게임 상태 직렬화 (변경된 섹션만 포함)
+ * dirtyFlags: nexus/bases/gold/upgrades/stats 변경 여부
+ */
+export interface DirtyFlags {
+  nexus: boolean;
+  enemyBases: boolean;
+  gold: boolean;
+  upgradeLevels: boolean;
+  stats: boolean;
+}
+
+export function serializeDeltaGameState(
+  state: ServerGameState,
+  dirty: DirtyFlags,
+  frameId: number,
+  inputAcks: Record<string, number>
+): SerializedGameState {
+  const result: SerializedGameState = {
+    gameTime: Math.round(state.gameTime * 10) / 10,
+    gamePhase: state.gamePhase,
+    heroes: serializeHeroes(state),
+    enemies: serializeEnemies(state),
+    activeSkillEffects: state.activeSkillEffects,
+    pendingSkills: state.pendingSkills,
+    bossSkillWarnings: state.bossSkillWarnings,
+    bossActiveZones: state.bossActiveZones,
+    running: state.running,
+    paused: state.paused,
+    gameOver: state.gameOver,
+    victory: state.victory,
+    frameId,
+    inputAcks,
+  };
+
+  // 변경된 섹션만 포함
+  if (dirty.nexus) {
+    result.nexus = {
+      ...state.nexus,
+      x: Math.round(state.nexus.x),
+      y: Math.round(state.nexus.y),
+      hp: Math.round(state.nexus.hp),
+      maxHp: Math.round(state.nexus.maxHp),
+    };
+  }
+  if (dirty.enemyBases) {
+    result.enemyBases = state.enemyBases.map(b => ({
+      ...b,
+      x: Math.round(b.x),
+      y: Math.round(b.y),
+      hp: Math.round(b.hp),
+      maxHp: Math.round(b.maxHp),
+    }));
+  }
+  if (dirty.gold) {
+    result.gold = state.gold;
+  }
+  if (dirty.upgradeLevels) {
+    result.upgradeLevels = state.upgradeLevels;
+  }
+  if (dirty.stats) {
+    result.stats = state.stats;
+    result.lastSpawnTime = state.lastSpawnTime;
+  }
+
+  return result;
+}
+
+/**
+ * 시각 이펙트 직렬화 (15Hz 분리 스트림)
+ */
+export function serializeEffectState(state: ServerGameState): SerializedEffectState {
+  return {
+    damageNumbers: state.damageNumbers,
+    basicAttackEffects: state.basicAttackEffects,
+    nexusLaserEffects: state.nexusLaserEffects,
+    bossSkillExecutedEffects: state.bossSkillExecutedEffects,
   };
 }

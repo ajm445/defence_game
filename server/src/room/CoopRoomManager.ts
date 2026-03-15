@@ -44,17 +44,23 @@ interface WaitingCoopRoom {
 const waitingCoopRooms = new Map<string, WaitingCoopRoom>();  // roomId -> WaitingCoopRoom
 const coopRoomCodeMap = new Map<string, string>();            // code -> roomId
 
-// 방 목록 변경 시 모든 대기 중인 클라이언트에게 브로드캐스트
-function broadcastRoomListUpdate(): void {
-  const rooms = getAllWaitingCoopRooms();
-  const message = { type: 'COOP_ROOM_LIST_UPDATED' as const, rooms };
+// 방 목록 변경 시 모든 대기 중인 클라이언트에게 브로드캐스트 (100ms 디바운싱)
+let _roomListBroadcastTimer: ReturnType<typeof setTimeout> | null = null;
 
-  // 방에 참가하지 않은 모든 온라인 플레이어에게 전송
-  players.forEach((player) => {
-    if (player && player.ws.readyState === 1 && !player.roomId) {  // WebSocket.OPEN = 1
-      sendToPlayer(player.id, message);
-    }
-  });
+function broadcastRoomListUpdate(): void {
+  if (_roomListBroadcastTimer) return; // 이미 예약됨
+  _roomListBroadcastTimer = setTimeout(() => {
+    _roomListBroadcastTimer = null;
+    const rooms = getAllWaitingCoopRooms();
+    const message = { type: 'COOP_ROOM_LIST_UPDATED' as const, rooms };
+
+    // 방에 참가하지 않은 모든 온라인 플레이어에게 전송
+    players.forEach((player) => {
+      if (player && player.ws.readyState === 1 && !player.roomId) {  // WebSocket.OPEN = 1
+        sendToPlayer(player.id, message);
+      }
+    });
+  }, 100);
 }
 
 // 협동 설정 (호스트 기반 통합 시스템 - 1인도 시작 가능)
@@ -1038,6 +1044,10 @@ export function stopRoomCleanupTimer(): void {
     clearInterval(roomCleanupInterval);
     roomCleanupInterval = null;
     console.log('[Coop] 방 자동 파기 타이머 중지');
+  }
+  if (_roomListBroadcastTimer) {
+    clearTimeout(_roomListBroadcastTimer);
+    _roomListBroadcastTimer = null;
   }
 }
 

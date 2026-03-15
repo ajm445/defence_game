@@ -208,6 +208,7 @@ function executeBossSkill(
           const angle = Math.atan2(hero.y - boss.y, hero.x - boss.x);
           hero.x = clamp(hero.x + Math.cos(angle) * knockbackDist, 30, RPG_CONFIG.MAP_WIDTH - 30);
           hero.y = clamp(hero.y + Math.sin(angle) * knockbackDist, 30, RPG_CONFIG.MAP_HEIGHT - 30);
+          hero._lastKnockbackTime = state.gameTime;
         }
       }
       break;

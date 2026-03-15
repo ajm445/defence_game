@@ -4,7 +4,7 @@ import type { HeroClass, SkillType, Buff, PassiveGrowthState, SkillEffect, Pendi
 import type { UnitType } from '../../src/types/unit';
 import type { Position } from '../../src/types/game';
 import type { CharacterStatUpgrades } from '../../src/types/auth';
-import type { SerializedGameState, PlayerInput } from './hostBasedNetwork';
+import type { SerializedGameState, SerializedEffectState, PlayerInput } from './hostBasedNetwork';
 import type { FriendClientMessage, FriendServerMessage } from './friendNetwork';
 
 // Re-export friend network types for convenience
@@ -306,6 +306,8 @@ export type CoopServerMessage =
   | { type: 'COOP_GAME_START'; playerIndex: number; players: CoopPlayerInfo[]; difficulty: string; mapTheme: string }
   // 서버 권위 모델 게임 상태 (서버가 직접 브로드캐스트)
   | { type: 'COOP_GAME_STATE'; state: SerializedGameState }
+  // 시각 이펙트 스트림 (15Hz 분리 전송)
+  | { type: 'COOP_GAME_EFFECTS'; effects: SerializedEffectState }
   // 레거시 게임 시작 (상태 포함, deprecated)
   | { type: 'COOP_GAME_START_LEGACY'; state: RPGCoopGameState; yourHeroId: string }
   // 레거시 게임 상태 (deprecated)

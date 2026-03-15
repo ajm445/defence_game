@@ -6,10 +6,27 @@ import helmet from 'helmet';
 import { v4 as uuidv4 } from 'uuid';
 import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect, handleAdminDisconnect, broadcastToAdmins, getServerStatus, cleanupAllRooms } from './MessageHandler';
 import { handlePlayerDisconnect } from '../room/RoomManager';
-import { players, sendMessage, Player, registerUserOffline } from '../state/players';
+import { players, sendMessage, Player, registerUserOffline, removePlayerUserIdIndex } from '../state/players';
 import { gameInviteManager } from '../friend/GameInviteManager';
 import { directMessageManager } from '../friend/DirectMessageManager';
 import { cleanupPlayerRateLimits } from '../middleware/rateLimiter';
+
+/**
+ * 연결당 글로벌 메시지 속도 제한
+ * 1초 슬라이딩 윈도우 내 최대 메시지 수 초과 시 경고 → 연결 종료
+ */
+const GLOBAL_MSG_LIMIT = 120;       // 초당 최대 메시지 수
+const GLOBAL_MSG_WINDOW = 1000;     // 윈도우 크기 (ms)
+const GLOBAL_MSG_WARN_THRESHOLD = 3; // 경고 횟수 초과 시 연결 종료
+
+const PING_INTERVAL = 30000;        // 30초마다 ping 전송
+// Ping/Pong: PING_INTERVAL마다 ping 전송, 다음 ping 시점까지 pong 미수신 시 연결 종료
+
+interface ConnectionThrottle {
+  messageCount: number;
+  windowStart: number;
+  warnings: number;
+}
 import authRouter from '../api/authRouter';
 import profileRouter from '../api/profileRouter';
 import adminRouter from '../api/admin/adminRouter';
@@ -121,8 +138,43 @@ export function createWebSocketServer(port: number) {
     });
   }, 10000);
 
+  // 연결당 메시지 스로틀 추적
+  const connectionThrottles = new Map<string, ConnectionThrottle>();
+
+  // Ping/Pong: 좀비 연결 감지 및 정리
+  const aliveConnections = new Map<WebSocket, boolean>();
+  const pingInterval = setInterval(() => {
+    wss.clients.forEach((ws) => {
+      if (aliveConnections.get(ws) === false) {
+        // 이전 ping에 대한 pong을 받지 못함 → 연결 종료
+        console.log('[Ping/Pong] 응답 없는 연결 종료');
+        ws.terminate();
+        return;
+      }
+      aliveConnections.set(ws, false);
+      ws.ping();
+    });
+  }, PING_INTERVAL);
+
+  wss.on('close', () => {
+    clearInterval(pingInterval);
+  });
+
   wss.on('connection', (ws: WebSocket) => {
     const playerId = uuidv4();
+
+    // Ping/Pong 초기화
+    aliveConnections.set(ws, true);
+    ws.on('pong', () => {
+      aliveConnections.set(ws, true);
+    });
+
+    // 글로벌 메시지 스로틀 초기화
+    connectionThrottles.set(playerId, {
+      messageCount: 0,
+      windowStart: Date.now(),
+      warnings: 0,
+    });
 
     // 플레이어 생성
     const player: Player = {
@@ -163,6 +215,29 @@ export function createWebSocketServer(port: number) {
 
     // 메시지 수신
     ws.on('message', (data: Buffer) => {
+      // 글로벌 메시지 속도 제한 체크
+      const throttle = connectionThrottles.get(playerId);
+      if (throttle) {
+        const now = Date.now();
+        if (now - throttle.windowStart >= GLOBAL_MSG_WINDOW) {
+          // 새 윈도우 시작
+          throttle.messageCount = 1;
+          throttle.windowStart = now;
+        } else {
+          throttle.messageCount++;
+          if (throttle.messageCount > GLOBAL_MSG_LIMIT) {
+            throttle.warnings++;
+            if (throttle.warnings > GLOBAL_MSG_WARN_THRESHOLD) {
+              console.warn(`[Security] 메시지 폭주로 연결 종료: ${playerId} (${throttle.messageCount}msg/s, 경고 ${throttle.warnings}회)`);
+              ws.close();
+              return;
+            }
+            // 경고 단계: 메시지 무시
+            return;
+          }
+        }
+      }
+
       try {
         const message = JSON.parse(data.toString());
         handleMessage(playerId, message);
@@ -186,6 +261,7 @@ export function createWebSocketServer(port: number) {
 
       // 온라인 사용자 목록에서 제거 및 친구들에게 오프라인 알림
       if (userId) {
+        removePlayerUserIdIndex(userId);
         await registerUserOffline(userId);
       }
 
@@ -244,6 +320,8 @@ export function createWebSocketServer(port: number) {
       handleAdminDisconnect(playerId);
 
       cleanupPlayerRateLimits(playerId);
+      connectionThrottles.delete(playerId);
+      aliveConnections.delete(ws);
       players.delete(playerId);
       console.log(`현재 접속자: ${players.size}명`);
 
@@ -264,6 +342,7 @@ export function createWebSocketServer(port: number) {
   const close = () => {
     console.log('서버 종료 시작...');
     clearInterval(adminStatusInterval);
+    clearInterval(pingInterval);
     cleanupMaintenance(); // 점검 카운트다운 타이머 정리
     cleanupAllRooms(); // 모든 게임 방 및 게임 엔진 정리 (setInterval 정리)
     gameInviteManager.cleanup(); // 게임 초대 타이머 정리

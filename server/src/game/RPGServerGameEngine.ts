@@ -85,17 +85,24 @@ import {
   checkWinCondition,
   cleanupEffects,
   serializeGameState,
+  serializeDeltaGameState,
+  serializeEffectState,
+  type DirtyFlags,
 } from './rpgServerGameSystems';
+import type { SerializedEffectState } from '../../../shared/types/hostBasedNetwork';
 
 export class RPGServerGameEngine {
   private readonly TICK_RATE = 60;  // 60fps
   private readonly TICK_INTERVAL = 1000 / 60;  // 16.67ms
   private readonly BROADCAST_INTERVAL = 33;  // 33ms (~30Hz)
+  private readonly EFFECT_BROADCAST_INTERVAL = 66;  // 66ms (~15Hz)
+  private readonly FULL_SNAPSHOT_INTERVAL = 10;  // 10프레임마다 풀 스냅샷
 
   private roomId: string;
   private playerInfos: CoopPlayerInfo[];
   private difficulty: RPGDifficulty;
   private broadcastFn: (state: SerializedGameState) => void;
+  private effectBroadcastFn?: (effects: SerializedEffectState) => void;
   private onGameOverFn?: (result: { victory: boolean; stats: any }) => void;
 
   private state: ServerGameState;
@@ -104,6 +111,27 @@ export class RPGServerGameEngine {
 
   private lastTickTime: bigint;
   private lastBroadcastTime: number = 0;
+  private lastEffectBroadcastTime: number = 0;
+
+  // 델타 업데이트 추적
+  private frameCounter: number = 0;
+  private dirtyFlags: DirtyFlags = {
+    nexus: true,
+    enemyBases: true,
+    gold: true,
+    upgradeLevels: true,
+    stats: true,
+  };
+  private prevNexusHp: number = 0;
+  private prevBaseHps: number[] = [];
+  private prevGold: number = 0;
+  private prevUpgradeLevels: string = '';
+  private prevTotalKills: number = 0;
+  private prevBasesDestroyed: number = 0;
+  private prevBossesKilled: number = 0;
+
+  // 입력 시퀀스 ACK 추적
+  private lastProcessedSeq: Map<string, number> = new Map();
 
   // 컨텍스트 객체들
   private skillContext: SkillContext;
@@ -115,12 +143,14 @@ export class RPGServerGameEngine {
     playerInfos: CoopPlayerInfo[],
     difficulty: RPGDifficulty,
     broadcastFn: (state: SerializedGameState) => void,
-    onGameOverFn?: (result: { victory: boolean; stats: any }) => void
+    onGameOverFn?: (result: { victory: boolean; stats: any }) => void,
+    effectBroadcastFn?: (effects: SerializedEffectState) => void
   ) {
     this.roomId = roomId;
     this.playerInfos = playerInfos;
     this.difficulty = difficulty;
     this.broadcastFn = broadcastFn;
+    this.effectBroadcastFn = effectBroadcastFn;
     this.onGameOverFn = onGameOverFn;
     this.inputQueues = new Map();
     this.lastTickTime = process.hrtime.bigint();
@@ -132,6 +162,15 @@ export class RPGServerGameEngine {
 
     // 게임 상태 초기화
     this.state = this.initializeGameState();
+
+    // 델타 추적 초기값 설정
+    this.prevNexusHp = Math.round(this.state.nexus.hp);
+    this.prevBaseHps = this.state.enemyBases.map(b => Math.round(b.hp));
+    this.prevGold = Math.floor(this.state.gold);
+    this.prevUpgradeLevels = JSON.stringify(this.state.upgradeLevels);
+    this.prevTotalKills = this.state.stats.totalKills;
+    this.prevBasesDestroyed = this.state.stats.basesDestroyed;
+    this.prevBossesKilled = this.state.stats.bossesKilled;
 
     // 컨텍스트 초기화
     this.skillContext = {
@@ -263,10 +302,18 @@ export class RPGServerGameEngine {
 
       this.update(deltaTime);
 
-      this.lastBroadcastTime += deltaTimeNs / 1_000_000;
+      const elapsedMs = deltaTimeNs / 1_000_000;
+      this.lastBroadcastTime += elapsedMs;
+      this.lastEffectBroadcastTime += elapsedMs;
+
       if (this.lastBroadcastTime >= this.BROADCAST_INTERVAL) {
         this.broadcastState();
         this.lastBroadcastTime = 0;
+      }
+
+      if (this.lastEffectBroadcastTime >= this.EFFECT_BROADCAST_INTERVAL) {
+        this.broadcastEffects();
+        this.lastEffectBroadcastTime = 0;
       }
     }, this.TICK_INTERVAL);
   }
@@ -355,10 +402,27 @@ export class RPGServerGameEngine {
     for (const [playerId, queue] of this.inputQueues) {
       // 인덱스 순회 + 일괄 정리 (shift() O(n) 제거)
       for (let i = 0; i < queue.length; i++) {
-        this.processInput(playerId, queue[i]);
+        const input = queue[i];
+        this.processInput(playerId, input);
+        // 입력 시퀀스 ACK 추적
+        if (input.seq != null) {
+          this.lastProcessedSeq.set(playerId, input.seq);
+        }
       }
       queue.length = 0;
     }
+  }
+
+  /**
+   * 영웅의 현재 최대 이동 속도 계산 (버프 포함)
+   */
+  private getHeroMaxSpeed(hero: ServerHero): number {
+    let speed = hero.config?.speed || hero.baseSpeed || 3;
+    const swiftnessBuff = hero.buffs?.find(b => b.type === 'swiftness' && b.duration > 0);
+    if (swiftnessBuff?.moveSpeedBonus) {
+      speed *= (1 + swiftnessBuff.moveSpeedBonus);
+    }
+    return speed;
   }
 
   private processInput(playerId: string, input: PlayerInput): void {
@@ -377,22 +441,39 @@ export class RPGServerGameEngine {
       const dy = input.position.y - hero.y;
       const distSq = dx * dx + dy * dy;
 
-      if (distSq > 25) { // 5px 이상 차이
-        if (distSq >= 40000) {
-          // 200px 이상: 즉시 스냅 (심각한 불일치)
+      // 이동 속도 검증: 돌진/시전/스턴 중이 아닐 때만
+      // 돌진 중에는 서버가 직접 위치를 제어하므로 클라이언트 위치 무시
+      const isDashing = !!hero.dashState;
+      const isCasting = !!(hero.castingUntil && this.state.gameTime < hero.castingUntil);
+      const isStunned = !!hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+
+      // 넉백 직후 1초간 속도 검증 완화 (보스 넉백으로 큰 거리 이동)
+      const recentKnockback = hero._lastKnockbackTime != null
+        && (this.state.gameTime - hero._lastKnockbackTime) < 1.0;
+
+      if (!isDashing && !isCasting && !isStunned && !recentKnockback && distSq > 25) {
+        // 서버 위치 대비 클라이언트 위치가 이동 속도 기준 비합리적인지 검증
+        // maxSpeed × deltaTime(33ms broadcast) × 60 × margin
+        // 네트워크 지터/패킷 누적 고려: 3배 마진 + 80px 고정 마진
+        const maxSpeed = this.getHeroMaxSpeed(hero);
+        const maxDistPerUpdate = maxSpeed * (this.BROADCAST_INTERVAL / 1000) * 60 * 3.0 + 80;
+        const maxDistSq = maxDistPerUpdate * maxDistPerUpdate;
+
+        if (distSq > maxDistSq) {
+          // 비합리적 이동: 클라이언트 위치 무시 (서버 위치 유지)
+          // 200px 하드 스냅도 차단 → 속도핵 방지
+        } else if (distSq >= 40000) {
+          // 200px 이상이지만 속도 범위 내: 즉시 스냅 (심각한 불일치)
           hero.x = input.position.x;
           hero.y = input.position.y;
         } else {
           // 5~200px: 방향 기반 보정
-          // 이동 중일 때 네트워크 지연으로 스테일 위치가 역방향으로 당기는 것을 방지
           let ratio = 0.5;
           if (hero.moveDirection) {
             const dirLen = Math.sqrt(hero.moveDirection.x ** 2 + hero.moveDirection.y ** 2);
             if (dirLen > 0) {
               const dist = Math.sqrt(distSq);
               const dot = (dx * hero.moveDirection.x + dy * hero.moveDirection.y) / (dist * dirLen);
-              // 전방 (클라이언트가 앞서감): 강한 보정 → 서버가 따라잡음
-              // 후방 (스테일 위치): 약한 보정 → 역방향 끌림 방지
               ratio = dot > 0 ? 0.5 : 0.15;
             }
           }
@@ -652,8 +733,98 @@ export class RPGServerGameEngine {
   }
 
   private broadcastState(): void {
-    const serializedState = serializeGameState(this.state);
-    this.broadcastFn(serializedState);
+    this.frameCounter++;
+
+    // 변경 감지 (dirty flags 업데이트)
+    this.updateDirtyFlags();
+
+    // 입력 ACK 맵 생성
+    const inputAcks: Record<string, number> = {};
+    for (const [playerId, seq] of this.lastProcessedSeq) {
+      inputAcks[playerId] = seq;
+    }
+
+    const isFullSnapshot = this.frameCounter % this.FULL_SNAPSHOT_INTERVAL === 0;
+
+    if (isFullSnapshot) {
+      // 풀 스냅샷: 모든 필드 포함
+      const serializedState = serializeGameState(this.state);
+      serializedState.frameId = this.frameCounter;
+      serializedState.inputAcks = inputAcks;
+      this.broadcastFn(serializedState);
+    } else {
+      // 델타: 변경된 섹션만 포함
+      const deltaState = serializeDeltaGameState(
+        this.state,
+        this.dirtyFlags,
+        this.frameCounter,
+        inputAcks
+      );
+      this.broadcastFn(deltaState);
+    }
+
+    // dirty flags 리셋
+    this.dirtyFlags.nexus = false;
+    this.dirtyFlags.enemyBases = false;
+    this.dirtyFlags.gold = false;
+    this.dirtyFlags.upgradeLevels = false;
+    this.dirtyFlags.stats = false;
+  }
+
+  private broadcastEffects(): void {
+    if (!this.effectBroadcastFn) return;
+    const effects = serializeEffectState(this.state);
+    // 이펙트가 모두 비어있으면 전송 생략
+    if (effects.damageNumbers.length === 0 &&
+        effects.basicAttackEffects.length === 0 &&
+        effects.nexusLaserEffects.length === 0 &&
+        effects.bossSkillExecutedEffects.length === 0) {
+      return;
+    }
+    this.effectBroadcastFn(effects);
+  }
+
+  private updateDirtyFlags(): void {
+    // 넥서스 HP 변경 감지
+    const nexusHp = Math.round(this.state.nexus.hp);
+    if (nexusHp !== this.prevNexusHp) {
+      this.dirtyFlags.nexus = true;
+      this.prevNexusHp = nexusHp;
+    }
+
+    // 적 기지 HP 변경 감지
+    for (let i = 0; i < this.state.enemyBases.length; i++) {
+      const hp = Math.round(this.state.enemyBases[i].hp);
+      if (hp !== (this.prevBaseHps[i] ?? -1)) {
+        this.dirtyFlags.enemyBases = true;
+        this.prevBaseHps[i] = hp;
+      }
+    }
+
+    // 골드 변경 감지
+    const gold = Math.floor(this.state.gold);
+    if (gold !== this.prevGold) {
+      this.dirtyFlags.gold = true;
+      this.prevGold = gold;
+    }
+
+    // 업그레이드 변경 감지 (JSON 비교 — 드물게 발생)
+    const upgradeStr = JSON.stringify(this.state.upgradeLevels);
+    if (upgradeStr !== this.prevUpgradeLevels) {
+      this.dirtyFlags.upgradeLevels = true;
+      this.prevUpgradeLevels = upgradeStr;
+    }
+
+    // 통계 변경 감지 (kills, basesDestroyed, bossesKilled 모두 체크)
+    const stats = this.state.stats;
+    if (stats.totalKills !== this.prevTotalKills ||
+        stats.basesDestroyed !== this.prevBasesDestroyed ||
+        stats.bossesKilled !== this.prevBossesKilled) {
+      this.dirtyFlags.stats = true;
+      this.prevTotalKills = stats.totalKills;
+      this.prevBasesDestroyed = stats.basesDestroyed;
+      this.prevBossesKilled = stats.bossesKilled;
+    }
   }
 
   // 외부 호출용 메서드들
@@ -682,6 +853,8 @@ export class RPGServerGameEngine {
     const hero = this.state.heroes.get(heroId);
     if (hero) {
       this.state.heroes.delete(heroId);
+      this.lastProcessedSeq.delete(playerId);
+      this.inputQueues.delete(playerId);
       console.log(`[ServerEngine] 영웅 제거 (연결 해제): ${heroId}`);
     }
   }

@@ -65,6 +65,8 @@ export interface ServerHero extends Omit<SerializedHero, 'skills'> {
   darkBladeTickTimer?: number;
   // 마법사 계열 스킬 쿨타임 감소 비율 (0.0 ~ 0.30)
   skillCooldownReduction?: number;
+  // 넉백 직후 속도 검증 완화 (gameTime 기록)
+  _lastKnockbackTime?: number;
 }
 
 // 서버 게임 상태
