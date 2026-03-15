@@ -1,12 +1,12 @@
 # Changelog
 
-## [1.26.0] - 2026-03-15
+## [1.26.0] - 2026-03-16
 
 ### 캐릭터 스프라이트 모션 시스템
 - **스프라이트 애니메이션 엔진**: 2×2 그리드 스프라이트 시트 기반 프레임 애니메이션 시스템 신규 구현 (`spriteMotion.ts`)
 - **모션 타입**: Walk(이동 루프), Attack(기본공격), W Skill(돌진 등), E Skill(궁극기) 4종
 - **모션 감지**: 쿨다운 점프 감지 방식으로 RPG 서버 권위 모델에서 공격/스킬 사용 시점 자동 포착
-- **스프라이트 방향 보정**: 캐릭터/모션별 좌우 반전 설정 (`SPRITE_FACES_RIGHT`)으로 정적 이미지와 방향 통일
+- **스프라이트 방향 시스템**: 3단계 flip 모드 (`normal`/`invert`/`none`) — 왼쪽 방향 기본, 오른쪽 스프라이트 반전, 방향 무관 모션 고정
 - **정적 이미지 폴백**: 스프라이트 미존재 캐릭터는 자동으로 기존 정적 이미지 사용
 - **게임 시작 시 프리로드**: 싱글/멀티 모두 게임 시작 시 해당 영웅의 모션 스프라이트 미리 로드
 - **게임 리셋 시 정리**: `resetAllAnimStates()` 호출로 애니메이션 상태 초기화
@@ -22,20 +22,24 @@
 ### 렌더링 안정성
 - **drawSkillEffect 음수 반지름 방어**: `elapsed < 0` 또는 `duration <= 0` 시 즉시 return (렌더 루프 중단 방지)
 
-### 스프라이트 에셋
-- **전사 모션 스프라이트 4종**: walk, attack, w_charge, e_rage
-- **궁수 모션 스프라이트 4종**: walk, attack, w_pierce, e_arrow_rain
+### 스프라이트 에셋 및 도구
+- **전사 모션 스프라이트 4종**: walk, attack(왼쪽 통일), w_charge, e_rage
+- **궁수 모션 스프라이트 4종**: walk, attack(왼쪽 통일), w_pierce, e_arrow_rain(방향 고정)
 - **기사 모션 스프라이트 1종**: walk (2×2 시트)
-- **스프라이트 생성 가이드 문서 업데이트**: 프레임 경계 잘림 방지 규칙, 기존 스프라이트 수정 프롬프트 추가
+- **프레임 반전 스크립트**: `scripts/flip-frames.cjs` — 2×2 시트에서 지정 프레임만 좌우 반전
+- **프레임 합성 스크립트**: `scripts/combine-sprites.cjs` — 4개 개별 이미지를 2×2 시트로 합성
+- **스프라이트 생성 가이드**: 왼쪽 방향 통일, 구분선 강조, 애니메이션 연속성 규칙 추가
 
-### 수정 파일 (10개)
-- `src/utils/spriteMotion.ts` (신규): 스프라이트 모션 시스템 전체
+### 수정 파일
+- `src/utils/spriteMotion.ts` (신규): 스프라이트 모션 시스템 (3단계 flip, NO_FLIP 모드)
 - `src/renderer/drawHero.ts`: 모션 스프라이트 → 정적 이미지 → 이모지 폴백 체인
 - `src/hooks/useNetworkSync.ts`: 멀티플레이 게임 시작 시 모션 프리로드
 - `src/stores/useRPGStore.ts`: 싱글플레이 프리로드 + 게임 리셋 시 애니메이션 정리
 - `src/components/ui/RPGSkillBar.tsx`: 쿨다운 쉐도우 타이밍 + 전환 수정
 - `server/src/game/rpgServerSkillSystem.ts`: 스킬 이펙트 27개에 heroClass/advancedClass 추가
-- `docs/sprite-motion-prompts.md`: 프레임 경계 규칙, 기존 스프라이트 수정 프롬프트, 사용 팁 업데이트
+- `scripts/flip-frames.cjs` (신규): 2×2 시트 프레임 반전 유틸
+- `scripts/combine-sprites.cjs` (신규): 개별 프레임 → 2×2 시트 합성 유틸
+- `docs/sprite-motion-prompts.md`: 왼쪽 방향 통일, 구분선/경계 규칙, 애니메이션 연속성 프롬프트
 
 ## [1.25.3] - 2026-03-15
 

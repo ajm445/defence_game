@@ -25,20 +25,40 @@ const MOTION_CONFIG: Record<MotionType, { fps: number; loop: boolean; holdTime: 
 // 새 스프라이트는 모두 왼쪽 방향으로 생성 (정적 이미지와 동일) → 반전 불필요
 // 기존 오른쪽 방향 스프라이트가 있으면 여기에 추가
 const SPRITE_FACES_RIGHT = new Set<string>([
-  // 기존 스프라이트 (왼쪽으로 재생성 시 제거)
-  'warrior_attack', 'warrior_w', 'warrior_e',
-  'archer',
+  // 기존 오른쪽 방향 스프라이트 (왼쪽으로 재생성 시 제거)
+  'warrior_w', 'warrior_e',
+  'archer_walk', 'archer_w',
 ]);
 
-function shouldInvertFlip(
+// 방향 무시 (항상 반전 없이 원본 방향 고정) — 하늘 발사 등 방향 무관 모션
+const SPRITE_NO_FLIP = new Set<string>([
+  'archer_e',
+]);
+
+function getFlipMode(
   heroClass: HeroClass,
   advancedClass: AdvancedHeroClass | undefined,
   motion: MotionType
-): boolean {
+): 'normal' | 'invert' | 'none' {
   const key = advancedClass || heroClass;
-  if (SPRITE_FACES_RIGHT.has(`${key}_${motion}`)) return true;
-  if (SPRITE_FACES_RIGHT.has(key)) return true;
-  return false;
+  // 방향 무시 (반전 안 함)
+  if (SPRITE_NO_FLIP.has(`${key}_${motion}`)) return 'none';
+  // 오른쪽 방향 스프라이트 → 반전 필요
+  if (SPRITE_FACES_RIGHT.has(`${key}_${motion}`)) return 'invert';
+  if (SPRITE_FACES_RIGHT.has(key)) return 'invert';
+  return 'normal';
+}
+
+function resolveFlip(
+  heroClass: HeroClass,
+  advancedClass: AdvancedHeroClass | undefined,
+  motion: MotionType,
+  flipHorizontal: boolean
+): boolean {
+  const mode = getFlipMode(heroClass, advancedClass, motion);
+  if (mode === 'none') return false;     // 반전 안 함 (원본 방향 고정)
+  if (mode === 'invert') return !flipHorizontal;  // 오른쪽 스프라이트 → 반전
+  return flipHorizontal;                 // 왼쪽 스프라이트 → 정상
 }
 
 const FRAMES_PER_SHEET = 4;
@@ -253,7 +273,7 @@ export function drawMotionSprite(
       const sheet = loadSheet(heroClass, advancedClass, tier, anim.motion);
       if (sheet) {
         updateSrcRect(sheet, fi);
-        const flip = shouldInvertFlip(heroClass, advancedClass, anim.motion) ? !flipHorizontal : flipHorizontal;
+        const flip = resolveFlip(heroClass, advancedClass, anim.motion, flipHorizontal);
         drawFrame(ctx, sheet, x, y, width, height, flip);
         return true;
       }
@@ -276,7 +296,7 @@ export function drawMotionSprite(
     if (fi < 0) return false;
 
     updateSrcRect(sheet, fi);
-    const flip = shouldInvertFlip(heroClass, advancedClass, stateMotion) ? !flipHorizontal : flipHorizontal;
+    const flip = resolveFlip(heroClass, advancedClass, stateMotion, flipHorizontal);
     drawFrame(ctx, sheet, x, y, width, height, flip);
     return true;
   }
