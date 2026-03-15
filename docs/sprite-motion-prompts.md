@@ -224,7 +224,11 @@
 ### 공통 스타일 프리픽스 (모든 프롬프트 앞에 반드시 포함)
 
 ```
-Create a 2x2 grid sprite sheet (4 frames) on a transparent background.
+Create a 2x2 grid sprite sheet (4 frames) on a WHITE background.
+Divide the image into 4 EQUAL quadrants using clearly visible THIN BLACK
+divider lines — one horizontal line across the center and one vertical
+line down the center, creating 4 separate frame areas.
+
 The art style must exactly match the reference image:
 chibi/super-deformed (2-3 head proportions), skeleton/skull face
 with large black hollow eyes, thick black outlines, cartoon-style
@@ -235,16 +239,24 @@ bottom-right = frame 4). The character faces RIGHT in all frames.
 Maintain perfect consistency in character design, colors,
 proportions, and equipment details across all frames.
 
-CRITICAL RULES:
-- All visual elements (weapons, slash effects, motion blur, energy effects,
-  particles) MUST stay COMPLETELY within each frame's boundary.
-  NO part of any frame should bleed or extend into adjacent frames.
+CRITICAL RULES — MUST FOLLOW STRICTLY:
+- Draw DIVIDER LINES between the 4 frames (1px black lines at the center
+  horizontally and vertically) so each frame's boundary is clearly visible.
+- ABSOLUTELY NOTHING may cross the divider lines. Every pixel of every
+  visual element — character body, weapons, slash arcs, motion blur trails,
+  energy effects, particles, shadows — MUST remain 100% inside its own
+  quadrant. If a sword swing or effect would extend past the divider line,
+  make it SMALLER so it fits. This is the #1 most important rule.
 - The character must be the SAME SIZE in all 4 frames. Keep the character
-  centered and at consistent scale — do not make the character smaller
-  in crouching/action poses.
+  centered within each quadrant and at consistent scale — do not make the
+  character smaller in crouching/action poses.
 - Leave adequate margin (at least 30px) between the character/effects
-  and the frame edges to prevent any clipping.
+  and the divider lines to prevent any clipping.
+- Treat each quadrant as a completely independent image. Nothing from
+  one quadrant should be visible in any other quadrant.
 ```
+
+> **후처리**: 생성된 이미지에서 배경 제거(remove.bg 등) 후, `node scripts/combine-sprites.js` 로 개별 프레임을 2×2 시트로 합성하거나 그대로 사용. 구분선이 있으므로 이미지 편집 도구에서 4등분으로 잘라 개별 프레임으로 분리 가능.
 
 ### 기존 스프라이트 수정 프롬프트 (전사/궁수용)
 
@@ -252,13 +264,14 @@ CRITICAL RULES:
 
 ```
 Based on the attached sprite sheet, regenerate this 2x2 grid sprite sheet
-(4 frames) on a transparent background. Keep the EXACT same character design,
-art style, colors, poses, and animation sequence. Fix the following issues:
+(4 frames) on a WHITE background with THIN BLACK DIVIDER LINES separating
+the 4 quadrants (one horizontal + one vertical line at center).
+Keep the EXACT same character design, art style, colors, poses, and
+animation sequence. Fix the following issues:
 - Ensure ALL visual elements (weapons, slash arcs, motion blur, energy effects)
-  stay COMPLETELY within each frame's boundary with NO bleeding into adjacent frames.
+  stay COMPLETELY within each frame's quadrant — nothing crosses the divider lines.
 - Keep the character at the SAME SIZE across all 4 frames.
-- Leave at least 30px margin from frame edges.
-- Maintain transparent background.
+- Leave at least 30px margin from divider lines and edges.
 Each frame should be approximately 500x600px, arranged in a 2x2 grid.
 ```
 
