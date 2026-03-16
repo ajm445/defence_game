@@ -5,6 +5,7 @@ import { drawUnitImage } from '../utils/unitImages';
 import { drawHeroImage } from '../utils/heroImages';
 import { drawMotionSprite } from '../utils/spriteMotion';
 import { RPG_CONFIG, ADVANCED_CLASS_CONFIGS } from '../constants/rpgConfig';
+import { useRPGStore } from '../stores/useRPGStore';
 
 // 직업별 이미지 매핑 및 색상 설정
 const CLASS_VISUALS: Record<HeroClass, { unitType: UnitType; emoji: string; color: string; glowColor: string }> = {
@@ -482,6 +483,16 @@ export function drawHero(
       };
     }
 
+    // 공격 대상 방향 flip (기본공격 모션 중 적 방향을 바라보도록)
+    let attackFlip: boolean | undefined;
+    if (hero.attackTarget) {
+      const { enemies } = useRPGStore.getState();
+      const target = enemies.find(e => e.id === hero.attackTarget);
+      if (target) {
+        attackFlip = target.x > hero.x; // 적이 오른쪽이면 flip
+      }
+    }
+
     imageDrawn = drawMotionSprite(
       ctx,
       hero.id || `hero_${hero.heroClass}`,
@@ -498,7 +509,8 @@ export function drawHero(
       screenY,
       renderW,
       renderH,
-      flipHero
+      flipHero,
+      attackFlip
     );
   } catch {
     imageDrawn = false;
@@ -657,6 +669,14 @@ export function drawHero(
 /**
  * RPG 적 유닛 렌더링
  */
+// 적 유닛 타입 → 영웅 클래스 매핑 (모션 스프라이트 공유)
+const ENEMY_TO_HERO_CLASS: Record<string, HeroClass> = {
+  melee: 'warrior',
+  ranged: 'archer',
+  knight: 'knight',
+  mage: 'mage',
+};
+
 export function drawRPGEnemy(
   ctx: CanvasRenderingContext2D,
   enemy: RPGEnemy,
@@ -664,7 +684,8 @@ export function drawRPGEnemy(
   canvasWidth: number,
   canvasHeight: number,
   isTarget: boolean = false,
-  heroPosition?: { x: number; y: number }
+  heroPosition?: { x: number; y: number },
+  gameTime?: number
 ) {
   const screenX = enemy.x - camera.x;
   const screenY = enemy.y - camera.y;
@@ -748,7 +769,36 @@ export function drawRPGEnemy(
   // 적이 영웅을 바라보도록 flip (원본 이미지가 왼쪽을 바라봄)
   // 영웅이 오른쪽에 있으면 flip하여 오른쪽을 바라봄
   const flipEnemy = heroPosition ? heroPosition.x > enemy.x : false;
-  const enemyImageDrawn = drawUnitImage(ctx, enemy.type as UnitType, screenX, screenY, iconSize, flipEnemy, iconHeight);
+
+  // 모션 스프라이트 시도 (보스 제외, 기본 적 유닛만)
+  let enemyImageDrawn = false;
+  const heroClass = ENEMY_TO_HERO_CLASS[enemy.type];
+  if (heroClass && gameTime != null && !isAnyBoss) {
+    // 적 상태: attacking → attack 모션, idle/moving 구분
+    const enemyState = enemy.state === 'attacking' ? 'idle' : enemy.state;
+    enemyImageDrawn = drawMotionSprite(
+      ctx,
+      enemy.id,
+      heroClass,
+      undefined, // advancedClass 없음
+      undefined, // tier 없음
+      enemyState,
+      undefined, // dashState
+      undefined, // castingUntil
+      undefined, // darkBladeActive
+      { Q: enemy.attackCooldown, W: 0, E: 0 },
+      gameTime,
+      screenX,
+      screenY,
+      iconSize,
+      iconHeight,
+      flipEnemy
+    );
+  }
+
+  if (!enemyImageDrawn) {
+    enemyImageDrawn = drawUnitImage(ctx, enemy.type as UnitType, screenX, screenY, iconSize, flipEnemy, iconHeight);
+  }
   if (!enemyImageDrawn) {
     const emoji = EMOJI_MAP[enemy.type] || '👾';
     drawEmoji(ctx, emoji, screenX, screenY, emojiSize);

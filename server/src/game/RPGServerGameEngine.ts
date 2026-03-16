@@ -433,6 +433,10 @@ export class RPGServerGameEngine {
     // 이동 방향 업데이트
     if (input.moveDirection !== undefined) {
       hero.moveDirection = input.moveDirection ?? null;
+      // 이동 중이면 마지막 입력 시각 기록 (타임아웃 자동 정지용)
+      if (hero.moveDirection) {
+        hero._lastMoveInputTime = this.state.currentTickTimestamp;
+      }
     }
 
     // 위치 보정: 클라이언트 로컬 예측과 서버 위치 차이 최소화
@@ -503,7 +507,7 @@ export class RPGServerGameEngine {
 
       updateBuffs(hero, deltaTime);  // 버프 먼저 업데이트 (만료된 버프가 쿨다운 계산에 영향 안 줌)
       updateSkillCooldowns(hero, deltaTime);
-      processHeroMovement(hero, deltaTime, this.state.gameTime);
+      processHeroMovement(hero, deltaTime, this.state.gameTime, this.state.currentTickTimestamp);
 
       // 자동 공격
       if (canHeroAutoAttack(hero, this.state.gameTime)) {

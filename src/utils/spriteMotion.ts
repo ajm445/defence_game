@@ -21,18 +21,25 @@ const MOTION_CONFIG: Record<MotionType, { fps: number; loop: boolean; holdTime: 
   e: { fps: 5, loop: false, holdTime: 1.0 },
 };
 
+// 캐릭터별 모션 config 오버라이드 (버프형 E스킬 등 holdTime 조정)
+const MOTION_CONFIG_OVERRIDE: Record<string, Partial<typeof MOTION_CONFIG[MotionType]>> = {
+  'warrior_e': { holdTime: 1.2 },
+  // 기사 W: 돌진 0.25초에 맞춰 빠르게 재생 (기본 6fps → 12fps)
+  'knight_w': { fps: 12, holdTime: 0.4 },
+};
+
 // 스프라이트가 오른쪽을 바라보는 경우 → flip 반전 필요
 // 새 스프라이트는 모두 왼쪽 방향으로 생성 (정적 이미지와 동일) → 반전 불필요
 // 기존 오른쪽 방향 스프라이트가 있으면 여기에 추가
 const SPRITE_FACES_RIGHT = new Set<string>([
-  // 기존 오른쪽 방향 스프라이트 (왼쪽으로 재생성 시 제거)
+  // 오른쪽 방향 스프라이트 → 게임 내 왼쪽 기준이므로 반전 필요
   'warrior_w', 'warrior_e',
-  'archer_walk', 'archer_w',
+  'archer_walk', 'archer_w', 'archer_e',
+  'knight_w', 'knight_e',
 ]);
 
 // 방향 무시 (항상 반전 없이 원본 방향 고정) — 하늘 발사 등 방향 무관 모션
 const SPRITE_NO_FLIP = new Set<string>([
-  'archer_e',
 ]);
 
 function getFlipMode(
@@ -171,6 +178,8 @@ interface AnimState {
   prevQ: number;
   prevW: number;
   prevE: number;
+  // 원샷 모션 시작 시 flip 방향 고정 (공격 중 이동 방향으로 덮어씌워지는 것 방지)
+  lockedFlip?: boolean;
 }
 
 const heroAnimStates = new Map<string, AnimState>();
@@ -182,6 +191,8 @@ function detectSkillUsed(
   if (!anim) return null;
   if (cE > anim.prevE + 0.5) return 'e';
   if (cW > anim.prevW + 0.5) return 'w';
+  // W/E 모션 재생 중에는 Q(공격) 감지 차단 (스킬 모션이 공격에 의해 덮어씌워지는 것 방지)
+  if (anim.motion === 'w' || anim.motion === 'e') return null;
   if (cQ > anim.prevQ + 0.3) return 'attack';
   return null;
 }
@@ -200,8 +211,10 @@ function resolveMotion(
   return null;
 }
 
-function getFrameIndex(motion: MotionType, startTime: number, gameTime: number): number {
-  const config = MOTION_CONFIG[motion];
+function getFrameIndex(motion: MotionType, startTime: number, gameTime: number, heroKey?: string): number {
+  const base = MOTION_CONFIG[motion];
+  const override = heroKey ? MOTION_CONFIG_OVERRIDE[`${heroKey}_${motion}`] : undefined;
+  const config = override ? { ...base, ...override } : base;
   const elapsed = gameTime - startTime;
   if (elapsed < 0) return -1;
   const totalAnimTime = FRAMES_PER_SHEET / config.fps;
@@ -245,11 +258,13 @@ export function drawMotionSprite(
   y: number,
   width: number,
   height: number,
-  flipHorizontal: boolean
+  flipHorizontal: boolean,
+  attackFlip?: boolean  // 공격 대상 방향 flip (이동 방향과 다를 수 있음)
 ): boolean {
   const cQ = skillCooldowns?.Q ?? 0;
   const cW = skillCooldowns?.W ?? 0;
   const cE = skillCooldowns?.E ?? 0;
+  const heroKey = (advancedClass || heroClass) as string;
 
   let anim = heroAnimStates.get(heroId);
   const stateMotion = resolveMotion(heroState, dashState, castingUntil, gameTime, darkBladeActive);
@@ -257,7 +272,10 @@ export function drawMotionSprite(
   // 1. 쿨다운 점프 감지
   const skillUsed = detectSkillUsed(anim, cQ, cW, cE);
   if (skillUsed !== null) {
-    anim = { motion: skillUsed, startTime: gameTime, prevQ: cQ, prevW: cW, prevE: cE };
+    // 원샷 모션 시작 시 flip 방향 고정 (공격 대상 방향 사용, 이동 방향과 분리)
+    const skillFlipBase = (skillUsed === 'attack' && attackFlip != null) ? attackFlip : flipHorizontal;
+    const currentFlip = resolveFlip(heroClass, advancedClass, skillUsed, skillFlipBase);
+    anim = { motion: skillUsed, startTime: gameTime, prevQ: cQ, prevW: cW, prevE: cE, lockedFlip: currentFlip };
     heroAnimStates.set(heroId, anim);
   } else if (!anim) {
     anim = { motion: 'walk', startTime: gameTime, prevQ: cQ, prevW: cW, prevE: cE };
@@ -268,16 +286,20 @@ export function drawMotionSprite(
 
   // 2. 원샷 모션 재생 (walk보다 우선)
   if (anim && !MOTION_CONFIG[anim.motion].loop) {
-    const fi = getFrameIndex(anim.motion, anim.startTime, gameTime);
+    const fi = getFrameIndex(anim.motion, anim.startTime, gameTime, heroKey);
     if (fi >= 0) {
       const sheet = loadSheet(heroClass, advancedClass, tier, anim.motion);
       if (sheet) {
         updateSrcRect(sheet, fi);
-        const flip = resolveFlip(heroClass, advancedClass, anim.motion, flipHorizontal);
+        // 원샷 모션: 시작 시 고정된 flip 사용 (공격 중 이동 방향 변경 방지)
+        const flip = anim.lockedFlip != null ? anim.lockedFlip : resolveFlip(heroClass, advancedClass, anim.motion, flipHorizontal);
         drawFrame(ctx, sheet, x, y, width, height, flip);
         return true;
       }
+      // 시트 로딩 중: 애니메이션 상태 유지 (삭제하면 스킬 감지 영구 손실)
+      return false;
     }
+    // 애니메이션 만료 (holdTime 초과)
     heroAnimStates.delete(heroId);
     anim = undefined;
   }
@@ -292,7 +314,7 @@ export function drawMotionSprite(
     const sheet = loadSheet(heroClass, advancedClass, tier, stateMotion);
     if (!sheet) return false;
 
-    const fi = getFrameIndex(stateMotion, anim.startTime, gameTime);
+    const fi = getFrameIndex(stateMotion, anim.startTime, gameTime, heroKey);
     if (fi < 0) return false;
 
     updateSrcRect(sheet, fi);

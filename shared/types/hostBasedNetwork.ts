@@ -108,6 +108,9 @@ export interface SerializedEnemy {
   buffs: Buff[];
   isStunned: boolean;
   stunEndTime?: number;
+  // 모션 스프라이트용 상태
+  state?: string;          // 'idle' | 'moving' | 'attacking'
+  attackCooldown?: number;  // 기본공격 쿨다운 (공격 모션 감지용)
   // 보스 돌진 상태 (자연스러운 이동용)
   dashState?: {
     startX: number;

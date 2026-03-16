@@ -103,9 +103,17 @@ export function executeSkill(
       break;
     case 'W':
       executeWSkill(ctx, hero, aliveEnemies, enemyBases, targetX, targetY, dirX, dirY, finalDamage, gameTime);
+      // 즉발 W스킬: dashState/castingUntil 없으면 모션 동안 기본공격 잠금
+      if (!hero.dashState && !(hero.castingUntil && gameTime < hero.castingUntil)) {
+        hero.attackLockUntil = gameTime + 0.67; // W모션 재생시간 (4프레임 / 6fps)
+      }
       break;
     case 'E':
       executeESkill(ctx, hero, aliveEnemies, targetX, targetY, finalDamage, gameTime);
+      // 즉발 E스킬: dashState/castingUntil 없으면 모션 동안 기본공격 잠금
+      if (!hero.dashState && !(hero.castingUntil && gameTime < hero.castingUntil)) {
+        hero.attackLockUntil = gameTime + 0.8; // E모션 재생시간 (4프레임 / 5fps)
+      }
       break;
   }
 }
@@ -438,36 +446,17 @@ function executeWSkill(
     }
 
     case 'archer': {
+      // 모션 Frame 3(발사) 타이밍에 맞춰 지연 실행 (6fps, frame index 2 = 0.33초)
       const pierceDistance = 300;
-      const endX = hero.x + dirX * pierceDistance;
-      const endY = hero.y + dirY * pierceDistance;
-
-      for (const enemy of enemies) {
-        const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, endX, endY);
-        if (enemyDist <= 30) {
-          applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
-        }
-      }
-
-      // 기지 데미지 (관통 화살 경로상 기지)
-      for (const base of enemyBases) {
-        if (base.destroyed) continue;
-        const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, endX, endY);
-        if (baseDist <= 60) { // 기지는 더 큰 히트박스
-          damageBase(ctx.state, base.id, skillDamage, ctx.difficulty, hero.id);
-        }
-      }
-
-      ctx.state.activeSkillEffects.push({
+      ctx.state.pendingSkills.push({
         type: 'archer_w' as any,
-        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
+        triggerTime: gameTime + 0.33,
         radius: pierceDistance,
         damage: skillDamage,
         duration: 0.4,
-        startTime: gameTime,
-        heroId: hero.id,
+        casterId: hero.id,
       });
       hero.skillCooldowns.W = hero._skillW.cooldown;
       break;
@@ -610,33 +599,16 @@ function executeESkill(
     }
 
     case 'archer': {
+      // 모션 종료 후 화살비 발동 (5fps × 4프레임 = 0.8초 후)
       const radius = 150;
       const skillDamage = Math.floor(damage * 2.5);
-      for (const enemy of enemies) {
-        const dist = distance(targetX, targetY, enemy.x, enemy.y);
-        if (dist <= radius) {
-          applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
-        }
-      }
-
-      // 기지 데미지 (범위 내 기지)
-      const { enemyBases } = ctx.state;
-      for (const base of enemyBases) {
-        if (base.destroyed) continue;
-        const baseDist = distance(targetX, targetY, base.x, base.y);
-        if (baseDist <= radius + 50) { // 기지는 더 큰 히트박스
-          damageBase(ctx.state, base.id, skillDamage, ctx.difficulty, hero.id);
-        }
-      }
-
-      ctx.state.activeSkillEffects.push({
+      ctx.state.pendingSkills.push({
         type: 'archer_e' as any,
-        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
         position: { x: targetX, y: targetY },
-        radius,
+        triggerTime: gameTime + 0.6, // Frame 3(일제 발사) 종료 시점 (3프레임 / 5fps)
         damage: skillDamage,
-        duration: 1.0,
-        startTime: gameTime,
+        radius,
+        casterId: hero.id,
       });
       hero.skillCooldowns.E = hero._skillE.cooldown;
       break;
@@ -1682,6 +1654,43 @@ export function updatePendingSkills(ctx: SkillContext): void {
           duration: 0.5,
           startTime: state.gameTime,
         });
+      } else if (skill.type === 'archer_w') {
+        // 관통 화살: 시전자 위치에서 방향으로 300px 직선 관통
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        const shootX = caster ? caster.x : skill.position.x;
+        const shootY = caster ? caster.y : skill.position.y;
+        const dir = skill.direction || { x: 1, y: 0 };
+        const pierceDistance = skill.radius || 300;
+        const endX = shootX + dir.x * pierceDistance;
+        const endY = shootY + dir.y * pierceDistance;
+
+        for (const enemy of state.enemies) {
+          if (enemy.hp <= 0) continue;
+          const enemyDist = pointToLineDistance(enemy.x, enemy.y, shootX, shootY, endX, endY);
+          if (enemyDist <= 30) {
+            applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+          }
+        }
+
+        for (const base of state.enemyBases) {
+          if (base.destroyed) continue;
+          const baseDist = pointToLineDistance(base.x, base.y, shootX, shootY, endX, endY);
+          if (baseDist <= 60) {
+            damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
+          }
+        }
+
+        state.activeSkillEffects.push({
+          type: 'archer_w' as any,
+          heroClass: caster?.heroClass, advancedClass: caster?.advancedClass as any,
+          position: { x: shootX, y: shootY },
+          direction: { x: dir.x, y: dir.y },
+          radius: pierceDistance,
+          damage: skill.damage,
+          duration: 0.4,
+          startTime: state.gameTime,
+          heroId: skill.casterId,
+        });
       } else if (skill.type === 'snipe') {
         // 저격: 시전자 → 타겟 보스 경로에 있는 가장 가까운 적 타격
         const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
@@ -1736,13 +1745,18 @@ export function updatePendingSkills(ctx: SkillContext): void {
         // 실행 이펙트 추가 (힐 스킬, dark_blade는 메인 이펙트가 유지되므로 제외)
         if (skill.type !== 'dark_blade') {
           const effectCaster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+          // 특수 이펙트 타입/duration 변환
+          const effectType = skill.type === 'mage_e' ? 'mage_meteor' : skill.type;
+          const effectDuration = skill.type === 'mage_e' ? 1.5
+            : skill.type === 'archer_e' ? 1.0
+            : 0.5;
           state.activeSkillEffects.push({
-            type: skill.type,
+            type: effectType as any,
             heroClass: effectCaster?.heroClass, advancedClass: effectCaster?.advancedClass as any,
             position: skill.position,
             radius: skill.radius,
             damage: skill.damage,
-            duration: 0.5,
+            duration: effectDuration,
             startTime: state.gameTime,
           });
         }

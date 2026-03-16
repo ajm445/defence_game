@@ -67,6 +67,10 @@ export interface ServerHero extends Omit<SerializedHero, 'skills'> {
   skillCooldownReduction?: number;
   // 넉백 직후 속도 검증 완화 (gameTime 기록)
   _lastKnockbackTime?: number;
+  // 마지막 이동 입력 수신 시각 (정지 신호 유실 시 자동 정지용)
+  _lastMoveInputTime?: number;
+  // 즉발 스킬 사용 후 기본공격 잠금 (모션 싱크용, 이동은 허용)
+  attackLockUntil?: number;
 }
 
 // 서버 게임 상태

@@ -257,7 +257,7 @@ export function useRPGGameLoop() {
         const isCasting = !!(clientHeroForMove.castingUntil && useRPGStore.getState().gameTime < clientHeroForMove.castingUntil);
         const isStunned = clientHeroForMove.buffs?.some(b => b.type === 'stun' && b.duration > 0);
 
-        // 시전 종료 감지: 눌려있던 이동 키로 이동 재개
+        // 시전 종료 감지: 현재 키 상태에 맞게 이동 방향 동기화
         // OS가 다른 키(Shift 등) 입력 시 기존 키의 repeat를 중단하므로
         // 키 이벤트에 의존하지 않고 게임 루프에서 직접 체크
         if (wasCastingRef.current && !isCasting && !isDashing && !isStunned) {
@@ -265,6 +265,10 @@ export function useRPGGameLoop() {
           if (heldDirection) {
             useRPGStore.getState().setMoveDirection(heldDirection);
             sendMoveDirection(heldDirection);
+          } else {
+            // 키를 안 누르고 있으면 정지 신호 전송 (서버 잔여 moveDirection 초기화)
+            useRPGStore.getState().setMoveDirection(undefined);
+            sendMoveDirection(null);
           }
         }
         wasCastingRef.current = isCasting;

@@ -1,5 +1,58 @@
 # Changelog
 
+## [1.26.1] - 2026-03-16
+
+### 이동 로직 버그 수정
+- **시전 종료 후 정지 신호 전송**: 스킬 시전 중 키를 놓으면 시전 후 서버에 정지 신호(null) 전송 (이전: 누락되어 영웅이 계속 이동)
+- **정지 신호 레이트 리미트 제외**: `moveDirection: null`은 서버 레이트 리미터를 우회하여 정지 신호 유실 방지
+- **서버 이동 타임아웃**: 500ms간 새 이동 입력 없으면 자동 정지 (정지 신호 네트워크 유실 대비)
+- **검증 필드명 수정**: `input.direction` → `input.moveDirection` (잘못된 필드명으로 검증 미작동)
+
+### 스프라이트 모션 시스템 강화
+- **기사/마법사 모션 스프라이트 완성**: 기사 4종(walk, attack, w_shield_charge, e_iron_defense) + 마법사 4종(walk, attack, w_fireball, e_meteor) 추가
+- **적 유닛 모션 적용**: 기본 적 유닛(melee, ranged, knight, mage)에 영웅 스프라이트 공유하여 이동/공격 모션 적용
+- **적 상태 직렬화**: `SerializedEnemy`에 `state`, `attackCooldown` 필드 추가 → 서버에서 적 이동/공격 상태 전달
+- **기본 4직업 프리로드**: 게임 시작 시 warrior/archer/knight/mage 스프라이트 일괄 프리로드 (적 유닛용)
+- **시트 로딩 안정성**: 스프라이트 시트 미로드 시 애니메이션 상태 보존 (이전: 삭제 → 스킬 감지 영구 손실)
+
+### 모션-스킬 싱크 시스템
+- **즉발 스킬 공격 잠금 (`attackLockUntil`)**: 즉발 W/E 스킬 사용 시 모션 재생 동안 기본공격 차단 (이동은 허용)
+  - W스킬: 0.67초 잠금 (6fps × 4프레임)
+  - E스킬: 0.8초 잠금 (5fps × 4프레임)
+  - 대상: 궁수W, 마법사W, 레인저W, 대마법사W, 힐러W + 전사E, 궁수E, 기사E, 마법사E 등 15개 즉발 스킬
+- **W/E 모션 중 Q 감지 차단**: 스킬 모션 재생 중 기본공격 쿨다운 점프를 무시하여 모션 덮어씌움 방지
+- **공격 방향 flip 고정**: 공격 모션 시작 시 `attackTarget` 방향으로 flip 고정 (이동 방향과 분리)
+- **궁수 W 스킬 지연 실행**: 모션 Frame 3(발사, 0.33초) 타이밍에 pendingSkill로 데미지+이펙트 동시 발동
+- **궁수 E 스킬 지연 실행**: 모션 Frame 3 종료(0.6초) 타이밍에 pendingSkill로 화살비 이펙트 발동
+
+### 캐릭터별 모션 타이밍 조정
+- **기사 W (방패 돌진)**: fps 6→12, holdTime 0.8→0.4초 (돌진 0.25초에 맞춰 빠르게 재생)
+- **전사 E (광전사)**: holdTime 1.0→1.2초 (버프 발동 모션 충분히 표시)
+- **마법사 E (운석 소환)**: 프롬프트 수정 — 실제 운석 없이 소환 의식만 표현
+
+### 마법사 운석 이펙트 수정
+- **폭발 이펙트 타입 수정**: pendingSkill 트리거 시 `mage_e`(경고) → `mage_meteor`(폭발) 변환
+- **폭발 duration 증가**: 0.5초 → 1.5초 (충격파, 파편, 크레이터가 충분히 표시)
+
+### 스프라이트 방향 설정 업데이트
+- **궁수 E**: `SPRITE_NO_FLIP` → `SPRITE_FACES_RIGHT`로 이동 (오른쪽 방향 스프라이트 반전 필요)
+- **기사 W/E**: `SPRITE_FACES_RIGHT`에 추가 (오른쪽 방향 스프라이트)
+
+### 수정 파일
+- `src/utils/spriteMotion.ts`: 캐릭터별 오버라이드, 시트 로딩 안정성, W/E 중 Q 차단, lockedFlip, attackFlip
+- `src/renderer/drawHero.ts`: 적 모션 스프라이트 적용, attackTarget 기반 공격 방향 flip
+- `src/renderer/rpgRenderer.ts`: drawRPGEnemy에 gameTime 전달
+- `src/hooks/useRPGGameLoop.ts`: 시전 종료 후 정지 신호 전송
+- `src/stores/useRPGStore.ts`: 적 state/attackCooldown 역직렬화, 기본 4직업 프리로드
+- `server/src/game/rpgServerTypes.ts`: `attackLockUntil`, `_lastMoveInputTime` 필드 추가
+- `server/src/game/rpgServerHeroSystem.ts`: canHeroAutoAttack에 attackLockUntil/이동 타임아웃 체크
+- `server/src/game/rpgServerSkillSystem.ts`: 즉발 스킬 attackLockUntil, 궁수 W/E pendingSkill, 마법사 운석 이펙트 수정
+- `server/src/game/RPGServerGameEngine.ts`: 이동 입력 시각 기록, processHeroMovement에 tickTimestamp 전달
+- `server/src/game/rpgServerGameSystems.ts`: 적 state/attackCooldown 직렬화
+- `server/src/websocket/MessageHandler.ts`: 정지 신호 레이트 리미트 제외, moveDirection 검증 필드명 수정
+- `shared/types/hostBasedNetwork.ts`: SerializedEnemy에 state/attackCooldown 추가
+- `docs/sprite-motion-prompts.md`: 마법사/대마법사 E스킬 프롬프트 — 운석 없이 소환 의식만
+
 ## [1.26.0] - 2026-03-16
 
 ### 캐릭터 스프라이트 모션 시스템

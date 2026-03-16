@@ -497,16 +497,18 @@ Powerful AoE - 80px explosion. Orange-red fire contrasting usual purple.
 
 #### 4-4. E Skill - 운석 낙하 Meteor Shower (4프레임)
 ```
-Generate a 4-frame ultimate meteor spell sprite sheet for this chibi skeleton mage.
+Generate a 4-frame meteor summoning cast sprite sheet for this chibi skeleton mage.
 
 Character: [Mage 외형]
 
-Frame 1 (Ritual): Plants staff on ground. Both hands raised to sky. Purple and orange magic circles at feet.
-Frame 2 (Channel): Intense energy spiraling upward. Staff floating. Runes/symbols visible. Hat and beard floating from energy.
-Frame 3 (Summon): Arms thrust skyward. Massive portal/magic circle above. Meteor silhouettes descending.
-Frame 4 (Command): One arm pointing forward (directing meteors). Energy streams connecting to sky. Powerful pose.
+NOTE: This sprite shows ONLY the casting/summoning ritual. Actual meteors are rendered separately by the game engine — do NOT draw any meteors or falling rocks in any frame.
 
-Most powerful spell - 400% damage, 150px radius. 3-second cast. Devastating, epic.
+Frame 1 (Ritual Begin): Plants staff firmly on ground with both hands. Feet apart in wide stance. Small purple and orange magic circle appears at feet. Eyes begin glowing faintly purple.
+Frame 2 (Channel): Raises both hands away from staff. Staff stands upright on its own, floating slightly. Purple and orange energy spirals upward from magic circle at feet. Rune symbols orbit around body. Hat and beard float upward from intense energy.
+Frame 3 (Portal Open): Arms fully thrust skyward, palms open. Massive glowing magic circle/portal forming above head (purple rim + orange core). Energy streams flow from both hands into the portal above. Staff floats beside, orb blazing. Peak channeling intensity.
+Frame 4 (Sustain): Holds channeling pose with one arm raised toward portal above, other arm extended forward. Portal above fully active and glowing. Energy streams connect hands to portal. Determined, powerful stance. Staff floating at side.
+
+Summoning ritual only — no meteors visible. 3-second cast, 400% damage, 150px radius. Purple (#a855f7) + orange-red energy. Epic, powerful casting sequence.
 ```
 
 ---
@@ -889,16 +891,18 @@ Frame 4 (Aftermath): Charred ground beneath. Smoke and embers rising. Purple fla
 
 #### 11-4. E Skill - 메테오 샤워 Meteor Shower (4프레임)
 ```
-Generate a 4-frame ultimate meteor shower sprite sheet for this chibi skeleton archmage.
+Generate a 4-frame meteor shower summoning sprite sheet for this chibi skeleton archmage.
 
 Character: [Archmage 외형]
 
-Frame 1 (Ritual): Both arms raised in grand ritual. Staff floating. Multiple magic circles at feet AND above. Purple + orange spiraling. Most powerful casting.
-Frame 2 (Open Portal): Massive dark portal in sky above. 10 glowing meteors behind portal. Purple lightning from edges. Maximum channeling effort.
-Frame 3 (Rain): Meteors falling through portal. Multiple flaming rocks in 300px area. Fire trails. Purple and orange explosions. Arms directing devastation.
-Frame 4 (Apocalypse): Peak destruction. Multiple simultaneous impacts. Purple energy connecting mage to impacts. Character floating from sheer power.
+NOTE: This sprite shows ONLY the summoning ritual. Actual meteors are rendered separately by the game engine — do NOT draw any meteors or falling rocks in any frame.
 
-10 meteors over 5 seconds, each 300%, 100px radius, 300px total area. Most devastating AoE ultimate. Apocalyptic. Purple + orange fire.
+Frame 1 (Grand Ritual): Both arms raised in grand ritual pose. Staff floating freely, orb blazing. Multiple layered magic circles at feet (purple inner + orange outer). Both hand orbs ignite. Eyes blaze purple. Most powerful casting stance.
+Frame 2 (Open Portal): Arms thrust upward channeling into massive dark portal forming above. Purple lightning crackles from portal edges. Purple + orange energy streams from both hands and staff into portal. Maximum channeling effort. Hat and beard blown upward. Robe billowing.
+Frame 3 (Full Channel): Portal above fully open and active — swirling dark vortex with purple-orange rim. Character channels with both arms raised, body slightly floating off ground from sheer magical force. Energy pillars connect hands to portal. Staff orbits around character.
+Frame 4 (Sustain): Sustained channeling pose — one arm maintains portal above, other arm directing energy forward. Portal pulsing with purple-orange light. Character floating. Staff beside, both orbs blazing. Intense, controlled power.
+
+Summoning ritual only — no meteors visible. 10 meteors over 5 seconds, each 300%, 300px area. Most devastating AoE ultimate. Purple (#a855f7) + orange fire. Apocalyptic energy without the meteors themselves.
 ```
 
 ---

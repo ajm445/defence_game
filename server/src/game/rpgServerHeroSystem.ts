@@ -387,7 +387,7 @@ export function applyKnightPassiveRegen(hero: ServerHero, deltaTime: number): vo
 /**
  * 영웅 이동 처리
  */
-export function processHeroMovement(hero: ServerHero, deltaTime: number, gameTime: number): void {
+export function processHeroMovement(hero: ServerHero, deltaTime: number, gameTime: number, tickTimestamp?: number): void {
   const isCasting = hero.castingUntil && gameTime < hero.castingUntil;
   const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
 
@@ -409,6 +409,13 @@ export function processHeroMovement(hero: ServerHero, deltaTime: number, gameTim
       hero.state = 'moving';
     }
     return;
+  }
+
+  // 이동 입력 타임아웃: 500ms 이상 새 입력 없으면 자동 정지 (정지 신호 유실 대비)
+  const now = tickTimestamp || Date.now();
+  if (hero.moveDirection && hero._lastMoveInputTime && (now - hero._lastMoveInputTime > 500)) {
+    hero.moveDirection = null;
+    hero._lastMoveInputTime = undefined;
   }
 
   // 이동 처리
@@ -455,6 +462,9 @@ export function canHeroAutoAttack(hero: ServerHero, gameTime: number): boolean {
   const isCasting = hero.castingUntil && gameTime < hero.castingUntil;
   const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
   if (isCasting || isStunned) return false;
+
+  // 즉발 스킬 모션 중 기본공격 잠금 (이동은 허용)
+  if (hero.attackLockUntil && gameTime < hero.attackLockUntil) return false;
 
   return hero._skillQ.currentCooldown <= 0;
 }

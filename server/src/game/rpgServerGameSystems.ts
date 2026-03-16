@@ -361,6 +361,8 @@ function serializeEnemies(state: ServerGameState): SerializedEnemy[] {
       fromBase: e.fromBase,
       buffs: e.buffs || [],
       isStunned: e.buffs?.some(b => b.type === 'stun' && b.duration > 0) || false,
+      state: e.state,
+      attackCooldown: Math.round((e.attackCooldown || 0) * 100) / 100,
       dashState: e.dashState,
     });
   }

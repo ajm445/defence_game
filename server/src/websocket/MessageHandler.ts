@@ -980,14 +980,16 @@ export function handleCoopDisconnect(playerId: string): void {
  */
 function handlePlayerInput(playerId: string, input: any): void {
   // 스킬/업그레이드 입력은 rate limit 제외 (서버에 자체 쿨다운/골드 검증 있음)
+  // 정지 신호(moveDirection: null)도 rate limit 제외 (유실 시 영웅이 계속 이동)
   // 이동/위치만 포함된 입력만 rate limit 적용
   const isImportantInput = input?.skillUsed || input?.upgradeRequested;
-  if (!isImportantInput && !rateLimiters.playerInput.checkAndUpdate(playerId)) return;
+  const isStopSignal = input?.moveDirection === null;
+  if (!isImportantInput && !isStopSignal && !rateLimiters.playerInput.checkAndUpdate(playerId)) return;
 
   // 입력 필드 검증
   if (input) {
-    if (input.direction !== undefined && !isValidDirection(input.direction)) {
-      console.warn(`[Security] Invalid input direction from ${playerId}`);
+    if (input.moveDirection !== undefined && !isValidDirection(input.moveDirection)) {
+      console.warn(`[Security] Invalid input moveDirection from ${playerId}`);
       return;
     }
     if (input.position && !isValidRPGCoordinate(input.position.x, input.position.y)) {

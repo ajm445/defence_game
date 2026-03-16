@@ -147,7 +147,7 @@ export function renderRPG(
   for (const enemy of state.enemies) {
     if (enemy.hp > 0) {
       const isTarget = state.hero?.attackTarget === enemy.id;
-      drawRPGEnemy(ctx, enemy, camera, scaledWidth, scaledHeight, isTarget, heroPos);
+      drawRPGEnemy(ctx, enemy, camera, scaledWidth, scaledHeight, isTarget, heroPos, state.gameTime);
     }
   }
 
