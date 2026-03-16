@@ -971,7 +971,6 @@ Frame 4 (Sustain): Sustained healing fountain. Green pulses every second (10% HP
 > **참조 이미지**: `public/img/units/boss.png`
 > **렌더 크기**: 60×80px (일반 유닛의 2.5배)
 > **원본 프레임 크기**: 약 700×900px (일반보다 큼 — 말 포함 공간 필요)
-> **스킬**: 강타(120° AoE), 충격파, 돌진, 부하 소환, 회복
 
 #### 보스 1 외형 설명
 - **기수**: 해골 얼굴(큰 빨간 눈), 뿔 달린 금 장식 투구(꼭대기 박쥐 장식), 금 트림 짙은 회색 풀 아머, 짙은 갈색 망토
@@ -981,34 +980,42 @@ Frame 4 (Sustain): Sustained healing fountain. Green pulses every second (10% HP
 
 #### 13-1. Walk (4프레임)
 ```
-Generate a 4-frame walk cycle sprite sheet for this chibi skeleton death knight on horseback.
+Generate a 4-frame WALK CYCLE animation sprite sheet for this character.
 
-Character: [Boss 1 외형 — 위 설명 참조]
+CRITICAL: Each of the 4 frames must show a DIFFERENT POSE — this is an animation, NOT 4 copies of the same image. The character's legs, body position, and accessories must CHANGE between frames to create the illusion of movement when played in sequence.
 
-IMPORTANT: This is a MOUNTED character (rider + horse together). The horse and rider must be treated as ONE unit. The overall character is LARGER than normal heroes — each frame should be approximately 700x900px to accommodate the horse body.
+This is a mounted skeleton knight riding a skeleton horse. Draw the rider and horse as one combined character. Each frame is approximately 700x900px (larger than normal characters due to the horse body).
 
-Frame 1: Horse right front leg forward, left back. Rider steady, sword resting on shoulder. Cape flows back. Red energy wisps at hooves.
-Frame 2: Horse legs passing center (contact pose). Rider bobs slightly. Horse head nods down. Armor clinks.
-Frame 3: Horse left front leg forward, right back. Rider shifts weight. Cape billows opposite. Red energy flickers.
-Frame 4: Horse legs passing center again. Rider settles. Horse head rises. Heavy, ominous stride.
+The key element that CHANGES between frames is the HORSE'S LEG POSITIONS — this is a horse trot cycle:
 
-Slow, heavy, menacing mounted walk. Ground trembles. Horse skeleton legs visible. Dark atmosphere. The mount (horse) and rider move as one cohesive unit — do NOT separate them.
+Frame 1 (LEFT STRIDE): Horse's LEFT front leg is extended FORWARD, RIGHT front leg is BACK. Right rear leg is forward, left rear leg is back. The rider's body tilts slightly FORWARD. The cape trails BEHIND. Sword rests on the rider's right shoulder. Small red energy wisps at the horse's hooves.
+
+Frame 2 (PASSING - LEGS TOGETHER): All four horse legs are close together, passing through CENTER position. The horse's body is at its HIGHEST point (bouncing up). The rider bobs UP slightly. The cape floats UPWARD. Horse's head is slightly DOWN.
+
+Frame 3 (RIGHT STRIDE): Horse's RIGHT front leg is extended FORWARD, LEFT front leg is BACK. Left rear leg is forward, right rear leg is back. This is the MIRROR of Frame 1. The rider's body tilts slightly BACKWARD. The cape swings to the OPPOSITE side. Sword still on shoulder.
+
+Frame 4 (PASSING - LEGS TOGETHER): All four legs passing through CENTER again. Horse's body is at its LOWEST point. The rider bobs DOWN. Cape settles. Horse's head is slightly UP. Red energy at hooves flickers.
+
+The horse trot must be clearly visible — each frame's leg positions must be DISTINCTLY DIFFERENT. Slow, heavy, menacing stride. The rider stays seated throughout but bobs up and down with the horse's gait.
 ```
 
 #### 13-2. Basic Attack — 강타 (4프레임)
 ```
-Generate a 4-frame mounted sword slash sprite sheet for this chibi skeleton death knight on horseback.
+Generate a 4-frame SWORD ATTACK animation sprite sheet for this character.
 
-Character: [Boss 1 외형 — 위 설명 참조]
+CRITICAL: Each of the 4 frames must show a COMPLETELY DIFFERENT POSE — the sword position changes dramatically between frames to show a full swing arc. This is NOT 4 copies — it is a sequential attack animation.
 
-IMPORTANT: Mounted character — horse and rider as ONE unit. Each frame approximately 700x900px.
+This is a mounted skeleton knight on a skeleton horse, performing a massive overhead sword swing. Each frame is approximately 700x900px.
 
-Frame 1 (Wind-up): Rider raises massive cyan glowing sword high overhead with both hands. Horse rears slightly, front hooves lifting. Cape flows up. Red eyes blaze. Cyan energy intensifies on blade.
-Frame 2 (Swing): Massive downward-diagonal slash. Huge cyan slash arc trail (120-degree wide cone). Horse lunges forward. Rider leans into strike. Ground cracks beneath horse.
-Frame 3 (Impact): Sword at full extension. Massive cyan energy explosion at impact point. Shockwave ripples. Dust and debris. Horse stamps. Devastating 120° AoE cone visible.
-Frame 4 (Recovery): Sword returning to shoulder rest. Cyan energy dissipating. Horse settles. Cape falling back. Rider straightens.
+Frame 1 (WIND-UP): The rider grips the giant cyan glowing sword with BOTH HANDS and raises it HIGH ABOVE his head, pointing straight UP. His body leans BACKWARD to load the swing. The horse rears back slightly — front hooves lifted 30 degrees off the ground. Cape flies upward. Cyan energy crackles on the blade.
 
-Overwhelmingly powerful mounted melee. 200% damage, 150px radius, 120° cone AoE, 0.5s stun. Cyan sword energy (#00cccc). The impact should feel earth-shattering.
+Frame 2 (MID-SWING): The sword is now at a 45-degree angle, swinging DOWN and FORWARD in a diagonal arc. A large cyan SLASH TRAIL follows the blade path. The rider's body is now leaning FORWARD into the strike. The horse lunges forward — all four hooves on the ground, body pushed forward. Cape streams horizontally behind.
+
+Frame 3 (IMPACT): The sword has completed its arc and is now pointing DOWN and to the LEFT at the ground level. Maximum extension — rider's arms fully stretched downward. EXPLOSION of cyan energy at the sword tip. The horse's front hooves STAMP the ground. Dust/debris particles fly outward. The impact creates visible cracks on the ground beneath. This is the moment of maximum damage.
+
+Frame 4 (RECOVERY): The rider pulls the sword back, returning it to rest on his RIGHT SHOULDER. His body returns to upright sitting position. The horse settles to neutral standing. Cyan energy wisps dissipate. Cape falls back down. Dust settles.
+
+The sword's position must be DRAMATICALLY DIFFERENT in each frame: UP (frame 1) → DIAGONAL (frame 2) → DOWN (frame 3) → SHOULDER (frame 4). This is the most important visual change between frames.
 ```
 
 ---
@@ -1018,7 +1025,6 @@ Overwhelmingly powerful mounted melee. 200% damage, 150px radius, 120° cone AoE
 > **참조 이미지**: `public/img/units/RPG/heroes/boss2.png`
 > **렌더 크기**: 60×80px (일반 유닛의 2.5배)
 > **원본 프레임 크기**: 약 700×900px (일반보다 큼 — 날개 포함 공간 필요)
-> **스킬**: 암흑 구체, 그림자 소환, 공허 지대, 유성 낙하, 영혼 흡수, 텔레포트
 
 #### 보스 2 외형 설명
 - **몸체**: 해골 얼굴(큰 빨간 눈), 뿔 달린 짙은 회색+보라 투구(꼭대기 박쥐 장식), 검은+짙은 보라+금 트림 로브(보라 룬 문양), 보라 보석 장식
@@ -1029,34 +1035,42 @@ Overwhelmingly powerful mounted melee. 200% damage, 150px radius, 120° cone AoE
 
 #### 14-1. Walk (4프레임)
 ```
-Generate a 4-frame hovering movement sprite sheet for this chibi skeleton dark wizard with large bat wings.
+Generate a 4-frame HOVERING/FLYING animation sprite sheet for this character.
 
-Character: [Boss 2 외형 — 위 설명 참조]
+CRITICAL: Each of the 4 frames must show a DIFFERENT POSE — the wing positions and body height must CHANGE between frames. This is NOT 4 copies of the same image. The wings flap up and down to create a flying/hovering animation.
 
-IMPORTANT: This character has LARGE bat wings that extend beyond the body width. Each frame should be approximately 700x900px to accommodate the full wingspan. The character FLOATS/HOVERS — feet do NOT touch the ground.
+This is a skeleton dark wizard with large bat wings. The character FLOATS in the air — feet never touch the ground. Purple mist is always present below the feet. Each frame is approximately 700x900px (larger than normal due to wide wingspan).
 
-Frame 1: Wings at mid-upstroke. Staff held forward. Purple mist trails below feet. Robes flowing. Purple orb on staff glows steadily.
-Frame 2: Wings at peak (highest point). Body rises slightly. Purple energy wisps around. Robes billow upward from wind.
-Frame 3: Wings at mid-downstroke. Body lowers slightly. Purple mist swirls beneath. Staff orb pulses. Robes settle.
-Frame 4: Wings at lowest point (folding in slightly). Body at lowest hover height. Purple mist disperses then gathers. Robes fall.
+The key element that CHANGES between frames is the WING ANGLE and BODY HEIGHT:
 
-Floating, ethereal movement — NOT walking. Wings provide lift. Dark purple atmosphere. Constant purple mist below feet. Ominous, magical presence. Slow, deliberate hovering motion.
+Frame 1 (WINGS UP - RISING): Both bat wings are raised HIGH — the wing tips point UPWARD above the character's head, forming a V-shape. The body is at MID height. Staff held in left hand at the side. Robes hang straight down. Purple mist below is thin and dispersed.
+
+Frame 2 (WINGS PEAK - HIGHEST): Wings are at their MAXIMUM height — fully extended upward and slightly outward. The body has risen to its HIGHEST hover position. Robes billow upward slightly from the updraft. Purple mist below is blown away. Staff orb glows brighter. This is the peak of the wing flap.
+
+Frame 3 (WINGS DOWN - FALLING): Both wings sweep DOWN — the wing tips point DOWNWARD below the character's waist, forming an inverted V-shape. The body DROPS to a LOWER hover position. Robes flow downward. Purple mist below is dense and swirling (pushed by wing downstroke). Staff held lower.
+
+Frame 4 (WINGS LOW - LOWEST): Wings are at their LOWEST position — nearly folded against the body sides. The body is at its LOWEST hover height. Robes settle. Purple mist is thick beneath the feet. Staff orb dims slightly. Wings begin to curve back upward for the next cycle.
+
+The wing angle must be DRAMATICALLY DIFFERENT in each frame: HIGH-V (frame 1) → PEAK (frame 2) → LOW-V (frame 3) → FOLDED (frame 4). The body also bobs: mid → high → mid → low. This creates a natural hovering/flying loop.
 ```
 
 #### 14-2. Basic Attack — 암흑 마법 (4프레임)
 ```
-Generate a 4-frame dark magic attack sprite sheet for this chibi skeleton dark wizard with large bat wings.
+Generate a 4-frame MAGIC ATTACK animation sprite sheet for this character.
 
-Character: [Boss 2 외형 — 위 설명 참조]
+CRITICAL: Each of the 4 frames must show a COMPLETELY DIFFERENT POSE — the character's arm positions, magical energy, and wing positions change dramatically. This is a sequential attack animation, NOT 4 copies.
 
-IMPORTANT: Large bat wings — each frame approximately 700x900px.
+This is a skeleton dark wizard with large bat wings casting a dark magic spell. Each frame is approximately 700x900px.
 
-Frame 1 (Gather): Wings spread wide. Free hand (non-staff hand) extends forward, fingers spread. Purple-violet dark energy gathers between staff orb and free hand. Eyes blaze bright red.
-Frame 2 (Channel): Dark purple energy concentrates into orb shape in front of character. Staff orb blazes. Wings flare outward. Purple runes appear around the energy orb. Intense purple glow.
-Frame 3 (Launch): Dark orb fires forward from both hands thrust. Massive purple energy burst at release point. Wings snap back from recoil. Purple trails. Robes blown back. 250% damage AoE.
-Frame 4 (Recovery): Energy dissipating. Staff returns to rest position. Wings fold back to neutral. Purple wisps fading. Return to hovering pose.
+Frame 1 (GATHER): Wings are spread WIDE (fully extended to both sides). The character raises the staff in the RIGHT hand high above head — the orb on top glows intensely purple. The LEFT hand extends FORWARD with palm open, fingers spread, pointing at the target. Small purple sparks begin gathering between the staff orb and the left hand. Body leans slightly forward.
 
-Powerful dark magic ranged attack. Purple (#9900ff) + violet energy. 120px AoE explosion at target. Menacing, destructive magic.
+Frame 2 (CHANNEL): Wings pull slightly INWARD. The staff is now held horizontally across the chest. Both hands point FORWARD — a large swirling PURPLE ORB of dark energy forms directly in front of the character's hands, about the size of the character's head. Purple runes and symbols circle around the orb. The character's eyes glow BRIGHT RED. Purple lightning crackles from the orb.
+
+Frame 3 (LAUNCH): Wings SNAP BACKWARD (blown back by the force). Both arms THRUST FORWARD — the purple energy orb FIRES outward to the left. A massive purple ENERGY BURST explodes from the launch point — trails of purple energy stream forward. The character's robes and cape are blown BACKWARD by the recoil force. The staff orb is dim (energy spent). The body leans far forward from the thrust.
+
+Frame 4 (RECOVERY): Wings slowly return to NEUTRAL resting position. Arms lower back to sides. The staff returns to the LEFT hand at rest. Faint purple wisps fade away where the orb was launched. Robes settle. Body returns to upright hovering pose. Staff orb begins to recharge with faint glow.
+
+The magical energy must be CLEARLY VISIBLE in frames 2-3 and completely absent in frames 1 and 4. The wing positions also change: WIDE → INWARD → SNAPPED BACK → NEUTRAL.
 ```
 
 ---
@@ -1074,6 +1088,8 @@ Powerful dark magic ranged attack. Purple (#9900ff) + violet energy. 120px AoE e
    bottom-left = frame 3, bottom-right = frame 4).
    ```
 6. **보스 글로우**: Boss 1 = 빨간 글로우, Boss 2 = 보라 글로우 — 발밑/배경에 은은하게 표현
+7. **"다른 포즈" 강조**: 프롬프트에 반드시 "Each frame must show a DIFFERENT POSE" / "NOT 4 copies" 명시. AI가 참조 이미지를 복사하는 것을 방지
+8. **핵심 변화 요소 지정**: 각 프레임에서 뭐가 변하는지 구체적으로 명시 (말 다리 위치, 날개 각도, 검 위치 등)
 
 ## 프롬프트 사용 팁
 
