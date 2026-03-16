@@ -36,6 +36,7 @@ const SPRITE_FACES_RIGHT = new Set<string>([
   'warrior_w', 'warrior_e',
   'archer_walk', 'archer_w', 'archer_e',
   'knight_w', 'knight_e',
+  'boss_attack',
 ]);
 
 // 방향 무시 (항상 반전 없이 원본 방향 고정) — 하늘 발사 등 방향 무관 모션
@@ -333,14 +334,20 @@ function drawFrame(
   flipHorizontal: boolean
 ): void {
   const { sx, sy, sw, sh } = _srcRect;
+
+  // 높이 기준 비율 유지 (캐릭터 키가 일정하게 유지, 가로는 비례 확장)
+  const srcRatio = sw / sh;
+  const drawH = height;
+  const drawW = drawH * srcRatio;
+
   if (flipHorizontal) {
     ctx.save();
     ctx.translate(x, y);
     ctx.scale(-1, 1);
-    ctx.drawImage(img, sx, sy, sw, sh, -width / 2, -height / 2, width, height);
+    ctx.drawImage(img, sx, sy, sw, sh, -drawW / 2, -drawH / 2, drawW, drawH);
     ctx.restore();
   } else {
-    ctx.drawImage(img, sx, sy, sw, sh, x - width / 2, y - height / 2, width, height);
+    ctx.drawImage(img, sx, sy, sw, sh, x - drawW / 2, y - drawH / 2, drawW, drawH);
   }
 }
 

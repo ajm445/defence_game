@@ -16,6 +16,7 @@ import {
 import { getClassProgress } from '../services/profileService';
 import { useProfileStore } from './useProfileStore';
 import { useUIStore } from './useUIStore';
+import { useRPGStore } from './useRPGStore';
 import { soundManager } from '../services/SoundManager';
 import { wsClient } from '../services/WebSocketClient';
 
@@ -314,6 +315,9 @@ export const useAuthStore = create<AuthStore>()(
 
       // ProfileStore 초기화
       useProfileStore.getState().reset();
+
+      // 멀티플레이어 방 상태 초기화 (이전 방으로 복귀하는 버그 방지)
+      useRPGStore.getState().resetMultiplayerState();
 
       // 세션 삭제
       clearSessionFromStorage();

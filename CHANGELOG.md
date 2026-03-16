@@ -53,6 +53,31 @@
 - `shared/types/hostBasedNetwork.ts`: SerializedEnemy에 state/attackCooldown 추가
 - `docs/sprite-motion-prompts.md`: 마법사/대마법사 E스킬 프롬프트 — 운석 없이 소환 의식만
 
+### 보스 모션 스프라이트
+- **보스 1 (기마 해골 기사)**: walk(말 걷기 사이클) + attack(시안 검 강타) 2종
+- **보스 2 (어둠의 마법사)**: walk(날개 호버링) + attack(암흑 구체 발사) 2종
+- **보스 모션 적용**: `drawRPGEnemy`에서 보스도 모션 스프라이트 사용 (기존 보스 제외 조건 제거)
+- **보스 프리로드**: 게임 시작 시 `boss`, `boss2` 스프라이트 일괄 프리로드
+- **보스 방향 설정**: `boss_attack`을 `SPRITE_FACES_RIGHT`에 추가 (오른쪽 방향 반전)
+
+### 스프라이트 렌더링 비율 보정
+- **높이 기준 비율 유지**: `drawFrame`에서 프레임 원본 비율 보존 — 높이를 렌더 높이에 고정, 가로 비례 확장
+- 스프라이트 프레임 비율이 렌더 영역과 달라도 캐릭터 크기 일정 유지 (공격 시 축소 현상 해결)
+
+### 적 유닛 시선 방향 수정
+- **타겟팅 시에만 영웅 방향**: `aggroOnHero && targetHeroId`일 때만 영웅을 바라봄
+- **비타겟팅 시 넥서스 방향**: 이동 목표(넥서스) 방향을 바라보며 이동
+
+### 로그아웃 시 방 상태 초기화
+- **멀티플레이어 상태 리셋**: 로그아웃 시 `resetMultiplayerState()` 호출 (이전 방으로 복귀하는 버그 수정)
+
+### 추가 수정 파일
+- `src/utils/spriteMotion.ts`: boss_attack FACES_RIGHT, drawFrame 높이 기준 비율 유지
+- `src/renderer/drawHero.ts`: 보스 모션 적용, 적 시선 방향 타겟팅 분기
+- `src/stores/useRPGStore.ts`: 보스 프리로드 추가
+- `src/stores/useAuthStore.ts`: 로그아웃 시 resetMultiplayerState 호출
+- `docs/sprite-motion-prompts.md`: 보스 1/2 스프라이트 프롬프트 추가
+
 ## [1.26.0] - 2026-03-16
 
 ### 캐릭터 스프라이트 모션 시스템

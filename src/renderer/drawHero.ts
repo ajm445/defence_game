@@ -766,20 +766,30 @@ export function drawRPGEnemy(
   const iconHeight = isAnyBoss ? 80 : 40;
   const emojiSize = isAnyBoss ? 40 : 20;
 
-  // 적이 영웅을 바라보도록 flip (원본 이미지가 왼쪽을 바라봄)
-  // 영웅이 오른쪽에 있으면 flip하여 오른쪽을 바라봄
-  const flipEnemy = heroPosition ? heroPosition.x > enemy.x : false;
+  // 적 시선 방향: 타겟팅 중이면 영웅 방향, 아니면 이동 방향(넥서스 방향)
+  let flipEnemy = false;
+  if (enemy.aggroOnHero && enemy.targetHeroId && heroPosition) {
+    // 영웅을 타겟팅 중 → 영웅 방향
+    flipEnemy = heroPosition.x > enemy.x;
+  } else {
+    // 넥서스로 이동 중 → 넥서스 방향
+    const nexus = useRPGStore.getState().nexus;
+    if (nexus) {
+      flipEnemy = nexus.x > enemy.x;
+    }
+  }
 
-  // 모션 스프라이트 시도 (보스 제외, 기본 적 유닛만)
+  // 모션 스프라이트 시도 (기본 적 유닛 + 보스)
   let enemyImageDrawn = false;
   const heroClass = ENEMY_TO_HERO_CLASS[enemy.type];
-  if (heroClass && gameTime != null && !isAnyBoss) {
-    // 적 상태: attacking → attack 모션, idle/moving 구분
+  const motionClass = heroClass || (isAnyBoss ? enemy.type as any : undefined);
+  if (motionClass && gameTime != null) {
+    // 적 상태: attacking → idle (공격은 쿨다운 점프로 감지)
     const enemyState = enemy.state === 'attacking' ? 'idle' : enemy.state;
     enemyImageDrawn = drawMotionSprite(
       ctx,
       enemy.id,
-      heroClass,
+      motionClass,
       undefined, // advancedClass 없음
       undefined, // tier 없음
       enemyState,

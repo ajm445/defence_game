@@ -661,12 +661,14 @@ export const useRPGStore = create<RPGStore>()(
       // 난이도가 전달되지 않으면 스토어의 선택된 난이도 사용
       const gameDifficulty = difficulty || state.selectedDifficulty;
       const hero = createHeroUnit(heroClass, characterLevel, statUpgrades, advancedClass, tier);
-      // 모션 스프라이트 미리 로드 (영웅 + 적 유닛 기본 4직업)
+      // 모션 스프라이트 미리 로드 (영웅 + 적 유닛 기본 4직업 + 보스)
       preloadMotionSprites(heroClass, advancedClass as AdvancedHeroClass | undefined, tier);
       preloadMotionSprites('warrior');
       preloadMotionSprites('archer');
       preloadMotionSprites('knight');
       preloadMotionSprites('mage');
+      preloadMotionSprites('boss' as any);
+      preloadMotionSprites('boss2' as any);
       set({
         ...initialState,
         running: true,
