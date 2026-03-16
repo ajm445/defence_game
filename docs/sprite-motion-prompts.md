@@ -964,6 +964,117 @@ Frame 4 (Sustain): Sustained healing fountain. Green pulses every second (10% HP
 
 ---
 
+---
+
+### 13. BOSS 1 — 죽음의 기사 (기마 해골 기사)
+
+> **참조 이미지**: `public/img/units/boss.png`
+> **렌더 크기**: 60×80px (일반 유닛의 2.5배)
+> **원본 프레임 크기**: 약 700×900px (일반보다 큼 — 말 포함 공간 필요)
+> **스킬**: 강타(120° AoE), 충격파, 돌진, 부하 소환, 회복
+
+#### 보스 1 외형 설명
+- **기수**: 해골 얼굴(큰 빨간 눈), 뿔 달린 금 장식 투구(꼭대기 박쥐 장식), 금 트림 짙은 회색 풀 아머, 짙은 갈색 망토
+- **무기**: 거대한 시안/청록색 발광 양손검 (검에서 시안 에너지 불꽃)
+- **말**: 검은 장갑마(해골 다리, 빨간 눈), 금 트림 짙은 회색 마갑, 찢어진 짙은 적갈색 마의, 발밑 붉은 에너지 흔적
+- **색상 테마**: 짙은 회색 + 금 트림 + 시안 검 + 빨간 눈 + 적갈색 망토/마의
+
+#### 13-1. Walk (4프레임)
+```
+Generate a 4-frame walk cycle sprite sheet for this chibi skeleton death knight on horseback.
+
+Character: [Boss 1 외형 — 위 설명 참조]
+
+IMPORTANT: This is a MOUNTED character (rider + horse together). The horse and rider must be treated as ONE unit. The overall character is LARGER than normal heroes — each frame should be approximately 700x900px to accommodate the horse body.
+
+Frame 1: Horse right front leg forward, left back. Rider steady, sword resting on shoulder. Cape flows back. Red energy wisps at hooves.
+Frame 2: Horse legs passing center (contact pose). Rider bobs slightly. Horse head nods down. Armor clinks.
+Frame 3: Horse left front leg forward, right back. Rider shifts weight. Cape billows opposite. Red energy flickers.
+Frame 4: Horse legs passing center again. Rider settles. Horse head rises. Heavy, ominous stride.
+
+Slow, heavy, menacing mounted walk. Ground trembles. Horse skeleton legs visible. Dark atmosphere. The mount (horse) and rider move as one cohesive unit — do NOT separate them.
+```
+
+#### 13-2. Basic Attack — 강타 (4프레임)
+```
+Generate a 4-frame mounted sword slash sprite sheet for this chibi skeleton death knight on horseback.
+
+Character: [Boss 1 외형 — 위 설명 참조]
+
+IMPORTANT: Mounted character — horse and rider as ONE unit. Each frame approximately 700x900px.
+
+Frame 1 (Wind-up): Rider raises massive cyan glowing sword high overhead with both hands. Horse rears slightly, front hooves lifting. Cape flows up. Red eyes blaze. Cyan energy intensifies on blade.
+Frame 2 (Swing): Massive downward-diagonal slash. Huge cyan slash arc trail (120-degree wide cone). Horse lunges forward. Rider leans into strike. Ground cracks beneath horse.
+Frame 3 (Impact): Sword at full extension. Massive cyan energy explosion at impact point. Shockwave ripples. Dust and debris. Horse stamps. Devastating 120° AoE cone visible.
+Frame 4 (Recovery): Sword returning to shoulder rest. Cyan energy dissipating. Horse settles. Cape falling back. Rider straightens.
+
+Overwhelmingly powerful mounted melee. 200% damage, 150px radius, 120° cone AoE, 0.5s stun. Cyan sword energy (#00cccc). The impact should feel earth-shattering.
+```
+
+---
+
+### 14. BOSS 2 — 어둠의 마법사 (날개 달린 해골 마법사)
+
+> **참조 이미지**: `public/img/units/RPG/heroes/boss2.png`
+> **렌더 크기**: 60×80px (일반 유닛의 2.5배)
+> **원본 프레임 크기**: 약 700×900px (일반보다 큼 — 날개 포함 공간 필요)
+> **스킬**: 암흑 구체, 그림자 소환, 공허 지대, 유성 낙하, 영혼 흡수, 텔레포트
+
+#### 보스 2 외형 설명
+- **몸체**: 해골 얼굴(큰 빨간 눈), 뿔 달린 짙은 회색+보라 투구(꼭대기 박쥐 장식), 검은+짙은 보라+금 트림 로브(보라 룬 문양), 보라 보석 장식
+- **날개**: 거대한 검은 박쥐 날개 (양쪽으로 펼침, 체구보다 넓음)
+- **무기**: 나무 지팡이 (꼭대기에 보라색 발광 오브/에너지 구체)
+- **발밑**: 짙은 보라/남색 안개/연기가 항상 피어오름
+- **색상 테마**: 검은색 + 짙은 보라 + 금 트림 + 보라 발광 + 빨간 눈
+
+#### 14-1. Walk (4프레임)
+```
+Generate a 4-frame hovering movement sprite sheet for this chibi skeleton dark wizard with large bat wings.
+
+Character: [Boss 2 외형 — 위 설명 참조]
+
+IMPORTANT: This character has LARGE bat wings that extend beyond the body width. Each frame should be approximately 700x900px to accommodate the full wingspan. The character FLOATS/HOVERS — feet do NOT touch the ground.
+
+Frame 1: Wings at mid-upstroke. Staff held forward. Purple mist trails below feet. Robes flowing. Purple orb on staff glows steadily.
+Frame 2: Wings at peak (highest point). Body rises slightly. Purple energy wisps around. Robes billow upward from wind.
+Frame 3: Wings at mid-downstroke. Body lowers slightly. Purple mist swirls beneath. Staff orb pulses. Robes settle.
+Frame 4: Wings at lowest point (folding in slightly). Body at lowest hover height. Purple mist disperses then gathers. Robes fall.
+
+Floating, ethereal movement — NOT walking. Wings provide lift. Dark purple atmosphere. Constant purple mist below feet. Ominous, magical presence. Slow, deliberate hovering motion.
+```
+
+#### 14-2. Basic Attack — 암흑 마법 (4프레임)
+```
+Generate a 4-frame dark magic attack sprite sheet for this chibi skeleton dark wizard with large bat wings.
+
+Character: [Boss 2 외형 — 위 설명 참조]
+
+IMPORTANT: Large bat wings — each frame approximately 700x900px.
+
+Frame 1 (Gather): Wings spread wide. Free hand (non-staff hand) extends forward, fingers spread. Purple-violet dark energy gathers between staff orb and free hand. Eyes blaze bright red.
+Frame 2 (Channel): Dark purple energy concentrates into orb shape in front of character. Staff orb blazes. Wings flare outward. Purple runes appear around the energy orb. Intense purple glow.
+Frame 3 (Launch): Dark orb fires forward from both hands thrust. Massive purple energy burst at release point. Wings snap back from recoil. Purple trails. Robes blown back. 250% damage AoE.
+Frame 4 (Recovery): Energy dissipating. Staff returns to rest position. Wings fold back to neutral. Purple wisps fading. Return to hovering pose.
+
+Powerful dark magic ranged attack. Purple (#9900ff) + violet energy. 120px AoE explosion at target. Menacing, destructive magic.
+```
+
+---
+
+## 보스 스프라이트 생성 시 주의사항
+
+1. **프레임 크기**: 보스는 일반 캐릭터(500×600px)보다 크게 — **700×900px/프레임** 권장 (2×2 시트 = 1400×1800px)
+2. **보스 1 (기마)**: 말+기수가 하나의 유닛. 말 몸체, 다리, 기수, 검, 망토 모두 포함
+3. **보스 2 (날개)**: 큰 박쥐 날개가 몸 양옆으로 크게 펼쳐짐. 날개 전체가 프레임 안에 들어가야 함
+4. **구분선 엄수**: 보스가 크기 때문에 구분선 넘김 위험이 높음 — 마진 충분히 확보
+5. **공통 스타일 프리픽스의 프레임 크기를 700×900px로 수정**하여 사용:
+   ```
+   Each frame should be the same size (approximately 700x900px per frame),
+   arranged in a 2x2 grid (top-left = frame 1, top-right = frame 2,
+   bottom-left = frame 3, bottom-right = frame 4).
+   ```
+6. **보스 글로우**: Boss 1 = 빨간 글로우, Boss 2 = 보라 글로우 — 발밑/배경에 은은하게 표현
+
 ## 프롬프트 사용 팁
 
 1. **새 캐릭터** - 해당 캐릭터의 정적 이미지(`public/img/units/` 또는 `RPG/heroes/`)를 참조로 첨부
@@ -985,4 +1096,6 @@ Frame 4 (Sustain): Sustained healing fountain. Green pulses every second (10% HP
 | `public/img/units/mage.png` | 마법사 기본 |
 | `public/img/units/RPG/heroes/{name}.png` | 전직 Tier 1 |
 | `public/img/units/RPG/heroes/{name}2.png` | 전직 Tier 2 |
+| `public/img/units/boss.png` | 보스 1 (기마 해골 기사) |
+| `public/img/units/RPG/heroes/boss2.png` | 보스 2 (날개 달린 해골 마법사) |
 | `public/img/units/RPG/skill_icon/` | 스킬 아이콘 |
