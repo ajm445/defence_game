@@ -237,8 +237,13 @@ shading, detailed equipment. Each frame should be the same size
 (top-left = frame 1, top-right = frame 2, bottom-left = frame 3,
 bottom-right = frame 4).
 
-The character MUST face LEFT in ALL 4 frames. Do NOT mix directions —
-every frame must show the character facing the same left direction.
+FACING DIRECTION — CRITICAL:
+All 4 frames MUST face the EXACT SAME direction. Pick ONE direction
+and keep it consistent across ALL frames. The last frame (Frame 4,
+bottom-right) must face the SAME direction as Frames 1, 2, and 3.
+Do NOT let Frame 4 face a different direction — this is a very common
+mistake. A "recovery" or "return to stance" pose does NOT mean the
+character turns around. The character always keeps facing the same way.
 
 The 4 frames must form a SMOOTH, CONTINUOUS animation sequence.
 Each frame should flow naturally into the next like keyframes of an
@@ -256,7 +261,10 @@ CRITICAL RULES — MUST FOLLOW STRICTLY:
   energy effects, particles, shadows — MUST remain 100% inside its own
   quadrant. If a sword swing or effect would extend past the divider line,
   make it SMALLER so it fits. This is the #1 most important rule.
-- ALL frames must face LEFT. No exceptions. No frame should face right.
+- ALL 4 frames must face the SAME direction. No mixing allowed.
+- ⚠ Frame 4 (bottom-right) MUST face the SAME direction as Frames 1-3.
+  "Recovery" or "return to stance" does NOT mean turning around.
+  This is the most common mistake — Frame 4 often gets flipped. Don't.
 - The character must be the SAME SIZE in all 4 frames. Keep the character
   centered within each quadrant and at consistent scale — do not make the
   character smaller in crouching/action poses.
@@ -264,11 +272,10 @@ CRITICAL RULES — MUST FOLLOW STRICTLY:
   and the divider lines to prevent any clipping.
 - Treat each quadrant as a completely independent image. Nothing from
   one quadrant should be visible in any other quadrant.
-- DIRECTION CONSISTENCY: When generating multiple sprite sheets for the
-  same character (walk, attack, W skill, E skill), the character must
-  face the SAME direction (LEFT) across ALL sheets. The facing direction
-  must be identical whether the character is walking, attacking, or
-  casting — never flip or mirror the character between different sheets.
+- DIRECTION CONSISTENCY across sheets: When generating multiple sprite
+  sheets for the same character (walk, attack, W skill, E skill), the
+  character must face the SAME direction across ALL sheets. Never flip
+  or mirror the character between different animation sheets.
 ```
 
 > **후처리**: 생성된 이미지에서 배경 제거(remove.bg 등) 후, `node scripts/combine-sprites.js` 로 개별 프레임을 2×2 시트로 합성하거나 그대로 사용. 구분선이 있으므로 이미지 편집 도구에서 4등분으로 잘라 개별 프레임으로 분리 가능.
@@ -582,8 +589,13 @@ Generate a 4-frame walk cycle sprite sheet for this chibi skeleton guardian.
 
 Character: [Guardian 외형]
 
-Frame 1-4: Very heavy, deliberate march. Shield always forward.
-Mace held at side, sways slightly with each step. Cape flows behind. Ground-shaking steps.
+Frame 1: Right foot forward, heavy step. Shield forward, mace at side. Cape starts to sway.
+Frame 2: Feet passing center. Body at peak height. Mace sways slightly forward.
+Frame 3: Left foot forward, ground-shaking step. Shield steady, mace sways back.
+Frame 4: Feet passing center again. Body at lowest point. Same facing direction as Frames 1-3.
+
+Very heavy, deliberate march. Shield always forward.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 6-2. Basic Attack - 메이스 강타 (4프레임)
@@ -598,10 +610,11 @@ It is swung like a hammer, not like a flail.
 Frame 1 (Raise): Lifts mace above shoulder with right hand, winding up for a downward strike. Shield held forward in left hand. Body leans back slightly, loading weight.
 Frame 2 (Swing Down): Brings mace down in a powerful overhead arc. Body lunges forward. Shield stays braced. Mace head at mid-swing, moving downward.
 Frame 3 (Impact): Mace slams into the ground at full extension. Blue (#00aaff) impact sparks burst from the spiked ball. Small ground cracks beneath. Maximum forward lean.
-Frame 4 (Recovery): Pulls mace back up to resting position at side. Returns to upright guard stance with shield forward.
+Frame 4 (Recovery): Pulls mace back up to resting position at side. Returns to upright guard stance with shield forward. ⚠ SAME facing direction as Frames 1-3 — do NOT flip.
 
 Heavy, deliberate crushing strike — like a hammer blow, not a spinning flail.
 Each hit reduces W cooldown by 1 second. Blue (#00aaff) impact color.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 6-3. W Skill - 수호의 돌진 Guardian Rush (4프레임)
@@ -616,6 +629,7 @@ Frame 3 (Ram): Shield slam with blue energy explosion. Protective blue dome form
 Frame 4 (Protect): Protective stance. Blue dome expands to cover allies. Shield raised proudly.
 
 150px dash + 2-second stun + ally damage reduction. Blue (#00aaff).
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 6-4. E Skill - 보호막 Shield (4프레임)
@@ -630,6 +644,7 @@ Frame 3 (Dome): Massive blue energy dome fully forms. Stands tall in center. Shi
 Frame 4 (Sustain): Dome established. Vigilant stance. Blue particles floating inside.
 
 Team 50% damage reduction for 5 seconds. Impenetrable fortress.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 ---
@@ -642,8 +657,13 @@ Generate a 4-frame walk cycle sprite sheet for this chibi skeleton sniper.
 
 Character: [Sniper 외형]
 
-Frame 1-4: Careful, tactical walking. Crossbow-rifle held ready at hip level.
-Head on a swivel. Precise footsteps. Military-style movement.
+Frame 1: Right foot forward, crossbow-rifle at hip. Alert posture.
+Frame 2: Feet passing center. Head scanning. Body at peak height.
+Frame 3: Left foot forward. Crossbow steady. Precise footwork.
+Frame 4: Feet passing center again. Same facing direction as Frames 1-3.
+
+Careful, tactical walking. Military-style movement.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 7-2. Basic Attack - 정밀 사격 (4프레임)
@@ -658,6 +678,7 @@ Frame 3 (Fire): Fires - purple energy muzzle flash. Slight recoil. Purple tracer
 Frame 4 (Cycle): Chambering next round. Recovering from recoil. Ready for next shot.
 
 50% critical hit chance (2x damage). Purple (#9933ff). Tactical/precise.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 7-3. W Skill - 후방 도약 Backflip Shot (4프레임)
@@ -672,6 +693,7 @@ Frame 3 (Descent): Completing flip, rotating right-side-up. Purple speed aura ap
 Frame 4 (Land): Smooth landing 150px behind. Kneeling pose. Purple swiftness aura on legs (speed buff). Crossbow ready.
 
 Jump backward 150px while shooting + speed buff. Agile, tactical. Purple (#9933ff).
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 7-4. E Skill - 저격 Snipe (4프레임)
@@ -686,6 +708,7 @@ Frame 3 (Charge): Weapon fully charged with intense purple energy. Barrel glows.
 Frame 4 (Fire): MASSIVE shot - enormous purple energy beam launches. Extreme recoil. Huge muzzle flash. Ground cracks beneath.
 
 Boss-only, 1000% damage, 3-second channel, infinite range. Most powerful single-target attack. Devastating purple beam.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 ---
@@ -698,8 +721,13 @@ Generate a 4-frame walk cycle sprite sheet for this chibi skeleton ranger.
 
 Character: [Ranger 외형]
 
-Frame 1-4: Swift, light-footed walk. Bow in one hand, other hand near quiver.
-Nimble, ranger-style movement. Quick steps.
+Frame 1: Right foot forward, bow in hand. Light, quick step.
+Frame 2: Feet passing center. Body bounces up. Other hand near quiver.
+Frame 3: Left foot forward. Nimble stride. Bow sways slightly.
+Frame 4: Feet passing center again. Same facing direction as Frames 1-3.
+
+Swift, light-footed walk. Nimble, ranger-style movement.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 8-2. Basic Attack - 다중 사격 (4프레임)
@@ -714,6 +742,7 @@ Frame 3 (Release spread): All arrows fire in fan pattern. Amber energy trails in
 Frame 4 (Recovery): Hand already reaching for next arrows. Amber wisps fading.
 
 Hits up to 5 targets simultaneously. Fast multi-shot. Amber (#ff9922).
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 8-3. W Skill - 다중 화살 Multi Arrow (4프레임)
@@ -728,6 +757,7 @@ Frame 3 (Volley): All 5 fire in cone/fan pattern. 5 amber energy trails spreadin
 Frame 4 (Follow-through): Bow hand extended. 5 amber trails visible. Quick recovery.
 
 5 arrows in 45-degree fan, each 100% damage, 300px piercing. Amber (#ff9922).
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 8-4. E Skill - 화살 폭풍 Arrow Storm (4프레임)
@@ -742,6 +772,7 @@ Frame 3 (Rapid State): Dynamic action pose. Multiple ghostly afterimages showing
 Frame 4 (Sustained): Continuous rapid-fire state. Double speed arrows. Amber wind swirling. Energy arrows auto-replenishing.
 
 6 seconds of double attack speed. Amber (#ff9922). Speed and volume of fire.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 ---
@@ -754,8 +785,13 @@ Generate a 4-frame walk cycle sprite sheet for this chibi skeleton paladin.
 
 Character: [Paladin 외형]
 
-Frame 1-4: Slow, dignified march. Shield forward with golden glow.
-Holy sparkles trail behind. Heavy but graceful steps.
+Frame 1: Right foot forward, shield glowing gold. Dignified step.
+Frame 2: Feet passing center. Holy sparkles trail behind. Body at peak.
+Frame 3: Left foot forward. Golden glow pulses. Heavy but graceful.
+Frame 4: Feet passing center again. Same facing direction as Frames 1-3.
+
+Slow, dignified march. Shield forward with golden glow.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 9-2. Basic Attack - 신성 방패 타격 (4프레임)
@@ -770,6 +806,7 @@ Frame 3 (Impact): Shield at max extension. Golden healing pulse radiates outward
 Frame 4 (Recovery): Shield returns. Golden healing particles float toward ally positions.
 
 Each attack heals nearby allies 5% max HP. Gold (#ffcc00) holy energy.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 9-3. W Skill - 신성한 돌진 Holy Charge (4프레임)
@@ -784,6 +821,7 @@ Frame 3 (Heal Burst): Golden healing burst radiates. Crosses and light particles
 Frame 4 (Stand): Protective stance. Golden energy lingering. Shield glowing.
 
 150px dash + 1.5-second stun + ally 10% heal. Gold (#ffcc00) holy.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 9-4. E Skill - 신성한 빛 Divine Light (4프레임)
@@ -798,6 +836,7 @@ Frame 3 (Radiate): Maximum power. Massive golden explosion. Holy crosses, halos,
 Frame 4 (Invincible): Golden invincibility barrier. Full team invincible 3 seconds. Golden dome of divine protection.
 
 Team 30% heal + 3-second invincibility. Most powerful defensive ultimate. Divine, awe-inspiring. Gold (#ffcc00).
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 ---
@@ -810,8 +849,13 @@ Generate a 4-frame walk cycle sprite sheet for this chibi skeleton dark knight.
 
 Character: [DarkKnight 외형]
 
-Frame 1-4: Menacing stride. Dark mist trails from feet with each step.
-Purple sword energy flickers. Red eyes glow steadily. Ominous, heavy steps.
+Frame 1: Right foot forward, dark mist trails from feet. Purple sword flickers. Red eyes glow.
+Frame 2: Feet passing center. Mist intensifies. Ominous presence.
+Frame 3: Left foot forward. Dark energy pulses. Heavy, menacing step.
+Frame 4: Feet passing center again. Same facing direction as Frames 1-3.
+
+Menacing stride. Dark mist, purple sword energy, red eyes.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 10-2. Basic Attack - 흡혈 공격 (4프레임)
@@ -826,6 +870,7 @@ Frame 3 (Drain): Red life energy flows FROM enemy BACK to dark knight. Red/purpl
 Frame 4 (Absorb): Absorbs stolen life. Brief red glow. Purple sword stabilizes. Return to stance.
 
 20% lifesteal on basic attacks. Dark purple sword + red lifesteal particles.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 10-3. W Skill - 암흑 찌르기 Dark Pierce (4프레임)
@@ -840,6 +885,7 @@ Frame 3 (Thrust): Devastating forward thrust - dark energy lance extends 150px f
 Frame 4 (Aftermath): Energy lance dissipating. Character recovering. Dark energy exhausted. Sword returns to normal.
 
 1-sec cast, 20% HP cost, 350% damage, 150x80px area. Sacrificial, devastating. Dark purple (#9900cc).
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 10-4. E Skill (ON) - 어둠의 칼날 활성화 Dark Blade (4프레임)
@@ -854,6 +900,7 @@ Frame 3 (Active): Full Dark Blade mode - purple-black destruction aura in 150px 
 Frame 4 (Sustained): Sustained toggle state. Dark aura pulsing. Aggressive wide stance. HP slowly draining (red particles). Purple waves pulsing outward. Eyes burning red.
 
 Toggle: HP drain 5%/sec, 120% attack/sec to enemies in 150px. Auto-off at HP≤10%. Dark purple (#9900cc) + crimson.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 ---
@@ -866,8 +913,13 @@ Generate a 4-frame walk cycle sprite sheet for this chibi skeleton archmage.
 
 Character: [Archmage 외형]
 
-Frame 1-4: Dignified wizardly walk. Both orbs float alongside.
-Purple energy trails from movement. Robe and hat sway. Mystical presence.
+Frame 1: Right foot forward. Both orbs float alongside. Robe sways. Dignified step.
+Frame 2: Feet passing center. Purple energy trails. Hat sways. Body at peak.
+Frame 3: Left foot forward. Orbs pulse. Mystical presence radiates.
+Frame 4: Feet passing center again. Same facing direction as Frames 1-3.
+
+Dignified wizardly walk. Purple energy trails. Mystical presence.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 11-2. Basic Attack - 강화 마법 화살 (4프레임)
@@ -882,6 +934,7 @@ Frame 3 (Launch): Dual-handed release - massive purple missile fires. Much large
 Frame 4 (Recovery): Energy returns to both orbs. Magical afterglow. Return to pose.
 
 1.5x boss damage bonus. More powerful than base mage. Purple (#a855f7).
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 11-3. W Skill - 폭발 화염구 Inferno (4프레임)
@@ -896,6 +949,7 @@ Frame 3 (Launch): Hurls massive inferno - both hands thrust. Enormous fire+purpl
 Frame 4 (Aftermath): Charred ground beneath. Smoke and embers rising. Purple flames on hands. Burn fire particles spread (3-sec burn DoT).
 
 250% damage + 50% larger + 3-second burn DoT. Orange-red + purple.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 11-4. E Skill - 메테오 샤워 Meteor Shower (4프레임)
@@ -912,6 +966,7 @@ Frame 3 (Full Channel): Portal above fully open and active — swirling dark vor
 Frame 4 (Sustain): Sustained channeling pose — one arm maintains portal above, other arm directing energy forward. Portal pulsing with purple-orange light. Character floating. Staff beside, both orbs blazing. Intense, controlled power.
 
 Summoning ritual only — no meteors visible. 10 meteors over 5 seconds, each 300%, 300px area. Most devastating AoE ultimate. Purple (#a855f7) + orange fire. Apocalyptic energy without the meteors themselves.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 ---
@@ -924,9 +979,13 @@ Generate a 4-frame walk cycle sprite sheet for this chibi skeleton healer.
 
 Character: [Healer 외형]
 
-Frame 1-4: Gentle, graceful walk. Staff used as walking aid.
-Golden sparkles trail behind. Healing aura follows.
-Serene, calming movement. Robes flow gently.
+Frame 1: Right foot forward, staff used as walking aid. Golden sparkles begin.
+Frame 2: Feet passing center. Healing aura glows. Robes flow gently.
+Frame 3: Left foot forward. Golden sparkles trail behind. Serene step.
+Frame 4: Feet passing center again. Same facing direction as Frames 1-3.
+
+Gentle, graceful walk. Serene, calming movement.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 12-2. Basic Attack - 신성 마법 (4프레임)
@@ -941,6 +1000,7 @@ Frame 3 (Fire): Launches golden-green bolt at enemies. Holy light burst at launc
 Frame 4 (Recovery): Staff lowers. Green healing particles linger (passive aura). Return to serene pose.
 
 Mint-green (#00ff88) + gold theme. Same power as base mage. 252px range.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 12-3. W Skill - 치유의 빛 Healing Light (4프레임)
@@ -955,6 +1015,7 @@ Frame 3 (Dual Effect): Healing light hits area - enemies take damage (golden lig
 Frame 4 (Fade): Beam fading. Green healing particles linger. Golden sparkles settling.
 
 Damages enemies AND heals allies in same 150px area. Green healing + gold damage.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 #### 12-4. E Skill - 생명의 샘 Spring of Life (4프레임)
@@ -969,6 +1030,7 @@ Frame 3 (Full Bloom): Spring of Life at full power. Lush green fountain. Flower/
 Frame 4 (Sustain): Sustained healing fountain. Green pulses every second (10% HP/sec to all in 500px). Prayer pose maintaining spring.
 
 10 seconds of 10% HP/sec to all allies in 500px. Follows healer. Strongest sustained healing. Miracle of life. Green (#00ff88) + gold.
+⚠ ALL 4 frames must face the SAME direction. Frame 4 must NOT face a different direction from Frames 1-3.
 ```
 
 ---
