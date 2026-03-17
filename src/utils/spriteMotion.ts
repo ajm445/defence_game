@@ -21,11 +21,44 @@ const MOTION_CONFIG: Record<MotionType, { fps: number; loop: boolean; holdTime: 
   e: { fps: 5, loop: false, holdTime: 1.0 },
 };
 
-// 캐릭터별 모션 config 오버라이드 (버프형 E스킬 등 holdTime 조정)
-const MOTION_CONFIG_OVERRIDE: Record<string, Partial<typeof MOTION_CONFIG[MotionType]>> = {
-  'warrior_e': { holdTime: 1.2 },
-  // 기사 W: 돌진 0.25초에 맞춰 빠르게 재생 (기본 6fps → 12fps)
+// 캐릭터별 모션 config 오버라이드
+// 서버 타이밍 기준:
+//   돌진형 W: dashDuration=0.25s (resolveMotion이 dashState로 감지)
+//   즉발형 W: attackLockUntil=0.67s
+//   즉발형 E: attackLockUntil=0.8s
+//   시전형(castingUntil): resolveMotion이 상태 기반 감지 → 오버라이드 불필요
+const MOTION_CONFIG_OVERRIDE: Record<string, Partial<typeof MOTION_CONFIG[MotionType]> & { frameTimes?: number[] }> = {
+  // === 돌진형 W (dashDuration=0.25s) → fps12 빠르게 재생 ===
+  'warrior_w': { fps: 12, holdTime: 0.4 },
   'knight_w': { fps: 12, holdTime: 0.4 },
+  'berserker_w': { fps: 12, holdTime: 0.4 },
+  'guardian_w': { fps: 12, holdTime: 0.4 },
+  'paladin_w': { fps: 12, holdTime: 0.4 },
+
+  // === 즉발형 W (서버 잠금 0.67s) → holdTime 맞춤 ===
+  'archer_w': { holdTime: 0.67 },
+  'mage_w': { holdTime: 0.67 },
+  'sniper_w': { holdTime: 0.67 },
+  'ranger_w': { holdTime: 0.67 },
+  'archmage_w': { holdTime: 0.67 },
+  'healer_w': { holdTime: 0.67 },
+
+  // === 즉발형 E (서버 잠금 0.8s) → holdTime 맞춤 ===
+  'warrior_e': { holdTime: 0.8 },
+  'berserker_e': { holdTime: 0.8 },
+  'guardian_e': { holdTime: 0.8 },
+  'knight_e': { holdTime: 0.8 },
+  'archer_e': { holdTime: 0.8 },
+  'mage_e': { holdTime: 0.8 },
+  'ranger_e': { holdTime: 0.8 },
+  'paladin_e': { holdTime: 0.8 },
+  'archmage_e': { holdTime: 0.8 },
+  'healer_e': { holdTime: 0.8 },
+  // sniper_e: 3초 시전 → frameTimes로 프레임별 시간 직접 지정
+  // 프레임0,1: 조준 (0~2.2s), 프레임2: 발사 (2.2~3.0s), 프레임3: 빠른 후속동작 (3.0~3.3s)
+  'sniper_e': { holdTime: 3.5, frameTimes: [1.0, 2.2, 3.0, 3.3] },
+  // darkKnight_w: castingUntil 기반 (1초 시전) → 오버라이드 불필요
+  // darkKnight_e: darkBladeActive 토글 → 오버라이드 불필요
 };
 
 // 스프라이트가 오른쪽을 바라보는 경우 → flip 반전 필요
@@ -36,6 +69,7 @@ const SPRITE_FACES_RIGHT = new Set<string>([
   'warrior_w', 'warrior_e',
   'archer_walk', 'archer_w', 'archer_e',
   'knight_w', 'knight_e',
+  'berserker_walk', 'berserker_w',
   'boss_attack',
 ]);
 
@@ -110,11 +144,13 @@ const E_SUFFIX: Record<string, string> = {
 function getSpritePath(
   heroClass: HeroClass,
   advancedClass: AdvancedHeroClass | undefined,
+  tier: 1 | 2 | undefined,
   motion: MotionType
 ): string {
   const folder = getMotionFolderPath(heroClass, advancedClass);
   const fileName = getMotionFileName(heroClass, advancedClass);
   const key = advancedClass || heroClass;
+  const tierSuffix = (tier === 2 && advancedClass) ? '2' : '';
 
   let suffix: string;
   if (motion === 'walk') suffix = '_walk';
@@ -122,7 +158,7 @@ function getSpritePath(
   else if (motion === 'w') suffix = W_SUFFIX[key] || '_w';
   else suffix = E_SUFFIX[key] || '_e';
 
-  return `${folder}/${fileName}${suffix}.png`;
+  return `${folder}/${fileName}${tierSuffix}${suffix}.png`;
 }
 
 // ============================================
@@ -154,7 +190,7 @@ function loadSheet(
   const img = new Image();
   img.onload = () => { imgCache.set(key, img); loadingSet.delete(key); };
   img.onerror = () => { failedSet.add(key); loadingSet.delete(key); };
-  img.src = getSpritePath(heroClass, advancedClass, motion);
+  img.src = getSpritePath(heroClass, advancedClass, tier, motion);
   return null;
 }
 
@@ -194,7 +230,7 @@ function detectSkillUsed(
   if (cW > anim.prevW + 0.5) return 'w';
   // W/E 모션 재생 중에는 Q(공격) 감지 차단 (스킬 모션이 공격에 의해 덮어씌워지는 것 방지)
   if (anim.motion === 'w' || anim.motion === 'e') return null;
-  if (cQ > anim.prevQ + 0.3) return 'attack';
+  if (cQ > anim.prevQ + 0.15) return 'attack';
   return null;
 }
 
@@ -212,12 +248,38 @@ function resolveMotion(
   return null;
 }
 
-function getFrameIndex(motion: MotionType, startTime: number, gameTime: number, heroKey?: string): number {
+function getFrameIndex(motion: MotionType, startTime: number, gameTime: number, heroKey?: string, attackSpeed?: number): number {
   const base = MOTION_CONFIG[motion];
   const override = heroKey ? MOTION_CONFIG_OVERRIDE[`${heroKey}_${motion}`] : undefined;
   const config = override ? { ...base, ...override } : base;
   const elapsed = gameTime - startTime;
   if (elapsed < 0) return -1;
+
+  // attack 모션: attackSpeed 기반 동적 타이밍
+  // 가중 프레임 분배: 3번째 프레임(idx 2)에서 타격 싱크
+  // 프레임 0,1: 빠른 준비동작 (각 15%), 프레임 2: 타격 (40%), 프레임 3: 후속동작 (30%)
+  if (motion === 'attack' && attackSpeed && attackSpeed > 0) {
+    const animTime = Math.max(0.25, attackSpeed * 0.6);  // 최소 0.25s
+    const holdTime = Math.max(0.35, attackSpeed);         // 최소 0.35s
+    if (elapsed >= holdTime) return -1;
+    if (elapsed >= animTime) return FRAMES_PER_SHEET - 1;
+    const t = elapsed / animTime;
+    if (t < 0.15) return 0;
+    if (t < 0.30) return 1;
+    if (t < 0.70) return 2;
+    return 3;
+  }
+
+  // frameTimes 오버라이드: 프레임별 시간 경계 직접 지정 (저격수 E 등)
+  if (config.frameTimes) {
+    const ft = config.frameTimes;
+    if (elapsed >= config.holdTime) return -1;
+    for (let i = 0; i < ft.length; i++) {
+      if (elapsed < ft[i]) return i;
+    }
+    return FRAMES_PER_SHEET - 1;
+  }
+
   const totalAnimTime = FRAMES_PER_SHEET / config.fps;
 
   if (config.loop) {
@@ -260,7 +322,9 @@ export function drawMotionSprite(
   width: number,
   height: number,
   flipHorizontal: boolean,
-  attackFlip?: boolean  // 공격 대상 방향 flip (이동 방향과 다를 수 있음)
+  attackFlip?: boolean,  // 공격 대상 방향 flip (이동 방향과 다를 수 있음)
+  attackSpeed?: number,  // 기본공격 쿨다운(초) — attack 모션 타이밍에 사용
+  castingFlip?: boolean  // 캐스팅 중 타겟 방향 flip (저격수 E 등)
 ): boolean {
   const cQ = skillCooldowns?.Q ?? 0;
   const cW = skillCooldowns?.W ?? 0;
@@ -273,8 +337,11 @@ export function drawMotionSprite(
   // 1. 쿨다운 점프 감지
   const skillUsed = detectSkillUsed(anim, cQ, cW, cE);
   if (skillUsed !== null) {
-    // 원샷 모션 시작 시 flip 방향 고정 (공격 대상 방향 사용, 이동 방향과 분리)
-    const skillFlipBase = (skillUsed === 'attack' && attackFlip != null) ? attackFlip : flipHorizontal;
+    // 원샷 모션 시작 시 flip 방향 고정
+    // attack: 공격 대상 방향, e 캐스팅: 타겟 방향, 그 외: 이동 방향
+    let skillFlipBase = flipHorizontal;
+    if (skillUsed === 'attack' && attackFlip != null) skillFlipBase = attackFlip;
+    else if (skillUsed === 'e' && castingFlip != null) skillFlipBase = castingFlip;
     const currentFlip = resolveFlip(heroClass, advancedClass, skillUsed, skillFlipBase);
     anim = { motion: skillUsed, startTime: gameTime, prevQ: cQ, prevW: cW, prevE: cE, lockedFlip: currentFlip };
     heroAnimStates.set(heroId, anim);
@@ -287,13 +354,18 @@ export function drawMotionSprite(
 
   // 2. 원샷 모션 재생 (walk보다 우선)
   if (anim && !MOTION_CONFIG[anim.motion].loop) {
-    const fi = getFrameIndex(anim.motion, anim.startTime, gameTime, heroKey);
+    const fi = getFrameIndex(anim.motion, anim.startTime, gameTime, heroKey, attackSpeed);
     if (fi >= 0) {
       const sheet = loadSheet(heroClass, advancedClass, tier, anim.motion);
       if (sheet) {
         updateSrcRect(sheet, fi);
         // 원샷 모션: 시작 시 고정된 flip 사용 (공격 중 이동 방향 변경 방지)
-        const flip = anim.lockedFlip != null ? anim.lockedFlip : resolveFlip(heroClass, advancedClass, anim.motion, flipHorizontal);
+        let flip = anim.lockedFlip != null ? anim.lockedFlip : resolveFlip(heroClass, advancedClass, anim.motion, flipHorizontal);
+        // 캐스팅 중 타겟 방향으로 갱신 (이펙트 데이터 도착 지연 대응)
+        if (anim.motion === 'e' && castingFlip != null) {
+          flip = resolveFlip(heroClass, advancedClass, 'e', castingFlip);
+          anim.lockedFlip = flip;
+        }
         drawFrame(ctx, sheet, x, y, width, height, flip);
         return true;
       }
@@ -315,7 +387,7 @@ export function drawMotionSprite(
     const sheet = loadSheet(heroClass, advancedClass, tier, stateMotion);
     if (!sheet) return false;
 
-    const fi = getFrameIndex(stateMotion, anim.startTime, gameTime, heroKey);
+    const fi = getFrameIndex(stateMotion, anim.startTime, gameTime, heroKey, attackSpeed);
     if (fi < 0) return false;
 
     updateSrcRect(sheet, fi);

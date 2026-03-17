@@ -176,14 +176,19 @@ export function drawHeroImage(
   const img = heroImageCache.get(cacheKey);
 
   if (img) {
+    // 높이 기준 비율 유지 (모션 스프라이트와 동일 방식)
+    const srcRatio = img.naturalWidth / img.naturalHeight;
+    const drawH = height;
+    const drawW = drawH * srcRatio;
+
     if (flipHorizontal) {
       ctx.save();
       ctx.translate(x, y);
       ctx.scale(-1, 1);
-      ctx.drawImage(img, -width / 2, -height / 2, width, height);
+      ctx.drawImage(img, -drawW / 2, -drawH / 2, drawW, drawH);
       ctx.restore();
     } else {
-      ctx.drawImage(img, x - width / 2, y - height / 2, width, height);
+      ctx.drawImage(img, x - drawW / 2, y - drawH / 2, drawW, drawH);
     }
     return true;
   }

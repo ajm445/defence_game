@@ -502,7 +502,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, {
   guardian: {
     name: '가디언',
     baseClass: 'warrior',
-    stats: { hp: 640, attack: 50, attackSpeed: 0.95, speed: 2.94, range: 80 },
+    stats: { hp: 640, attack: 50, attackSpeed: 0.95, speed: 2.94, range: 60 },
     specialEffects: { damageReduction: 0.3 },
   },
   sniper: {

@@ -524,6 +524,7 @@ export class RPGServerGameEngine {
             x: nearestEnemy.x,
             y: nearestEnemy.y,
             timestamp: now,
+            advancedClass: hero.advancedClass as string | undefined,
           });
         } else {
           const nearestBase = findNearestEnemyBase(this.state.enemyBases, hero.x, hero.y, attackRange + 50);
@@ -541,6 +542,7 @@ export class RPGServerGameEngine {
               x: nearestBase.x,
               y: nearestBase.y,
               timestamp: this.state.currentTickTimestamp,
+              advancedClass: hero.advancedClass as string | undefined,
             });
           }
         }

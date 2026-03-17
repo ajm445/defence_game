@@ -93,7 +93,9 @@ export function useRPGGameLoop() {
               ? 'boss_basic_attack'
               : effect.type === 'ranged'
                 ? 'attack_ranged'
-                : 'attack_melee';
+                : effect.advancedClass === 'guardian'
+                  ? 'attack_mace'
+                  : 'attack_melee';
           effectManager.createEffect(effectType, effect.x, effect.y);
           // 사운드도 함께 재생
           const soundType = effect.type === 'ranged' ? 'attack_ranged' : 'attack_melee';
@@ -134,7 +136,7 @@ export function useRPGGameLoop() {
               soundManager.play('boss_spawn');
               break;
             case 'knockback':
-              effectManager.createEffect('boss_knockback', effect.x, effect.y);
+              // 보스 위치 이펙트 생략 (영웅 착지 위치에서 개별 생성됨)
               soundManager.play('warning');
               break;
             case 'charge':
@@ -1259,7 +1261,7 @@ export function useRPGGameLoop() {
             effectManager.createEffect('boss_summon', boss.x, boss.y);
             soundManager.play('boss_spawn');
           } else if (skillType === 'knockback') {
-            effectManager.createEffect('boss_knockback', boss.x, boss.y);
+            // 보스 위치 이펙트 생략 (영웅 착지 위치에서 개별 생성됨)
             soundManager.play('warning');
           } else if (skillType === 'charge') {
             effectManager.createEffect('boss_charge', boss.x, boss.y);
@@ -1644,7 +1646,9 @@ export function useRPGGameLoop() {
             ? 'boss_basic_attack'
             : effect.type === 'ranged'
               ? 'attack_ranged'
-              : 'attack_melee';
+              : effect.advancedClass === 'guardian'
+                ? 'attack_mace'
+                : 'attack_melee';
         effectManager.createEffect(effectType, effect.x, effect.y);
       }
     }

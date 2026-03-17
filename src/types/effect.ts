@@ -1,5 +1,6 @@
 export type EffectType =
   | 'attack_melee'
+  | 'attack_mace'
   | 'attack_ranged'
   | 'attack_mage'
   | 'gather_wood'

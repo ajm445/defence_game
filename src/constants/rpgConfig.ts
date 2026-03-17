@@ -1104,7 +1104,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
       attack: 50,        // 45 * 1.10
       attackSpeed: 0.95, // 1.0 / 1.05 (5% 빠름)
       speed: 2.94,       // 2.8 * 1.05
-      range: 80,         // 변동 없음
+      range: 60,         // 메이스 근접 무기 (전사 80보다 짧음)
     },
     specialEffects: {
       damageReduction: 0.3,  // 받는 피해 30% 감소

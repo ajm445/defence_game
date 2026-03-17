@@ -1,5 +1,70 @@
 # Changelog
 
+## [1.26.2] - 2026-03-17
+
+### 기본공격 프레임 싱크 시스템
+- **3번째 프레임 타격 싱크**: 기사/가디언/버서커 기본공격이 프레임 3(타격 모션)에서 데미지 발동되도록 가중 프레임 분배 적용
+  - 프레임 0,1: 빠른 준비동작 (각 15%), 프레임 2: 타격 (40%), 프레임 3: 후속동작 (30%)
+  - `attackSpeed` 기반 동적 타이밍 — 공격속도 업그레이드에 자동 대응
+- **공격 감지 임계값 완화**: Q 쿨다운 점프 감지 0.3초 → 0.15초 (빠른 공격속도에서도 모션 감지)
+
+### 저격수 궁극기(E) 개선
+- **frameTimes 시스템 도입**: 프레임별 시간 경계 직접 지정 (균등 fps 대신)
+  - 프레임 0,1: 조준 (0~2.2초), 프레임 2: 발사 (2.2~3.0초), 프레임 3: 빠른 후속동작 (3.0~3.3초)
+- **캐스팅 방향(castingFlip) 수정**: 저격수 E 시전 시 타겟 방향으로 캐릭터 회전
+  - 게임 상태/이펙트 상태 이중 브로드캐스트 타이밍 디싱크 해결
+  - E 모션 재생 중 `castingFlip` 도착 시 실시간 방향 갱신 (`lockedFlip` 오버라이드)
+- **저격수 스프라이트 리네임**: `sniper_w` → `sniper_w_backflip`, `sniper_e` → `sniper_e_snipe` (tier1/tier2)
+
+### 가디언 차별화
+- **공격 사거리 축소**: 80px → 60px (메이스 근접 무기 반영, 서버/클라이언트 동시 적용)
+- **메이스 전용 공격 이펙트**: `attack_mace` 파티클 신규 — 파란/회색 사각형 파티클, 높은 중력(무거운 타격감)
+- **BasicAttackEffect에 advancedClass 추가**: 서버에서 전직 정보 전달 → 클라이언트에서 직업별 이펙트 분기
+
+### 전직 모션 스프라이트 확장
+- **버서커 모션**: tier1/tier2 E(rage), W(blood_rush) 스프라이트 추가 + 파일 리네임
+- **가디언 모션**: tier1/tier2 attack, walk, W(guardian_rush), E(shield) 스프라이트 추가
+- **저격수 모션**: tier1/tier2 W(backflip), E(snipe) 스프라이트 추가
+- **레인저 모션**: 스프라이트 추가
+- **SPRITE_FACES_RIGHT 확장**: `berserker_walk`, `berserker_w` 추가
+
+### 모션 타이밍 오버라이드 전면 확장
+- **돌진형 W**: warrior/knight/berserker/guardian/paladin — fps 12, holdTime 0.4초
+- **즉발형 W**: archer/mage/sniper/ranger/archmage/healer — holdTime 0.67초
+- **즉발형 E**: 전 전직 (sniper 제외) — holdTime 0.8초
+- **시전형 E**: sniper_e — frameTimes [1.0, 2.2, 3.0, 3.3], holdTime 3.5초
+
+### 버서커 Tier2 시안 불꽃 이펙트
+- **광전사 버프 색상 분기**: tier2는 시안(#00ccff) 불꽃, tier1은 기존 붉은 불꽃
+- **적용 범위**: 베이스 글로우, 화염 그래디언트, 코어, 불꽃 입자, RAGE 텍스트, 영웅 글로우 전체
+
+### 히어로 이미지 비율 보정
+- **높이 기준 비율 유지**: `drawHeroImage`에서 원본 비율 보존 (모션 스프라이트와 동일 방식)
+
+### 공격 방향 폴백 개선
+- **basicAttackEffects 기반 attackFlip**: `attackTarget` 없을 때 최근 공격 이펙트 위치로 공격 방향 결정
+
+### 보스 넉백 이펙트 수정
+- **보스 위치 이펙트 생략**: knockback 이펙트를 보스 위치가 아닌 영웅 착지 위치에서 개별 생성
+
+### 스프라이트 프롬프트 정리
+- **LEFT 방향 강제**: 모든 스프라이트 생성 프롬프트에 왼쪽 방향 규칙 통일
+- **가디언 무기 수정**: 플레일 → 메이스로 프롬프트 일괄 수정
+- **프리픽스 간결화**: 프롬프트 파일명/설명 체계 정리 + 참조 이미지 안내 추가
+
+### 수정 파일
+- `src/utils/spriteMotion.ts`: frameTimes, 가중 프레임 분배, castingFlip, MOTION_CONFIG_OVERRIDE 전면 확장
+- `src/renderer/drawHero.ts`: castingFlip 계산, basicAttackEffects attackFlip 폴백, 버서커 tier2 색상
+- `src/hooks/useRPGGameLoop.ts`: 가디언 attack_mace 이펙트 분기, knockback 이펙트 수정
+- `src/effects/particleConfigs.ts`: attack_mace 파티클 설정 추가
+- `src/types/effect.ts`: attack_mace 타입 추가
+- `src/types/rpg.ts`: BasicAttackEffect에 advancedClass 필드 추가
+- `src/constants/rpgConfig.ts`: 가디언 range 80→60
+- `src/utils/heroImages.ts`: 높이 기준 비율 유지
+- `server/src/game/RPGServerGameEngine.ts`: basicAttackEffects에 advancedClass 추가
+- `server/src/game/rpgServerConfig.ts`: 가디언 range 80→60
+- `docs/sprite-motion-prompts.md`: LEFT 방향 강제, 가디언 메이스, 프리픽스 정리
+
 ## [1.26.1] - 2026-03-16
 
 ### 이동 로직 버그 수정

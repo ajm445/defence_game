@@ -196,16 +196,18 @@ export function drawHero(
   ctx.save();
 
   // 버프 이펙트 (광전사) - 불타오르는 불꽃 효과
+  // tier2: 시안 불꽃, tier1: 붉은 불꽃
   if (hasBerserker) {
     const time = gameTime * 3; // 애니메이션 속도
+    const isBerserkerT2 = hero.tier === 2;
 
     // 베이스 글로우 (열기)
-    ctx.shadowColor = '#ff4400';
+    ctx.shadowColor = isBerserkerT2 ? '#00aaff' : '#ff4400';
     ctx.shadowBlur = 25;
 
     const heatGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 45);
-    heatGradient.addColorStop(0, 'rgba(255, 80, 0, 0.35)');
-    heatGradient.addColorStop(0.6, 'rgba(255, 40, 0, 0.15)');
+    heatGradient.addColorStop(0, isBerserkerT2 ? 'rgba(0, 180, 255, 0.35)' : 'rgba(255, 80, 0, 0.35)');
+    heatGradient.addColorStop(0.6, isBerserkerT2 ? 'rgba(0, 120, 200, 0.15)' : 'rgba(255, 40, 0, 0.15)');
     heatGradient.addColorStop(1, 'transparent');
     ctx.fillStyle = heatGradient;
     ctx.beginPath();
@@ -254,8 +256,12 @@ export function drawHero(
           flameX, flameY - flameHeight * 0.2,
           flameHeight
         );
-        outerGradient.addColorStop(0, `rgba(255, ${180 - colorProgress * 100}, 0, 0.9)`);
-        outerGradient.addColorStop(0.4, `rgba(255, ${100 - colorProgress * 50}, 0, 0.6)`);
+        outerGradient.addColorStop(0, isBerserkerT2
+          ? `rgba(0, ${220 - colorProgress * 80}, 255, 0.9)`
+          : `rgba(255, ${180 - colorProgress * 100}, 0, 0.9)`);
+        outerGradient.addColorStop(0.4, isBerserkerT2
+          ? `rgba(0, ${160 - colorProgress * 60}, 220, 0.6)`
+          : `rgba(255, ${100 - colorProgress * 50}, 0, 0.6)`);
         outerGradient.addColorStop(1, 'transparent');
 
         ctx.fillStyle = outerGradient;
@@ -274,8 +280,8 @@ export function drawHero(
             flameX, flameY,
             flameHeight * 0.5
           );
-          coreGradient.addColorStop(0, 'rgba(255, 255, 200, 0.9)');
-          coreGradient.addColorStop(0.5, 'rgba(255, 200, 50, 0.5)');
+          coreGradient.addColorStop(0, isBerserkerT2 ? 'rgba(200, 255, 255, 0.9)' : 'rgba(255, 255, 200, 0.9)');
+          coreGradient.addColorStop(0.5, isBerserkerT2 ? 'rgba(50, 200, 255, 0.5)' : 'rgba(255, 200, 50, 0.5)');
           coreGradient.addColorStop(1, 'transparent');
 
           ctx.fillStyle = coreGradient;
@@ -307,7 +313,9 @@ export function drawHero(
 
       if (sparkAlpha > 0.1) {
         ctx.globalAlpha = sparkAlpha;
-        ctx.fillStyle = i % 3 === 0 ? '#ffff80' : (i % 3 === 1 ? '#ffaa00' : '#ff6600');
+        ctx.fillStyle = isBerserkerT2
+          ? (i % 3 === 0 ? '#80ffff' : (i % 3 === 1 ? '#00ccff' : '#0088dd'))
+          : (i % 3 === 0 ? '#ffff80' : (i % 3 === 1 ? '#ffaa00' : '#ff6600'));
         ctx.beginPath();
         ctx.arc(sparkX, sparkY, sparkSize, 0, Math.PI * 2);
         ctx.fill();
@@ -440,7 +448,7 @@ export function drawHero(
   }
 
   // 영웅 글로우 효과 (직업별 색상, 다른 플레이어는 시안색 글로우 추가)
-  const baseGlowColor = hasBerserker ? '#ff0000' : (hasIronwall ? '#4a90d9' : classVisual.glowColor);
+  const baseGlowColor = hasBerserker ? (hero.tier === 2 ? '#00ccff' : '#ff0000') : (hasIronwall ? '#4a90d9' : classVisual.glowColor);
   const glowColor = isOtherPlayer ? '#00d4ff' : baseGlowColor;
   ctx.shadowColor = glowColor;
   ctx.shadowBlur = isOtherPlayer ? 25 : 20;
@@ -489,7 +497,34 @@ export function drawHero(
       const { enemies } = useRPGStore.getState();
       const target = enemies.find(e => e.id === hero.attackTarget);
       if (target) {
-        attackFlip = target.x > hero.x; // 적이 오른쪽이면 flip
+        attackFlip = target.x > hero.x;
+      }
+    }
+    // attackTarget이 없으면 (자동 공격) basicAttackEffects에서 대상 위치 추출
+    if (attackFlip == null) {
+      const heroId = hero.id || '';
+      const { basicAttackEffects } = useRPGStore.getState();
+      // 자기 영웅의 최근 공격 이펙트 찾기 (id에 heroId 포함)
+      for (let i = basicAttackEffects.length - 1; i >= 0; i--) {
+        const eff = basicAttackEffects[i];
+        if (eff.id.endsWith(heroId)) {
+          attackFlip = eff.x > hero.x;
+          break;
+        }
+      }
+    }
+
+    // 캐스팅 중 타겟 방향 flip (저격수 E 등 - snipe 이펙트의 타겟 위치 사용)
+    let castingFlip: boolean | undefined;
+    if (hero.castingUntil && gameTime < hero.castingUntil) {
+      const heroId = hero.id || '';
+      const { activeSkillEffects } = useRPGStore.getState();
+      for (let i = activeSkillEffects.length - 1; i >= 0; i--) {
+        const eff = activeSkillEffects[i];
+        if (eff.heroId === heroId && eff.targetPosition) {
+          castingFlip = eff.targetPosition.x > hero.x;
+          break;
+        }
       }
     }
 
@@ -510,7 +545,9 @@ export function drawHero(
       renderW,
       renderH,
       flipHero,
-      attackFlip
+      attackFlip,
+      hero.config?.attackSpeed,
+      castingFlip
     );
   } catch {
     imageDrawn = false;
@@ -2412,14 +2449,25 @@ export function drawSkillEffect(
 
     case 'rage':
       // 버서커 - 광란 (분노 버프)
+      // tier2: 시안 불꽃, tier1: 붉은 불꽃
       {
         const radius = 60;
+        let isTier2 = false;
+        if (effect.heroId) {
+          const rageState = useRPGStore.getState();
+          const rageHero = rageState.hero?.id === effect.heroId ? rageState.hero : rageState.otherHeroes.get(effect.heroId);
+          if (rageHero?.tier === 2) isTier2 = true;
+        }
+        const oraInner = isTier2 ? '#00ccff80' : '#ff000080';
+        const oraMid = isTier2 ? '#0088cc60' : '#ff440060';
+        const flameColor = isTier2 ? '#00ddff' : '#ff4400';
+        const textColor = isTier2 ? '#00ccff' : '#ff0000';
 
         // 분노 오라
         ctx.globalAlpha = (1 - progress * 0.5) * 0.6;
         const rageGradient = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, radius);
-        rageGradient.addColorStop(0, '#ff000080');
-        rageGradient.addColorStop(0.5, '#ff440060');
+        rageGradient.addColorStop(0, oraInner);
+        rageGradient.addColorStop(0.5, oraMid);
         rageGradient.addColorStop(1, 'transparent');
         ctx.fillStyle = rageGradient;
         ctx.beginPath();
@@ -2431,7 +2479,7 @@ export function drawSkillEffect(
           const angle = (i / 6) * Math.PI * 2 + progress * 5;
           const dist = 30 + Math.sin(progress * 10 + i) * 10;
           ctx.globalAlpha = (1 - progress) * 0.8;
-          ctx.fillStyle = '#ff4400';
+          ctx.fillStyle = flameColor;
           ctx.beginPath();
           ctx.arc(screenX + Math.cos(angle) * dist, screenY + Math.sin(angle) * dist, 5, 0, Math.PI * 2);
           ctx.fill();
@@ -2439,7 +2487,7 @@ export function drawSkillEffect(
 
         // 분노 텍스트
         ctx.globalAlpha = (1 - progress) * 0.9;
-        ctx.fillStyle = '#ff0000';
+        ctx.fillStyle = textColor;
         ctx.font = 'bold 14px Arial';
         ctx.textAlign = 'center';
         ctx.fillText('RAGE!', screenX, screenY - 50 - progress * 20);

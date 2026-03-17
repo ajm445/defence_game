@@ -32,6 +32,21 @@ export const PARTICLE_CONFIGS: Record<EffectType, ParticleConfig> = {
     spread: Math.PI * 2,
   },
 
+  // 가디언 메이스 타격 - 무거운 파란/회색 충격 파티클
+  attack_mace: {
+    count: 10,
+    colors: ['#66ccff', '#4488cc', '#aaccdd', '#88bbdd'],
+    sizeMin: 3,
+    sizeMax: 7,
+    speedMin: 60,
+    speedMax: 120,
+    lifeMin: 0.25,
+    lifeMax: 0.5,
+    gravity: 150,
+    shape: 'square',
+    spread: Math.PI * 2,
+  },
+
   // 원거리 공격 - 노란색 투사체
   attack_ranged: {
     count: 5,

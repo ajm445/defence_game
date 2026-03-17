@@ -466,6 +466,7 @@ export interface BasicAttackEffect {
   type: 'melee' | 'ranged' | 'boss' | 'boss2';  // 보스 기본 공격
   timestamp: number;    // 생성 시간
   attackerId?: string;  // 공격자 ID (보스 식별용)
+  advancedClass?: string; // 전직 직업 (이펙트 스타일 차별화용)
 }
 
 // 보스 스킬 실행 이펙트 (네트워크 동기화용)
