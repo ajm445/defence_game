@@ -90,8 +90,8 @@
 - 색상: #ff3300 (짙은 빨강)
 
 #### Guardian (가디언) - Warrior 전직
-- **Tier 1**: 검은+금 풀 헬멧(붉은 깃털), 모닝스타(플레일), 금+나무 대형 방패(사자), 붉은 망토
-- **Tier 2**: 은+금+파란보석 헬멧(파란 깃털+날개+용), 모닝스타(파란보석), 은+금+파란보석 대형 방패, 파란 에너지
+- **Tier 1**: 검은+금 풀 헬멧(붉은 깃털), 메이스(쇠사슬 없는 모닝스타, 짧은 손잡이+가시 달린 금속 구체), 금+나무 대형 방패(사자), 붉은 망토
+- **Tier 2**: 은+금+파란보석 헬멧(파란 깃털+날개+용), 메이스(파란보석, 쇠사슬 없음), 은+금+파란보석 대형 방패, 파란 에너지
 - 색상: #00aaff (파랑)
 
 #### Sniper (저격수) - Archer 전직
@@ -166,7 +166,7 @@
 ### Guardian (가디언)
 | 스킬 | 이름 | 설명 | 모션 특징 |
 |------|------|------|----------|
-| Q | 플레일 강타 | 80px AoE, Q 적중 시 W 쿨감 1초 | 모닝스타 내려치기 |
+| Q | 메이스 강타 | 80px AoE, Q 적중 시 W 쿨감 1초 | 메이스 내려치기 |
 | W | 수호의 돌진 | 150px 돌진, 최대HP×10%, 2초 스턴+아군 피해감소 | 방패 돌진+보호막 |
 | E | 보호막 | 아군 전체 5초 50% 피해감소 | 에너지 돔 생성 |
 | 패시브 | - | 받는 피해 30% 감소 | - |
@@ -264,6 +264,11 @@ CRITICAL RULES — MUST FOLLOW STRICTLY:
   and the divider lines to prevent any clipping.
 - Treat each quadrant as a completely independent image. Nothing from
   one quadrant should be visible in any other quadrant.
+- DIRECTION CONSISTENCY: When generating multiple sprite sheets for the
+  same character (walk, attack, W skill, E skill), the character must
+  face the SAME direction (LEFT) across ALL sheets. The facing direction
+  must be identical whether the character is walking, attacking, or
+  casting — never flip or mirror the character between different sheets.
 ```
 
 > **후처리**: 생성된 이미지에서 배경 제거(remove.bg 등) 후, `node scripts/combine-sprites.js` 로 개별 프레임을 2×2 시트로 합성하거나 그대로 사용. 구분선이 있으므로 이미지 편집 도구에서 4등분으로 잘라 개별 프레임으로 분리 가능.
@@ -578,21 +583,25 @@ Generate a 4-frame walk cycle sprite sheet for this chibi skeleton guardian.
 Character: [Guardian 외형]
 
 Frame 1-4: Very heavy, deliberate march. Shield always forward.
-Flail swings gently with each step. Cape flows behind. Ground-shaking steps.
+Mace held at side, sways slightly with each step. Cape flows behind. Ground-shaking steps.
 ```
 
-#### 6-2. Basic Attack - 플레일 강타 (4프레임)
+#### 6-2. Basic Attack - 메이스 강타 (4프레임)
 ```
-Generate a 4-frame flail smash sprite sheet for this chibi skeleton guardian.
+Generate a 4-frame mace smash sprite sheet for this chibi skeleton guardian.
 
 Character: [Guardian 외형]
+Weapon detail: The mace is a RIGID weapon — a short handle with a spiked metal ball
+fixed directly on top. There is NO chain, NO rope, NO flexible connection.
+It is swung like a hammer, not like a flail.
 
-Frame 1 (Wind-up): Swings flail backward in circular motion overhead. Shield braced. Chain extends.
-Frame 2 (Overhead): Flail at top of arc, chain fully extended above head. Loading power.
-Frame 3 (Smash): Flail crashes downward. Blue (#00aaff) impact sparks. Ground cracks.
-Frame 4 (Recovery): Flail bounces back. Chain going slack. Return to guard stance.
+Frame 1 (Raise): Lifts mace above shoulder with right hand, winding up for a downward strike. Shield held forward in left hand. Body leans back slightly, loading weight.
+Frame 2 (Swing Down): Brings mace down in a powerful overhead arc. Body lunges forward. Shield stays braced. Mace head at mid-swing, moving downward.
+Frame 3 (Impact): Mace slams into the ground at full extension. Blue (#00aaff) impact sparks burst from the spiked ball. Small ground cracks beneath. Maximum forward lean.
+Frame 4 (Recovery): Pulls mace back up to resting position at side. Returns to upright guard stance with shield forward.
 
-Heavy crushing melee. Each hit reduces W cooldown by 1 second. Blue (#00aaff).
+Heavy, deliberate crushing strike — like a hammer blow, not a spinning flail.
+Each hit reduces W cooldown by 1 second. Blue (#00aaff) impact color.
 ```
 
 #### 6-3. W Skill - 수호의 돌진 Guardian Rush (4프레임)
