@@ -111,6 +111,7 @@ export interface ClassSkillResult {
   stunDuration?: number; // 기절 지속시간 (초)
   allyHeals?: { heroId: string; heal: number }[];  // 아군 힐 (전직 스킬용)
   allyBuffs?: { heroId: string; buff: Buff }[];    // 아군 버프 (전직 스킬용)
+  cooldownOverride?: number;  // 쿨다운 오버라이드 (버프 종료 후 쿨다운 시작용)
 }
 
 /**
@@ -749,6 +750,7 @@ export function executeESkill(
   let effect: SkillEffect | undefined;
   let buff: Buff | undefined;
   let pendingSkill: PendingSkill | undefined;
+  let cooldownOverride: number | undefined;
   let updatedHero = hero;
 
   switch (heroClass) {
@@ -768,6 +770,9 @@ export function executeESkill(
           speedBonus,
           lifesteal,
         };
+
+        // 버프 종료 후 쿨다운 시작: 지속시간 + 실제 쿨다운
+        cooldownOverride = duration + skillConfig.cooldown;
 
         effect = {
           type: skillConfig.type,
@@ -883,6 +888,16 @@ export function executeESkill(
 
   updatedHero = startSkillCooldown(updatedHero, skillConfig.type);
 
+  // 쿨다운 오버라이드 적용 (버프 종료 후 쿨다운 시작용)
+  if (cooldownOverride != null) {
+    updatedHero = {
+      ...updatedHero,
+      skills: updatedHero.skills.map(s =>
+        s.type === skillConfig.type ? { ...s, currentCooldown: cooldownOverride! } : s
+      ),
+    };
+  }
+
   return {
     hero: updatedHero,
     effect,
@@ -890,6 +905,7 @@ export function executeESkill(
     baseDamages,
     buff,
     pendingSkill,
+    cooldownOverride,
     allyHeals: allyHeals.length > 0 ? allyHeals : undefined,
     allyBuffs: allyBuffs.length > 0 ? allyBuffs : undefined,
   };
@@ -1539,6 +1555,7 @@ function executeAdvancedESkill(
   let effect: SkillEffect | undefined;
   let buff: Buff | undefined;
   let pendingSkill: PendingSkill | undefined;
+  let cooldownOverride: number | undefined;
   let updatedHero = hero;
 
   switch (advancedClass) {
@@ -1557,6 +1574,9 @@ function executeAdvancedESkill(
           speedBonus: speedBonusVal,
           damageTaken: 0.5,
         };
+
+        // 버프 종료 후 쿨다운 시작: 지속시간 + 실제 쿨다운
+        cooldownOverride = duration + skillConfig.cooldown;
 
         effect = {
           type: skillConfig.type,
@@ -1699,45 +1719,16 @@ function executeAdvancedESkill(
       break;
 
     case 'paladin':
-      // 신성한 빛 - 자신 최대 HP의 20%를 아군 전체에 회복 + 3초 무적 (사거리 제한 없음)
+      // 신성한 빛 - 3번째 프레임(0.4초)에서 발동 (서버 pendingSkill 처리)
+      // 클라이언트는 이펙트 표시만 (실제 힐/버프는 서버에서 처리)
       {
-        const healAmount = Math.floor(hero.maxHp * 0.2);
-        const invincibleDuration = skillConfig.invincibleDuration || 3;
-
-        // 자신 힐 + 무적
-        updatedHero = {
-          ...hero,
-          hp: Math.min(hero.maxHp, hero.hp + healAmount),
-        };
-
-        buff = {
-          type: 'invincible',
-          duration: invincibleDuration,
-          startTime: gameTime,
-        };
-
-        // 아군 전체 힐 + 무적 (사거리 제한 없음)
-        for (const ally of allies) {
-          if (ally.id === hero.id) continue;
-          if (ally.hp <= 0) continue;  // 사망한 아군 제외
-          allyHeals.push({ heroId: ally.id, heal: healAmount });
-          allyBuffs.push({
-            heroId: ally.id,
-            buff: {
-              type: 'invincible',
-              duration: invincibleDuration,
-              startTime: gameTime,
-            },
-          });
-        }
-
         effect = {
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
           radius: skillConfig.radius || 300,
-          heal: healAmount,
+          heal: 0,
           duration: 1.0,
-          startTime: gameTime,
+          startTime: gameTime + 0.4, // 3번째 프레임에서 이펙트 시작
         };
       }
       break;
@@ -1825,6 +1816,16 @@ function executeAdvancedESkill(
 
   updatedHero = startSkillCooldown(updatedHero, skillConfig.type);
 
+  // 쿨다운 오버라이드 적용 (버프 종료 후 쿨다운 시작용)
+  if (cooldownOverride != null) {
+    updatedHero = {
+      ...updatedHero,
+      skills: updatedHero.skills.map(s =>
+        s.type === skillConfig.type ? { ...s, currentCooldown: cooldownOverride! } : s
+      ),
+    };
+  }
+
   return {
     hero: updatedHero,
     effect,
@@ -1832,6 +1833,7 @@ function executeAdvancedESkill(
     baseDamages,
     buff,
     pendingSkill,
+    cooldownOverride,
     allyHeals: allyHeals.length > 0 ? allyHeals : undefined,
     allyBuffs: allyBuffs.length > 0 ? allyBuffs : undefined,
   };

@@ -196,9 +196,97 @@ export function drawHero(
 
   ctx.save();
 
+  // 버프 이펙트 (레인저 화살 폭풍) - 발 아래에서 감싸 올라가는 금색 회오리
+  const isRangerStorm = hasBerserker && hero.advancedClass === 'ranger';
+  if (isRangerStorm) {
+    const time = gameTime * 2.5;
+    const baseY = screenY + 20; // 발 위치 (캐릭터 하단)
+
+    // 발밑 주황 글로우
+    ctx.globalAlpha = 0.25 + Math.sin(time * 1.5) * 0.08;
+    const groundGlow = ctx.createRadialGradient(screenX, baseY, 0, screenX, baseY, 35);
+    groundGlow.addColorStop(0, 'rgba(255, 170, 50, 0.4)');
+    groundGlow.addColorStop(0.5, 'rgba(255, 120, 0, 0.15)');
+    groundGlow.addColorStop(1, 'transparent');
+    ctx.fillStyle = groundGlow;
+    ctx.beginPath();
+    ctx.ellipse(screenX, baseY, 35, 12, 0, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 감싸 올라가는 나선형 회오리 2줄기 (발~몸통까지)
+    const totalHeight = 30; // 발밑에서 몸통까지만
+    for (let v = 0; v < 2; v++) {
+      const vortexOffset = v * Math.PI;
+      const segments = 16;
+
+      // 회오리 라인 (두꺼운 외곽)
+      ctx.globalAlpha = 0.5;
+      ctx.strokeStyle = '#ff9922';
+      ctx.lineWidth = 3;
+      ctx.lineCap = 'round';
+      ctx.beginPath();
+      for (let s = 0; s <= segments; s++) {
+        const t = s / segments;
+        const angle = vortexOffset + time * 2.5 + t * Math.PI * 2.5;
+        const radius = 22 * (1 - t * 0.3); // 위로 갈수록 좁아짐
+        const px = screenX + Math.cos(angle) * radius;
+        const py = baseY - t * totalHeight;
+        if (s === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+
+      // 회오리 라인 (밝은 내부)
+      ctx.globalAlpha = 0.7;
+      ctx.strokeStyle = '#ffcc44';
+      ctx.lineWidth = 1.5;
+      ctx.beginPath();
+      for (let s = 0; s <= segments; s++) {
+        const t = s / segments;
+        const angle = vortexOffset + time * 2.5 + t * Math.PI * 2.5;
+        const radius = 20 * (1 - t * 0.3);
+        const px = screenX + Math.cos(angle) * radius;
+        const py = baseY - t * totalHeight;
+        if (s === 0) ctx.moveTo(px, py);
+        else ctx.lineTo(px, py);
+      }
+      ctx.stroke();
+    }
+
+    // 회오리를 따라 올라가는 불꽃 파티클 (발~몸통)
+    for (let i = 0; i < 8; i++) {
+      const seed = i * 1.47;
+      const particleTime = (time * 1.8 + seed) % 2.0;
+      const progress = particleTime / 2.0;
+      const angle = seed * 2.5 + time * 2.5 + progress * Math.PI * 2.5;
+      const radius = 20 * (1 - progress * 0.3);
+      const px = screenX + Math.cos(angle) * radius;
+      const py = baseY - progress * totalHeight;
+      const alpha = (1 - progress) * 0.8;
+      const size = 2.5 * (1 - progress * 0.3);
+
+      if (alpha > 0.1) {
+        ctx.globalAlpha = alpha;
+        ctx.fillStyle = i % 3 === 0 ? '#ffdd55' : (i % 3 === 1 ? '#ffaa22' : '#ff8800');
+        ctx.beginPath();
+        ctx.arc(px, py, size, 0, Math.PI * 2);
+        ctx.fill();
+
+        // 파티클 글로우
+        ctx.globalAlpha = alpha * 0.3;
+        ctx.beginPath();
+        ctx.arc(px, py, size * 2.5, 0, Math.PI * 2);
+        ctx.fill();
+      }
+    }
+
+    ctx.globalAlpha = 1;
+    ctx.shadowBlur = 0;
+  }
+
   // 버프 이펙트 (광전사) - 불타오르는 불꽃 효과
   // tier2: 시안 불꽃, tier1: 붉은 불꽃
-  if (hasBerserker) {
+  if (hasBerserker && !isRangerStorm) {
     const time = gameTime * 3; // 애니메이션 속도
     const isBerserkerT2 = hero.tier === 2;
 

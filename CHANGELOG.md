@@ -1,5 +1,43 @@
 # Changelog
 
+## [1.26.4] - 2026-03-19
+
+### 팔라딘 스프라이트 추가 및 모션 싱크
+- **팔라딘 tier1/tier2 전체 모션 스프라이트 추가**: 걷기, 기본공격, W스킬, E스킬 (총 8종)
+- **팔라딘 W스킬 프레임 싱크**: frameTimes `[0.05, 0.25, 0.32, 0.4]` — 프레임1 발동 → 프레임2 돌진 유지 → 프레임3,4 돌진 후 빠르게
+- **팔라딘 E스킬(신성한 빛) 3번째 프레임 발동**: pendingSkill 패턴으로 변경 (0.4초 딜레이), castingUntil 0.8초 시전 모션 유지
+  - frameTimes `[0.15, 0.4, 0.6, 0.8]` — 프레임1,2 준비 → 프레임3 폭발+힐/무적 → 프레임4 마무리
+- **팔라딘 E스킬 프롬프트 변경**: 무릎 꿇기 → 방패를 들어올려 신성한 힘을 받는 모션
+
+### 다크나이트 스프라이트 추가 및 모션 싱크
+- **다크나이트 tier1 걷기/기본공격 스프라이트 추가** (2종)
+- **다크나이트 공격 프레임 싱크**: ATTACK_FRAME_WEIGHTS 시스템 도입 — 2번째 프레임(검 휘두름)을 길게 유지, 2~3번 프레임 사이에서 타격 렌더링
+  - 프레임 가중치: 10/45/15/30% (기본 15/15/40/30% 대비)
+- **다크나이트 기본공격 SPRITE_FACES_RIGHT 추가**: 오른쪽 방향 스프라이트 반전 처리
+- **다크나이트 W스킬(암흑 찌르기) 프롬프트 변경**: 자해 모션 → 보라색 에너지 오라에 둘러싸여 검에 힘을 불어넣는 모션
+
+### 레인저 스프라이트 추가
+- **레인저 tier1/tier2 전체 모션 스프라이트 추가**: 걷기, 기본공격, W스킬, E스킬 (총 7종)
+- **레인저 W스킬 3번째 프레임 발동**: pendingSkill 패턴으로 변경 (0.33초 딜레이)
+- **레인저 E스킬 오렌지 회오리 이펙트**: 발 → 상체 높이 회오리 (totalHeight=30px), 버서커 불꽃과 분리 렌더링
+
+### 전사/버서커 궁극기 쿨다운 변경
+- **버프 종료 후 쿨다운 시작**: 지속형 버프 스킬의 쿨다운이 버프 지속시간 종료 후 시작되도록 변경
+  - 전사 E(광전사): 쿨다운 30초, 버프 10초 → 실제 설정값 40초 (버프 끝난 후 30초 대기)
+  - 버서커 E(광란): 쿨다운 45초, 버프 10초 → 실제 설정값 55초 (버프 끝난 후 45초 대기)
+- ClassSkillResult에 `cooldownOverride` 필드 추가, 서버/클라이언트 동기화
+
+### 수정 파일
+- `server/src/game/rpgServerSkillSystem.ts`: 팔라딘 E pendingSkill, 레인저 W pendingSkill, 전사/버서커 쿨다운 변경
+- `src/game/rpg/skillSystem.ts`: 팔라딘 E/전사/버서커 클라이언트 동기화, cooldownOverride
+- `src/utils/spriteMotion.ts`: 팔라딘 W/E frameTimes, 다크나이트 ATTACK_FRAME_WEIGHTS, SPRITE_FACES_RIGHT
+- `src/types/rpg.ts`: `paladin_e`, `ranger_w` SkillType 추가
+- `src/renderer/drawHero.ts`: 레인저 회오리 이펙트, 저격수 신속 버프 파티클
+- `docs/sprite-motion-prompts.md`: 팔라딘 E, 다크나이트 W 프롬프트 변경
+- `public/img/units/RPG/motion/paladin/`: tier1/tier2 8종 스프라이트 추가
+- `public/img/units/RPG/motion/dark_knight/`: tier1 2종 스프라이트 추가
+- `public/img/units/RPG/motion/ranger/`: tier1/tier2 7종 스프라이트 추가
+
 ## [1.26.3] - 2026-03-18
 
 ### 궁수 계열 패시브 시스템 리워크

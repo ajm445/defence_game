@@ -783,12 +783,12 @@ Generate a 4-frame divine ultimate sprite sheet for this chibi skeleton paladin.
 
 Character: [Paladin 외형]
 
-Frame 1 (Kneel): Kneels, plants shield. Hands clasped in prayer. Golden light from above.
-Frame 2 (Ascend): Holy energy descends in golden light pillar. Angelic wing silhouettes behind. Eyes glow gold.
-Frame 3 (Radiate): Maximum power. Massive golden explosion. Holy crosses, halos, feathers. Character floats off ground. Healing 30% to ALL allies.
-Frame 4 (Invincible): Facing LEFT like Frame 1. Golden invincibility dome surrounds team. Divine protection radiates.
+Frame 1 (Raise): Raises shield high above head with both hands. Golden light begins gathering on shield surface. Determined stance.
+Frame 2 (Channel): Shield glows intensely overhead. Holy energy pours down from sky into shield. Angelic wing silhouettes behind. Eyes glow gold.
+Frame 3 (Release): Shield at peak radiance. Massive golden explosion bursts outward from shield. Holy crosses, halos, feathers. Character lifted slightly off ground. Divine energy heals ALL allies.
+Frame 4 (Protect): Facing LEFT like Frame 1. Shield still raised, golden invincibility dome expands from shield to surround team. Divine protection radiates.
 
-Team 30% heal + 3-second invincibility. Most powerful defensive ultimate. Divine, awe-inspiring. Gold (#ffcc00).
+Team 20% heal + 5-second invincibility. Most powerful defensive ultimate. Shield is the focal point of all divine power. Gold (#ffcc00).
 ```
 
 ---
@@ -829,12 +829,12 @@ Generate a 4-frame dark piercing thrust sprite sheet for this chibi skeleton dar
 
 Character: [DarkKnight 외형]
 
-Frame 1 (Sacrifice): Stabs own armor - sacrificing 20% HP. Red blood/energy splatters. Pain expression. Dark energy concentrates on sword.
-Frame 2 (Channel): Sword transforms into massive dark purple lance of energy. Holds it back, channeling. Dark mist spirals. Purple runes on ground. 1-second cast.
-Frame 3 (Thrust): Devastating forward thrust - dark energy lance extends 150px forward, 80px wide. Massive purple-black explosion. Ground shatters. 350% damage.
-Frame 4 (Aftermath): Facing LEFT like Frame 1. Energy lance dissipating. Sword returns to normal. Exhausted but same stance direction.
+Frame 1 (Envelop): Character engulfed in swirling purple energy aura. Eyes glow bright purple. Dark mist rises from feet. Preparing stance.
+Frame 2 (Empower): Grips sword tightly, channeling purple energy into the blade. Sword glows intensely with dark purple flames. Purple runes spiral around character. 1-second cast.
+Frame 3 (Thrust): Explosive forward piercing thrust with empowered sword. Dark purple energy lance extends 150px forward, 80px wide. Massive purple-black shockwave. Ground cracks.
+Frame 4 (Aftermath): Facing LEFT like Frame 1. Purple energy fading from sword. Returning to normal stance. Dark mist settling.
 
-1-sec cast, 20% HP cost, 350% damage, 150x80px area. Sacrificial, devastating. Dark purple (#9900cc).
+1-sec cast, 20% HP cost, 350% damage, 150x80px area. Purple energy envelops character before devastating thrust. Dark purple (#9900cc).
 ```
 
 #### 10-4. E Skill (ON) - 어둠의 칼날 활성화 Dark Blade (4프레임)

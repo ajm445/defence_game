@@ -27,13 +27,21 @@ const MOTION_CONFIG: Record<MotionType, { fps: number; loop: boolean; holdTime: 
 //   즉발형 W: attackLockUntil=0.67s
 //   즉발형 E: attackLockUntil=0.8s
 //   시전형(castingUntil): resolveMotion이 상태 기반 감지 → 오버라이드 불필요
+// 캐릭터별 공격 프레임 가중치 오버라이드 (기본: 15/15/40/30 → 3번째 프레임에서 타격)
+// 값은 누적 비율: [프레임0 끝, 프레임1 끝, 프레임2 끝, 프레임3 끝]
+const ATTACK_FRAME_WEIGHTS: Record<string, number[]> = {
+  // 다크나이트: 2번째 프레임(검 휘두름)을 길게 → 2~3번 프레임 사이에서 타격 렌더링
+  darkKnight: [0.10, 0.55, 0.70, 1.0],
+};
+
 const MOTION_CONFIG_OVERRIDE: Record<string, Partial<typeof MOTION_CONFIG[MotionType]> & { frameTimes?: number[] }> = {
   // === 돌진형 W (dashDuration=0.25s) → fps12 빠르게 재생 ===
   'warrior_w': { fps: 12, holdTime: 0.4 },
   'knight_w': { fps: 12, holdTime: 0.4 },
   'berserker_w': { fps: 12, holdTime: 0.4 },
   'guardian_w': { fps: 12, holdTime: 0.4 },
-  'paladin_w': { fps: 12, holdTime: 0.4 },
+  // 팔라딘 W: 프레임1 발동 → 프레임2 돌진 유지(~0.25s) → 프레임3,4 돌진 후 빠르게
+  'paladin_w': { holdTime: 0.4, frameTimes: [0.05, 0.25, 0.32, 0.4] },
 
   // === 즉발형 W (서버 잠금 0.67s) → holdTime 맞춤 ===
   'archer_w': { holdTime: 0.67 },
@@ -51,7 +59,8 @@ const MOTION_CONFIG_OVERRIDE: Record<string, Partial<typeof MOTION_CONFIG[Motion
   'archer_e': { holdTime: 0.8 },
   'mage_e': { holdTime: 0.8 },
   'ranger_e': { holdTime: 0.8 },
-  'paladin_e': { holdTime: 0.8 },
+  // 팔라딘 E: 프레임1,2 준비(~0.4s) → 프레임3 신성한 폭발(0.4s) → 프레임4 마무리
+  'paladin_e': { holdTime: 0.8, frameTimes: [0.15, 0.4, 0.6, 0.8] },
   'archmage_e': { holdTime: 0.8 },
   'healer_e': { holdTime: 0.8 },
   // sniper_e: 3초 시전 → frameTimes로 프레임별 시간 직접 지정
@@ -70,6 +79,7 @@ const SPRITE_FACES_RIGHT = new Set<string>([
   'archer_walk', 'archer_w', 'archer_e',
   'knight_w', 'knight_e',
   'berserker_walk', 'berserker_w',
+  'darkKnight_attack',
 ]);
 
 // 방향 무시 (항상 반전 없이 원본 방향 고정) — 하늘 발사 등 방향 무관 모션
@@ -263,6 +273,13 @@ function getFrameIndex(motion: MotionType, startTime: number, gameTime: number, 
     if (elapsed >= holdTime) return -1;
     if (elapsed >= animTime) return FRAMES_PER_SHEET - 1;
     const t = elapsed / animTime;
+    const weights = (heroKey && ATTACK_FRAME_WEIGHTS[heroKey]) || null;
+    if (weights) {
+      for (let i = 0; i < weights.length; i++) {
+        if (t < weights[i]) return i;
+      }
+      return FRAMES_PER_SHEET - 1;
+    }
     if (t < 0.15) return 0;
     if (t < 0.30) return 1;
     if (t < 0.70) return 2;

@@ -112,6 +112,7 @@ export type SkillType =
   | 'guardian_rush'   // 가디언 - 수호의 돌진
   | 'backflip_shot'   // 저격수 - 후방 도약
   | 'multi_arrow'     // 레인저 - 다중 화살
+  | 'ranger_w'        // 레인저 - 다중 화살 (pendingSkill용)
   | 'holy_charge'     // 팔라딘 - 신성한 돌진
   | 'shadow_slash'    // 다크나이트 - 암흑 베기 (레거시)
   | 'heavy_strike'    // 다크나이트 - 강타
@@ -124,6 +125,7 @@ export type SkillType =
   | 'shield'          // 가디언 - 보호막
   | 'snipe'           // 저격수 - 저격
   | 'arrow_storm'     // 레인저 - 화살 폭풍
+  | 'paladin_e'       // 팔라딘 - 신성한 빛 (pendingSkill용)
   | 'divine_light'    // 팔라딘 - 신성한 빛
   | 'dark_blade'      // 다크나이트 - 어둠의 칼날
   | 'meteor_shower'   // 대마법사 - 메테오 샤워

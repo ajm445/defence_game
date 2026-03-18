@@ -583,10 +583,11 @@ function executeESkill(
   // 기본 직업 스킬
   switch (heroClass) {
     case 'warrior': {
+      const buffDuration = 10;
       hero.buffs = hero.buffs || [];
       hero.buffs.push({
         type: 'berserker',
-        duration: 10,
+        duration: buffDuration,
         startTime: gameTime,
         attackBonus: 0.5,
         speedBonus: 0.3,
@@ -602,7 +603,8 @@ function executeESkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.E = hero._skillE.cooldown;
+      // 버프 종료 후 쿨다운 시작: 지속시간 + 실제 쿨다운
+      hero.skillCooldowns.E = buffDuration + hero._skillE.cooldown;
       break;
     }
 
@@ -898,51 +900,19 @@ function executeAdvancedWSkill(
     }
 
     case 'ranger': {
-      // 다중 화살: 부채꼴 방향으로 5발의 관통 화살 발사
-      const arrowCount = 5;
+      // 다중 화살: 모션 Frame 3(발사) 타이밍에 맞춰 지연 실행 (0.33초)
       const pierceDistance = 300;
       const skillDamage = Math.floor(damage * 1.0);
-      const spreadAngle = Math.PI / 4; // 45도 부채꼴
 
-      // 기지 중복 피해 방지용 Set
-      const hitBases = new Set<string>();
-
-      for (let i = 0; i < arrowCount; i++) {
-        const angleOffset = (i - (arrowCount - 1) / 2) * (spreadAngle / (arrowCount - 1));
-        const arrowDirX = dirX * Math.cos(angleOffset) - dirY * Math.sin(angleOffset);
-        const arrowDirY = dirX * Math.sin(angleOffset) + dirY * Math.cos(angleOffset);
-
-        const endX = hero.x + arrowDirX * pierceDistance;
-        const endY = hero.y + arrowDirY * pierceDistance;
-
-        for (const enemy of enemies) {
-          const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, endX, endY);
-          if (enemyDist <= 30) {
-            applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
-          }
-        }
-
-        // 기지 데미지 (경로상 기지, 중복 피해 방지)
-        for (const base of state.enemyBases) {
-          if (base.destroyed || hitBases.has(base.id)) continue;
-          const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, endX, endY);
-          if (baseDist <= 60) {
-            damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
-            hitBases.add(base.id);
-          }
-        }
-      }
-
-      state.activeSkillEffects.push({
-        type: 'multi_arrow' as any,
-        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
+      ctx.state.pendingSkills.push({
+        type: 'ranger_w' as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
+        triggerTime: gameTime + 0.33,
         radius: pierceDistance,
         damage: skillDamage,
         duration: 0.4,
-        startTime: gameTime,
-        heroId: hero.id,
+        casterId: hero.id,
       });
 
       hero.skillCooldowns.W = hero._skillW.cooldown;
@@ -1187,10 +1157,11 @@ function executeAdvancedESkill(
   switch (advancedClass) {
     case 'berserker': {
       // 광란: 10초간 공격력/공속 80% 증가 + 받는 피해 50% 증가
+      const buffDuration = 10;
       hero.buffs = hero.buffs || [];
       hero.buffs.push({
         type: 'berserker',
-        duration: 10,
+        duration: buffDuration,
         startTime: gameTime,
         attackBonus: 0.8,
         speedBonus: 0.8,
@@ -1206,7 +1177,8 @@ function executeAdvancedESkill(
         heroId: hero.id,
       });
 
-      hero.skillCooldowns.E = hero._skillE.cooldown;
+      // 버프 종료 후 쿨다운 시작: 지속시간 + 실제 쿨다운
+      hero.skillCooldowns.E = buffDuration + hero._skillE.cooldown;
       return true;
     }
 
@@ -1311,34 +1283,22 @@ function executeAdvancedESkill(
     }
 
     case 'paladin': {
-      // 신성한 빛: 자신 최대 HP의 20%를 아군 전체에 회복 + 3초 무적
+      // 신성한 빛: 3번째 프레임(0.4초)에서 발동 → pendingSkill
       const healAmount = Math.floor(hero.maxHp * 0.2);
-      const invincibleDuration = 3.0;
+      const triggerDelay = 0.4; // 프레임3 시작 시점
 
-      for (const [, otherHero] of state.heroes) {
-        if (otherHero.isDead) continue;
-        otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
-        if (healAmount > 0) {
-          state.damageNumbers.push({
-            id: generateId(),
-            x: otherHero.x, y: otherHero.y - 40,
-            amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
-          });
-        }
-        otherHero.buffs = otherHero.buffs || [];
-        otherHero.buffs.push({ type: 'invincible', duration: invincibleDuration, startTime: gameTime });
-      }
-
-      state.activeSkillEffects.push({
-        type: 'divine_light' as any,  // 클라이언트 렌더러와 일치
-        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
+      state.pendingSkills.push({
+        type: 'paladin_e' as any,
         position: { x: hero.x, y: hero.y },
+        triggerTime: gameTime + triggerDelay,
         radius: 500,
-        duration: 1.0,
-        startTime: gameTime,
-        heroId: hero.id,
+        damage: 0,
+        casterId: hero.id,
+        healPercent: 0, // 커스텀 처리 (자신 HP 기반)
       });
 
+      // 시전 모션 유지 (0.8초)
+      hero.castingUntil = gameTime + 0.8;
       hero.skillCooldowns.E = hero._skillE.cooldown;
       return true;
     }
@@ -1698,6 +1658,85 @@ export function updatePendingSkills(ctx: SkillContext): void {
           startTime: state.gameTime,
           heroId: skill.casterId,
         });
+      } else if (skill.type === 'ranger_w') {
+        // 다중 화살: 부채꼴 방향으로 5발의 관통 화살 발사
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        const shootX = caster ? caster.x : skill.position.x;
+        const shootY = caster ? caster.y : skill.position.y;
+        const dir = skill.direction || { x: 1, y: 0 };
+        const pierceDistance = skill.radius || 300;
+        const arrowCount = 5;
+        const spreadAngle = Math.PI / 4; // 45도 부채꼴
+        const hitBases = new Set<string>();
+
+        for (let i = 0; i < arrowCount; i++) {
+          const angleOffset = (i - (arrowCount - 1) / 2) * (spreadAngle / (arrowCount - 1));
+          const arrowDirX = dir.x * Math.cos(angleOffset) - dir.y * Math.sin(angleOffset);
+          const arrowDirY = dir.x * Math.sin(angleOffset) + dir.y * Math.cos(angleOffset);
+
+          const endX = shootX + arrowDirX * pierceDistance;
+          const endY = shootY + arrowDirY * pierceDistance;
+
+          for (const enemy of state.enemies) {
+            if (enemy.hp <= 0) continue;
+            const enemyDist = pointToLineDistance(enemy.x, enemy.y, shootX, shootY, endX, endY);
+            if (enemyDist <= 30) {
+              applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+            }
+          }
+
+          for (const base of state.enemyBases) {
+            if (base.destroyed || hitBases.has(base.id)) continue;
+            const baseDist = pointToLineDistance(base.x, base.y, shootX, shootY, endX, endY);
+            if (baseDist <= 60) {
+              damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
+              hitBases.add(base.id);
+            }
+          }
+        }
+
+        state.activeSkillEffects.push({
+          type: 'multi_arrow' as any,
+          heroClass: caster?.heroClass, advancedClass: caster?.advancedClass as any,
+          position: { x: shootX, y: shootY },
+          direction: { x: dir.x, y: dir.y },
+          radius: pierceDistance,
+          damage: skill.damage,
+          duration: 0.4,
+          startTime: state.gameTime,
+          heroId: skill.casterId,
+        });
+      } else if (skill.type === 'paladin_e') {
+        // 팔라딘 E: 자신 최대 HP의 20%를 아군 전체에 회복 + 3초 무적
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        if (caster && !caster.isDead) {
+          const paladinHealAmount = Math.floor(caster.maxHp * 0.2);
+          const invincibleDuration = 3.0;
+
+          for (const [, otherHero] of state.heroes) {
+            if (otherHero.isDead) continue;
+            otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + paladinHealAmount);
+            if (paladinHealAmount > 0) {
+              state.damageNumbers.push({
+                id: generateId(),
+                x: otherHero.x, y: otherHero.y - 40,
+                amount: paladinHealAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
+              });
+            }
+            otherHero.buffs = otherHero.buffs || [];
+            otherHero.buffs.push({ type: 'invincible', duration: invincibleDuration, startTime: state.gameTime });
+          }
+
+          state.activeSkillEffects.push({
+            type: 'divine_light' as any,
+            heroClass: caster.heroClass, advancedClass: caster.advancedClass as any,
+            position: { x: caster.x, y: caster.y },
+            radius: 500,
+            duration: 1.0,
+            startTime: state.gameTime,
+            heroId: caster.id,
+          });
+        }
       } else if (skill.type === 'snipe') {
         // 저격: 시전자 → 타겟 보스 경로에 있는 가장 가까운 적 타격
         const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
