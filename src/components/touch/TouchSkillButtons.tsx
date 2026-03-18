@@ -279,6 +279,7 @@ export const TouchSkillButtons: React.FC<TouchSkillButtonsProps> = ({ onUseSkill
           cooldown={wSkill.currentCooldown}
           maxCooldown={wSkill.cooldown}
           size={skillSize}
+          disabled={hero.advancedClass === 'darkKnight' && hero.hp <= Math.floor(hero.maxHp * 0.20)}
           onUse={handleWSkill}
         />
       )}
@@ -291,6 +292,7 @@ export const TouchSkillButtons: React.FC<TouchSkillButtonsProps> = ({ onUseSkill
           maxCooldown={eSkill.cooldown}
           size={skillSize}
           active={eSkill.type === 'dark_blade' && hero.darkBladeActive}
+          disabled={hero.advancedClass === 'darkKnight' && !hero.darkBladeActive && hero.hp <= hero.maxHp * 0.1}
           onUse={handleESkill}
         />
       )}

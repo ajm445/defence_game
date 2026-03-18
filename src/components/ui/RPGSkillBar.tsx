@@ -362,6 +362,19 @@ export const RPGSkillBar: React.FC<RPGSkillBarProps> = ({ onUseSkill }) => {
     if (hero.advancedClass === 'sniper' && skill.key === 'E' && !hasSniperTarget) {
       return { disabled: true, reason: '보스 타겟 없음 (마우스 방향 30도 내)' };
     }
+    // 다크나이트 W 스킬: HP 20% 이하면 비활성화
+    if (hero.advancedClass === 'darkKnight' && skill.key === 'W') {
+      const hpCost = Math.floor(hero.maxHp * 0.20);
+      if (hero.hp <= hpCost) {
+        return { disabled: true, reason: 'HP 부족' };
+      }
+    }
+    // 다크나이트 E 스킬: HP 10% 이하면 활성화 불가
+    if (hero.advancedClass === 'darkKnight' && skill.key === 'E' && !hero.darkBladeActive) {
+      if (hero.hp <= hero.maxHp * 0.1) {
+        return { disabled: true, reason: 'HP 부족' };
+      }
+    }
     return { disabled: false };
   };
 

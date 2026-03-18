@@ -30,8 +30,8 @@ const MOTION_CONFIG: Record<MotionType, { fps: number; loop: boolean; holdTime: 
 // 캐릭터별 공격 프레임 가중치 오버라이드 (기본: 15/15/40/30 → 3번째 프레임에서 타격)
 // 값은 누적 비율: [프레임0 끝, 프레임1 끝, 프레임2 끝, 프레임3 끝]
 const ATTACK_FRAME_WEIGHTS: Record<string, number[]> = {
-  // 다크나이트: 2번째 프레임(검 휘두름)을 길게 → 2~3번 프레임 사이에서 타격 렌더링
-  darkKnight: [0.10, 0.55, 0.70, 1.0],
+  // 다크나이트: 프레임2까지 길게(검 휘두름) → 2~3 사이 타격 → 프레임3 빠르게 → 프레임4 끝 포즈
+  darkKnight: [0.10, 0.55, 0.65, 1.0],
 };
 
 const MOTION_CONFIG_OVERRIDE: Record<string, Partial<typeof MOTION_CONFIG[MotionType]> & { frameTimes?: number[] }> = {
@@ -66,8 +66,10 @@ const MOTION_CONFIG_OVERRIDE: Record<string, Partial<typeof MOTION_CONFIG[Motion
   // sniper_e: 3초 시전 → frameTimes로 프레임별 시간 직접 지정
   // 프레임0,1: 조준 (0~2.2s), 프레임2: 발사 (2.2~3.0s), 프레임3: 빠른 후속동작 (3.0~3.3s)
   'sniper_e': { holdTime: 3.5, frameTimes: [1.0, 2.2, 3.0, 3.3] },
-  // darkKnight_w: castingUntil 기반 (1초 시전) → 오버라이드 불필요
-  // darkKnight_e: darkBladeActive 토글 → 오버라이드 불필요
+  // 다크나이트 W: 1초 시전, 프레임3에서 찌르기 공격 발동
+  'darkKnight_w': { holdTime: 1.0, frameTimes: [0.2, 0.6, 0.85, 1.0] },
+  // 다크나이트 E: ON 토글 시 0.8초 시전 모션 재생 (castingUntil)
+  'darkKnight_e': { holdTime: 0.8 },
 };
 
 // 스프라이트가 오른쪽을 바라보는 경우 → flip 반전 필요
@@ -252,7 +254,7 @@ function resolveMotion(
 ): MotionType | null {
   if (dashState) return 'w';
   if (castingUntil && gameTime < castingUntil) return 'e';
-  if (darkBladeActive) return 'e';
+  // darkBladeActive: ON 시 castingUntil로 E 모션 재생, 이후 일반 모션 복귀
   if (heroState === 'moving') return 'walk';
   return null;
 }
@@ -351,7 +353,18 @@ export function drawMotionSprite(
   const stateMotion = resolveMotion(heroState, dashState, castingUntil, gameTime, darkBladeActive);
 
   // 1. 쿨다운 점프 감지
-  const skillUsed = detectSkillUsed(anim, cQ, cW, cE);
+  let skillUsed = detectSkillUsed(anim, cQ, cW, cE);
+
+  // 다크나이트 E (어둠의 칼날): 토글 스킬 전용 처리
+  // - 쿨다운 점프로 모션 감지하지 않음 (ON/OFF 모두 쿨다운 변동 발생)
+  // - ON 시: castingUntil(0.8s)이 resolveMotion에서 'e' 상태 모션으로 처리
+  // - OFF 시: castingUntil 없음 → 모션 없음
+  if (skillUsed === 'e' && advancedClass === 'darkKnight') {
+    skillUsed = null;
+    // prevE만 갱신하여 다음 틱에 재감지 방지
+    if (anim) anim.prevE = cE;
+  }
+
   if (skillUsed !== null) {
     // 원샷 모션 시작 시 flip 방향 고정
     // attack: 공격 대상 방향, e 캐스팅: 타겟 방향, 그 외: 이동 방향

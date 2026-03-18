@@ -62,10 +62,10 @@ export function getHeroSpawnPositions(playerCount: number): { x: number; y: numb
  */
 export function createHeroSkills(heroClass: HeroClass, advancedClass?: AdvancedHeroClass): any[] {
   const baseSkillConfigs: Record<HeroClass, { qType: string; qCd: number; wType: string; wCd: number; eType: string; eCd: number }> = {
-    warrior: { qType: 'warrior_q', qCd: 1.0, wType: 'warrior_w', wCd: 8.0, eType: 'warrior_e', eCd: 30.0 },
-    archer: { qType: 'archer_q', qCd: 0.8, wType: 'archer_w', wCd: 6.0, eType: 'archer_e', eCd: 25.0 },
-    knight: { qType: 'knight_q', qCd: 1.2, wType: 'knight_w', wCd: 10.0, eType: 'knight_e', eCd: 35.0 },
-    mage: { qType: 'mage_q', qCd: 1.5, wType: 'mage_w', wCd: 5.0, eType: 'mage_e', eCd: 40.0 },
+    warrior: { qType: 'warrior_q', qCd: 1.0, wType: 'warrior_w', wCd: 7.0, eType: 'warrior_e', eCd: 30.0 },
+    archer: { qType: 'archer_q', qCd: 0.8, wType: 'archer_w', wCd: 8.0, eType: 'archer_e', eCd: 30.0 },
+    knight: { qType: 'knight_q', qCd: 1.2, wType: 'knight_w', wCd: 8.0, eType: 'knight_e', eCd: 35.0 },
+    mage: { qType: 'mage_q', qCd: 1.5, wType: 'mage_w', wCd: 7.0, eType: 'mage_e', eCd: 40.0 },
   };
 
   const advancedSkillConfigs: Record<AdvancedHeroClass, { wType: string; wCd: number; eType: string; eCd: number }> = {

@@ -516,16 +516,19 @@ export class RPGServerGameEngine {
 
         if (nearestEnemy) {
           executeSkill(this.skillContext, hero, 'Q', nearestEnemy.x, nearestEnemy.y);
-          const isRanged = hero.heroClass === 'archer' || hero.heroClass === 'mage';
-          const now = this.state.currentTickTimestamp;
-          this.state.basicAttackEffects.push({
-            id: `hero_attack_${now}_${hero.id}`,
-            type: isRanged ? 'ranged' : 'melee',
-            x: nearestEnemy.x,
-            y: nearestEnemy.y,
-            timestamp: now,
-            advancedClass: hero.advancedClass as string | undefined,
-          });
+          // 다크나이트: pendingSkill 핸들러에서 데미지/이펙트/사운드 동시 생성 (싱크 일치)
+          if (hero.advancedClass !== 'darkKnight') {
+            const isRanged = hero.heroClass === 'archer' || hero.heroClass === 'mage';
+            const now = this.state.currentTickTimestamp;
+            this.state.basicAttackEffects.push({
+              id: `hero_attack_${now}_${hero.id}`,
+              type: isRanged ? 'ranged' : 'melee',
+              x: nearestEnemy.x,
+              y: nearestEnemy.y,
+              timestamp: now,
+              advancedClass: hero.advancedClass as string | undefined,
+            });
+          }
         } else {
           const nearestBase = findNearestEnemyBase(this.state.enemyBases, hero.x, hero.y, attackRange + 50);
           if (nearestBase) {

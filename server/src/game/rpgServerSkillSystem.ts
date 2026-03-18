@@ -137,6 +137,28 @@ function executeQSkill(
   const isMelee = heroClass === 'warrior' || heroClass === 'knight';
   const attackAngleThreshold = isMelee ? -0.3 : 0.0;
 
+  // 다크나이트 기본공격: 프레임2 종료 시점에 데미지 (attackSpeed * 0.39 딜레이)
+  // ATTACK_FRAME_WEIGHTS [0.10, 0.55, 0.65, 1.0], animTime = attackSpeed * 0.6
+  // → 프레임2 끝 = 0.65 * animTime = attackSpeed * 0.39
+  if (advancedClass === 'darkKnight') {
+    const attackSpeed = hero.config?.attackSpeed || 1.0;
+    const delay = Math.max(0.15, attackSpeed * 0.39);
+    ctx.state.pendingSkills.push({
+      type: 'darkKnight_q' as any,
+      position: { x: hero.x, y: hero.y },
+      direction: { x: dirX, y: dirY },
+      triggerTime: gameTime + delay,
+      damage,
+      radius: attackRange,
+      casterId: hero.id,
+    });
+    // 이펙트는 pendingSkill 핸들러에서 데미지와 동시에 생성 (싱크 일치)
+    // 쿨다운 시작
+    hero.skillCooldowns.Q = attackSpeed;
+    hero._skillQ.currentCooldown = attackSpeed;
+    return;
+  }
+
   // 저격수 크리티컬 확률 체크 (50%)
   const critChance = advancedClass === 'sniper'
     ? (ADVANCED_CLASS_CONFIGS.sniper.specialEffects.critChance || 0)
@@ -276,9 +298,7 @@ function executeQSkill(
       }
     }
 
-    if (advancedClass === 'darkKnight') {
-      totalLifesteal = ADVANCED_CLASS_CONFIGS.darkKnight.specialEffects.lifesteal || 0.2;
-    }
+    // 다크나이트 피해흡혈은 darkKnight_q pendingSkill에서 처리
 
     const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
     if (berserkerBuff?.lifesteal) {
@@ -991,8 +1011,8 @@ function executeAdvancedWSkill(
       // 강타: 1초 시전 후 전방 150px 범위에 350% 데미지, HP 20% 소모
       const hpCost = Math.floor(hero.maxHp * 0.20);
 
-      // HP가 비용보다 적으면 사용 불가
-      if (hero.hp <= hpCost) return false;
+      // HP가 비용보다 적으면 사용 불가 (true 반환으로 기본 스킬 폴백 방지)
+      if (hero.hp <= hpCost) return true;
 
       // HP 차감
       hero.hp -= hpCost;
@@ -1003,12 +1023,12 @@ function executeAdvancedWSkill(
       const skillDamage = Math.floor(damage * 3.5);
       const radius = 150;
 
-      // pendingSkill 등록: 1초 후 데미지 발동
+      // pendingSkill 등록: 프레임3(0.6초)에서 데미지 발동
       state.pendingSkills.push({
         type: 'heavy_strike' as any,
         position: { x: hero.x, y: hero.y },
         direction: { x: dirX, y: dirY },
-        triggerTime: gameTime + 1.0,
+        triggerTime: gameTime + 0.6,
         damage: skillDamage,
         radius,
         casterId: hero.id,
@@ -1329,18 +1349,19 @@ function executeAdvancedESkill(
 
         return true;
       } else {
-        // 활성화 조건 체크
+        // 활성화 조건 체크 (true 반환으로 기본 스킬 폴백 방지)
         const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
-        if (isStunned) return false;
-        if (hero.hp <= hero.maxHp * 0.1) return false;
+        if (isStunned) return true;
+        if (hero.hp <= hero.maxHp * 0.1) return true;
 
         // 재사용 딜레이 체크 (lastToggleOff + 2초)
-        if (hero.darkBladeLastToggleOff && (gameTime - hero.darkBladeLastToggleOff) < 2.0) return false;
+        if (hero.darkBladeLastToggleOff && (gameTime - hero.darkBladeLastToggleOff) < 2.0) return true;
 
         // 활성화
         hero.darkBladeActive = true;
         hero.darkBladeTickTimer = 0;
         hero.skillCooldowns.E = 0;  // 토글이므로 즉시 재사용 가능
+        hero.castingUntil = gameTime + 0.8;  // ON 모션 재생 (0.8초)
 
         // 지속 이펙트 (무한 지속, heroId로 캐릭터 따라다님)
         state.activeSkillEffects.push({
@@ -1706,6 +1727,89 @@ export function updatePendingSkills(ctx: SkillContext): void {
           startTime: state.gameTime,
           heroId: skill.casterId,
         });
+      } else if (skill.type === 'darkKnight_q') {
+        // 다크나이트 기본공격: 근접 AoE + 피해흡혈 + 이펙트 동시 생성
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        if (caster && !caster.isDead) {
+          const atkRange = skill.radius || 80;
+          const atkRangeSq = atkRange * atkRange;
+          const dir = skill.direction || { x: 1, y: 0 };
+          let totalDmg = 0;
+          const hitTargets: { x: number; y: number; damage: number }[] = [];
+
+          for (const enemy of state.enemies) {
+            if (enemy.hp <= 0) continue;
+            const dSq = distanceSquared(caster.x, caster.y, enemy.x, enemy.y);
+            if (dSq > atkRangeSq || dSq === 0) continue;
+            const eDist = Math.sqrt(dSq);
+            const dot = ((enemy.x - caster.x) / eDist) * dir.x + ((enemy.y - caster.y) / eDist) * dir.y;
+            if (dot < -0.3) continue;
+            applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+            hitTargets.push({ x: enemy.x, y: enemy.y, damage: skill.damage });
+            totalDmg += skill.damage;
+          }
+
+          // 적 미타격 시 기지 공격
+          if (totalDmg === 0) {
+            const baseRangeSq = (atkRange + 50) * (atkRange + 50);
+            for (const base of state.enemyBases) {
+              if (base.destroyed) continue;
+              const bSq = distanceSquared(caster.x, caster.y, base.x, base.y);
+              if (bSq > baseRangeSq || bSq === 0) continue;
+              const bDist = Math.sqrt(bSq);
+              const dot = ((base.x - caster.x) / bDist) * dir.x + ((base.y - caster.y) / bDist) * dir.y;
+              if (dot < -0.5) continue;
+              damageBase(state, base.id, skill.damage, ctx.difficulty, caster.id);
+              totalDmg += skill.damage;
+            }
+          }
+
+          // 베기 이펙트 (데미지와 동일 틱에 생성 → 싱크 일치)
+          state.activeSkillEffects.push({
+            type: 'warrior_q' as any,
+            position: { x: caster.x, y: caster.y },
+            direction: { x: dir.x, y: dir.y },
+            radius: atkRange,
+            damage: skill.damage,
+            duration: 0.4,
+            startTime: state.gameTime,
+            heroClass: caster.heroClass,
+            advancedClass: 'darkKnight' as any,
+            hitTargets: hitTargets.length > 0 ? hitTargets : undefined,
+          });
+
+          // 타격 사운드 이펙트 (데미지와 동일 틱 → 사운드 싱크 일치)
+          const targetPos = hitTargets.length > 0
+            ? hitTargets[0]
+            : { x: caster.x + dir.x * atkRange, y: caster.y + dir.y * atkRange };
+          state.basicAttackEffects.push({
+            id: `hero_attack_${state.currentTickTimestamp}_${caster.id}`,
+            type: 'melee',
+            x: targetPos.x,
+            y: targetPos.y,
+            timestamp: state.currentTickTimestamp,
+            advancedClass: 'darkKnight',
+          });
+
+          // 다크나이트 피해흡혈 (20%)
+          if (totalDmg > 0) {
+            const lifestealRate = ADVANCED_CLASS_CONFIGS.darkKnight.specialEffects.lifesteal || 0.2;
+            const berserkerBuff = caster.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
+            let totalLifesteal = lifestealRate;
+            if (berserkerBuff?.lifesteal) {
+              totalLifesteal = (1 + totalLifesteal) * (1 + berserkerBuff.lifesteal) - 1;
+            }
+            const healAmt = Math.floor(totalDmg * totalLifesteal);
+            if (healAmt > 0) {
+              caster.hp = Math.min(caster.maxHp, caster.hp + healAmt);
+              state.damageNumbers.push({
+                id: generateId(),
+                x: caster.x, y: caster.y - 40,
+                amount: healAmt, type: 'heal', createdAt: state.currentTickTimestamp,
+              });
+            }
+          }
+        }
       } else if (skill.type === 'paladin_e') {
         // 팔라딘 E: 자신 최대 HP의 20%를 아군 전체에 회복 + 3초 무적
         const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;

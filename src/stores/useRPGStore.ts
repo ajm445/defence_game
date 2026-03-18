@@ -2706,6 +2706,7 @@ export const useRPGStore = create<RPGStore>()(
               deathTime: hero.deathTime,  // 사망 시간 동기화 (부활 타이머용)
               dashState: mergedDashState,  // 돌진 상태도 호스트에서 받은 것 사용
               castingUntil: hero.castingUntil,  // 시전 상태도 호스트에서 받은 것 사용
+              darkBladeActive: hero.darkBladeActive,  // 다크나이트 토글 상태 동기화
               // 전직 정보 동기화 (부활 시 전직 상태 유지)
               advancedClass: hero.advancedClass,
               tier: hero.tier,

@@ -713,6 +713,45 @@ export function drawHero(
     drawEmoji(ctx, emoji, screenX, screenY, 28);
   }
 
+  // 다크나이트 어둠의 칼날 활성 시 보라색 불길 오라
+  if (hero.darkBladeActive && hero.advancedClass === 'darkKnight') {
+    ctx.save();
+    const auraRadius = 38;
+    const flicker = Math.sin(gameTime * 8) * 0.08 + Math.sin(gameTime * 13) * 0.05;
+    const baseAlpha = 0.35 + flicker;
+
+    // 보라색 외곽 글로우
+    ctx.shadowColor = '#7c3aed';
+    ctx.shadowBlur = 20;
+    ctx.globalAlpha = baseAlpha;
+    const auraGrad = ctx.createRadialGradient(screenX, screenY - 10, auraRadius * 0.2, screenX, screenY - 10, auraRadius);
+    auraGrad.addColorStop(0, 'rgba(124, 58, 237, 0.5)');
+    auraGrad.addColorStop(0.5, 'rgba(88, 28, 135, 0.3)');
+    auraGrad.addColorStop(1, 'transparent');
+    ctx.fillStyle = auraGrad;
+    ctx.beginPath();
+    ctx.arc(screenX, screenY - 10, auraRadius, 0, Math.PI * 2);
+    ctx.fill();
+
+    // 보라색 불길 파티클 (상승)
+    ctx.shadowBlur = 8;
+    for (let i = 0; i < 6; i++) {
+      const seed = i * 1.37;
+      const phase = (gameTime * 2.5 + seed) % 1.0;
+      const px = screenX + Math.sin(seed * 5 + gameTime * 3) * (auraRadius * 0.6);
+      const py = screenY + 15 - phase * 55;
+      const size = (1 - phase) * 5 + 1;
+      const pAlpha = (1 - phase) * 0.7;
+      ctx.globalAlpha = pAlpha * baseAlpha;
+      ctx.fillStyle = i % 2 === 0 ? '#a855f7' : '#7c3aed';
+      ctx.beginPath();
+      ctx.arc(px, py, size, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    ctx.restore();
+  }
+
   // 피격 시 빨간색 깜빡임 효과 (글로우 + 투명도 변화)
   if (isDamageBlinking) {
     ctx.save();

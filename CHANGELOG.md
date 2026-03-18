@@ -1,5 +1,52 @@
 # Changelog
 
+## [1.26.5] - 2026-03-19
+
+### 다크나이트 스프라이트 완성 및 모션 싱크
+- **다크나이트 tier1/tier2 전체 모션 스프라이트 적용**: W스킬(암흑 찌르기), E스킬(어둠의 칼날) 추가 (tier1+tier2 총 8종 완성)
+- **기본공격 프레임 싱크**: ATTACK_FRAME_WEIGHTS `[0.10, 0.55, 0.65, 1.0]` — 프레임3 빠르게 종료, 프레임4 끝 포즈
+- **기본공격 데미지 pendingSkill**: `darkKnight_q` pendingSkill로 프레임2 종료 시점(attackSpeed × 0.39)에 데미지 발동
+  - 데미지/베기 이펙트/타격 사운드 모두 동일 틱에서 생성 (싱크 일치)
+  - hitTargets 포함으로 피격 스파크 이펙트 정상 표시
+- **기본공격 이펙트 변경**: `knight_q`(방패 타격) → `warrior_q`(베기 호) — 검 휘두르기 모션에 맞는 전사 계열 이펙트 적용
+- **W스킬 triggerTime 변경**: 1.0초 → 0.6초 (프레임3에서 데미지 발동), frameTimes `[0.2, 0.6, 0.85, 1.0]`
+
+### 다크나이트 E스킬(어둠의 칼날) 토글 모션 개선
+- **ON 시 E 모션 재생**: castingUntil 0.8초 설정으로 E 스프라이트 4프레임 재생, holdTime 0.8초 오버라이드
+- **OFF 시 모션 없음**: 쿨다운 점프 감지에서 다크나이트 E 전용 제외 처리 (prevE 갱신으로 재감지 방지)
+- **보라색 불길 오라 렌더링**: darkBladeActive 상태에서 캐릭터 주위에 보라색 방사형 글로우 + 6개 상승 파티클
+- **darkBladeActive 동기화 수정**: useRPGStore에서 서버→클라이언트 토글 상태 누락 수정
+
+### 다크나이트 스킬 폴백 버그 수정
+- **W/E 실패 시 기본 스킬 폴백 방지**: HP 부족/스턴 등으로 스킬 사용 불가 시 `return true`로 기사 기본 스킬 실행 차단
+- **HP 부족 시 스킬 비활성화**: W스킬(HP ≤ 20%), E스킬(HP ≤ 10%) 조건에서 스킬 버튼 그레이스케일 + "HP 부족" 표시
+  - RPGSkillBar(PC) + TouchSkillButtons(모바일) 모두 적용
+
+### 기본 직업 쿨다운 통일 (클라이언트-서버)
+- **전사 W**: 서버 8초/클라 5초 → **7초 통일**
+- **궁수 W**: 서버 6초/클라 8초 → **8초 통일**
+- **궁수 E**: 서버 25초/클라 30초 → **30초 통일**
+- **기사 W**: 서버 10초/클라 8초 → **8초 통일**
+- **마법사 W**: 서버 5초/클라 7초 → **7초 통일**
+
+### 기타 수정
+- **darkBladeActive 직렬화**: `|| false` → `|| undefined`로 변경 (비다크나이트 캐릭터 불필요 전송 방지)
+- **resolveMotion에서 darkBladeActive 상시 'e' 반환 제거**: castingUntil 기반으로 전환
+
+### 수정 파일
+- `server/src/game/rpgServerSkillSystem.ts`: darkKnight_q pendingSkill, W/E 폴백 방지, W triggerTime 0.6초
+- `server/src/game/RPGServerGameEngine.ts`: 다크나이트 basicAttackEffects 지연 생성
+- `server/src/game/rpgServerHeroSystem.ts`: 기본 직업 W/E 쿨다운 통일
+- `server/src/game/rpgServerGameSystems.ts`: darkBladeActive 직렬화 수정
+- `src/utils/spriteMotion.ts`: ATTACK_FRAME_WEIGHTS 조정, 다크나이트 E 토글 전용 처리, darkKnight_w/e 오버라이드
+- `src/renderer/drawHero.ts`: 보라색 불길 오라 렌더링 추가
+- `src/stores/useRPGStore.ts`: darkBladeActive 동기화 추가
+- `src/components/ui/RPGSkillBar.tsx`: 다크나이트 W/E HP 부족 비활성화
+- `src/components/touch/TouchSkillButtons.tsx`: 다크나이트 W/E HP 부족 비활성화
+- `src/constants/rpgConfig.ts`: 전사 W 쿨다운 5→7
+- `src/types/rpg.ts`: `darkKnight_q` SkillType 추가
+- `public/img/units/RPG/motion/dark_knight/`: tier2 4종 스프라이트 추가
+
 ## [1.26.4] - 2026-03-19
 
 ### 팔라딘 스프라이트 추가 및 모션 싱크
