@@ -689,18 +689,18 @@ Frame 4: Facing LEFT like Frame 1 — same pose, same bow hand. Feet passing cen
 Swift, light-footed walk. Nimble, ranger-style movement.
 ```
 
-#### 8-2. Basic Attack - 다중 사격 (4프레임)
+#### 8-2. Basic Attack - 속사 (4프레임)
 ```
-Generate a 4-frame multi-target bow attack sprite sheet for this chibi skeleton ranger. Character faces LEFT in all frames.
+Generate a 4-frame bow shot sprite sheet for this chibi skeleton ranger. Character faces LEFT in all frames.
 
 Character: [Ranger 외형]
 
-Frame 1 (Nock multiple): Rapidly draws 3 arrows simultaneously from quiver, places on bowstring. Quick, practiced.
-Frame 2 (Multi-draw): Pulls back all 3 arrows. Bow bends wide. Amber (#ff9922) energy on arrowheads. Spread angle visible.
-Frame 3 (Release spread): All arrows fire in fan pattern. Amber energy trails in different directions. Bowstring snaps.
-Frame 4 (Recovery): Facing LEFT like Frame 1 — same bow hand. Reaching for next arrows. Amber wisps fading.
+Frame 1 (Nock): Pulling a single arrow from quiver, placing on bowstring. Bow arm extended to the LEFT. Quick, practiced motion.
+Frame 2 (Draw): Full draw — bowstring pulled back near skull face. Bow bends visibly. Amber (#ff9922) energy glows on arrowhead.
+Frame 3 (Release): Arrow released — fingers opening, bowstring snapping forward. Single arrow visible leaving bow to the LEFT. Slight forward lunge. Amber energy trail follows arrow.
+Frame 4 (Recovery): Facing LEFT like Frame 1 — same bow hand. Bow arm extended, draw hand relaxing. Bowstring vibrating. Amber wisps fading.
 
-Hits up to 5 targets simultaneously. Fast multi-shot. Amber (#ff9922).
+Fast single-arrow shot. Clean and snappy. Amber (#ff9922).
 ```
 
 #### 8-3. W Skill - 다중 화살 Multi Arrow (4프레임)

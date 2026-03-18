@@ -1170,7 +1170,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, AdvancedClassConf
       healAlly: true,    // 아군 힐 가능
       basicAttackHeal: {
         range: 200,       // 힐 범위 (기본 공격 시 주변 200px 내 아군)
-        healPercent: 0.05, // 공격력의 5% 힐
+        healPercent: 0.02, // 자신 최대 HP의 2% 힐
       },
     },
   },
@@ -1441,8 +1441,8 @@ export const ADVANCED_E_SKILLS: Record<AdvancedHeroClass, AdvancedSkillConfig> =
     nameEn: 'Divine Light',
     key: 'E',
     cooldown: 60,
-    description: '아군 전체 HP 30% 회복 + 3초 무적',
-    healPercent: 0.3,
+    description: '자신 최대 HP의 20%를 아군 전체에 회복 + 3초 무적',
+    healPercent: 0.2,
     invincibleDuration: 3,
     radius: 500,
   },

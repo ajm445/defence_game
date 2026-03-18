@@ -373,6 +373,11 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                         <span className="text-red-400 font-bold">×{advConfig.specialEffects.lifestealMultiplier}</span>
                       </div>
                     )}
+                    {advConfig.specialEffects.lifestealMultiplier && (
+                      <div className="text-xs text-gray-500 -mt-1 ml-5">
+                        기본 피해흡혈 패시브에 {advConfig.specialEffects.lifestealMultiplier}배 곱연산 적용
+                      </div>
+                    )}
                     {advConfig.specialEffects.lifesteal && (
                       <div className="flex justify-between">
                         <span className="text-gray-400"><Emoji emoji="🩸" size={14} className="mr-1" /> 피해흡혈</span>
@@ -385,16 +390,31 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                         <span className="text-orange-400 font-bold">{advConfig.specialEffects.critChance * 100}%</span>
                       </div>
                     )}
+                    {selectedAdvancedClass === 'sniper' && (
+                      <div className="text-xs text-gray-500 ml-5">
+                        <Emoji emoji="🔄" size={12} className="mr-1" /> 다중타겟 패시브가 <span className="text-orange-400">공격력 증가</span>로 전환
+                      </div>
+                    )}
                     {advConfig.specialEffects.multiTarget && (
                       <div className="flex justify-between">
                         <span className="text-gray-400"><Emoji emoji="🎯" size={14} className="mr-1" /> 동시 공격</span>
                         <span className="text-green-400 font-bold">{advConfig.specialEffects.multiTarget}명</span>
                       </div>
                     )}
+                    {selectedAdvancedClass === 'ranger' && (
+                      <div className="text-xs text-gray-500 -mt-1 ml-5">
+                        기본 다중타겟 패시브 유지, 최대 대상 3명 → {advConfig.specialEffects.multiTarget}명으로 강화
+                      </div>
+                    )}
                     {advConfig.specialEffects.bossBonus && (
                       <div className="flex justify-between">
                         <span className="text-gray-400"><Emoji emoji="👹" size={14} className="mr-1" /> 보스 추가 데미지</span>
                         <span className="text-purple-400 font-bold">+{advConfig.specialEffects.bossBonus * 100}%</span>
+                      </div>
+                    )}
+                    {selectedAdvancedClass === 'archmage' && (
+                      <div className="text-xs text-gray-500 -mt-1 ml-5">
+                        기본 보스 특공 패시브와 곱연산 적용
                       </div>
                     )}
                     {advConfig.specialEffects.healAlly && (
@@ -404,8 +424,8 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                     )}
                     {advConfig.specialEffects.basicAttackHeal && (
                       <div className="text-sm text-gray-400 leading-relaxed">
-                        기본 공격 시 주변 {advConfig.specialEffects.basicAttackHeal.range}px 내 아군
-                        HP {advConfig.specialEffects.basicAttackHeal.healPercent * 100}% 회복
+                        기본 공격 시 주변 {advConfig.specialEffects.basicAttackHeal.range}px 내 아군에
+                        자신 최대 HP의 {advConfig.specialEffects.basicAttackHeal.healPercent * 100}% 회복
                       </div>
                     )}
                     {advConfig.specialEffects.healAura && (

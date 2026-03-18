@@ -187,6 +187,7 @@ export function drawHero(
   const hasBerserker = hero.buffs?.some(b => b.type === 'berserker' && b.duration > 0);
   const hasIronwall = hero.buffs?.some(b => b.type === 'ironwall' && b.duration > 0);
   const hasInvincible = hero.buffs?.some(b => b.type === 'invincible' && b.duration > 0);
+  const hasSwiftness = hero.buffs?.some(b => b.type === 'swiftness' && b.duration > 0);
 
   // 피격 시 빨간색 깜빡임 효과 (0.2초간)
   const DAMAGE_BLINK_DURATION = 0.2;
@@ -369,6 +370,46 @@ export function drawHero(
     ctx.beginPath();
     ctx.arc(screenX, screenY, 35, 0, Math.PI * 2);
     ctx.fill();
+  }
+
+  // 버프 이펙트 (신속 - 저격수 W)
+  if (hasSwiftness) {
+    const time = gameTime * 4;
+    const particleCount = 6;
+
+    for (let i = 0; i < particleCount; i++) {
+      const angle = (i / particleCount) * Math.PI * 2 + time;
+      const orbitRadius = 22 + Math.sin(time * 2 + i) * 5;
+      const px = screenX + Math.cos(angle) * orbitRadius;
+      const py = screenY + Math.sin(angle) * orbitRadius;
+      const particleSize = 2.5 + Math.sin(time * 3 + i * 1.5) * 1;
+      const alpha = 0.5 + Math.sin(time * 2.5 + i) * 0.25;
+
+      // 파란색 파티클
+      ctx.globalAlpha = alpha;
+      ctx.fillStyle = '#44ccff';
+      ctx.beginPath();
+      ctx.arc(px, py, particleSize, 0, Math.PI * 2);
+      ctx.fill();
+
+      // 파티클 글로우
+      ctx.globalAlpha = alpha * 0.4;
+      ctx.fillStyle = '#88ddff';
+      ctx.beginPath();
+      ctx.arc(px, py, particleSize * 2, 0, Math.PI * 2);
+      ctx.fill();
+    }
+
+    // 캐릭터 주변 은은한 시안 글로우
+    ctx.globalAlpha = 0.15 + Math.sin(time * 1.5) * 0.05;
+    const swiftnessGlow = ctx.createRadialGradient(screenX, screenY, 0, screenX, screenY, 30);
+    swiftnessGlow.addColorStop(0, '#44ccff');
+    swiftnessGlow.addColorStop(1, 'transparent');
+    ctx.fillStyle = swiftnessGlow;
+    ctx.beginPath();
+    ctx.arc(screenX, screenY, 30, 0, Math.PI * 2);
+    ctx.fill();
+    ctx.globalAlpha = 1;
   }
 
   // 힐러 오로라 이펙트 (힐러 전직 전용)

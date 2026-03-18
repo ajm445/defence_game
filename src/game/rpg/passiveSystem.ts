@@ -119,12 +119,24 @@ export function createInitialPassiveState(): PassiveGrowthState {
 
 /**
  * 패시브 설명 텍스트 생성
+ * 저격수 전직 시 다중타겟 → 공격력 증가로 전환
  */
-export function getPassiveDescription(heroClass: HeroClass): string {
+export function getPassiveDescription(heroClass: HeroClass, advancedClass?: string): string {
   const config = PASSIVE_GROWTH_CONFIGS[heroClass];
+
+  // 저격수 전직: 다중타겟 패시브가 공격력 증가로 전환
+  if (heroClass === 'archer' && advancedClass === 'sniper') {
+    return `공격력 증가 (다중타겟 확률이 공격력 보너스로 전환)`;
+  }
+
+  // 레인저 전직: 다중타겟 강화
+  if (heroClass === 'archer' && advancedClass === 'ranger') {
+    return `다중타겟 확률 (최대 ${config.maxValue * 100}%, 최대 5명 동시 공격)`;
+  }
+
   const descriptions: Record<HeroClass, string> = {
     warrior: `피해흡혈 (최대 ${config.maxValue * 100}%, 초과 시 공격력 증가)`,
-    archer: `다중타겟 확률 (최대 ${config.maxValue * 100}%, 초과 시 공격력 증가)`,
+    archer: `다중타겟 확률 (최대 ${config.maxValue * 100}%, 최대 3명 동시 공격)`,
     knight: `HP 재생 (최대 ${config.maxValue}/초, 초과 시 체력 증가)`,
     mage: `데미지 보너스 (최대 ${config.maxValue * 100}%, 초과 시 공격력 증가)`,
   };
@@ -134,7 +146,7 @@ export function getPassiveDescription(heroClass: HeroClass): string {
 /**
  * 패시브 상태 포맷팅 (UI 표시용)
  */
-export function formatPassiveValue(heroClass: HeroClass, state: PassiveGrowthState, characterLevel: number = 1): string {
+export function formatPassiveValue(heroClass: HeroClass, state: PassiveGrowthState, characterLevel: number = 1, advancedClass?: string): string {
   if (state.level === 0) {
     const levelsNeeded = PASSIVE_UNLOCK_LEVEL - characterLevel;
     if (levelsNeeded > 0) {
@@ -145,6 +157,15 @@ export function formatPassiveValue(heroClass: HeroClass, state: PassiveGrowthSta
 
   const config = PASSIVE_GROWTH_CONFIGS[heroClass];
   let valueText: string;
+
+  // 저격수 전직: 다중타겟 확률 → 공격력 증가로 전환 표시
+  if (heroClass === 'archer' && advancedClass === 'sniper') {
+    valueText = `공격력 +${(state.currentValue * 100).toFixed(1)}%`;
+    if (state.overflowBonus > 0) {
+      valueText += ` (+${(state.overflowBonus * 100).toFixed(1)}% 추가)`;
+    }
+    return valueText;
+  }
 
   switch (config.type) {
     case 'lifesteal':

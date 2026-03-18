@@ -285,10 +285,10 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
               <span className="ml-2 text-gray-500 text-sm">(Lv.{PASSIVE_UNLOCK_LEVEL} 해금)</span>
             )}
           </h3>
-          <p className="text-gray-400 text-sm mb-2">{getPassiveDescription(heroClass)}</p>
+          <p className="text-gray-400 text-sm mb-2">{getPassiveDescription(heroClass, progress.advancedClass)}</p>
           {passiveState ? (
             <div className="text-cyan-400 font-bold">
-              {formatPassiveValue(heroClass, passiveState, progress.classLevel)}
+              {formatPassiveValue(heroClass, passiveState, progress.classLevel, progress.advancedClass)}
             </div>
           ) : (
             <div className="text-gray-500">

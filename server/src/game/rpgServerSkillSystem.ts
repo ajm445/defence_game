@@ -142,6 +142,12 @@ function executeQSkill(
     ? (ADVANCED_CLASS_CONFIGS.sniper.specialEffects.critChance || 0)
     : 0;
   const isCriticalHit = critChance > 0 && Math.random() < critChance;
+
+  // 저격수 패시브 전환: 다중타겟 → 공격력 증가
+  if (advancedClass === 'sniper' && hero.passiveGrowth?.currentValue > 0) {
+    const sniperAttackBonus = hero.passiveGrowth.currentValue;
+    damage = Math.floor(damage * (1 + sniperAttackBonus));
+  }
   const criticalMultiplier = 2.0;
 
   // 마법사 보스 데미지 보너스 계산
@@ -157,15 +163,17 @@ function executeQSkill(
     }
   }
 
-  // 궁수 멀티타겟 확률 체크
+  // 궁수 멀티타겟 확률 체크 (저격수 전직 시 패시브 전환 → 멀티타겟 비활성)
   const isPassiveUnlocked = (hero.characterLevel || 1) >= PASSIVE_UNLOCK_LEVEL;
-  const multiTargetChance = heroClass === 'archer' && isPassiveUnlocked
+  const isSniperClass = advancedClass === 'sniper';
+  const multiTargetChance = heroClass === 'archer' && isPassiveUnlocked && !isSniperClass
     ? (hero.passiveGrowth?.currentValue || 0)
     : 0;
   const useMultiTarget = multiTargetChance > 0 && Math.random() < multiTargetChance;
-  const rangerTargets = advancedClass === 'ranger'
+  // 궁수: 3타겟, 레인저: 5타겟
+  const maxMultiTargets = advancedClass === 'ranger'
     ? (ADVANCED_CLASS_CONFIGS.ranger.specialEffects.multiTarget || 5)
-    : 0;
+    : 3;
 
   const hitEnemies: { id: string; damage: number; isCritical: boolean; x: number; y: number }[] = [];
   const archerTargets: { enemy: RPGEnemy; dist: number }[] = [];
@@ -204,7 +212,7 @@ function executeQSkill(
   // 궁수 타겟 처리
   if (heroClass === 'archer' && archerTargets.length > 0) {
     archerTargets.sort((a, b) => a.dist - b.dist);
-    const targetCount = rangerTargets > 0 ? rangerTargets : (useMultiTarget ? 2 : 1);
+    const targetCount = useMultiTarget ? maxMultiTargets : 1;
     const targets = archerTargets.slice(0, targetCount);
     for (const t of targets) {
       let actualDamage = damage;
@@ -293,18 +301,18 @@ function executeQSkill(
     }
   }
 
-  // 팔라딘 기본 공격 힐 (아군 최대 HP 5% 회복)
+  // 팔라딘 기본 공격 힐 (자신 최대 HP의 일정% 회복)
   if (advancedClass === 'paladin' && totalDamageDealt > 0) {
     const healConfig = ADVANCED_CLASS_CONFIGS.paladin.specialEffects.basicAttackHeal;
     if (healConfig) {
       const healRange = healConfig.range || 200;
-      const healPercent = healConfig.healPercent || 0.05;
-      for (const [, otherHero] of ctx.state.heroes) {
-        if (otherHero.id === hero.id || otherHero.isDead) continue;
-        const dist = distance(hero.x, hero.y, otherHero.x, otherHero.y);
-        if (dist <= healRange) {
-          const healAmount = Math.floor(otherHero.maxHp * healPercent);
-          if (healAmount > 0) {
+      const healPercent = healConfig.healPercent || 0.02;
+      const healAmount = Math.floor(hero.maxHp * healPercent);
+      if (healAmount > 0) {
+        for (const [, otherHero] of ctx.state.heroes) {
+          if (otherHero.id === hero.id || otherHero.isDead) continue;
+          const dist = distance(hero.x, hero.y, otherHero.x, otherHero.y);
+          if (dist <= healRange) {
             otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
             ctx.state.damageNumbers.push({
               id: generateId(),
@@ -977,7 +985,7 @@ function executeAdvancedWSkill(
         dirX, dirY,
       };
 
-      // 주변 아군 힐
+      // 주변 아군 힐 (아군 최대 HP 기준)
       for (const [, otherHero] of state.heroes) {
         if (otherHero.isDead) continue;
         const dist = distance(hero.x, hero.y, otherHero.x, otherHero.y);
@@ -1303,13 +1311,12 @@ function executeAdvancedESkill(
     }
 
     case 'paladin': {
-      // 신성한 빛: 아군 전체 HP 30% 회복 + 3초 무적
-      const healPercent = 0.3;
+      // 신성한 빛: 자신 최대 HP의 20%를 아군 전체에 회복 + 3초 무적
+      const healAmount = Math.floor(hero.maxHp * 0.2);
       const invincibleDuration = 3.0;
 
       for (const [, otherHero] of state.heroes) {
         if (otherHero.isDead) continue;
-        const healAmount = Math.floor(otherHero.maxHp * healPercent);
         otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
         if (healAmount > 0) {
           state.damageNumbers.push({

@@ -70,7 +70,6 @@ const SPRITE_FACES_RIGHT = new Set<string>([
   'archer_walk', 'archer_w', 'archer_e',
   'knight_w', 'knight_e',
   'berserker_walk', 'berserker_w',
-  'boss_attack',
 ]);
 
 // 방향 무시 (항상 반전 없이 원본 방향 고정) — 하늘 발사 등 방향 무관 모션

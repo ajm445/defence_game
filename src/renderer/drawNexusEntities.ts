@@ -202,6 +202,98 @@ export function drawEnemyBase(
   ctx.lineWidth = 3;
   ctx.stroke();
 
+  // === 성벽 균열 (HP에 따라 점진적으로 증가) ===
+  if (hpPercent < 0.8) {
+    ctx.save();
+    ctx.strokeStyle = '#1a0a10';
+    ctx.lineCap = 'round';
+    ctx.lineJoin = 'round';
+
+    // 단계별 균열 수: 80%→1개, 60%→2개, 40%→3개, 20%→5개
+    const crackLevel = hpPercent < 0.2 ? 4 : hpPercent < 0.4 ? 3 : hpPercent < 0.6 ? 2 : 1;
+
+    // 균열 패턴 정의 (wallW, wallH 기준 비율)
+    const crackPatterns = [
+      // 균열 1: 좌하단 대각선
+      { lineWidth: 1.5, points: [
+        { x: -wallW * 0.35, y: wallH * 0.1 },
+        { x: -wallW * 0.2, y: wallH * 0.25 },
+        { x: -wallW * 0.25, y: wallH * 0.4 },
+      ]},
+      // 균열 2: 우상단 갈라짐
+      { lineWidth: 1.5, points: [
+        { x: wallW * 0.1, y: -wallH * 0.35 },
+        { x: wallW * 0.2, y: -wallH * 0.15 },
+        { x: wallW * 0.35, y: -wallH * 0.1 },
+        { x: wallW * 0.3, y: wallH * 0.05 },
+      ]},
+      // 균열 3: 중앙 세로 균열 (심각)
+      { lineWidth: 2, points: [
+        { x: -wallW * 0.05, y: -wallH * 0.45 },
+        { x: wallW * 0.02, y: -wallH * 0.2 },
+        { x: -wallW * 0.03, y: wallH * 0.05 },
+        { x: wallW * 0.05, y: wallH * 0.25 },
+      ]},
+      // 균열 4: 우하단 + 좌상단 추가 (위험)
+      { lineWidth: 2.5, points: [
+        { x: wallW * 0.15, y: wallH * 0.15 },
+        { x: wallW * 0.3, y: wallH * 0.3 },
+        { x: wallW * 0.4, y: wallH * 0.45 },
+      ]},
+    ];
+
+    for (let i = 0; i < crackLevel; i++) {
+      const crack = crackPatterns[i];
+      // HP 낮을수록 균열 더 진하게
+      const alpha = 0.4 + (1 - hpPercent) * 0.6;
+      ctx.globalAlpha = alpha;
+      ctx.lineWidth = crack.lineWidth;
+
+      // 균열 선
+      ctx.beginPath();
+      ctx.moveTo(crack.points[0].x, crack.points[0].y);
+      for (let j = 1; j < crack.points.length; j++) {
+        ctx.lineTo(crack.points[j].x, crack.points[j].y);
+      }
+      ctx.stroke();
+
+      // 균열에서 갈라지는 작은 가지
+      for (let j = 1; j < crack.points.length - 1; j++) {
+        const p = crack.points[j];
+        const branchLen = wallW * 0.06;
+        const branchAngle = (i + j) * 1.3; // 결정적 각도
+        ctx.beginPath();
+        ctx.moveTo(p.x, p.y);
+        ctx.lineTo(
+          p.x + Math.cos(branchAngle) * branchLen,
+          p.y + Math.sin(branchAngle) * branchLen
+        );
+        ctx.lineWidth = crack.lineWidth * 0.6;
+        ctx.stroke();
+      }
+    }
+
+    // HP 20% 이하: 성벽 조각 떨어지는 효과 (작은 사각형 파편)
+    if (hpPercent < 0.2) {
+      ctx.globalAlpha = 0.5;
+      ctx.fillStyle = '#4a3848';
+      const debrisPositions = [
+        { x: -wallW * 0.4, y: wallH * 0.5 + 3 },
+        { x: wallW * 0.35, y: wallH * 0.5 + 5 },
+        { x: -wallW * 0.1, y: wallH * 0.5 + 2 },
+      ];
+      for (const d of debrisPositions) {
+        ctx.save();
+        ctx.translate(d.x, d.y);
+        ctx.rotate(0.3 + d.x * 0.01);
+        ctx.fillRect(-3, -2, 6, 4);
+        ctx.restore();
+      }
+    }
+
+    ctx.restore();
+  }
+
   // 성벽 상단 흉벽 (각진 톱니)
   const battlementCount = 5;
   const bWidth = wallW / (battlementCount * 2 + 1);

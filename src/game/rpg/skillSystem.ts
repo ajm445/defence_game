@@ -167,6 +167,11 @@ export function executeQSkill(
     finalDamage = Math.floor(finalDamage * criticalMultiplier);
   }
 
+  // 저격수 패시브 전환: 다중타겟 → 공격력 증가
+  if (hero.advancedClass === 'sniper' && hero.passiveGrowth?.currentValue > 0) {
+    finalDamage = Math.floor(finalDamage * (1 + hero.passiveGrowth.currentValue));
+  }
+
   const enemyDamages: { enemyId: string; damage: number; isCritical?: boolean }[] = [];
   const baseDamages: { baseId: EnemyBaseId; damage: number; isCritical?: boolean }[] = [];
   const hitTargets: HitTarget[] = []; // 피격 대상 위치 수집
@@ -189,11 +194,15 @@ export function executeQSkill(
   const attackAngleThreshold = isMelee ? -0.3 : 0.0; // 근거리는 약 110도, 원거리는 90도
 
   // 궁수: 기본 패시브 다중타겟 (레벨 5 이상) + 패시브 성장 확률 판정
-  const baseMultiTargetCount = classConfig.passive.multiTarget || 1;
+  // 궁수: 3타겟, 레인저: 5타겟, 저격수: 패시브 전환 → 멀티타겟 비활성
+  const isSniperClass = hero.advancedClass === 'sniper';
+  const maxMultiTargets = hero.advancedClass === 'ranger'
+    ? (ADVANCED_CLASS_CONFIGS.ranger.specialEffects.multiTarget || 5)
+    : (classConfig.passive.multiTarget || 3);
   // 레벨 5 이상이고 패시브 성장 확률 판정 성공 시 다중타겟
   const isPassiveUnlocked = hero.characterLevel >= PASSIVE_UNLOCK_LEVEL;
-  const useGrowthMultiTarget = heroClass === 'archer' && isPassiveUnlocked && rollMultiTarget(hero.passiveGrowth?.currentValue || 0);
-  const multiTargetCount = useGrowthMultiTarget ? baseMultiTargetCount : 1;
+  const useGrowthMultiTarget = heroClass === 'archer' && isPassiveUnlocked && !isSniperClass && rollMultiTarget(hero.passiveGrowth?.currentValue || 0);
+  const multiTargetCount = useGrowthMultiTarget ? maxMultiTargets : 1;
 
   // 궁수용 통합 타겟 풀 (적 + 기지)
   type ArcherTarget =
@@ -383,7 +392,7 @@ export function executeQSkill(
     updatedHero = { ...updatedHero, skills: updatedSkills };
   }
 
-  // 팔라딘: 기본 공격 시 주변 아군 힐 (본인 제외, 아군 최대 HP 5% 회복)
+  // 팔라딘: 기본 공격 시 주변 아군 힐 (본인 제외, 자신 최대 HP의 일정% 회복)
   const allyHeals: { heroId: string; heal: number }[] = [];
   if (hero.advancedClass === 'paladin' && enemyDamages.length > 0) {
     const advancedConfig = ADVANCED_CLASS_CONFIGS.paladin;
@@ -391,15 +400,15 @@ export function executeQSkill(
     if (basicAttackHeal) {
       const healRange = basicAttackHeal.range;
       const healPercent = basicAttackHeal.healPercent;
+      const healAmount = Math.floor(hero.maxHp * healPercent);
 
-      for (const ally of allies) {
-        if (ally.id === hero.id) continue;
-        if (ally.hp <= 0) continue;
+      if (healAmount > 0) {
+        for (const ally of allies) {
+          if (ally.id === hero.id) continue;
+          if (ally.hp <= 0) continue;
 
-        const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
-        if (allyDist <= healRange) {
-          const healAmount = Math.floor(ally.maxHp * healPercent);
-          if (healAmount > 0) {
+          const allyDist = distance(hero.x, hero.y, ally.x, ally.y);
+          if (allyDist <= healRange) {
             allyHeals.push({ heroId: ally.id, heal: healAmount });
           }
         }
@@ -1308,7 +1317,7 @@ function executeAdvancedWSkill(
 
         returnStunDuration = stunDuration;
 
-        // 아군 힐 (도착지점 주변)
+        // 아군 힐 (도착지점 주변, 아군 최대 HP 기준)
         for (const ally of allies) {
           if (ally.id === hero.id) continue;  // 자기 자신 제외
           if (ally.hp <= 0) continue;  // 사망한 아군 제외
@@ -1690,16 +1699,15 @@ function executeAdvancedESkill(
       break;
 
     case 'paladin':
-      // 신성한 빛 - 아군 전체 HP 30% 회복 + 3초 무적 (사거리 제한 없음)
+      // 신성한 빛 - 자신 최대 HP의 20%를 아군 전체에 회복 + 3초 무적 (사거리 제한 없음)
       {
-        const healPercent = skillConfig.healPercent || 0.3;
+        const healAmount = Math.floor(hero.maxHp * 0.2);
         const invincibleDuration = skillConfig.invincibleDuration || 3;
 
         // 자신 힐 + 무적
-        const selfHeal = Math.floor(hero.maxHp * healPercent);
         updatedHero = {
           ...hero,
-          hp: Math.min(hero.maxHp, hero.hp + selfHeal),
+          hp: Math.min(hero.maxHp, hero.hp + healAmount),
         };
 
         buff = {
@@ -1712,7 +1720,6 @@ function executeAdvancedESkill(
         for (const ally of allies) {
           if (ally.id === hero.id) continue;
           if (ally.hp <= 0) continue;  // 사망한 아군 제외
-          const healAmount = Math.floor(ally.maxHp * healPercent);
           allyHeals.push({ heroId: ally.id, heal: healAmount });
           allyBuffs.push({
             heroId: ally.id,
@@ -1728,7 +1735,7 @@ function executeAdvancedESkill(
           type: skillConfig.type,
           position: { x: hero.x, y: hero.y },
           radius: skillConfig.radius || 300,
-          heal: selfHeal,
+          heal: healAmount,
           duration: 1.0,
           startTime: gameTime,
         };

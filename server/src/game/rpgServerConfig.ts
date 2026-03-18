@@ -521,7 +521,7 @@ export const ADVANCED_CLASS_CONFIGS: Record<AdvancedHeroClass, {
     name: '팔라딘',
     baseClass: 'knight',
     stats: { hp: 770, attack: 46, attackSpeed: 1.0, speed: 2.64, range: 84 },
-    specialEffects: { healAlly: true, basicAttackHeal: { range: 200, healPercent: 0.05 } },
+    specialEffects: { healAlly: true, basicAttackHeal: { range: 200, healPercent: 0.02 } },
   },
   darkKnight: {
     name: '다크나이트',
