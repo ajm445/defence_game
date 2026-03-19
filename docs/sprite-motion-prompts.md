@@ -871,30 +871,34 @@ Dignified wizardly walk. Purple energy trails. Mystical presence.
 
 #### 11-2. Basic Attack - 강화 마법 화살 (4프레임)
 ```
-Generate a 4-frame empowered magic missile sprite sheet for this chibi skeleton archmage. Character faces LEFT in all frames.
+Generate a 4-frame empowered magic missile CASTING sprite sheet for this chibi skeleton archmage. Character faces LEFT in all frames.
 
 Character: [Archmage 외형]
 
-Frame 1 (Gather): Both hands raised, staff orb and hand orb brighten. Purple energy spirals between them.
-Frame 2 (Merge): Energy from both orbs merges into single large missile. Runes appear. Eyes blaze purple.
-Frame 3 (Launch): Dual-handed release - massive purple missile fires. Much larger than base mage's. Double energy trail. Hat and beard blown back.
-Frame 4 (Recovery): Facing LEFT like Frame 1 — same staff hand. Energy returns to both orbs. Magical afterglow.
+NOTE: This sprite shows ONLY the character's casting poses. The actual magic missile projectile is rendered separately by the game engine — do NOT draw any projectile, energy bolt, or flying missile in any frame. Only show energy gathering ON the character's hands/staff.
 
-1.5x boss damage bonus. More powerful than base mage. Purple (#a855f7).
+Frame 1 (Gather): Both hands raised, staff orb and hand orb brighten. Small purple energy spirals between hands close to body.
+Frame 2 (Charge): Energy concentrates between both palms near chest. Runes appear around hands. Eyes blaze purple.
+Frame 3 (Release): Both arms thrust forward in casting pose. Hands open, palms facing left. Hat and beard blown back by recoil. No projectile — only the push pose.
+Frame 4 (Recovery): Facing LEFT like Frame 1 — same staff hand. Arms returning to rest. Faint purple glow on fingertips.
+
+Show only the character's body and casting poses. No projectiles or energy bolts leaving the character. Purple (#a855f7).
 ```
 
 #### 11-3. W Skill - 폭발 화염구 Inferno (4프레임)
 ```
-Generate a 4-frame inferno spell sprite sheet for this chibi skeleton archmage. Character faces LEFT in all frames.
+Generate a 4-frame inferno spell CASTING sprite sheet for this chibi skeleton archmage. Character faces LEFT in all frames.
 
 Character: [Archmage 외형]
 
-Frame 1 (Conjure): Both hands create TWO fireballs spiraling around each other. Red-orange + purple swirling.
-Frame 2 (Merge & Grow): Twin fireballs merge into massive inferno sphere. Nearly character-sized. Intense heat. Hat/beard blown.
-Frame 3 (Launch): Hurls massive inferno - both hands thrust. Enormous fire+purple trail. 120px radius (50% larger than base). Burn particles scatter.
-Frame 4 (Aftermath): Facing LEFT like Frame 1. Smoke and embers rising. Purple flames on hands. Charred ground.
+NOTE: This sprite shows ONLY the character's casting poses. The actual fireball projectile and explosion are rendered separately by the game engine — do NOT draw any large fireball, fire trail, or explosion in any frame. Only show small flames gathering ON the character's hands.
 
-250% damage + 50% larger + 3-second burn DoT. Orange-red + purple.
+Frame 1 (Conjure): Both hands raised, small flames flickering between palms close to body. Red-orange + purple glow on hands.
+Frame 2 (Channel): Hands pull together near chest, condensing energy. Small fire sparks around fingers. Intense concentration. Hat/beard slightly blown.
+Frame 3 (Cast): Both arms thrust forward in powerful casting pose. Palms open facing left. Strong recoil — hat and beard blown back. No fireball — only the push pose.
+Frame 4 (Aftermath): Facing LEFT like Frame 1. Arms lowering. Smoke wisps from fingertips. Faint embers near hands only.
+
+Show only the character's body and casting poses. No fireballs or fire trails leaving the character. Orange-red + purple glow on hands only.
 ```
 
 #### 11-4. E Skill - 메테오 샤워 Meteor Shower (4프레임)
@@ -917,18 +921,18 @@ Summoning ritual only — no meteors visible. 10 meteors over 5 seconds, each 30
 
 ### 12. HEALER (힐러) - Mage 전직
 
-#### 12-1. Walk (4프레임)
+#### 12-1. Float / Hover (4프레임)
 ```
-Generate a 4-frame walk cycle sprite sheet for this chibi skeleton healer. Character faces LEFT in all frames.
+Generate a 4-frame floating hover cycle sprite sheet for this chibi skeleton healer. Character faces LEFT in all frames.
 
 Character: [Healer 외형]
 
-Frame 1: Right foot forward, staff used as walking aid. Golden sparkles begin.
-Frame 2: Feet passing center. Healing aura glows. Robes flow gently.
-Frame 3: Left foot forward. Golden sparkles trail behind. Serene step.
-Frame 4: Facing LEFT like Frame 1 — same pose, same staff hand. Feet passing center.
+Frame 1 (Rise): Character hovers slightly above ground. Robes hang down, swaying gently. Staff held upright. Faint golden sparkles beneath feet. Body at lowest hover point.
+Frame 2 (Float Up): Character bobs upward to highest point. Robes billow softly outward. Golden-green healing aura pulses gently around body. Staff gem glows.
+Frame 3 (Drift Down): Character drifts back down slowly. Robes settle gracefully. Trailing golden sparkles above. Serene, weightless posture.
+Frame 4 (Settle): Facing LEFT like Frame 1 — same staff hand. Returns to lowest hover point. Robes sway back. Soft green particles beneath.
 
-Gentle, graceful walk. Serene, calming movement.
+No feet visible — character floats ethereally. Gentle bobbing up-and-down motion. Serene, weightless, ghostly movement. Golden sparkle trail while moving.
 ```
 
 #### 12-2. Basic Attack - 신성 마법 (4프레임)
@@ -947,30 +951,34 @@ Mint-green (#00ff88) + gold theme. Same power as base mage. 252px range.
 
 #### 12-3. W Skill - 치유의 빛 Healing Light (4프레임)
 ```
-Generate a 4-frame healing light spell sprite sheet for this chibi skeleton healer. Character faces LEFT in all frames.
+Generate a 4-frame healing light CASTING sprite sheet for this chibi skeleton healer. Character faces LEFT in all frames.
 
 Character: [Healer 외형]
 
-Frame 1 (Pray): Holds staff close, hands clasped in prayer. Golden-green energy gathering. Eyes close.
-Frame 2 (Channel): Staff raised, releasing beam of pure green (#00ff88) healing light. Holy symbols in beam. Wide 150px beam.
-Frame 3 (Dual Effect): Healing light hits area - enemies take damage (golden lightning in beam), ally silhouettes glow green (healing 15% HP).
-Frame 4 (Fade): Facing LEFT like Frame 1. Beam fading. Green healing particles linger. Golden sparkles settling.
+NOTE: This sprite shows ONLY the character's casting poses. The actual healing light area effect is rendered separately by the game engine — do NOT draw any beam, healing aura, ally silhouettes, or area effects in any frame. Only show energy gathering ON the character's hands/staff.
 
-Damages enemies AND heals allies in same 150px area. Green healing + gold damage.
+Frame 1 (Pray): Holds staff close, hands clasped in prayer position. Eyes closed in concentration. Faint golden-green glow on fingertips.
+Frame 2 (Channel): Staff raised with both hands. Free hand extends outward gathering energy near chest. Small golden-green sparkles around hands only.
+Frame 3 (Cast): Both arms thrust forward in casting pose. Staff points left, free hand open palm facing left. Robes blown back by release. No beam or area effect — only the push pose.
+Frame 4 (Recovery): Facing LEFT like Frame 1 — same staff hand. Arms lowering back to rest. Faint green glow on fingertips fading.
+
+Show only the character's body and casting poses. No beams, healing auras, or area effects. Golden-green (#00ff88) glow on hands only.
 ```
 
 #### 12-4. E Skill - 생명의 샘 Spring of Life (4프레임)
 ```
-Generate a 4-frame ultimate healing fountain sprite sheet for this chibi skeleton healer. Character faces LEFT in all frames.
+Generate a 4-frame healing ultimate CASTING sprite sheet for this chibi skeleton healer. Character faces LEFT in all frames.
 
 Character: [Healer 외형]
 
-Frame 1 (Plant): Plants staff into ground. Kneels in prayer. Green energy erupts from ground. Holy runes circle healer.
-Frame 2 (Spring): Beautiful fountain of green healing energy erupts. Liquid-like green flowing up and cascading down. 500px green aura spreads.
-Frame 3 (Full Bloom): Spring of Life at full power. Lush green fountain. Flower/vine/life imagery. Healing waves pulsing outward. Character floating.
-Frame 4 (Sustain): Facing LEFT like Frame 1. Sustained healing fountain. Green pulses outward. Prayer pose maintaining spring.
+NOTE: This sprite shows ONLY the character's casting poses. The actual healing area effect is rendered separately by the game engine — do NOT draw any healing aura, waves, or area effects in any frame.
 
-10 seconds of 10% HP/sec to all allies in 500px. Follows healer. Strongest sustained healing. Miracle of life. Green (#00ff88) + gold.
+Frame 1 (Prepare): Both hands grip staff, raising it high above head. Body tenses in concentration. Eyes glow golden-green. Robes begin to stir.
+Frame 2 (Channel): Staff held high with both hands. Head tilted back, channeling upward. Small golden-green energy on staff gem. Robes billowing from channeling effort.
+Frame 3 (Invoke): Staff slams downward — both arms thrust staff toward ground. Strong downward pose. Robes blown upward by force. Eyes blazing. No area effect — only the slam pose.
+Frame 4 (Finish): Facing LEFT like Frame 1. Staff slowly pulled back to rest position. Exhausted but composed posture. Eyes dimming. Faint glow fading from staff gem. Robes settling.
+
+Show only the character's body and casting poses. No healing auras, waves, or area effects. Golden-green (#00ff88) glow on hands only.
 ```
 
 ---

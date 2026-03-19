@@ -29,6 +29,13 @@ import { LobbyChat } from '../ui/LobbyChat';
 import { Emoji } from '../common/Emoji';
 import { getHeroImagePath } from '../../utils/heroImages';
 
+// localStorage에서 마지막 선택 직업 읽기
+function getLastSelectedClass(): HeroClass {
+  const saved = localStorage.getItem('rpg_last_class') as HeroClass | null;
+  const valid: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
+  return saved && valid.includes(saved) ? saved : 'archer';
+}
+
 // 난이도 색상 설정
 const difficultyColors: Record<RPGDifficulty, { bg: string; border: string; text: string; hoverBg: string }> = {
   easy: { bg: 'bg-green-500/20', border: 'border-green-500', text: 'text-green-400', hoverBg: 'hover:bg-green-500/30' },
@@ -305,7 +312,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         case 'COOP_ROOM_CREATED':
           // 현재 선택된 직업의 레벨과 전직 정보 가져오기
           const createdClassProgress = useAuthStore.getState().classProgress;
-          const createdProgress = createdClassProgress.find(p => p.className === (selectedClass || 'archer'));
+          const createdProgress = createdClassProgress.find(p => p.className === (selectedClass || getLastSelectedClass()));
           const createdCharacterLevel = createdProgress?.classLevel || 1;
           const createdAdvancedClass = createdProgress?.advancedClass;
           const createdTier = createdProgress?.tier;
@@ -325,7 +332,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             players: [{
               id: wsClient.playerId || '',
               name: profile?.nickname || '플레이어',
-              heroClass: selectedClass || 'archer',
+              heroClass: selectedClass || getLastSelectedClass(),
               characterLevel: createdCharacterLevel,
               advancedClass: createdAdvancedClass,  // 전직 직업
               tier: createdTier,  // 전직 단계
@@ -587,7 +594,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
       const playerName = profile?.nickname || '플레이어';
       // 기본 직업으로 입장 (방 입장 후 변경 가능)
-      const defaultClass: HeroClass = 'archer';
+      const defaultClass: HeroClass = getLastSelectedClass();
 
       // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
       const classProgress = useAuthStore.getState().classProgress;
@@ -613,7 +620,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
       const playerName = profile?.nickname || '플레이어';
       // 기본 직업으로 입장 (방 입장 후 변경 가능)
-      const defaultClass: HeroClass = 'archer';
+      const defaultClass: HeroClass = getLastSelectedClass();
 
       // classProgress에서 해당 캐릭터의 레벨과 statUpgrades 가져오기
       const classProgress = useAuthStore.getState().classProgress;
@@ -669,6 +676,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       return;
     }
     soundManager.play('ui_click');
+    localStorage.setItem('rpg_last_class', heroClass);
     selectClass(heroClass);
     // 서버 전송은 useEffect에서 selectedClass 변경 감지 시 처리
   }, [playerLevel, isGuest, selectClass, multiplayer.players]);
@@ -728,7 +736,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       await wsClient.connect();
       const playerName = profile?.nickname || '플레이어';
       // 기본 직업으로 방 생성 (방 입장 후 변경 가능)
-      const defaultClass: HeroClass = 'archer';
+      const defaultClass: HeroClass = getLastSelectedClass();
 
       const classProgress = useAuthStore.getState().classProgress;
       const progress = classProgress.find(p => p.className === defaultClass);
@@ -759,7 +767,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       await wsClient.connect();
 
       const playerName = profile?.nickname || '플레이어';
-      const defaultClass: HeroClass = 'archer';
+      const defaultClass: HeroClass = getLastSelectedClass();
 
       const classProgress = useAuthStore.getState().classProgress;
       const progress = classProgress.find(p => p.className === defaultClass);
@@ -1047,8 +1055,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     // 직업 변경 버튼
     const classChangeBtn = (() => {
       const isMyReady = multiplayer.players.find(p => p.id === wsClient.playerId)?.isReady;
-      const myProgress = classProgress.find(p => p.className === (selectedClass || 'archer'));
-      const baseConfig = CLASS_CONFIGS[selectedClass || 'archer'];
+      const myProgress = classProgress.find(p => p.className === (selectedClass || getLastSelectedClass()));
+      const baseConfig = CLASS_CONFIGS[selectedClass || getLastSelectedClass()];
       const advConfig = myProgress?.advancedClass
         ? ADVANCED_CLASS_CONFIGS[myProgress.advancedClass as AdvancedHeroClass]
         : null;

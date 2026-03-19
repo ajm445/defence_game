@@ -1770,6 +1770,7 @@ function executeAdvancedESkill(
           casterId: casterId || hero.id,
           meteorCount: meteorCount - 1,  // 남은 운석 수
           duration,
+          areaRadius: 300,  // 운석 낙하 범위 (원형 랜덤용)
         };
 
         effect = {

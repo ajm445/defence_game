@@ -165,10 +165,13 @@ export const RPGClassSelectScreen: React.FC = () => {
 
   const playerLevel = profile?.playerLevel ?? 1;
 
-  // 기본 클래스 설정 (궁수)
+  // 마지막 선택 직업 복원 (없으면 궁수)
   useEffect(() => {
     if (!selectedClass) {
-      selectClass('archer');
+      const saved = localStorage.getItem('rpg_last_class') as HeroClass | null;
+      const validClasses: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
+      const lastClass = saved && validClasses.includes(saved) ? saved : 'archer';
+      selectClass(lastClass);
     }
   }, [selectedClass, selectClass]);
 
@@ -183,6 +186,7 @@ export const RPGClassSelectScreen: React.FC = () => {
     if (!isCharacterUnlocked(heroClass, playerLevel, isGuest)) {
       return;
     }
+    localStorage.setItem('rpg_last_class', heroClass);
     soundManager.init();
     soundManager.play('ui_click');
     selectClass(heroClass);

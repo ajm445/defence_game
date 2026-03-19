@@ -1,5 +1,65 @@
 # Changelog
 
+## [1.26.6] - 2026-03-20
+
+### 아크메이지/힐러 스프라이트 완성 + 프레임 싱크
+- **아크메이지 tier1/tier2 전체 모션 스프라이트 적용**: 걷기/기본공격/W(인페르노)/E(메테오 샤워) 8종
+- **힐러 tier1/tier2 전체 모션 스프라이트 적용**: 걷기/기본공격/W(치유의 빛)/E(생명의 샘) 8종
+- **스프라이트 파일명 컨벤션 적용**: W/E 스킬명 포함 (`archmage_w_inferno`, `healer_w_healing_light` 등)
+
+### 기본공격 프레임 싱크 (pendingSkill)
+- **아크메이지 기본공격**: 3번 프레임 시작 시점(attackSpeed × 0.18)에 데미지/이펙트 발동
+- **힐러 기본공격**: 3번 프레임 직후(attackSpeed × 0.42)에 데미지/이펙트 발동
+- **mage_q activeSkillEffect 생성**: 서버 pendingSkill 핸들러에서 마법 화살 렌더링 이펙트 동시 생성
+
+### W/E 스킬 프레임 싱크 (pendingSkill)
+- **아크메이지 W (인페르노)**: 0.333초 딜레이 (fps 6, 3번 프레임 시작) → 폭발 데미지 + 화상 DoT + 이펙트 동시 발동
+- **힐러 W (치유의 빛)**: 0.333초 딜레이 → 적 데미지 + 아군 15% HP 힐 + healing_light 이펙트
+- **힐러 E (생명의 샘)**: 0.4초 딜레이 (fps 5) → 첫 틱 힐 + 10초 지속 틱 등록 + spring_of_life 이펙트
+
+### 기지 공격 프레임 싱크 통합
+- **pendingSkill 클래스(다크나이트/아크메이지/힐러) 기지 공격**: executeSkill 경유로 변경
+  - 기존: 기지 공격 시 즉시 데미지 + 즉시 쿨다운 (적 공격과 타이밍 불일치)
+  - 변경: executeSkill → pendingSkill → 동일한 프레임 딜레이로 발동 (적↔기지 전환 시 싱크 일관성)
+
+### 메테오 샤워 버그 수정
+- **범위 밖 낙하 수정**: 정사각형 랜덤 → 원형 균일 분포 (`Math.sqrt(Math.random()) * areaRadius`)
+- **연쇄 드리프트 수정**: `direction` 필드에 원래 시전 중심점 보존 (랜덤 위치가 누적 이동하지 않음)
+- **지속시간 초과 수정**: `interval = duration / (meteorCount+1)` → `duration / totalMeteors` 고정 0.5초 간격
+- **이펙트 중복 제거**: pendingSkill 트리거 분기에서만 이펙트 생성 (재등록 분기 중복 제거)
+
+### 힐러 렌더링 이펙트 버그 수정
+- **pendingSkill 핸들러 분기 충돌 수정**: `healPercent` 범용 블록이 `healer_w`/`healer_e` 전용 핸들러 도달을 차단 → 전용 핸들러 우선 처리
+- **생명의 샘 틱 이펙트 중복 제거**: healer_e에서 10초짜리 메인 이펙트 생성, 틱별 추가 이펙트 생성 제거
+- **데미지 0 표시 수정**: 범용 데미지 핸들러에 `damage > 0` 가드 추가 (힐 전용 스킬의 적 0 데미지 표시 방지)
+- **멀티플레이 이펙트 누락 수정**: 클라이언트 멀티플레이 pendingSkill 핸들러에 6개 case 추가 (archmage_q/healer_q/archmage_w_inferno/healer_w/healer_e + spring_of_life 사운드)
+
+### 스프라이트 프롬프트 수정
+- **아크메이지 기본공격/W스킬**: 투사체/이펙트 묘사 제거, 캐스팅 포즈만 남김 + NOTE 지시문 추가
+- **힐러 W(치유의 빛)**: 빔/번개/아군 실루엣 이펙트 제거, 캐스팅 포즈만 + NOTE 추가
+- **힐러 E(생명의 샘)**: 분수/폭포 이미지 제거, 캐스팅→종료 포즈로 변경 (Frame 4: Finish)
+
+### 마지막 선택 직업 기억 기능
+- **localStorage 기반 직업 저장**: RPG 모드에서 직업 선택 시 `rpg_last_class` 저장
+- **자동 복원**: 방 생성/참가 시 마지막 선택 직업으로 자동 선택 (기본값: 궁수)
+- **로그아웃/재로그인 유지**: localStorage는 세션과 무관하게 영구 저장
+
+### 타입 추가
+- `SkillType`: `archmage_q`, `archmage_w_inferno`, `healer_q`, `healer_w`, `healer_e` 추가
+- `PendingSkill`: `burnTickDamage`, `burnDuration` 필드 추가
+
+### 수정 파일
+- `server/src/game/rpgServerSkillSystem.ts`: archmage/healer Q/W/E pendingSkill, 메테오 원형 랜덤, healPercent 분기 수정
+- `server/src/game/RPGServerGameEngine.ts`: archmage/healer basicAttackEffect 제외, 기지 공격 executeSkill 경유
+- `src/hooks/useRPGGameLoop.ts`: 멀티+로컬 pendingSkill 핸들러 6종 추가, 메테오 interval 수정, spring_of_life 중복 제거
+- `src/game/rpg/skillSystem.ts`: 메테오 areaRadius 추가
+- `src/types/rpg.ts`: SkillType 5종 + PendingSkill 필드 2종 추가
+- `src/components/screens/RPGClassSelectScreen.tsx`: 마지막 직업 localStorage 저장/복원
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: getLastSelectedClass() 헬퍼, defaultClass 동적 결정
+- `docs/sprite-motion-prompts.md`: 아크메이지/힐러 프롬프트 수정
+- `public/img/units/RPG/motion/archmage/`: tier1/tier2 8종 스프라이트
+- `public/img/units/RPG/motion/healer/`: tier1/tier2 8종 스프라이트
+
 ## [1.26.5] - 2026-03-19
 
 ### 다크나이트 스프라이트 완성 및 모션 싱크

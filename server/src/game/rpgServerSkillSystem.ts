@@ -159,6 +159,46 @@ function executeQSkill(
     return;
   }
 
+  // 아크메이지 기본공격: 3번 프레임(index 2) 시작 시점에 데미지
+  // 기본 가중치 [0.15, 0.30, 0.70, 1.0], animTime = attackSpeed * 0.6
+  // → 프레임2 시작 = 0.30 * animTime = attackSpeed * 0.18
+  if ((advancedClass as string) === 'archmage') {
+    const attackSpeed = hero.config?.attackSpeed || 1.5;
+    const delay = Math.max(0.15, attackSpeed * 0.18);
+    ctx.state.pendingSkills.push({
+      type: 'archmage_q' as any,
+      position: { x: hero.x, y: hero.y },
+      direction: { x: dirX, y: dirY },
+      triggerTime: gameTime + delay,
+      damage,
+      radius: attackRange,
+      casterId: hero.id,
+    });
+    hero.skillCooldowns.Q = attackSpeed;
+    hero._skillQ.currentCooldown = attackSpeed;
+    return;
+  }
+
+  // 힐러 기본공격: 3번 프레임(index 2) 직후에 데미지
+  // 기본 가중치 [0.15, 0.30, 0.70, 1.0], animTime = attackSpeed * 0.6
+  // → 프레임2 끝 = 0.70 * animTime = attackSpeed * 0.42
+  if ((advancedClass as string) === 'healer') {
+    const attackSpeed = hero.config?.attackSpeed || 1.5;
+    const delay = Math.max(0.15, attackSpeed * 0.42);
+    ctx.state.pendingSkills.push({
+      type: 'healer_q' as any,
+      position: { x: hero.x, y: hero.y },
+      direction: { x: dirX, y: dirY },
+      triggerTime: gameTime + delay,
+      damage,
+      radius: attackRange,
+      casterId: hero.id,
+    });
+    hero.skillCooldowns.Q = attackSpeed;
+    hero._skillQ.currentCooldown = attackSpeed;
+    return;
+  }
+
   // 저격수 크리티컬 확률 체크 (50%)
   const critChance = advancedClass === 'sniper'
     ? (ADVANCED_CLASS_CONFIGS.sniper.specialEffects.critChance || 0)
@@ -1053,48 +1093,26 @@ function executeAdvancedWSkill(
 
     case 'archmage': {
       // 인페르노: 대형 화염구 + 3초간 화상 DoT
+      // 3번 프레임(index 2) 시작 시점에 폭발 데미지
+      // W 모션: fps 6, 4프레임, totalAnimTime = 0.667s
+      // → 프레임2 시작 = 2/4 * 0.667 = 0.333s
+      const infernoDelay = 0.333;
       const radius = 120;
       const skillDamage = Math.floor(damage * 2.5);
       const burnDamage = 0.2;  // 초당 20% 데미지
       const burnDuration = 3;  // 3초간 화상
-
-      // 즉발 데미지
-      for (const enemy of enemies) {
-        const dist = distance(targetX, targetY, enemy.x, enemy.y);
-        if (dist <= radius) {
-          applyDamageToEnemy(ctx, enemy.id, skillDamage, hero);
-        }
-      }
-
-      // 기지 데미지 (범위 내 기지)
-      for (const base of state.enemyBases) {
-        if (base.destroyed) continue;
-        const baseDist = distance(targetX, targetY, base.x, base.y);
-        if (baseDist <= radius + 50) {
-          damageBase(state, base.id, skillDamage, ctx.difficulty, hero.id);
-        }
-      }
-
-      // 화상 지역 DoT 등록 (3초간 초당 20% 데미지)
       const burnTickDamage = Math.floor(damage * burnDamage);
+
+      // pendingSkill로 딜레이 후 폭발 데미지 + 이펙트 + 화상 DoT 등록
       state.pendingSkills.push({
-        type: 'inferno_burn' as any,
+        type: 'archmage_w_inferno' as any,
         position: { x: targetX, y: targetY },
-        triggerTime: gameTime + 1,  // 1초 후 첫 틱
-        damage: burnTickDamage,
+        triggerTime: gameTime + infernoDelay,
+        damage: skillDamage,
         radius,
         casterId: hero.id,
-        tickCount: burnDuration,  // 3회 틱
-      });
-
-      state.activeSkillEffects.push({
-        type: 'inferno' as any,
-        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
-        position: { x: targetX, y: targetY },
-        radius,
-        damage: skillDamage,
-        duration: 0.5 + burnDuration,  // 폭발 + 화상 지속
-        startTime: gameTime,
+        burnTickDamage,
+        burnDuration,
       });
 
       hero.skillCooldowns.W = hero._skillW.cooldown;
@@ -1103,51 +1121,19 @@ function executeAdvancedWSkill(
 
     case 'healer': {
       // 치유의 빛: 적에게 데미지 + 아군 HP 회복
-      const healRadius = 150;
-      const healPercent = 0.15;
+      // 3번 프레임(index 2) 시작 시점에 발동
+      // W 모션: fps 6, 4프레임, totalAnimTime = 0.667s
+      // → 프레임2 시작 = 2/4 * 0.667 = 0.333s
+      const healerWDelay = 0.333;
 
-      // 범위 내 적에게 데미지
-      for (const enemy of enemies) {
-        if (enemy.hp <= 0) continue;
-        const enemyDist = distance(targetX, targetY, enemy.x, enemy.y);
-        if (enemyDist <= healRadius) {
-          applyDamageToEnemy(ctx, enemy.id, damage, hero);
-        }
-      }
-
-      // 기지에 데미지
-      for (const base of state.enemyBases) {
-        if (base.destroyed) continue;
-        const baseDist = distance(targetX, targetY, base.x, base.y);
-        if (baseDist <= healRadius + 50) {
-          damageBase(state, base.id, damage, ctx.difficulty, hero.id);
-        }
-      }
-
-      // 자신 포함 범위 내 아군 힐
-      for (const [, otherHero] of state.heroes) {
-        if (otherHero.isDead) continue;
-        const dist = distance(targetX, targetY, otherHero.x, otherHero.y);
-        if (dist <= healRadius) {
-          const healAmount = Math.floor(otherHero.maxHp * healPercent);
-          otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
-          if (healAmount > 0) {
-            state.damageNumbers.push({
-              id: generateId(),
-              x: otherHero.x, y: otherHero.y - 40,
-              amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
-            });
-          }
-        }
-      }
-
-      state.activeSkillEffects.push({
-        type: 'healing_light' as any,
-        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
-        position: { x: targetX, y: targetY },  // 타겟 위치 사용
-        radius: healRadius,
-        duration: 0.5,
-        startTime: gameTime,
+      state.pendingSkills.push({
+        type: 'healer_w' as any,
+        position: { x: targetX, y: targetY },
+        triggerTime: gameTime + healerWDelay,
+        damage,
+        radius: 150,
+        casterId: hero.id,
+        healPercent: 0.15,
       });
 
       hero.skillCooldowns.W = hero._skillW.cooldown;
@@ -1433,49 +1419,20 @@ function executeAdvancedESkill(
 
     case 'healer': {
       // 생명의 샘: 10초간 시전 범위 내 아군 초당 최대 HP의 10% 회복
-      const duration = 10;
-      const healPerTick = 0.10;  // 초당 10%
-      const radius = 500;
-      const skillX = hero.x;
-      const skillY = hero.y;
+      // 3번 프레임(index 2) 시작 시점에 발동
+      // E 모션: fps 5, 4프레임, totalAnimTime = 0.8s
+      // → 프레임2 시작 = 2/4 * 0.8 = 0.4s
+      const healerEDelay = 0.4;
 
-      // 첫 틱 즉시 적용 (범위 내 아군만)
-      for (const [, otherHero] of state.heroes) {
-        if (otherHero.isDead) continue;
-        const dist = distance(skillX, skillY, otherHero.x, otherHero.y);
-        if (dist > radius) continue;  // 범위 밖이면 스킵
-        const healAmount = Math.floor(otherHero.maxHp * healPerTick);
-        otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
-        if (healAmount > 0) {
-          state.damageNumbers.push({
-            id: generateId(),
-            x: otherHero.x, y: otherHero.y - 40,
-            amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
-          });
-        }
-      }
-
-      // 나머지 틱은 pendingSkill로 처리 (이펙트 위치 고정)
       state.pendingSkills.push({
-        type: 'spring_of_life' as any,
-        position: { x: skillX, y: skillY },  // 시전 위치 고정
-        triggerTime: gameTime + 1,  // 1초 후 다음 틱
+        type: 'healer_e' as any,
+        position: { x: hero.x, y: hero.y },
+        triggerTime: gameTime + healerEDelay,
         damage: 0,
-        radius,
+        radius: 500,
         casterId: hero.id,
-        healPercent: healPerTick,
-        duration,
-        tickCount: duration - 1,  // 첫 틱 제외한 나머지
-      });
-
-      state.activeSkillEffects.push({
-        type: 'spring_of_life' as any,
-        heroClass: hero.heroClass, advancedClass: hero.advancedClass as any,
-        position: { x: skillX, y: skillY },
-        radius,
-        duration: duration,  // 10초간 이펙트 유지
-        startTime: gameTime,
-        heroId: hero.id,  // 힐러를 따라다니도록 heroId 추가
+        healPercent: 0.10,
+        duration: 10,
       });
 
       hero.skillCooldowns.E = hero._skillE.cooldown;
@@ -1575,8 +1532,12 @@ export function updatePendingSkills(ctx: SkillContext): void {
     if (state.gameTime >= skill.triggerTime) {
       triggeredSkillIndices.push(index);
 
-      // 힐러 생명의 샘: 범위 내 아군 힐
-      if (skill.healPercent && skill.healPercent > 0) {
+      // 힐러 W/E: 전용 핸들러 (healPercent 범용 처리보다 먼저 체크)
+      if (skill.type === 'healer_w' || skill.type === 'healer_e') {
+        // healer_w, healer_e는 아래 else if 체인에서 처리
+      }
+      // 힐러 생명의 샘 틱 등: 범위 내 아군 힐 (healPercent 범용 처리)
+      else if (skill.healPercent && skill.healPercent > 0) {
         for (const [, otherHero] of state.heroes) {
           if (otherHero.isDead) continue;
           const dist = distance(skill.position.x, skill.position.y, otherHero.x, otherHero.y);
@@ -1590,6 +1551,104 @@ export function updatePendingSkills(ctx: SkillContext): void {
               amount: healAmount, type: 'heal', createdAt: ctx.state.currentTickTimestamp,
             });
           }
+        }
+      }
+
+      if (skill.type === 'healer_w') {
+        // 힐러 W: 치유의 빛 — 적 데미지 + 아군 힐 (프레임 싱크)
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        if (caster && !caster.isDead) {
+          const healRadius = skill.radius || 150;
+          const healPercent = skill.healPercent || 0.15;
+
+          for (const enemy of state.enemies) {
+            if (enemy.hp <= 0) continue;
+            const enemyDist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
+            if (enemyDist <= healRadius) {
+              applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+            }
+          }
+
+          for (const base of state.enemyBases) {
+            if (base.destroyed) continue;
+            const baseDist = distance(skill.position.x, skill.position.y, base.x, base.y);
+            if (baseDist <= healRadius + 50) {
+              damageBase(state, base.id, skill.damage, ctx.difficulty, caster.id);
+            }
+          }
+
+          for (const [, otherHero] of state.heroes) {
+            if (otherHero.isDead) continue;
+            const dist = distance(skill.position.x, skill.position.y, otherHero.x, otherHero.y);
+            if (dist <= healRadius) {
+              const healAmount = Math.floor(otherHero.maxHp * healPercent);
+              otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
+              if (healAmount > 0) {
+                state.damageNumbers.push({
+                  id: generateId(),
+                  x: otherHero.x, y: otherHero.y - 40,
+                  amount: healAmount, type: 'heal', createdAt: state.currentTickTimestamp,
+                });
+              }
+            }
+          }
+
+          state.activeSkillEffects.push({
+            type: 'healing_light' as any,
+            heroClass: caster.heroClass, advancedClass: caster.advancedClass as any,
+            position: { x: skill.position.x, y: skill.position.y },
+            radius: healRadius,
+            duration: 0.5,
+            startTime: state.gameTime,
+          });
+        }
+      } else if (skill.type === 'healer_e') {
+        // 힐러 E: 생명의 샘 — 첫 틱 힐 + 지속 틱 등록 + 이펙트 (프레임 싱크)
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        if (caster && !caster.isDead) {
+          const springRadius = skill.radius || 500;
+          const healPerTick = skill.healPercent || 0.10;
+          const springDuration = skill.duration || 10;
+
+          // 첫 틱 즉시 적용
+          for (const [, otherHero] of state.heroes) {
+            if (otherHero.isDead) continue;
+            const dist = distance(caster.x, caster.y, otherHero.x, otherHero.y);
+            if (dist > springRadius) continue;
+            const healAmount = Math.floor(otherHero.maxHp * healPerTick);
+            otherHero.hp = Math.min(otherHero.maxHp, otherHero.hp + healAmount);
+            if (healAmount > 0) {
+              state.damageNumbers.push({
+                id: generateId(),
+                x: otherHero.x, y: otherHero.y - 40,
+                amount: healAmount, type: 'heal', createdAt: state.currentTickTimestamp,
+              });
+            }
+          }
+
+          // 나머지 틱 등록
+          state.pendingSkills.push({
+            type: 'spring_of_life' as any,
+            position: { x: caster.x, y: caster.y },
+            triggerTime: state.gameTime + 1,
+            damage: 0,
+            radius: springRadius,
+            casterId: caster.id,
+            healPercent: healPerTick,
+            duration: springDuration,
+            tickCount: springDuration - 1,
+          });
+
+          // 이펙트
+          state.activeSkillEffects.push({
+            type: 'spring_of_life' as any,
+            heroClass: caster.heroClass, advancedClass: caster.advancedClass as any,
+            position: { x: caster.x, y: caster.y },
+            radius: springRadius,
+            duration: springDuration,
+            startTime: state.gameTime,
+            heroId: caster.id,
+          });
         }
       } else if (skill.type === 'heavy_strike') {
         // 강타: 캐스터 전방 직선 범위 데미지 (길이 150px, 폭 ±40px)
@@ -1810,6 +1869,180 @@ export function updatePendingSkills(ctx: SkillContext): void {
             }
           }
         }
+      } else if (skill.type === 'archmage_q') {
+        // 아크메이지 기본공격: 마법 AoE (프레임 싱크)
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        if (caster && !caster.isDead) {
+          const atkRange = skill.radius || 160;
+          const atkRangeSq = atkRange * atkRange;
+          const dir = skill.direction || { x: -1, y: 0 };
+
+          // 마법사 보스 데미지 보너스
+          let bossDamageMultiplier = 1.0;
+          const passiveBossDamageBonus = caster.passiveGrowth?.currentValue || 0;
+          bossDamageMultiplier = 1 + passiveBossDamageBonus;
+          bossDamageMultiplier *= 1 + (ADVANCED_CLASS_CONFIGS.archmage.specialEffects.bossBonus || 0);
+
+          let hitAny = false;
+          for (const enemy of state.enemies) {
+            if (enemy.hp <= 0) continue;
+            const dSq = distanceSquared(caster.x, caster.y, enemy.x, enemy.y);
+            if (dSq > atkRangeSq || dSq === 0) continue;
+            const eDist = Math.sqrt(dSq);
+            const dot = ((enemy.x - caster.x) / eDist) * dir.x + ((enemy.y - caster.y) / eDist) * dir.y;
+            if (dot < 0.0) continue;
+            let actualDamage = skill.damage;
+            if (isBossType(enemy.type)) {
+              actualDamage = Math.floor(skill.damage * bossDamageMultiplier);
+            }
+            applyDamageToEnemy(ctx, enemy.id, actualDamage, caster);
+            hitAny = true;
+          }
+
+          // 적 미타격 시 기지 공격
+          if (!hitAny) {
+            const baseRangeSq = (atkRange + 50) * (atkRange + 50);
+            for (const base of state.enemyBases) {
+              if (base.destroyed) continue;
+              const bSq = distanceSquared(caster.x, caster.y, base.x, base.y);
+              if (bSq > baseRangeSq) continue;
+              damageBase(state, base.id, skill.damage, ctx.difficulty, caster.id);
+            }
+          }
+
+          // 이펙트 (데미지와 동시) - basicAttackEffect (사운드/파티클)
+          state.basicAttackEffects.push({
+            id: `hero_attack_${state.currentTickTimestamp}_${caster.id}`,
+            type: 'ranged',
+            x: caster.x + dir.x * atkRange * 0.5,
+            y: caster.y + dir.y * atkRange * 0.5,
+            timestamp: state.currentTickTimestamp,
+            advancedClass: 'archmage',
+          });
+
+          // mage_q activeSkillEffect (마법 화살 렌더링)
+          state.activeSkillEffects.push({
+            type: 'mage_q' as any,
+            position: { x: caster.x, y: caster.y },
+            direction: { x: dir.x, y: dir.y },
+            radius: atkRange,
+            damage: skill.damage,
+            duration: 0.4,
+            startTime: state.gameTime,
+            heroClass: caster.heroClass,
+            advancedClass: 'archmage' as any,
+          });
+        }
+      } else if (skill.type === 'archmage_w_inferno') {
+        // 아크메이지 인페르노: 폭발 데미지 + 화상 DoT (프레임 싱크)
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        if (caster && !caster.isDead) {
+          const infernoRadius = skill.radius || 120;
+
+          // 폭발 데미지
+          for (const enemy of state.enemies) {
+            if (enemy.hp <= 0) continue;
+            const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
+            if (dist <= infernoRadius) {
+              applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+            }
+          }
+
+          // 기지 데미지
+          for (const base of state.enemyBases) {
+            if (base.destroyed) continue;
+            const baseDist = distance(skill.position.x, skill.position.y, base.x, base.y);
+            if (baseDist <= infernoRadius + 50) {
+              damageBase(state, base.id, skill.damage, ctx.difficulty, caster.id);
+            }
+          }
+
+          // 화상 DoT 등록
+          if (skill.burnTickDamage && skill.burnDuration) {
+            state.pendingSkills.push({
+              type: 'inferno_burn' as any,
+              position: { x: skill.position.x, y: skill.position.y },
+              triggerTime: state.gameTime + 1,
+              damage: skill.burnTickDamage,
+              radius: infernoRadius,
+              casterId: caster.id,
+              tickCount: skill.burnDuration,
+            });
+          }
+
+          // 폭발 이펙트 (데미지와 동시)
+          state.activeSkillEffects.push({
+            type: 'inferno' as any,
+            heroClass: caster.heroClass, advancedClass: caster.advancedClass as any,
+            position: { x: skill.position.x, y: skill.position.y },
+            radius: infernoRadius,
+            damage: skill.damage,
+            duration: 0.5 + (skill.burnDuration || 3),
+            startTime: state.gameTime,
+          });
+        }
+      } else if (skill.type === 'healer_q') {
+        // 힐러 기본공격: 마법 AoE (프레임 싱크 — 3번 프레임 직후)
+        const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+        if (caster && !caster.isDead) {
+          const atkRange = skill.radius || 160;
+          const atkRangeSq = atkRange * atkRange;
+          const dir = skill.direction || { x: -1, y: 0 };
+
+          // 마법사 보스 데미지 보너스 (힐러는 archmage 전직 보너스 없음)
+          let bossDamageMultiplier = 1.0;
+          const passiveBossDamageBonus = caster.passiveGrowth?.currentValue || 0;
+          bossDamageMultiplier = 1 + passiveBossDamageBonus;
+
+          let hitAny = false;
+          for (const enemy of state.enemies) {
+            if (enemy.hp <= 0) continue;
+            const dSq = distanceSquared(caster.x, caster.y, enemy.x, enemy.y);
+            if (dSq > atkRangeSq || dSq === 0) continue;
+            const eDist = Math.sqrt(dSq);
+            const dot = ((enemy.x - caster.x) / eDist) * dir.x + ((enemy.y - caster.y) / eDist) * dir.y;
+            if (dot < 0.0) continue;
+            let actualDamage = skill.damage;
+            if (isBossType(enemy.type)) {
+              actualDamage = Math.floor(skill.damage * bossDamageMultiplier);
+            }
+            applyDamageToEnemy(ctx, enemy.id, actualDamage, caster);
+            hitAny = true;
+          }
+
+          if (!hitAny) {
+            const baseRangeSq = (atkRange + 50) * (atkRange + 50);
+            for (const base of state.enemyBases) {
+              if (base.destroyed) continue;
+              const bSq = distanceSquared(caster.x, caster.y, base.x, base.y);
+              if (bSq > baseRangeSq) continue;
+              damageBase(state, base.id, skill.damage, ctx.difficulty, caster.id);
+            }
+          }
+
+          // basicAttackEffect (사운드/파티클)
+          state.basicAttackEffects.push({
+            id: `hero_attack_${state.currentTickTimestamp}_${caster.id}`,
+            type: 'ranged',
+            x: caster.x + dir.x * atkRange * 0.5,
+            y: caster.y + dir.y * atkRange * 0.5,
+            timestamp: state.currentTickTimestamp,
+            advancedClass: 'healer',
+          });
+
+          // mage_q activeSkillEffect (마법 화살 렌더링)
+          state.activeSkillEffects.push({
+            type: 'mage_q' as any,
+            position: { x: caster.x, y: caster.y },
+            direction: { x: dir.x, y: dir.y },
+            radius: atkRange,
+            damage: skill.damage,
+            duration: 0.4,
+            startTime: state.gameTime,
+            heroClass: caster.heroClass,
+            advancedClass: 'healer' as any,
+          });
+        }
       } else if (skill.type === 'paladin_e') {
         // 팔라딘 E: 자신 최대 HP의 20%를 아군 전체에 회복 + 3초 무적
         const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
@@ -1873,27 +2106,31 @@ export function updatePendingSkills(ctx: SkillContext): void {
           }
         }
       } else {
-        // 범위 내 적에게 데미지
-        for (const enemy of state.enemies) {
-          if (enemy.hp <= 0) continue;
-          const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
-          if (dist <= skill.radius) {
-            const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
-            applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+        // 범위 내 적에게 데미지 (damage > 0인 경우만 — 힐 전용 스킬 제외)
+        if (skill.damage > 0) {
+          for (const enemy of state.enemies) {
+            if (enemy.hp <= 0) continue;
+            const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
+            if (dist <= skill.radius) {
+              const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
+              applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+            }
           }
         }
 
         // 범위 내 기지에 데미지
-        for (const base of state.enemyBases) {
-          if (base.destroyed) continue;
-          const baseDist = distance(skill.position.x, skill.position.y, base.x, base.y);
-          if (baseDist <= skill.radius + 50) {
-            damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
+        if (skill.damage > 0) {
+          for (const base of state.enemyBases) {
+            if (base.destroyed) continue;
+            const baseDist = distance(skill.position.x, skill.position.y, base.x, base.y);
+            if (baseDist <= skill.radius + 50) {
+              damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
+            }
           }
         }
 
-        // 실행 이펙트 추가 (힐 스킬, dark_blade는 메인 이펙트가 유지되므로 제외)
-        if (skill.type !== 'dark_blade') {
+        // 실행 이펙트 추가 (dark_blade, spring_of_life는 메인 이펙트가 유지되므로 제외)
+        if (skill.type !== 'dark_blade' && skill.type !== 'spring_of_life') {
           const effectCaster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
           // 특수 이펙트 타입/duration 변환
           const effectType = skill.type === 'mage_e' ? 'mage_meteor' : skill.type;
@@ -1949,13 +2186,23 @@ export function updatePendingSkills(ctx: SkillContext): void {
       // 메테오 샤워 연속 낙하
       if (skill.meteorCount && skill.meteorCount > 0 && skill.duration) {
         const areaRadius = skill.areaRadius || 300;
-        const randomX = skill.position.x + (Math.random() - 0.5) * areaRadius * 2;
-        const randomY = skill.position.y + (Math.random() - 0.5) * areaRadius * 2;
-        const interval = skill.duration / (skill.meteorCount + 1);
+        // 원래 시전 중심점 (direction에 저장, 없으면 현재 position이 중심)
+        const centerX = skill.direction ? skill.direction.x : skill.position.x;
+        const centerY = skill.direction ? skill.direction.y : skill.position.y;
+        // 원형 범위 내 랜덤 위치
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.sqrt(Math.random()) * areaRadius;
+        const randomX = centerX + Math.cos(angle) * dist;
+        const randomY = centerY + Math.sin(angle) * dist;
+        // 고정 interval: 총 duration / 총 운석 수 (meteorCount 감소에 무관)
+        // duration=5, 총 10발 → 0.5초 간격
+        const totalMeteors = 10;  // 총 운석 수 고정
+        const interval = skill.duration / totalMeteors;
 
         skillsToAdd.push({
           ...skill,
           position: { x: randomX, y: randomY },
+          direction: { x: centerX, y: centerY },  // 원래 중심점 보존
           triggerTime: state.gameTime + interval,
           meteorCount: skill.meteorCount - 1,
         });

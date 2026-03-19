@@ -126,6 +126,11 @@ export type SkillType =
   | 'snipe'           // 저격수 - 저격
   | 'arrow_storm'     // 레인저 - 화살 폭풍
   | 'darkKnight_q'    // 다크나이트 - 기본공격 (pendingSkill용)
+  | 'archmage_q'      // 아크메이지 - 기본공격 (pendingSkill용)
+  | 'archmage_w_inferno' // 아크메이지 - 인페르노 (pendingSkill용)
+  | 'healer_q'        // 힐러 - 기본공격 (pendingSkill용)
+  | 'healer_w'        // 힐러 - 치유의 빛 (pendingSkill용)
+  | 'healer_e'        // 힐러 - 생명의 샘 (pendingSkill용)
   | 'paladin_e'       // 팔라딘 - 신성한 빛 (pendingSkill용)
   | 'divine_light'    // 팔라딘 - 신성한 빛
   | 'dark_blade'      // 다크나이트 - 어둠의 칼날
@@ -424,6 +429,8 @@ export interface PendingSkill {
   healPercent?: number;  // 힐 비율 (힐러 E 스킬용)
   meteorCount?: number;  // 남은 운석 수 (대마법사 E 스킬용)
   areaRadius?: number;   // 운석 낙하 범위 (대마법사 E 스킬용)
+  burnTickDamage?: number; // 화상 틱 데미지 (인페르노용)
+  burnDuration?: number;   // 화상 지속시간 (인페르노용)
 }
 
 // 레벨업 보너스 (계정 레벨 보너스)

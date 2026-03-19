@@ -419,19 +419,9 @@ export function useRPGGameLoop() {
               }
               break;
             case 'spring_of_life':
-              // 힐러 생명의 샘 틱 이펙트
-              {
-                const springEffect: SkillEffect = {
-                  type: 'spring_of_life' as SkillType,
-                  position: { x: skill.position.x, y: skill.position.y },
-                  radius: skill.radius,
-                  duration: 1.0,
-                  startTime: clientCurrentGameTime,
-                  heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
-                };
-                useRPGStore.getState().addSkillEffect(springEffect);
-                soundManager.play('hero_revive');
-              }
+              // 힐러 생명의 샘 틱 — 메인 이펙트는 healer_e에서 10초짜리로 생성됨
+              // 틱마다 사운드만 재생 (이펙트 중복 방지)
+              soundManager.play('hero_revive');
               break;
             case 'snipe':
               // 저격수 저격 이펙트
@@ -446,6 +436,58 @@ export function useRPGGameLoop() {
                 };
                 useRPGStore.getState().addSkillEffect(snipeEffect);
                 soundManager.play('attack_ranged');
+              }
+              break;
+            case 'archmage_q':
+            case 'healer_q':
+              // 아크메이지/힐러 기본공격 (프레임 싱크 pendingSkill)
+              effectManager.createEffect('attack_ranged', skill.position.x, skill.position.y);
+              soundManager.play('attack_ranged');
+              break;
+            case 'archmage_w_inferno':
+              // 아크메이지 인페르노 (프레임 싱크 pendingSkill)
+              {
+                const infernoEffect: SkillEffect = {
+                  type: 'inferno' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  damage: skill.damage,
+                  duration: 0.5 + (skill.burnDuration || 3),
+                  startTime: clientCurrentGameTime,
+                  heroId: skill.casterId,
+                };
+                useRPGStore.getState().addSkillEffect(infernoEffect);
+                soundManager.play('attack_melee');
+              }
+              break;
+            case 'healer_w':
+              // 힐러 치유의 빛 (프레임 싱크 pendingSkill)
+              {
+                const healLightEffect: SkillEffect = {
+                  type: 'healing_light' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  duration: 0.5,
+                  startTime: clientCurrentGameTime,
+                  heroId: skill.casterId,
+                };
+                useRPGStore.getState().addSkillEffect(healLightEffect);
+                soundManager.play('hero_revive');
+              }
+              break;
+            case 'healer_e':
+              // 힐러 생명의 샘 시작 (프레임 싱크 pendingSkill)
+              {
+                const springStartEffect: SkillEffect = {
+                  type: 'spring_of_life' as SkillType,
+                  position: { x: skill.position.x, y: skill.position.y },
+                  radius: skill.radius,
+                  duration: skill.duration || 10,
+                  startTime: clientCurrentGameTime,
+                  heroId: skill.casterId,
+                };
+                useRPGStore.getState().addSkillEffect(springStartEffect);
+                soundManager.play('hero_revive');
               }
               break;
             default:
@@ -1423,16 +1465,8 @@ export function useRPGGameLoop() {
             useRPGStore.getState().addSkillEffect(meteorEffect);
             soundManager.play('attack_melee');
           } else if (skill.type === 'spring_of_life') {
-            // 힐러 생명의 샘 틱 이펙트 (동기화용)
-            const springEffect: SkillEffect = {
-              type: 'spring_of_life' as SkillType,
-              position: { x: skill.position.x, y: skill.position.y },
-              radius: skill.radius,
-              duration: 1.0,
-              startTime: currentGameTime,
-              heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
-            };
-            useRPGStore.getState().addSkillEffect(springEffect);
+            // 힐러 생명의 샘 틱 — 메인 이펙트는 healer_e에서 10초짜리로 생성됨
+            // 틱마다 사운드만 재생 (이펙트 중복 방지)
             soundManager.play('hero_revive');
           } else if (skill.type === 'dark_blade') {
             // 다크나이트 어둠의 칼날 틱 이펙트 (동기화용)
@@ -1460,6 +1494,77 @@ export function useRPGGameLoop() {
             };
             useRPGStore.getState().addSkillEffect(burnEffect);
             soundManager.play('attack_melee');
+          } else if (skill.type === 'archmage_q' || skill.type === 'healer_q') {
+            // 아크메이지/힐러 기본공격 (프레임 싱크 pendingSkill)
+            effectManager.createEffect('attack_ranged', skill.position.x, skill.position.y);
+            soundManager.play('attack_ranged');
+          } else if (skill.type === 'archmage_w_inferno') {
+            // 아크메이지 인페르노 (프레임 싱크 pendingSkill)
+            const infernoEffect: SkillEffect = {
+              type: 'inferno' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              damage: skill.damage,
+              duration: 0.5 + (skill.burnDuration || 3),
+              startTime: currentGameTime,
+              heroId: skill.casterId,
+            };
+            useRPGStore.getState().addSkillEffect(infernoEffect);
+            soundManager.play('attack_melee');
+            // 화상 DoT 등록
+            if (skill.burnTickDamage && skill.burnDuration) {
+              const burnSkill: PendingSkill = {
+                type: 'inferno_burn' as SkillType,
+                position: { x: skill.position.x, y: skill.position.y },
+                triggerTime: currentGameTime + 1,
+                damage: skill.burnTickDamage,
+                radius: skill.radius,
+                casterId: skill.casterId,
+                tickCount: skill.burnDuration,
+              };
+              useRPGStore.getState().addPendingSkill(burnSkill);
+            }
+          } else if (skill.type === 'healer_w') {
+            // 힐러 치유의 빛 (프레임 싱크 pendingSkill)
+            // 힐은 위의 범용 healPercent 로직에서 처리됨
+            const healLightEffect: SkillEffect = {
+              type: 'healing_light' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              duration: 0.5,
+              startTime: currentGameTime,
+              heroId: skill.casterId,
+            };
+            useRPGStore.getState().addSkillEffect(healLightEffect);
+            soundManager.play('hero_revive');
+          } else if (skill.type === 'healer_e') {
+            // 힐러 생명의 샘 시작 (프레임 싱크 pendingSkill)
+            // 첫 틱 힐은 위의 범용 healPercent 로직에서 처리됨
+            // 지속 틱 등록
+            const springDuration = skill.duration || 10;
+            const springTickSkill: PendingSkill = {
+              type: 'spring_of_life' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              triggerTime: currentGameTime + 1,
+              damage: 0,
+              radius: skill.radius,
+              casterId: skill.casterId,
+              healPercent: skill.healPercent,
+              duration: springDuration,
+              tickCount: springDuration - 1,
+            };
+            useRPGStore.getState().addPendingSkill(springTickSkill);
+            // 이펙트
+            const springEffect: SkillEffect = {
+              type: 'spring_of_life' as SkillType,
+              position: { x: skill.position.x, y: skill.position.y },
+              radius: skill.radius,
+              duration: springDuration,
+              startTime: currentGameTime,
+              heroId: skill.casterId,
+            };
+            useRPGStore.getState().addSkillEffect(springEffect);
+            soundManager.play('hero_revive');
           } else {
             // 기본 폭발 이펙트
             effectManager.createEffect('attack_melee', skill.position.x, skill.position.y);
@@ -1510,29 +1615,27 @@ export function useRPGGameLoop() {
       }
       // 메테오 샤워: 랜덤 위치에 연속 운석
       else if (skill.meteorCount && skill.meteorCount > 0 && skill.duration) {
-        const areaRadius = 300;  // 메테오 낙하 범위
-        const randomX = skill.position.x + (Math.random() - 0.5) * areaRadius * 2;
-        const randomY = skill.position.y + (Math.random() - 0.5) * areaRadius * 2;
-        const interval = skill.duration / (skill.meteorCount + 1);  // 균등 간격
+        const areaRadius = skill.areaRadius || 300;
+        // 원래 시전 중심점 (direction에 저장, 없으면 현재 position이 중심)
+        const centerX = skill.direction ? skill.direction.x : skill.position.x;
+        const centerY = skill.direction ? skill.direction.y : skill.position.y;
+        // 원형 범위 내 랜덤 위치
+        const angle = Math.random() * Math.PI * 2;
+        const dist = Math.sqrt(Math.random()) * areaRadius;
+        const randomX = centerX + Math.cos(angle) * dist;
+        const randomY = centerY + Math.sin(angle) * dist;
+        // 고정 interval: 총 duration / 총 운석 수 (meteorCount 감소에 무관)
+        const totalMeteors = 10;
+        const interval = skill.duration / totalMeteors;
 
         skillsToAdd.push({
           ...skill,
           position: { x: randomX, y: randomY },
+          direction: { x: centerX, y: centerY },  // 원래 중심점 보존
           triggerTime: currentGameTime + interval,
           meteorCount: skill.meteorCount - 1,
         });
-
-        // 운석 낙하 이펙트
-        const meteorEffect: SkillEffect = {
-          type: 'meteor_shower' as SkillType,
-          position: { x: skill.position.x, y: skill.position.y },
-          radius: skill.radius,
-          damage: skill.damage,
-          duration: 0.5,
-          startTime: currentGameTime,
-          heroId: skill.casterId,  // 멀티플레이 이펙트 병합용
-        };
-        useRPGStore.getState().addSkillEffect(meteorEffect);
+        // 이펙트는 위의 pendingSkill 트리거 분기(meteor_shower case)에서 생성 — 중복 방지
       }
 
       useRPGStore.getState().removePendingSkill(triggeredSkills[i]);

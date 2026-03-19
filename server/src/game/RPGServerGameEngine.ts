@@ -516,8 +516,8 @@ export class RPGServerGameEngine {
 
         if (nearestEnemy) {
           executeSkill(this.skillContext, hero, 'Q', nearestEnemy.x, nearestEnemy.y);
-          // 다크나이트: pendingSkill 핸들러에서 데미지/이펙트/사운드 동시 생성 (싱크 일치)
-          if (hero.advancedClass !== 'darkKnight') {
+          // 다크나이트/아크메이지/힐러: pendingSkill 핸들러에서 데미지/이펙트/사운드 동시 생성 (프레임 싱크)
+          if (hero.advancedClass !== 'darkKnight' && hero.advancedClass !== 'archmage' && hero.advancedClass !== 'healer') {
             const isRanged = hero.heroClass === 'archer' || hero.heroClass === 'mage';
             const now = this.state.currentTickTimestamp;
             this.state.basicAttackEffects.push({
@@ -532,21 +532,26 @@ export class RPGServerGameEngine {
         } else {
           const nearestBase = findNearestEnemyBase(this.state.enemyBases, hero.x, hero.y, attackRange + 50);
           if (nearestBase) {
-            const damage = calculateHeroDamage(hero);
-            damageBase(this.state, nearestBase.id, damage, this.difficulty, hero.id);
-            // 쿨다운 시작 - hero.config.attackSpeed 사용 (적 공격과 동일, 업그레이드 반영)
-            const attackSpeed = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
-            hero.skillCooldowns.Q = attackSpeed;
-            hero._skillQ.currentCooldown = attackSpeed;
-            const isRangedBase = hero.heroClass === 'archer' || hero.heroClass === 'mage';
-            this.state.basicAttackEffects.push({
-              id: `hero_attack_base_${this.state.currentTickTimestamp}_${hero.id}`,
-              type: isRangedBase ? 'ranged' : 'melee',
-              x: nearestBase.x,
-              y: nearestBase.y,
-              timestamp: this.state.currentTickTimestamp,
-              advancedClass: hero.advancedClass as string | undefined,
-            });
+            // pendingSkill 프레임 싱크 클래스: 기지 공격도 executeSkill 경유
+            if (hero.advancedClass === 'darkKnight' || hero.advancedClass === 'archmage' || hero.advancedClass === 'healer') {
+              executeSkill(this.skillContext, hero, 'Q', nearestBase.x, nearestBase.y);
+            } else {
+              const damage = calculateHeroDamage(hero);
+              damageBase(this.state, nearestBase.id, damage, this.difficulty, hero.id);
+              // 쿨다운 시작 - hero.config.attackSpeed 사용 (적 공격과 동일, 업그레이드 반영)
+              const attackSpeed = hero.config?.attackSpeed ?? hero.baseAttackSpeed ?? 1.0;
+              hero.skillCooldowns.Q = attackSpeed;
+              hero._skillQ.currentCooldown = attackSpeed;
+              const isRangedBase = hero.heroClass === 'archer' || hero.heroClass === 'mage';
+              this.state.basicAttackEffects.push({
+                id: `hero_attack_base_${this.state.currentTickTimestamp}_${hero.id}`,
+                type: isRangedBase ? 'ranged' : 'melee',
+                x: nearestBase.x,
+                y: nearestBase.y,
+                timestamp: this.state.currentTickTimestamp,
+                advancedClass: hero.advancedClass as string | undefined,
+              });
+            }
           }
         }
       }
