@@ -250,11 +250,10 @@ function resolveMotion(
   dashState: unknown,
   castingUntil: number | undefined,
   gameTime: number,
-  darkBladeActive?: boolean,
+  _darkBladeActive?: boolean,
 ): MotionType | null {
   if (dashState) return 'w';
   if (castingUntil && gameTime < castingUntil) return 'e';
-  // darkBladeActive: ON 시 castingUntil로 E 모션 재생, 이후 일반 모션 복귀
   if (heroState === 'moving') return 'walk';
   return null;
 }
@@ -262,7 +261,7 @@ function resolveMotion(
 function getFrameIndex(motion: MotionType, startTime: number, gameTime: number, heroKey?: string, attackSpeed?: number): number {
   const base = MOTION_CONFIG[motion];
   const override = heroKey ? MOTION_CONFIG_OVERRIDE[`${heroKey}_${motion}`] : undefined;
-  const config = override ? { ...base, ...override } : base;
+  const config = override ? { ...base, ...override } as typeof base & { frameTimes?: number[] } : base as typeof base & { frameTimes?: number[] };
   const elapsed = gameTime - startTime;
   if (elapsed < 0) return -1;
 
@@ -431,7 +430,7 @@ export function drawMotionSprite(
 function drawFrame(
   ctx: CanvasRenderingContext2D,
   img: HTMLImageElement,
-  x: number, y: number, width: number, height: number,
+  x: number, y: number, _width: number, height: number,
   flipHorizontal: boolean
 ): void {
   const { sx, sy, sw, sh } = _srcRect;

@@ -212,7 +212,7 @@ function generateBoundaryElements(theme: MapThemeConfig): BoundaryTree[] {
 
   // 상단
   addEdge(
-    t => t, t => -10 + (rng() * 30),
+    t => t, _t => -10 + (rng() * 30),
     t => t, _t => -30 + rng() * 15,
     MAP_W
   );

@@ -168,7 +168,7 @@ export function drawHeroImage(
   tier: 1 | 2 | undefined,
   x: number,
   y: number,
-  width: number,
+  _width: number,
   height: number,
   flipHorizontal: boolean = false
 ): boolean {

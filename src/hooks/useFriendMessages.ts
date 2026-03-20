@@ -7,7 +7,7 @@ import { useAuthStore } from '../stores/useAuthStore';
 import { joinRoomByInvite } from './useNetworkSync';
 import { createDefaultStatUpgrades } from '../types/auth';
 import type { FriendServerMessage } from '@shared/types/friendNetwork';
-import type { HeroClass } from '../types/rpg';
+import type { HeroClass, AdvancedHeroClass } from '../types/rpg';
 
 /**
  * 친구 시스템 WebSocket 메시지 처리 훅
@@ -163,7 +163,7 @@ export function useFriendMessages() {
             defaultClass,
             characterLevel,
             statUpgrades,
-            advancedClass,
+            advancedClass as AdvancedHeroClass | undefined,
             tier
           );
           break;

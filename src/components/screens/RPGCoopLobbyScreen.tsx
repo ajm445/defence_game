@@ -751,7 +751,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       const tier = progress?.tier;
 
       selectClass(defaultClass);
-      createMultiplayerRoom(playerName, defaultClass, characterLevel, statUpgrades, roomType === 'private', difficulty, advancedClass, tier, mapTheme);
+      createMultiplayerRoom(playerName, defaultClass, characterLevel, statUpgrades, roomType === 'private', difficulty, advancedClass as AdvancedHeroClass | undefined, tier, mapTheme);
     } catch (e) {
       setError('서버 연결 실패');
     }
