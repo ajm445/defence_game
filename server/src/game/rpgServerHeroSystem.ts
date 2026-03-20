@@ -6,7 +6,7 @@
  */
 
 import type { HeroClass, RPGEnemy } from '../../../src/types/rpg';
-import { BASE_SKILL_COOLDOWNS, ADVANCED_SKILL_COOLDOWNS } from '../../../shared/config/skillCooldowns';
+import { BASE_SKILL_COOLDOWNS, ADVANCED_SKILL_COOLDOWNS } from './skillCooldowns';
 import type { CoopPlayerInfo } from '../../../shared/types/rpgNetwork';
 import type { ServerHero, ServerEnemyBase, ServerGameState } from './rpgServerTypes';
 import {
