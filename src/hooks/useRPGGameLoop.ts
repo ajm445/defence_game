@@ -502,20 +502,19 @@ export function useRPGGameLoop() {
       // 클라이언트: 자동 공격은 호스트에서만 처리
       // 클라이언트는 호스트로부터 공격 이펙트/사운드만 동기화받음 (위의 basicAttackEffects 처리)
 
-      // 클라이언트: 스킬 이펙트 만료 체크 (로컬 이펙트 정리)
+      // 클라이언트: 스킬 이펙트 만료 체크 (배치 정리)
       const clientActiveEffects = useRPGStore.getState().activeSkillEffects;
       const clientGameTimeForEffects = useRPGStore.getState().gameTime;
-      const clientExpiredEffects: number[] = [];
+      const hasExpired = clientActiveEffects.some(
+        effect => clientGameTimeForEffects - effect.startTime >= effect.duration
+      );
 
-      clientActiveEffects.forEach((effect, index) => {
-        if (clientGameTimeForEffects - effect.startTime >= effect.duration) {
-          clientExpiredEffects.push(index);
-        }
-      });
-
-      // 만료된 이펙트 제거 (역순으로)
-      for (let i = clientExpiredEffects.length - 1; i >= 0; i--) {
-        useRPGStore.getState().removeSkillEffect(clientExpiredEffects[i]);
+      if (hasExpired) {
+        useRPGStore.setState({
+          activeSkillEffects: clientActiveEffects.filter(
+            effect => clientGameTimeForEffects - effect.startTime < effect.duration
+          ),
+        });
       }
 
       animationIdRef.current = requestAnimationFrame(tick);

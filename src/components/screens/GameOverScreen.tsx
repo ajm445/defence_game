@@ -133,7 +133,7 @@ export const GameOverScreen: React.FC = () => {
         }
       });
     }
-  }, [gameMode, victory, time]);
+  }, [gameMode, victory, time, selectedDifficulty]);
 
   return (
     <div className="fixed inset-0 bg-dark-900/95 backdrop-blur-sm z-50 flex flex-col items-center justify-center animate-fade-in">

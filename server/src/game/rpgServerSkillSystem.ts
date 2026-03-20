@@ -399,7 +399,7 @@ function executeQSkill(
     (heroClass === 'knight' && !advancedClass);
 
   if (hasWCooldownReduction && hitEnemies.length > 0) {
-    const cooldownReduction = 1.0 * hitEnemies.length;
+    const cooldownReduction = 1.0;
     if (hero.skillCooldowns.W > 0) {
       hero.skillCooldowns.W = Math.max(0, hero.skillCooldowns.W - cooldownReduction);
     }
@@ -1512,12 +1512,11 @@ export function applyStunToEnemy(enemies: RPGEnemy[], enemyId: string, duration:
 
 /**
  * 스킬 이펙트 업데이트
+ * NOTE: 만료 이펙트 제거는 cleanupEffects()에서 인플레이스 splice로 처리하므로
+ * 여기서는 추가 정리하지 않음 (매 틱 배열 재생성 방지)
  */
-export function updateSkillEffects(state: ServerGameState, deltaTime: number): void {
-  // 지속시간이 끝난 이펙트 제거
-  state.activeSkillEffects = state.activeSkillEffects.filter(
-    effect => state.gameTime < effect.startTime + effect.duration
-  );
+export function updateSkillEffects(_state: ServerGameState, _deltaTime: number): void {
+  // cleanupEffects()에서 처리
 }
 
 /**
@@ -1561,11 +1560,20 @@ export function updatePendingSkills(ctx: SkillContext): void {
           const healRadius = skill.radius || 150;
           const healPercent = skill.healPercent || 0.15;
 
+          // 마법사 보스 데미지 보너스 (힐러는 archmage 전직 보너스 없음)
+          let bossDamageMultiplier = 1.0;
+          const passiveBossDamageBonus = caster.passiveGrowth?.currentValue || 0;
+          bossDamageMultiplier = 1 + passiveBossDamageBonus;
+
           for (const enemy of state.enemies) {
             if (enemy.hp <= 0) continue;
             const enemyDist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
             if (enemyDist <= healRadius) {
-              applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+              let actualDamage = skill.damage;
+              if (isBossType(enemy.type)) {
+                actualDamage = Math.floor(skill.damage * bossDamageMultiplier);
+              }
+              applyDamageToEnemy(ctx, enemy.id, actualDamage, caster);
             }
           }
 
@@ -1747,7 +1755,9 @@ export function updatePendingSkills(ctx: SkillContext): void {
         const pierceDistance = skill.radius || 300;
         const arrowCount = 5;
         const spreadAngle = Math.PI / 4; // 45도 부채꼴
-        const hitBases = new Set<string>();
+        // 피격 횟수 추적: 첫 발 100%, 이후 50%씩 체감
+        const enemyHitCounts = new Map<string, number>();
+        const baseHitCounts = new Map<string, number>();
 
         for (let i = 0; i < arrowCount; i++) {
           const angleOffset = (i - (arrowCount - 1) / 2) * (spreadAngle / (arrowCount - 1));
@@ -1761,16 +1771,21 @@ export function updatePendingSkills(ctx: SkillContext): void {
             if (enemy.hp <= 0) continue;
             const enemyDist = pointToLineDistance(enemy.x, enemy.y, shootX, shootY, endX, endY);
             if (enemyDist <= 30) {
-              applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+              const hits = enemyHitCounts.get(enemy.id) || 0;
+              const dmgMultiplier = hits === 0 ? 1.0 : 0.5;
+              applyDamageToEnemy(ctx, enemy.id, Math.floor(skill.damage * dmgMultiplier), caster);
+              enemyHitCounts.set(enemy.id, hits + 1);
             }
           }
 
           for (const base of state.enemyBases) {
-            if (base.destroyed || hitBases.has(base.id)) continue;
+            if (base.destroyed) continue;
             const baseDist = pointToLineDistance(base.x, base.y, shootX, shootY, endX, endY);
             if (baseDist <= 60) {
-              damageBase(state, base.id, skill.damage, ctx.difficulty, skill.casterId);
-              hitBases.add(base.id);
+              const hits = baseHitCounts.get(base.id) || 0;
+              const dmgMultiplier = hits === 0 ? 1.0 : 0.5;
+              damageBase(state, base.id, Math.floor(skill.damage * dmgMultiplier), ctx.difficulty, skill.casterId);
+              baseHitCounts.set(base.id, hits + 1);
             }
           }
         }
@@ -1939,12 +1954,22 @@ export function updatePendingSkills(ctx: SkillContext): void {
         if (caster && !caster.isDead) {
           const infernoRadius = skill.radius || 120;
 
+          // 마법사 보스 데미지 보너스 (archmage 전직 보너스 포함)
+          let bossDamageMultiplier = 1.0;
+          const passiveBossDamageBonus = caster.passiveGrowth?.currentValue || 0;
+          bossDamageMultiplier = 1 + passiveBossDamageBonus;
+          bossDamageMultiplier *= 1 + (ADVANCED_CLASS_CONFIGS.archmage.specialEffects.bossBonus || 0);
+
           // 폭발 데미지
           for (const enemy of state.enemies) {
             if (enemy.hp <= 0) continue;
             const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
             if (dist <= infernoRadius) {
-              applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+              let actualDamage = skill.damage;
+              if (isBossType(enemy.type)) {
+                actualDamage = Math.floor(skill.damage * bossDamageMultiplier);
+              }
+              applyDamageToEnemy(ctx, enemy.id, actualDamage, caster);
             }
           }
 

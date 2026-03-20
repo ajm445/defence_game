@@ -86,6 +86,8 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const [selectedModalMapTheme, setSelectedModalMapTheme] = useState<MapTheme>('forest');
   const [privateRoomToJoin, setPrivateRoomToJoin] = useState<WaitingCoopRoomInfo | null>(null);
   const [privateRoomCode, setPrivateRoomCode] = useState('');
+  // 재접속 가능 방
+  const [reconnectableRoomId, setReconnectableRoomId] = useState<string | null>(null);
   // 방 목록 페이지네이션
   const [roomListPage, setRoomListPage] = useState(0);
   const ROOMS_PER_PAGE = 5;
@@ -453,16 +455,19 @@ export const RPGCoopLobbyScreen: React.FC = () => {
 
         case 'COOP_ROOM_LIST':
           setRoomList(message.rooms || []);
+          setReconnectableRoomId((message as any).reconnectableRoomId || null);
           setIsLoadingRooms(false);
           break;
 
         // 방 목록 실시간 업데이트 (Push 방식)
-        case 'COOP_ROOM_LIST_UPDATED':
-          // 로비에서 대기 중일 때만 방 목록 업데이트
-          if (multiplayer.connectionState !== 'in_lobby' && multiplayer.connectionState !== 'countdown') {
+        case 'COOP_ROOM_LIST_UPDATED': {
+          // 로비에서 대기 중일 때만 방 목록 업데이트 (stale closure 방지: store에서 직접 읽기)
+          const currentConnectionState = useRPGStore.getState().multiplayer.connectionState;
+          if (currentConnectionState !== 'in_lobby' && currentConnectionState !== 'countdown') {
             setRoomList(message.rooms || []);
           }
           break;
+        }
 
         case 'COOP_GAME_COUNTDOWN':
           setTimeoutWarning(null);  // 게임 시작하면 타임아웃 경고 제거
@@ -575,6 +580,10 @@ export const RPGCoopLobbyScreen: React.FC = () => {
         case 'LOBBY_CHAT_ERROR':
           useRPGStore.getState().setLobbyChatError(message.message);
           break;
+
+        case 'RECONNECTABLE_GAME':
+          setReconnectableRoomId((message as any).roomId || null);
+          break;
       }
     };
 
@@ -639,6 +648,19 @@ export const RPGCoopLobbyScreen: React.FC = () => {
     }
     setIsConnecting(false);
   }, [profile, selectClass]);
+
+  // 재접속 처리
+  const handleReconnect = useCallback(async (roomId: string) => {
+    soundManager.play('ui_click');
+    setIsConnecting(true);
+    try {
+      await wsClient.connect();
+      wsClient.reconnectToGame(roomId);
+    } catch (e) {
+      setError('서버 연결 실패');
+    }
+    setIsConnecting(false);
+  }, []);
 
   const handleBack = useCallback(() => {
     soundManager.play('ui_click');
@@ -1292,6 +1314,28 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             </button>
           </div>
         </div>
+
+        {/* 재접속 배너 */}
+        {reconnectableRoomId && (
+          <div className="w-full mb-4">
+            <button
+              onClick={() => handleReconnect(reconnectableRoomId)}
+              disabled={isConnecting}
+              className="w-full flex items-center justify-between px-6 py-4 bg-yellow-500/10 border-2 border-yellow-500 rounded-xl hover:bg-yellow-500/20 transition-all cursor-pointer disabled:opacity-50"
+            >
+              <div className="flex items-center gap-3">
+                <span className="text-2xl">&#x26A0;</span>
+                <div className="text-left">
+                  <p className="text-yellow-400 font-bold text-lg">진행 중인 게임이 있습니다</p>
+                  <p className="text-yellow-500/70 text-sm">60초 내 재접속하지 않으면 경험치를 받을 수 없습니다</p>
+                </div>
+              </div>
+              <span className="px-5 py-2 bg-yellow-500 text-black font-bold rounded-lg text-lg">
+                {isConnecting ? '연결 중...' : '재접속'}
+              </span>
+            </button>
+          </div>
+        )}
 
         {/* 대기방 그리드 */}
         <div className="w-full grid grid-cols-3 gap-5">

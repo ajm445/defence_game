@@ -334,6 +334,7 @@ export interface RPGGameState {
   paused: boolean;
   gameOver: boolean;
   victory: boolean;       // 승리 여부
+  abandonedUserIds: string[];  // 이탈 패널티 대상 userId 목록
 
   // 영웅
   hero: HeroUnit | null;

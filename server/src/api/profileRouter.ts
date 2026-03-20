@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getSupabaseAdmin, isSupabaseConfigured } from '../services/supabaseAdmin';
+import { requireAuth, requireSameUser } from '../middleware/jwtAuth';
 
 const router = Router();
 
@@ -59,7 +60,7 @@ router.get('/class-progress/:playerId', async (req: Request, res: Response) => {
 });
 
 // 클래스 진행 상황 업데이트/생성
-router.post('/class-progress', async (req: Request, res: Response) => {
+router.post('/class-progress', requireAuth, requireSameUser(), async (req: Request, res: Response) => {
   const { playerId, className, classLevel, classExp, sp, statUpgrades, advancedClass, tier } = req.body;
 
   if (!playerId || !className || classLevel === undefined || classExp === undefined) {
@@ -108,7 +109,7 @@ router.post('/class-progress', async (req: Request, res: Response) => {
 });
 
 // 플레이어 프로필 업데이트 (레벨, 경험치)
-router.patch('/player/:playerId', async (req: Request, res: Response) => {
+router.patch('/player/:playerId', requireAuth, requireSameUser('playerId'), async (req: Request, res: Response) => {
   const { playerId } = req.params;
   const { playerLevel, playerExp } = req.body;
 
@@ -146,7 +147,7 @@ router.patch('/player/:playerId', async (req: Request, res: Response) => {
 });
 
 // 게임 기록 저장
-router.post('/game-record', async (req: Request, res: Response) => {
+router.post('/game-record', requireAuth, requireSameUser(), async (req: Request, res: Response) => {
   const { playerId, mode, classUsed, waveReached, kills, playTime, victory, expEarned } = req.body;
 
   if (!playerId || !mode || !classUsed) {

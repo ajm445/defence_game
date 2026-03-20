@@ -253,7 +253,7 @@ export const LoginScreen: React.FC = () => {
         setScreen('menu');
       }
     }
-  }, [username, password, confirmPassword, nickname, signUp, setScreen, setError, clearError, maintenanceMessage]);
+  }, [username, password, confirmPassword, nickname, signUp, setScreen, setError, clearError, maintenanceMessage, nicknameChecked, nicknameAvailable, usernameStatus]);
 
   const handleGuestLogin = useCallback(async () => {
     soundManager.init();

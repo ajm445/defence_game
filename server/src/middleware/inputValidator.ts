@@ -52,3 +52,22 @@ export function isValidSkillSlot(s: unknown): boolean {
 export function isValidUpgradeType(t: unknown): boolean {
   return typeof t === 'string' && VALID_UPGRADE_TYPES.has(t);
 }
+
+const VALID_HERO_CLASSES = new Set(['warrior', 'archer', 'mage', 'knight']);
+const VALID_ADVANCED_CLASSES = new Set([
+  'berserker', 'guardian', 'sniper', 'ranger',
+  'paladin', 'darkKnight', 'archmage', 'healer',
+]);
+const VALID_DIFFICULTIES = new Set(['easy', 'normal', 'hard', 'extreme', 'hell', 'apocalypse']);
+
+export function isValidHeroClass(c: unknown): boolean {
+  return typeof c === 'string' && VALID_HERO_CLASSES.has(c);
+}
+
+export function isValidAdvancedClass(c: unknown): boolean {
+  return c === undefined || c === null || (typeof c === 'string' && VALID_ADVANCED_CLASSES.has(c));
+}
+
+export function isValidDifficulty(d: unknown): boolean {
+  return typeof d === 'string' && VALID_DIFFICULTIES.has(d);
+}

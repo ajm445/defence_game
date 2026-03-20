@@ -1,6 +1,7 @@
 import { Router, Request, Response } from 'express';
 import { getSupabaseAdmin, isSupabaseConfigured } from '../services/supabaseAdmin';
 import { filterProfanity } from '../utils/profanityFilter';
+import { requireAuth, requireSameUser } from '../middleware/jwtAuth';
 
 const router = Router();
 
@@ -85,7 +86,7 @@ router.get('/:playerId', async (req: Request, res: Response) => {
 });
 
 // 피드백 작성/수정 (upsert)
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireAuth, requireSameUser(), async (req: Request, res: Response) => {
   const { playerId, rating, comment } = req.body;
 
   if (!playerId) {

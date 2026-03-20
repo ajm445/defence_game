@@ -44,7 +44,7 @@ export const COOP_CONFIG = {
     BASE_TIME: 10,           // 기본 10초
     TIME_PER_WAVE: 2,        // 웨이브당 +2초
     MAX_TIME: 30,            // 최대 30초
-    REVIVE_HP_PERCENT: 0.5,  // HP 50%로 부활
+    REVIVE_HP_PERCENT: 1.0,  // HP 100%로 부활 (풀피)
     SPAWN_OFFSET: 100,       // 아군 근처 100px 내 랜덤 위치
   },
 

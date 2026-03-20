@@ -1,7 +1,7 @@
 import { v4 as uuidv4 } from 'uuid';
 import { getPlayerByUserId, sendToPlayer, onlineUserIds } from '../state/players';
 import { friendManager } from './FriendManager';
-import { filterProfanity } from '../utils/profanityFilter';
+import { sanitizeText } from '../utils/profanityFilter';
 import type { DirectMessage } from '../../../shared/types/friendNetwork';
 
 const DM_CHAT_CONFIG = {
@@ -75,7 +75,7 @@ export class DirectMessageManager {
     senderTimes.set(targetUserId, now);
 
     // 비속어 필터
-    const filteredContent = filterProfanity(trimmed);
+    const filteredContent = sanitizeText(trimmed);
 
     // 보낸 사람 이름 조회
     const senderPlayer = getPlayerByUserId(senderUserId);
@@ -123,11 +123,11 @@ export class DirectMessageManager {
     const result: { friendUserId: string; messages: DirectMessage[] }[] = [];
 
     for (const [key, messages] of this.conversations) {
-      if (!key.includes(userId)) continue;
+      const [id1, id2] = key.split(':');
+      if (id1 !== userId && id2 !== userId) continue;
       if (messages.length === 0) continue;
 
       // key = "userId1:userId2" (정렬됨) → 상대방 ID 추출
-      const [id1, id2] = key.split(':');
       const friendUserId = id1 === userId ? id2 : id1;
 
       result.push({ friendUserId, messages: [...messages] });
@@ -140,23 +140,13 @@ export class DirectMessageManager {
    * 유저 연결 해제 시 관련 대화 및 스팸 타이머 정리
    */
   cleanupUser(userId: string): void {
-    // 스팸 타이머 정리
+    // 스팸 타이머 정리만 수행 (대화 기록은 유지)
     this.lastMessageTime.delete(userId);
     // 다른 사람의 스팸 맵에서도 제거
     for (const [, targetMap] of this.lastMessageTime) {
       targetMap.delete(userId);
     }
-
-    // 대화 기록 정리 (해당 유저가 포함된 모든 대화)
-    const keysToDelete: string[] = [];
-    for (const key of this.conversations.keys()) {
-      if (key.includes(userId)) {
-        keysToDelete.push(key);
-      }
-    }
-    for (const key of keysToDelete) {
-      this.conversations.delete(key);
-    }
+    // 대화 기록은 삭제하지 않음 (양쪽 모두 오프라인이 되어도 유지)
   }
 }
 

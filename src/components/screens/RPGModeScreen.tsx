@@ -132,9 +132,17 @@ export const RPGModeScreen: React.FC = () => {
     const currentProfile = useAuthStore.getState().profile;
     if (!result || !currentProfile || currentProfile.isGuest || expSavedRef.current) return;
 
+    // 이탈 패널티 확인: abandoned 플레이어는 경험치 0
+    const rpgState = useRPGStore.getState();
+    const isAbandoned = rpgState.abandonedUserIds?.includes(currentProfile.id);
+    if (isAbandoned) {
+      console.log('[RPGModeScreen] 이탈 패널티: 경험치 0');
+      expSavedRef.current = true;
+      return;
+    }
+
     expSavedRef.current = true;
 
-    const rpgState = useRPGStore.getState();
     const killsForExp = rpgState.personalKills;
 
     // 극한/지옥/종말 난이도 승리 시 랭킹 저장 (호스트만)
@@ -175,10 +183,11 @@ export const RPGModeScreen: React.FC = () => {
         // 2차 강화 체크: 레벨 40 도달 + 1차 전직 완료 + 아직 2차 강화 안함
         if (levelResult.classLeveledUp && levelResult.newClassLevel && levelResult.newClassLevel >= 40 && levelResult.className) {
           const classProgress = useProfileStore.getState().classProgress.find(p => p.className === levelResult.className);
-          if (classProgress && classProgress.advancedClass && classProgress.tier !== 2) {
+          if (classProgress?.advancedClass && classProgress.tier !== 2) {
+            const advClass = classProgress.advancedClass as AdvancedHeroClass;
             useProfileStore.getState().applySecondEnhancementAction(levelResult.className).then((success) => {
               if (success) {
-                setEnhancedClass(classProgress.advancedClass as AdvancedHeroClass);
+                setEnhancedClass(advClass);
               }
             });
           }

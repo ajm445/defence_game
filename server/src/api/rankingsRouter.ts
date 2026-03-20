@@ -1,5 +1,6 @@
 import { Router, Request, Response } from 'express';
 import { getSupabaseAdmin, isSupabaseConfigured } from '../services/supabaseAdmin';
+import { requireAuth } from '../middleware/jwtAuth';
 
 const router = Router();
 
@@ -64,7 +65,7 @@ router.get('/extreme/:playerCount', async (req: Request, res: Response) => {
 });
 
 // 극한 난이도 랭킹 등록
-router.post('/extreme', async (req: Request, res: Response) => {
+router.post('/extreme', requireAuth, async (req: Request, res: Response) => {
   const { playerCount, clearTime, players } = req.body as {
     playerCount: number;
     clearTime: number;
@@ -77,7 +78,8 @@ router.post('/extreme', async (req: Request, res: Response) => {
     return;
   }
 
-  if (!clearTime || clearTime <= 0) {
+  // 최소 클리어 타임 검증 (60초 미만은 비정상)
+  if (!clearTime || clearTime <= 0 || clearTime < 60) {
     res.status(400).json({ success: false, error: '클리어 시간이 유효하지 않습니다.' });
     return;
   }
@@ -88,11 +90,23 @@ router.post('/extreme', async (req: Request, res: Response) => {
   }
 
   // 플레이어 정보 유효성 검사
+  const validHeroClasses = new Set(['warrior', 'archer', 'mage', 'knight']);
   for (const player of players) {
     if (!player.playerId || !player.nickname || !player.heroClass || player.characterLevel === undefined || player.characterLevel === null) {
       res.status(400).json({ success: false, error: '플레이어 정보가 불완전합니다.' });
       return;
     }
+    if (!validHeroClasses.has(player.heroClass)) {
+      res.status(400).json({ success: false, error: '유효하지 않은 직업입니다.' });
+      return;
+    }
+  }
+
+  // 인증된 userId가 참여자 목록에 포함되어 있는지 확인
+  const authUserId = (req as any).userId;
+  if (authUserId && !players.some((p: RankingPlayer) => p.playerId === authUserId)) {
+    res.status(403).json({ success: false, error: '본인이 참여하지 않은 게임의 랭킹은 등록할 수 없습니다.' });
+    return;
   }
 
   const supabase = getSupabaseAdmin()!;
@@ -171,7 +185,7 @@ router.get('/:difficulty/:playerCount', async (req: Request, res: Response) => {
 });
 
 // 난이도별 랭킹 등록
-router.post('/', async (req: Request, res: Response) => {
+router.post('/', requireAuth, async (req: Request, res: Response) => {
   const { difficulty, playerCount, clearTime, players } = req.body as {
     difficulty: string;
     playerCount: number;
@@ -189,7 +203,7 @@ router.post('/', async (req: Request, res: Response) => {
     return;
   }
 
-  if (!clearTime || clearTime <= 0) {
+  if (!clearTime || clearTime <= 0 || clearTime < 60) {
     res.status(400).json({ success: false, error: '클리어 시간이 유효하지 않습니다.' });
     return;
   }

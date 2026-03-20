@@ -3,6 +3,33 @@ import { PlayerProfile } from '../types/auth';
 // API 기본 URL (환경변수로 설정)
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
+// JWT 토큰 관리
+const TOKEN_KEY = 'defence_game_token';
+
+export function getAuthToken(): string | null {
+  try {
+    return sessionStorage.getItem(TOKEN_KEY);
+  } catch {
+    return null;
+  }
+}
+
+export function setAuthToken(token: string): void {
+  try {
+    sessionStorage.setItem(TOKEN_KEY, token);
+  } catch {
+    // ignore
+  }
+}
+
+export function clearAuthToken(): void {
+  try {
+    sessionStorage.removeItem(TOKEN_KEY);
+  } catch {
+    // ignore
+  }
+}
+
 export interface AuthResult {
   success: boolean;
   user?: {
@@ -18,17 +45,24 @@ export interface SignUpResult extends AuthResult {
   needsEmailConfirmation?: boolean;
 }
 
-// API 요청 헬퍼
+// API 요청 헬퍼 (JWT 토큰 자동 포함)
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   const data = await response.json();
@@ -81,6 +115,7 @@ export const signInWithEmail = async (
   try {
     const data = await apiRequest<{
       success: boolean;
+      token?: string;
       user?: { id: string; email: string };
       profile?: PlayerProfile;
       error?: string;
@@ -91,6 +126,11 @@ export const signInWithEmail = async (
 
     if (!data.success) {
       return { success: false, error: data.error };
+    }
+
+    // JWT 토큰 저장
+    if (data.token) {
+      setAuthToken(data.token);
     }
 
     return {
@@ -121,6 +161,7 @@ export const signInAsGuest = async (nickname: string): Promise<AuthResult> => {
   try {
     const data = await apiRequest<{
       success: boolean;
+      token?: string;
       user?: { id: string; isGuest: boolean };
       profile?: PlayerProfile;
       error?: string;
@@ -148,6 +189,11 @@ export const signInAsGuest = async (nickname: string): Promise<AuthResult> => {
           soundMuted: false,
         },
       };
+    }
+
+    // JWT 토큰 저장
+    if (data.token) {
+      setAuthToken(data.token);
     }
 
     return {
@@ -180,8 +226,8 @@ export const signInAsGuest = async (nickname: string): Promise<AuthResult> => {
 
 // 로그아웃 (클라이언트 세션 정리만)
 export const signOut = async (): Promise<{ success: boolean; error?: string }> => {
-  // 서버에 별도 로그아웃 API 호출 필요 없음 (세션 기반이 아님)
-  // 클라이언트에서 저장된 사용자 정보만 정리
+  // JWT 토큰 삭제
+  clearAuthToken();
   return { success: true };
 };
 

@@ -6,7 +6,7 @@ import { gameInviteManager } from '../friend/GameInviteManager';
 import type { HeroClass } from '../../../src/types/rpg';
 import type { CoopPlayerInfo, WaitingCoopRoomInfo, LobbyChatMessage, LOBBY_CHAT_CONFIG } from '../../../shared/types/rpgNetwork';
 import type { CharacterStatUpgrades } from '../../../src/types/auth';
-import { filterProfanity } from '../utils/profanityFilter';
+import { sanitizeText } from '../utils/profanityFilter';
 
 // 로비 채팅 설정 (shared에서 가져온 값과 동일하게 유지)
 const CHAT_CONFIG = {
@@ -202,8 +202,8 @@ export function joinCoopRoom(
     return false;
   }
 
-  // 방이 이미 시작됐는지 확인
-  if (room.state === 'started') {
+  // 방이 이미 시작됐거나 카운트다운 중인지 확인
+  if (room.state === 'started' || room.state === 'countdown') {
     sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '이미 시작된 방입니다.' });
     return false;
   }
@@ -709,8 +709,8 @@ export function joinCoopRoomById(
     return false;
   }
 
-  // 방이 이미 시작됐는지 확인
-  if (room.state === 'started') {
+  // 방이 이미 시작됐거나 카운트다운 중인지 확인
+  if (room.state === 'started' || room.state === 'countdown') {
     sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '이미 시작된 방입니다.' });
     return false;
   }
@@ -809,8 +809,8 @@ export function joinCoopRoomByInvite(
     return false;
   }
 
-  // 방이 이미 시작됐는지 확인
-  if (room.state === 'started') {
+  // 방이 이미 시작됐거나 카운트다운 중인지 확인
+  if (room.state === 'started' || room.state === 'countdown') {
     sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '이미 시작된 방입니다.' });
     return false;
   }
@@ -924,7 +924,7 @@ export function sendLobbyChatMessage(playerId: string, content: string): void {
   }
 
   // 비속어 필터링
-  const filteredContent = filterProfanity(trimmedContent);
+  const filteredContent = sanitizeText(trimmedContent);
 
   // 메시지 생성
   const message: LobbyChatMessage = {

@@ -19,6 +19,7 @@ interface LoginInfo {
   nickname: string;
   isGuest: boolean;
   level?: number;
+  token?: string;
 }
 
 class WebSocketClient {
@@ -98,8 +99,8 @@ class WebSocketClient {
 
           // 로그인 정보가 있으면 자동 재전송 (재연결 시 온라인 상태 복원)
           if (this.currentLogin) {
-            const { userId, nickname, isGuest, level } = this.currentLogin;
-            this.send({ type: 'USER_LOGIN', userId, nickname, isGuest, level } as any);
+            const { userId, nickname, isGuest, level, token } = this.currentLogin;
+            this.send({ type: 'USER_LOGIN', userId, nickname, isGuest, level, token } as any);
           }
 
           resolve();
@@ -179,6 +180,14 @@ class WebSocketClient {
     // CONNECTED 메시지 처리
     if (message.type === 'CONNECTED') {
       this.playerId = message.playerId;
+    }
+
+    // AUTH_ERROR 메시지 처리 - 토큰 무효/불일치
+    if ((message as any).type === 'AUTH_ERROR') {
+      console.warn('인증 오류:', (message as any).message);
+      this.currentLogin = null;
+      useAuthStore.getState().signOut();
+      useUIStore.getState().setScreen('login');
     }
 
     // BANNED 메시지 처리 - 재연결 방지
@@ -278,12 +287,12 @@ class WebSocketClient {
    * 로그인 알림 (서버에 로그 기록용)
    * WebSocket이 연결되지 않은 경우 연결 후 전송
    */
-  public notifyLogin(userId: string, nickname: string, isGuest: boolean, level?: number): void {
+  public notifyLogin(userId: string, nickname: string, isGuest: boolean, level?: number, token?: string): void {
     // 로그인 정보 영구 저장 (재연결 시 자동 재전송에 사용)
-    this.currentLogin = { userId, nickname, isGuest, level };
+    this.currentLogin = { userId, nickname, isGuest, level, token };
 
     if (this.isConnected()) {
-      this.send({ type: 'USER_LOGIN', userId, nickname, isGuest, level } as any);
+      this.send({ type: 'USER_LOGIN', userId, nickname, isGuest, level, token } as any);
     } else {
       // WebSocket이 연결되지 않은 경우, 연결 시도 (onopen에서 자동 전송)
       this.connect().catch((err) => {
@@ -351,6 +360,10 @@ class WebSocketClient {
 
   public leaveCoopRoom(): void {
     this.send({ type: 'LEAVE_COOP_ROOM' });
+  }
+
+  public reconnectToGame(roomId: string): void {
+    this.send({ type: 'RECONNECT_TO_GAME', roomId } as any);
   }
 
   public coopReady(): void {

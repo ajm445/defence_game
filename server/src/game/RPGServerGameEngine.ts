@@ -337,6 +337,12 @@ export class RPGServerGameEngine {
     console.log(`[ServerEngine] 게임 재개: Room ${this.roomId}`);
   }
 
+  public restoreInputQueue(playerId: string): void {
+    if (!this.inputQueues.has(playerId)) {
+      this.inputQueues.set(playerId, []);
+    }
+  }
+
   public handlePlayerInput(playerId: string, input: PlayerInput): void {
     const queue = this.inputQueues.get(playerId);
     if (queue) {
@@ -618,37 +624,24 @@ export class RPGServerGameEngine {
           }
         }
 
-        // 자동 해제: HP ≤ 10% 또는 스턴
-        const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
-        if (hero.hp <= hero.maxHp * 0.1 || isStunned) {
-          hero.darkBladeActive = false;
-          hero.darkBladeLastToggleOff = this.state.gameTime;
-          hero.skillCooldowns.E = 2.0;
-          hero._skillE.currentCooldown = 2.0;
-
-          // 이펙트 제거
-          for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {
-            const eff = this.state.activeSkillEffects[i];
-            if (eff.type === 'dark_blade' && eff.heroId === hero.id) {
-              this.state.activeSkillEffects.splice(i, 1);
-            }
-          }
-        }
-
-        // HP 0 이하 시 사망 처리
+        // HP 0 이하 시 사망 처리 (자동 해제보다 먼저 체크)
         if (hero.hp <= 0) {
-          hero.hp = 0;
-          hero.isDead = true;
-          hero.darkBladeActive = false;
-          hero.buffs = [];
-          hero.deathTime = this.state.gameTime;
-          hero.reviveTimer = COOP_CONFIG.REVIVE.BASE_TIME;
+          this.handleHeroDeath(hero);
+        } else {
+          // 자동 해제: HP <= 10% 또는 스턴
+          const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
+          if (hero.hp <= hero.maxHp * 0.1 || isStunned) {
+            hero.darkBladeActive = false;
+            hero.darkBladeLastToggleOff = this.state.gameTime;
+            hero.skillCooldowns.E = 2.0;
+            hero._skillE.currentCooldown = 2.0;
 
-          // 이펙트 제거
-          for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {
-            const eff = this.state.activeSkillEffects[i];
-            if (eff.type === 'dark_blade' && eff.heroId === hero.id) {
-              this.state.activeSkillEffects.splice(i, 1);
+            // 이펙트 제거
+            for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {
+              const eff = this.state.activeSkillEffects[i];
+              if (eff.type === 'dark_blade' && eff.heroId === hero.id) {
+                this.state.activeSkillEffects.splice(i, 1);
+              }
             }
           }
         }
@@ -675,21 +668,7 @@ export class RPGServerGameEngine {
 
     // 영웅 사망 처리
     if (hero.hp <= 0) {
-      hero.hp = 0;
-      hero.isDead = true;
-      hero.darkBladeActive = false;
-      hero.buffs = [];
-      hero.deathTime = this.state.gameTime;
-      hero.reviveTimer = COOP_CONFIG.REVIVE.BASE_TIME;
-
-      // 다크블레이드 이펙트 제거
-      for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {
-        const eff = this.state.activeSkillEffects[i];
-        if (eff.type === 'dark_blade' && eff.heroId === hero.id) {
-          this.state.activeSkillEffects.splice(i, 1);
-        }
-      }
-      console.log(`[ServerEngine] 영웅 사망: ${hero.id}, 부활 ${hero.reviveTimer}초`);
+      this.handleHeroDeath(hero);
     }
   }
 
@@ -862,10 +841,82 @@ export class RPGServerGameEngine {
     return this.state.gameOver;
   }
 
+  private handleHeroDeath(hero: any): void {
+    hero.hp = 0;
+    hero.isDead = true;
+    hero.darkBladeActive = false;
+    hero.deathTime = this.state.gameTime;
+    hero.reviveTimer = COOP_CONFIG.REVIVE.BASE_TIME;
+
+    // 버서커 E 버프 중 사망: 남은 버프 시간 제외, 실제 쿨다운만 적용
+    const berserkerBuff = hero.buffs?.find((b: any) => b.type === 'berserker' && b.duration > 0);
+    if (berserkerBuff) {
+      hero.skillCooldowns.E = hero._skillE.cooldown;
+      hero._skillE.currentCooldown = hero._skillE.cooldown;
+    }
+
+    hero.buffs = [];
+
+    // 다크나이트 E 쿨다운 초기화
+    if (hero.advancedClass === 'darkKnight') {
+      hero.skillCooldowns.E = 0;
+      hero._skillE.currentCooldown = 0;
+    }
+
+    // 다크블레이드/스프링오브라이프 이펙트 제거
+    for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {
+      const eff = this.state.activeSkillEffects[i];
+      if (eff.heroId === hero.id && (eff.type === 'dark_blade' || eff.type === 'spring_of_life')) {
+        this.state.activeSkillEffects.splice(i, 1);
+      }
+    }
+
+    console.log(`[ServerEngine] 영웅 사망: ${hero.id}, 부활 ${hero.reviveTimer}초`);
+  }
+
+  public swapHeroPlayerId(oldPlayerId: string, newPlayerId: string): void {
+    const oldHeroId = `hero_${oldPlayerId}`;
+    const newHeroId = `hero_${newPlayerId}`;
+    const hero = this.state.heroes.get(oldHeroId);
+    if (hero) {
+      hero.id = newHeroId;
+      hero.playerId = newPlayerId;
+      this.state.heroes.delete(oldHeroId);
+      this.state.heroes.set(newHeroId, hero);
+      console.log(`[ServerEngine] 영웅 playerId 교체: ${oldHeroId} → ${newHeroId}`);
+    }
+  }
+
+  public pauseHero(playerId: string): void {
+    const heroId = `hero_${playerId}`;
+    const hero = this.state.heroes.get(heroId);
+    if (hero) {
+      // 입력 큐 제거 (영웅은 정지 상태로 유지)
+      this.inputQueues.delete(playerId);
+      this.lastProcessedSeq.delete(playerId);
+      hero.moveDirection = null;
+      console.log(`[ServerEngine] 영웅 일시정지 (재접속 대기): ${heroId}`);
+    }
+  }
+
   public removeHero(playerId: string): void {
     const heroId = `hero_${playerId}`;
     const hero = this.state.heroes.get(heroId);
     if (hero) {
+      // 해당 영웅의 이펙트 정리 (dark_blade, spring_of_life 등 장기 지속)
+      for (let i = this.state.activeSkillEffects.length - 1; i >= 0; i--) {
+        if (this.state.activeSkillEffects[i].heroId === heroId) {
+          this.state.activeSkillEffects.splice(i, 1);
+        }
+      }
+
+      // 해당 영웅의 pendingSkills 정리
+      for (let i = this.state.pendingSkills.length - 1; i >= 0; i--) {
+        if (this.state.pendingSkills[i].casterId === heroId) {
+          this.state.pendingSkills.splice(i, 1);
+        }
+      }
+
       this.state.heroes.delete(heroId);
       this.lastProcessedSeq.delete(playerId);
       this.inputQueues.delete(playerId);

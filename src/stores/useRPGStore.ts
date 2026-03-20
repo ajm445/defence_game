@@ -380,6 +380,7 @@ const initialState: RPGState = {
   paused: false,
   gameOver: false,
   victory: false,
+  abandonedUserIds: [] as string[],
 
   hero: null,
   selectedClass: null,
@@ -692,6 +693,7 @@ export const useRPGStore = create<RPGStore>()(
         pendingSkills: [],
         gameOver: false,
         victory: false,
+        abandonedUserIds: [],
         paused: false,
         gameTime: 0,
         goldAccumulator: 0,
@@ -770,6 +772,7 @@ export const useRPGStore = create<RPGStore>()(
         pendingSkills: [],
         gameOver: false,
         victory: false,
+        abandonedUserIds: [],
         paused: false,
         gameTime: 0,
         goldAccumulator: 0,
@@ -2578,7 +2581,7 @@ export const useRPGStore = create<RPGStore>()(
 
             // 돌진/시전/스턴 중에는 호스트 위치 100% 사용
             const isDashing = hero.dashState !== undefined;
-            const isCasting = hero.castingUntil && currentState.gameTime < hero.castingUntil;
+            const isCasting = hero.castingUntil && serializedState.gameTime < hero.castingUntil;
             const isStunned = hero.buffs?.some(b => b.type === 'stun' && b.duration > 0);
             const forceHostPosition = isDashing || isCasting || isStunned;
 
@@ -2656,9 +2659,9 @@ export const useRPGStore = create<RPGStore>()(
               if (isCastingNew) {
                 hpDecrease -= hero.maxHp * 0.20;
               }
-              // E스킬 토글 활성 중: 초당 HP 5% 드레인 (서버 틱 ~50ms 기준)
+              // E스킬 토글 활성 중: 초당 HP 5% 드레인 (적응형 서버 업데이트 간격 사용)
               if ((hero as any).darkBladeActive) {
-                hpDecrease -= hero.maxHp * 0.05 * 0.06;
+                hpDecrease -= hero.maxHp * 0.05 * (_serverUpdateInterval / 1000);
               }
             }
 
@@ -2683,10 +2686,13 @@ export const useRPGStore = create<RPGStore>()(
               // 쿨다운 차이 계산
               const cooldownDiff = localSkill.currentCooldown - serverSkill.currentCooldown;
 
-              // 클라이언트 쿨다운이 서버보다 3초 이상 높으면: 클라이언트가 방금 스킬 사용
+              // 클라이언트 쿨다운이 서버보다 일정 이상 높으면: 클라이언트가 방금 스킬 사용
               // (서버가 아직 스킬 사용을 처리하지 않음)
+              // 다크나이트 E (토글, cooldown=0): 재사용 딜레이 2초이므로 임계값 1초 사용
               // 그 외의 경우: 서버 값 사용 (서버의 쿨다운 감소 적용됨)
-              const mergedCooldown = cooldownDiff > 3.0
+              const isToggleSkill = serverSkill.cooldown === 0;
+              const threshold = isToggleSkill ? 1.0 : 3.0;
+              const mergedCooldown = cooldownDiff > threshold
                 ? localSkill.currentCooldown
                 : serverSkill.currentCooldown;
               return { ...serverSkill, currentCooldown: mergedCooldown };
@@ -3138,7 +3144,7 @@ export const useRPGStore = create<RPGStore>()(
       set((state) => ({
         multiplayer: {
           ...state.multiplayer,
-          lobbyChatMessages: messages,
+          lobbyChatMessages: messages.length > 100 ? messages.slice(-100) : messages,
         },
       }));
     },

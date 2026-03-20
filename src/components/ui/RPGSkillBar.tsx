@@ -110,15 +110,17 @@ const cooldownMaxRef = new Map<string, number>();
 const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHoverStart, onHoverEnd, disabled, disabledReason, active }) => {
   const isOnCooldown = skill.currentCooldown > 0;
 
-  // 쿨다운 시작 시 최대값 기록, 쿨다운 끝나면 리셋
-  if (isOnCooldown) {
-    const prev = cooldownMaxRef.get(skill.type) || 0;
-    if (skill.currentCooldown > prev) {
-      cooldownMaxRef.set(skill.type, skill.currentCooldown);
+  // 쿨다운 시작 시 최대값 기록, 쿨다운 끝나면 리셋 (useEffect로 사이드 이펙트 분리)
+  React.useEffect(() => {
+    if (isOnCooldown) {
+      const prev = cooldownMaxRef.get(skill.type) || 0;
+      if (skill.currentCooldown > prev) {
+        cooldownMaxRef.set(skill.type, skill.currentCooldown);
+      }
+    } else {
+      cooldownMaxRef.delete(skill.type);
     }
-  } else {
-    cooldownMaxRef.delete(skill.type);
-  }
+  }, [isOnCooldown, skill.currentCooldown, skill.type]);
 
   // 토글 스킬(cooldown=0)은 reuseCooldown 2초 기준
   const baseCooldown = skill.cooldown > 0 ? skill.cooldown : 2;

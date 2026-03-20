@@ -60,7 +60,7 @@ export const UPGRADE_CONFIG = {
 export const COOP_CONFIG = {
   REVIVE: {
     BASE_TIME: 10,
-    REVIVE_HP_PERCENT: 0.5,
+    REVIVE_HP_PERCENT: 1.0,  // HP 100%로 부활 (풀피)
     SPAWN_OFFSET: 100,
   },
   DIFFICULTY_SCALING: {
@@ -172,13 +172,13 @@ export const CLASS_CONFIGS: Record<HeroClass, {
   mage: { hp: 230, attack: 60, attackSpeed: 1.4, speed: 2.8, range: 210 },
 };
 
-// 적 기지 설정
+// 적 기지 설정 (클라이언트 rpgConfig.ts와 동일)
 export const ENEMY_BASE_CONFIG = {
   positions: {
-    left: { x: 200, y: 1000 },
-    right: { x: 2800, y: 1000 },
+    left: { x: 150, y: 1000 },
+    right: { x: 2850, y: 1000 },
   },
-  hp: 2000,
+  hp: 3000,
   radius: 60,
 };
 

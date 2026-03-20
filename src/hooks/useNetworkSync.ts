@@ -85,7 +85,7 @@ export function useNetworkSync() {
 
         // 게임 종료
         case 'COOP_GAME_OVER':
-          handleGameOver(message.result);
+          handleGameOver(message.result, (message as any).abandonedUserIds);
           break;
 
         // 로비 복귀
@@ -346,12 +346,17 @@ function handleReconnectInfo(message: { hostPlayerId: string; isHost: boolean; g
   }
 }
 
-function handleGameOver(result: any) {
+function handleGameOver(result: any, abandonedUserIds?: string[]) {
   console.log('[NetworkSync] 게임 종료:', result);
 
   // 호스트에서 받은 stats 적용 (최종 보스 처치 수 등)
   if (result?.stats) {
     useRPGStore.setState({ stats: result.stats });
+  }
+
+  // 이탈 패널티 대상 저장
+  if (abandonedUserIds && abandonedUserIds.length > 0) {
+    useRPGStore.setState({ abandonedUserIds });
   }
 
   useRPGStore.getState().setGameOver(result?.victory || false);

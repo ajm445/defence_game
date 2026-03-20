@@ -2,6 +2,7 @@ import { Router, Request, Response } from 'express';
 import { v4 as uuidv4 } from 'uuid';
 import { getSupabaseAdmin, getSupabaseClient, isSupabaseConfigured } from '../services/supabaseAdmin';
 import { filterProfanity } from '../utils/profanityFilter';
+import { generateToken, requireAuth, requireSameUser } from '../middleware/jwtAuth';
 
 const router = Router();
 
@@ -92,7 +93,7 @@ router.get('/check-nickname', async (req: Request, res: Response) => {
 });
 
 // 아이디 중복 확인
-router.get('/check-username', async (req: Request, res: Response) => {
+router.get('/check-username', authRateLimit, async (req: Request, res: Response) => {
   const username = req.query.username as string;
 
   if (!username || username.length < 4) {
@@ -109,18 +110,24 @@ router.get('/check-username', async (req: Request, res: Response) => {
   const supabase = getSupabaseAdmin()!;
 
   try {
-    // Auth 사용자 목록에서 이메일 존재 여부 확인
-    let exists = false;
-    let page = 1;
-    while (true) {
-      const { data, error } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
-      if (error || !data.users.length) break;
-      if (data.users.some(u => u.email === email)) {
-        exists = true;
-        break;
+    // 1페이지만 조회하여 이메일 존재 여부 확인 (전체 순회 대신)
+    const { data, error } = await supabase.auth.admin.listUsers({ page: 1, perPage: 1000 });
+    if (error) throw error;
+
+    const exists = data.users.some(u => u.email === email);
+
+    // 1000명 이하면 이 한번으로 충분, 초과 시 추가 페이지 확인
+    if (!exists && data.users.length >= 1000) {
+      // 대규모 유저 기반: 추가 페이지 순회 (최대 5페이지)
+      for (let page = 2; page <= 5; page++) {
+        const { data: nextData, error: nextError } = await supabase.auth.admin.listUsers({ page, perPage: 1000 });
+        if (nextError || !nextData.users.length) break;
+        if (nextData.users.some(u => u.email === email)) {
+          res.json({ available: false });
+          return;
+        }
+        if (nextData.users.length < 1000) break;
       }
-      if (data.users.length < 1000) break;
-      page++;
     }
 
     res.json({ available: !exists });
@@ -291,9 +298,13 @@ router.post('/signin', authRateLimit, async (req: Request, res: Response) => {
         }
       }
 
-      // 4. 성공 응답
+      // 4. JWT 토큰 발급
+      const token = generateToken(authData.user.id, false);
+
+      // 5. 성공 응답
       res.json({
         success: true,
+        token,
         user: {
           id: authData.user.id,
           email: authData.user.email,
@@ -337,11 +348,13 @@ router.post('/guest', authRateLimit, async (req: Request, res: Response) => {
   try {
     // 로컬 UUID 생성 (Supabase Auth 계정 생성 안 함)
     const guestId = uuidv4();
+    const token = generateToken(guestId, true);
 
     // 게스트 프로필은 DB에 저장하지 않고 클라이언트에 직접 반환
     // 세션 간 데이터가 유지되지 않음 (게스트 특성)
     res.json({
       success: true,
+      token,
       user: {
         id: guestId,
         isGuest: true,
@@ -364,7 +377,7 @@ router.post('/guest', authRateLimit, async (req: Request, res: Response) => {
 });
 
 // 회원 탈퇴
-router.delete('/account/:userId', async (req: Request, res: Response) => {
+router.delete('/account/:userId', requireAuth, requireSameUser('userId'), async (req: Request, res: Response) => {
   const { userId } = req.params;
 
   if (!userId) {
@@ -381,7 +394,19 @@ router.delete('/account/:userId', async (req: Request, res: Response) => {
     // 2. 클래스 진행 상황 삭제
     await supabase.from('class_progress').delete().eq('player_id', userId);
 
-    // 3. 플레이어 프로필 삭제
+    // 3. 친구 관계 삭제 (양방향)
+    await supabase.from('friends').delete().or(`user_id.eq.${userId},friend_id.eq.${userId}`);
+
+    // 4. 친구 요청 삭제 (양방향)
+    await supabase.from('friend_requests').delete().or(`sender_id.eq.${userId},receiver_id.eq.${userId}`);
+
+    // 5. 피드백 삭제
+    await supabase.from('user_feedback').delete().eq('player_id', userId);
+
+    // 6. 밴 기록 삭제
+    await supabase.from('player_bans').delete().eq('player_id', userId);
+
+    // 7. 플레이어 프로필 삭제
     const { error: profileError } = await supabase
       .from('player_profiles')
       .delete()
@@ -393,7 +418,7 @@ router.delete('/account/:userId', async (req: Request, res: Response) => {
       return;
     }
 
-    // 4. Auth에서 사용자 삭제
+    // 8. Auth에서 사용자 삭제
     const { error: authError } = await supabase.auth.admin.deleteUser(userId);
 
     if (authError) {
@@ -453,7 +478,7 @@ router.get('/profile/:userId', async (req: Request, res: Response) => {
 });
 
 // 닉네임 변경
-router.patch('/profile/:userId/nickname', async (req: Request, res: Response) => {
+router.patch('/profile/:userId/nickname', requireAuth, requireSameUser('userId'), async (req: Request, res: Response) => {
   const { userId } = req.params;
   const { nickname } = req.body;
 
@@ -489,7 +514,7 @@ router.patch('/profile/:userId/nickname', async (req: Request, res: Response) =>
 });
 
 // 비밀번호 변경
-router.patch('/password', authRateLimit, async (req: Request, res: Response) => {
+router.patch('/password', authRateLimit, requireAuth, requireSameUser(), async (req: Request, res: Response) => {
   const { userId, currentPassword, newPassword } = req.body;
 
   if (!userId || !currentPassword || !newPassword) {
@@ -548,7 +573,7 @@ router.patch('/password', authRateLimit, async (req: Request, res: Response) => 
 });
 
 // 사운드 설정 변경
-router.patch('/profile/:userId/sound', async (req: Request, res: Response) => {
+router.patch('/profile/:userId/sound', requireAuth, requireSameUser('userId'), async (req: Request, res: Response) => {
   const { userId } = req.params;
   const { soundVolume, soundMuted } = req.body;
 

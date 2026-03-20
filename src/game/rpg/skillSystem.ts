@@ -1248,17 +1248,18 @@ function executeAdvancedWSkill(
     case 'ranger':
       // 다중 화살 - 부채꼴 방향으로 5발의 관통 화살 발사
       {
-        const arrowCount = skillConfig.arrowCount || 5;
+        const arrowCount = 5;
         const pierceDistance = 300;
         const spreadAngle = Math.PI / 4;  // 45도 부채꼴
 
+        // 피격 횟수 추적: 첫 발 100%, 이후 50%씩 체감 (서버와 동일)
+        const enemyHitCounts = new Map<string, number>();
+        const baseHitCounts = new Map<string, number>();
+
         for (let i = 0; i < arrowCount; i++) {
-          // 부채꼴 각도 계산
-          const angleOffset = spreadAngle * ((i / (arrowCount - 1)) - 0.5);
-          const baseAngle = Math.atan2(dirY, dirX);
-          const arrowAngle = baseAngle + angleOffset;
-          const arrowDirX = Math.cos(arrowAngle);
-          const arrowDirY = Math.sin(arrowAngle);
+          const angleOffset = (i - (arrowCount - 1) / 2) * (spreadAngle / (arrowCount - 1));
+          const arrowDirX = dirX * Math.cos(angleOffset) - dirY * Math.sin(angleOffset);
+          const arrowDirY = dirX * Math.sin(angleOffset) + dirY * Math.cos(angleOffset);
 
           const endX = hero.x + arrowDirX * pierceDistance;
           const endY = hero.y + arrowDirY * pierceDistance;
@@ -1268,10 +1269,10 @@ function executeAdvancedWSkill(
             if (enemy.hp <= 0) continue;
             const enemyDist = pointToLineDistance(enemy.x, enemy.y, hero.x, hero.y, endX, endY);
             if (enemyDist <= 30) {
-              // 이미 맞은 적은 제외 (관통이지만 같은 스킬에서 중복 제외)
-              if (!enemyDamages.find(ed => ed.enemyId === enemy.id)) {
-                enemyDamages.push({ enemyId: enemy.id, damage });
-              }
+              const hits = enemyHitCounts.get(enemy.id) || 0;
+              const dmgMultiplier = hits === 0 ? 1.0 : 0.5;
+              enemyDamages.push({ enemyId: enemy.id, damage: Math.floor(damage * dmgMultiplier) });
+              enemyHitCounts.set(enemy.id, hits + 1);
             }
           }
 
@@ -1280,9 +1281,10 @@ function executeAdvancedWSkill(
             if (base.destroyed) continue;
             const baseDist = pointToLineDistance(base.x, base.y, hero.x, hero.y, endX, endY);
             if (baseDist <= 60) {
-              if (!baseDamages.find(bd => bd.baseId === base.id)) {
-                baseDamages.push({ baseId: base.id, damage });
-              }
+              const hits = baseHitCounts.get(base.id) || 0;
+              const dmgMultiplier = hits === 0 ? 1.0 : 0.5;
+              baseDamages.push({ baseId: base.id, damage: Math.floor(damage * dmgMultiplier) });
+              baseHitCounts.set(base.id, hits + 1);
             }
           }
         }
@@ -1293,7 +1295,7 @@ function executeAdvancedWSkill(
           direction: { x: dirX, y: dirY },
           radius: pierceDistance,
           damage,
-          duration: 0.5,
+          duration: 0.4,
           startTime: gameTime,
         };
       }

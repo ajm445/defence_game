@@ -234,3 +234,18 @@ const profanityRegex = buildProfanityRegex();
 export function filterProfanity(text: string): string {
   return text.replace(profanityRegex, replaceWithStars);
 }
+
+// HTML 특수문자 이스케이프 (XSS 방어)
+export function escapeHtml(text: string): string {
+  return text
+    .replace(/&/g, '&amp;')
+    .replace(/</g, '&lt;')
+    .replace(/>/g, '&gt;')
+    .replace(/"/g, '&quot;')
+    .replace(/'/g, '&#39;');
+}
+
+// 비속어 필터 + HTML 이스케이프 통합
+export function sanitizeText(text: string): string {
+  return filterProfanity(escapeHtml(text));
+}

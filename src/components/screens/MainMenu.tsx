@@ -46,7 +46,7 @@ export const MainMenu: React.FC = () => {
         setHasFeedback(feedback !== null);
       });
     }
-  }, [isAuthenticated, isGuest, profile]);
+  }, [isAuthenticated, isGuest, profile?.id]);
 
   const handleStartGame = () => {
     soundManager.init();

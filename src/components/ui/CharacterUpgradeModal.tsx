@@ -338,7 +338,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
             전직
             {progress.advancedClass ? (
               <span className="ml-2 text-yellow-400 text-sm">
-                ({ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].name})
+                ({advancedConfig?.name})
               </span>
             ) : canAdvanceJob ? (
               <span className="ml-2 text-green-400 text-sm">(가능!)</span>
@@ -351,14 +351,14 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
             // 전직 완료 상태
             <div className="space-y-3">
               <div className="flex items-center gap-3 p-3 bg-yellow-500/10 rounded-lg border border-yellow-500/30">
-                <Emoji emoji={ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].emoji} size={30} />
+                <Emoji emoji={advancedConfig?.emoji || '⚔️'} size={30} />
                 <div className="flex-1">
                   <div className="text-yellow-400 font-bold">
-                    {ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].name}
+                    {advancedConfig?.name}
                     {progress.tier === 2 && <span className="ml-2 text-orange-400">★★</span>}
                   </div>
                   <div className="text-gray-400 text-sm">
-                    {ADVANCED_CLASS_CONFIGS[progress.advancedClass as AdvancedHeroClass].description}
+                    {advancedConfig?.description}
                   </div>
                 </div>
               </div>
@@ -432,7 +432,7 @@ export const CharacterUpgradeModal: React.FC<CharacterUpgradeModalProps> = ({
                   return (
                     <div
                       key={advClass}
-                      className={`bg-gray-800/70 rounded-lg p-4 border transition-all ${
+                      className={`relative bg-gray-800/70 rounded-lg p-4 border transition-all ${
                         isCurrentClass
                           ? 'border-green-500/50 opacity-60 cursor-not-allowed'
                           : 'border-gray-600 hover:border-yellow-500/50 cursor-pointer'

@@ -162,7 +162,7 @@ export const PASSIVE_GROWTH_CONFIGS: Record<HeroClass, PassiveGrowthConfig> = {
   },
   mage: {
     type: 'bossDamageBonus',
-    startValue: 0.24,        // 레벨 5에서 25% 시작 (0.24 + 1*0.01 = 0.25)
+    startValue: 0,           // 서버 기준 (패시브 레벨 × growthPerLevel로 성장)
     growthPerLevel: 0.01,    // +1%/레벨
     maxValue: 1.0,           // 100% 최대
     overflowType: 'attack',
@@ -390,37 +390,37 @@ export const CLASS_CONFIGS: Record<HeroClass, ClassConfig> = {
 // 적 유형별 AI 설정
 export const ENEMY_AI_CONFIGS: Record<UnitType, EnemyAIConfig> = {
   melee: {
-    detectionRange: 300,
-    attackRange: 60,
-    moveSpeed: 2.25,
+    detectionRange: 150,
+    attackRange: 40,
+    moveSpeed: 2.0,
     attackDamage: 15,
     attackSpeed: 1.0,
   },
   ranged: {
-    detectionRange: 450,
+    detectionRange: 200,
     attackRange: 150,
-    moveSpeed: 2.4,
-    attackDamage: 20,
-    attackSpeed: 0.8,
-  },
-  knight: {
-    detectionRange: 300,
-    attackRange: 70,
-    moveSpeed: 1.95,
+    moveSpeed: 1.8,
     attackDamage: 12,
     attackSpeed: 1.2,
   },
-  mage: {
-    detectionRange: 450,
-    attackRange: 180,
-    moveSpeed: 2.1,
-    attackDamage: 35,
+  knight: {
+    detectionRange: 180,
+    attackRange: 50,
+    moveSpeed: 1.5,
+    attackDamage: 25,
     attackSpeed: 1.5,
   },
+  mage: {
+    detectionRange: 250,
+    attackRange: 180,
+    moveSpeed: 1.6,
+    attackDamage: 30,
+    attackSpeed: 2.0,
+  },
   boss: {
-    detectionRange: 650,
-    attackRange: 100,
-    moveSpeed: 1.5,
+    detectionRange: 300,
+    attackRange: 80,
+    moveSpeed: 1.2,
     attackDamage: 50,
     attackSpeed: 2.0,
   },
@@ -454,35 +454,35 @@ export const RPG_ENEMY_CONFIGS: Record<string, RPGEnemyConfig> = {
     hp: 100,
     attack: 15,
     attackSpeed: 1.0,
-    speed: 2.25,
+    speed: 2.0,
   },
   ranged: {
     name: '궁수',
-    hp: 70,       // 50 → 70 (생존력 향상)
-    attack: 18,   // 20 → 18 (약간 하향)
-    attackSpeed: 0.8,
-    speed: 2.4,
+    hp: 80,
+    attack: 12,
+    attackSpeed: 1.2,
+    speed: 1.8,
   },
   knight: {
     name: '기사',
-    hp: 280,      // 300 → 280 (약간 하향)
-    attack: 18,   // 12 → 18 (위협적으로)
-    attackSpeed: 1.2,
-    speed: 1.95,
+    hp: 200,
+    attack: 25,
+    attackSpeed: 1.5,
+    speed: 1.5,
   },
   mage: {
     name: '마법사',
-    hp: 55,       // 40 → 55 (생존력 향상)
-    attack: 30,   // 35 → 30 (약간 하향)
-    attackSpeed: 1.5,
-    speed: 2.1,
+    hp: 120,
+    attack: 30,
+    attackSpeed: 2.0,
+    speed: 1.6,
   },
   boss: {
     name: '보스',
-    hp: 2000,
-    attack: 50,
+    hp: 3500,
+    attack: 100,
     attackSpeed: 2.0,
-    speed: 1.5,
+    speed: 1.2,
   },
   boss2: {
     name: '암흑 마법사',
@@ -670,7 +670,7 @@ export const RPG_CONFIG = {
 
   // 카메라 설정
   CAMERA: {
-    MIN_ZOOM: 0.5,
+    MIN_ZOOM: 0.75,
     MAX_ZOOM: 2.0,
     DEFAULT_ZOOM: 1.0,
     ZOOM_SPEED: 0.1,

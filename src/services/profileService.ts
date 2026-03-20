@@ -13,21 +13,29 @@ import {
   StatUpgradeType,
 } from '../types/auth';
 import { HeroClass, RPGDifficulty, AdvancedHeroClass } from '../types/rpg';
+import { getAuthToken } from './authService';
 
 // API 기본 URL
 const API_URL = import.meta.env.VITE_API_URL || 'http://localhost:8080';
 
-// API 요청 헬퍼
+// API 요청 헬퍼 (JWT 토큰 자동 포함)
 async function apiRequest<T>(
   endpoint: string,
   options: RequestInit = {}
 ): Promise<T> {
+  const token = getAuthToken();
+  const headers: Record<string, string> = {
+    'Content-Type': 'application/json',
+    ...(options.headers as Record<string, string>),
+  };
+
+  if (token) {
+    headers['Authorization'] = `Bearer ${token}`;
+  }
+
   const response = await fetch(`${API_URL}${endpoint}`, {
     ...options,
-    headers: {
-      'Content-Type': 'application/json',
-      ...options.headers,
-    },
+    headers,
   });
 
   const data = await response.json();

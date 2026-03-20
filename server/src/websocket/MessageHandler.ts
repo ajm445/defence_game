@@ -3,9 +3,10 @@ import { players, sendMessage, onlineUserIds, registerUserOnline, registerUserOf
 import { isMaintenanceActive } from '../state/maintenance';
 import { createRoom, joinRoom, leaveRoom } from '../room/RoomManager';
 import { verifyAdminToken } from '../middleware/adminAuth';
+import { verifyToken } from '../middleware/jwtAuth';
 import { getSupabaseAdmin } from '../services/supabaseAdmin';
 import { rateLimiters } from '../middleware/rateLimiter';
-import { isValidDirection, isValidSkillSlot, isValidUpgradeType, isValidRPGCoordinate, isValidRTSCoordinate } from '../middleware/inputValidator';
+import { isValidDirection, isValidSkillSlot, isValidUpgradeType, isValidRPGCoordinate, isValidRTSCoordinate, isValidHeroClass, isValidAdvancedClass, isValidDifficulty } from '../middleware/inputValidator';
 import {
   createCoopRoom,
   joinCoopRoom,
@@ -34,6 +35,54 @@ import { directMessageManager } from '../friend/DirectMessageManager';
 // 게임 방 저장소
 const gameRooms = new Map<string, GameRoom>();
 const coopGameRooms = new Map<string, RPGCoopGameRoom>();
+
+// 재접속 대기 맵: userId → { roomId, disconnectTime }
+// 게임 진행 중 연결 해제된 플레이어를 60초간 대기
+const disconnectedGamePlayers = new Map<string, { roomId: string; disconnectTime: number; timerId: NodeJS.Timeout }>();
+const RECONNECT_GRACE_PERIOD = 60000; // 60초
+
+export function registerDisconnectedPlayer(userId: string, roomId: string): void {
+  // 기존 타이머 정리
+  const existing = disconnectedGamePlayers.get(userId);
+  if (existing) clearTimeout(existing.timerId);
+
+  const timerId = setTimeout(() => {
+    const entry = disconnectedGamePlayers.get(userId);
+    if (entry && entry.roomId === roomId) {
+      console.log(`[Reconnect] 재접속 유예 시간 만료: userId=${userId}, roomId=${roomId}`);
+      disconnectedGamePlayers.delete(userId);
+      // 60초 경과 → 영웅 제거
+      const coopRoom = coopGameRooms.get(roomId);
+      if (coopRoom && coopRoom.getGameState() === 'playing') {
+        coopRoom.removeDisconnectedHero(userId);
+      }
+    }
+  }, RECONNECT_GRACE_PERIOD);
+
+  disconnectedGamePlayers.set(userId, { roomId, disconnectTime: Date.now(), timerId });
+}
+
+// 특정 userId의 재접속 가능 방 정보 조회
+export function getReconnectableRoom(userId: string): { roomId: string; disconnectTime: number } | null {
+  const entry = disconnectedGamePlayers.get(userId);
+  if (!entry) return null;
+  const coopRoom = coopGameRooms.get(entry.roomId);
+  if (!coopRoom || coopRoom.getGameState() !== 'playing') {
+    clearTimeout(entry.timerId);
+    disconnectedGamePlayers.delete(userId);
+    return null;
+  }
+  return { roomId: entry.roomId, disconnectTime: entry.disconnectTime };
+}
+
+// 재접속 완료 시 대기 맵에서 제거
+export function clearDisconnectedPlayer(userId: string): void {
+  const entry = disconnectedGamePlayers.get(userId);
+  if (entry) {
+    clearTimeout(entry.timerId);
+    disconnectedGamePlayers.delete(userId);
+  }
+}
 
 // 관리자 구독자 저장소
 const adminSubscribers = new Set<string>();
@@ -184,7 +233,7 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
     // 사용자 인증 메시지
     case 'USER_LOGIN':
       if (!rateLimiters.login.checkAndUpdate(playerId)) return;
-      handleUserLogin(playerId, (message as any).userId, (message as any).nickname, (message as any).isGuest, (message as any).level);
+      handleUserLogin(playerId, (message as any).userId, (message as any).nickname, (message as any).isGuest, (message as any).level, (message as any).token);
       break;
 
     case 'USER_LOGOUT':
@@ -219,30 +268,42 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
       break;
 
     case 'LEAVE_COOP_ROOM':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleLeaveCoopRoom(playerId);
       break;
 
+    case 'RECONNECT_TO_GAME' as any:
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
+      handleReconnectToGame(playerId, (message as any).roomId);
+      break;
+
     case 'COOP_READY':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleCoopReady(playerId, true);
       break;
 
     case 'COOP_UNREADY':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleCoopReady(playerId, false);
       break;
 
     case 'CHANGE_COOP_CLASS':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleChangeCoopClass(playerId, message.heroClass, message.characterLevel, message.statUpgrades, message.advancedClass, message.tier);
       break;
 
     case 'START_COOP_GAME':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleStartCoopGame(playerId);
       break;
 
     case 'KICK_COOP_PLAYER':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleKickCoopPlayer(playerId, message.playerId);
       break;
 
     case 'UPDATE_COOP_ROOM_SETTINGS':
+      if (!rateLimiters.socialAction.checkAndUpdate(playerId)) return;
       handleUpdateCoopRoomSettings(playerId, message.isPrivate, message.difficulty, (message as any).mapTheme);
       break;
 
@@ -377,13 +438,30 @@ export function handleMessage(playerId: string, message: ClientMessage): void {
 // 사용자 인증 핸들러
 // ============================================
 
-async function handleUserLogin(playerId: string, userId: string, nickname: string, isGuest: boolean, level?: number): Promise<void> {
+async function handleUserLogin(playerId: string, userId: string, nickname: string, isGuest: boolean, level?: number, token?: string): Promise<void> {
   const accountType = isGuest ? '게스트' : '일반';
   const levelInfo = level ? ` (Lv.${level})` : '';
   console.log(`[Auth] 로그인: ${nickname}${levelInfo} [${accountType}] (userId: ${userId}, playerId: ${playerId})`);
 
   const player = players.get(playerId);
   if (!player) return;
+
+  // JWT 토큰 검증: 토큰이 있으면 검증, 없으면 경고 로그 (하위 호환)
+  if (token) {
+    const payload = verifyToken(token);
+    if (!payload) {
+      console.warn(`[Auth] 유효하지 않은 토큰: ${nickname} (playerId: ${playerId})`);
+      sendMessage(player.ws, { type: 'AUTH_ERROR', message: '인증 토큰이 유효하지 않습니다.' } as any);
+      return;
+    }
+    if (payload.userId !== userId) {
+      console.warn(`[Auth] 토큰 userId 불일치: token=${payload.userId}, request=${userId}`);
+      sendMessage(player.ws, { type: 'AUTH_ERROR', message: '인증 정보가 일치하지 않습니다.' } as any);
+      return;
+    }
+  } else {
+    console.warn(`[Auth] 토큰 없이 로그인 시도: ${nickname} (playerId: ${playerId}) - 하위 호환 허용`);
+  }
 
   // 중복 연결 처리: 같은 userId로 이미 연결된 플레이어가 있으면 새 로그인 거부
   if (!isGuest && userId) {
@@ -511,6 +589,21 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
     await registerUserOnline(userId);
   }
 
+  // 재접속 가능 여부 알림 (수동 재접속: 방 목록에서 클릭하여 참가)
+  if (userId) {
+    const reconnectable = getReconnectableRoom(userId);
+    if (reconnectable) {
+      const coopRoom = coopGameRooms.get(reconnectable.roomId);
+      const remainingMs = RECONNECT_GRACE_PERIOD - (Date.now() - reconnectable.disconnectTime);
+      sendMessage(player.ws, {
+        type: 'RECONNECTABLE_GAME',
+        roomId: reconnectable.roomId,
+        remainingSeconds: Math.ceil(remainingMs / 1000),
+        roomCode: coopRoom?.roomCode || '',
+      } as any);
+    }
+  }
+
   // 관리자에게 로그인 이벤트 브로드캐스트
   broadcastToAdmins({
     type: 'ADMIN_PLAYER_ACTIVITY',
@@ -526,7 +619,9 @@ async function handleUserLogin(playerId: string, userId: string, nickname: strin
 function handleUserLogout(playerId: string, userId: string, nickname: string): void {
   // 온라인 사용자 목록에서 제거 및 친구에게 알림
   if (userId) {
-    registerUserOffline(userId);
+    registerUserOffline(userId).catch(err => {
+      console.error('[Auth] registerUserOffline 오류:', err);
+    });
   }
 
   const player = players.get(playerId);
@@ -730,6 +825,11 @@ function handleCreateCoopRoom(playerId: string, playerName: string, heroClass: a
   const player = players.get(playerId);
   if (!player) return;
 
+  // 입력값 검증
+  if (!isValidHeroClass(heroClass)) return;
+  if (!isValidAdvancedClass(advancedClass)) return;
+  if (difficulty && !isValidDifficulty(difficulty)) return;
+
   const name = playerName || `Player_${playerId.slice(0, 4)}`;
   const roomType = isPrivate ? '비밀방' : '공개방';
   const difficultyName = DIFFICULTY_NAMES[difficulty ?? 'easy'] || '쉬움';
@@ -761,10 +861,23 @@ function handleJoinCoopRoomById(playerId: string, roomId: string, playerName: st
 
 function handleGetCoopRoomList(playerId: string): void {
   const rooms = getAllWaitingCoopRooms();
+  const player = players.get(playerId);
+  const userId = player?.userId;
+
+  // 재접속 가능한 방 정보 포함
+  let reconnectableRoomId: string | undefined;
+  if (userId) {
+    const reconnectable = getReconnectableRoom(userId);
+    if (reconnectable) {
+      reconnectableRoomId = reconnectable.roomId;
+    }
+  }
+
   sendToPlayer(playerId, {
     type: 'COOP_ROOM_LIST',
     rooms,
-  });
+    reconnectableRoomId,
+  } as any);
 }
 
 function handleLeaveCoopRoom(playerId: string): void {
@@ -813,7 +926,41 @@ function handleCoopReady(playerId: string, isReady: boolean): void {
   }
 }
 
+function handleReconnectToGame(playerId: string, roomId: string): void {
+  const player = players.get(playerId);
+  if (!player || !player.userId) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '로그인이 필요합니다.' });
+    return;
+  }
+
+  const reconnectable = getReconnectableRoom(player.userId);
+  if (!reconnectable || reconnectable.roomId !== roomId) {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '재접속할 수 있는 게임이 없습니다.' });
+    return;
+  }
+
+  const coopRoom = coopGameRooms.get(roomId);
+  if (!coopRoom || coopRoom.getGameState() !== 'playing') {
+    sendToPlayer(playerId, { type: 'COOP_ROOM_ERROR', message: '게임이 이미 종료되었습니다.' });
+    clearDisconnectedPlayer(player.userId);
+    return;
+  }
+
+  console.log(`[Reconnect] 수동 재접속: ${player.name} → 방 ${roomId}`);
+  clearDisconnectedPlayer(player.userId);
+
+  // 플레이어를 방에 다시 추가
+  player.roomId = roomId;
+  player.isInGame = true;
+  player.gameMode = 'rpg';
+  coopRoom.handlePlayerReconnect(playerId);
+}
+
 function handleChangeCoopClass(playerId: string, heroClass: any, characterLevel?: number, statUpgrades?: any, advancedClass?: string, tier?: 1 | 2): void {
+  // 입력값 검증
+  if (!isValidHeroClass(heroClass)) return;
+  if (!isValidAdvancedClass(advancedClass)) return;
+
   console.log(`[Coop] ${playerId} 직업 변경: ${heroClass} (Lv.${characterLevel ?? 1}, 전직: ${advancedClass ?? '없음'}, 강화: ${tier ?? 1}차)`);
 
   // 먼저 대기 중인 방에서 찾기

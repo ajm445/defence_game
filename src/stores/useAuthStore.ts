@@ -12,6 +12,7 @@ import {
   updateNickname as authUpdateNickname,
   deleteAccount as authDeleteAccount,
   changePassword as authChangePassword,
+  getAuthToken,
 } from '../services/authService';
 import { getClassProgress } from '../services/profileService';
 import { useProfileStore } from './useProfileStore';
@@ -264,8 +265,8 @@ export const useAuthStore = create<AuthStore>()(
           isLoading: false,
         });
 
-        // 서버에 로그인 알림
-        wsClient.notifyLogin(result.user.id, profile?.nickname || 'Unknown', false, profile?.playerLevel);
+        // 서버에 로그인 알림 (JWT 토큰 포함)
+        wsClient.notifyLogin(result.user.id, profile?.nickname || 'Unknown', false, profile?.playerLevel, getAuthToken() || undefined);
       }
 
       return true;
@@ -292,8 +293,8 @@ export const useAuthStore = create<AuthStore>()(
       // 로컬스토리지에 세션 저장
       saveSessionToStorage(user, profile);
 
-      // 서버에 로그인 알림
-      wsClient.notifyLogin(user.id, profile.nickname, true, profile.playerLevel);
+      // 서버에 로그인 알림 (JWT 토큰 포함)
+      wsClient.notifyLogin(user.id, profile.nickname, true, profile.playerLevel, getAuthToken() || undefined);
 
       return true;
     },
@@ -383,12 +384,13 @@ export const useAuthStore = create<AuthStore>()(
               isLoading: false,
             });
 
-            // 세션 복원 시 WebSocket 재연결 + 온라인 상태 등록
+            // 세션 복원 시 WebSocket 재연결 + 온라인 상태 등록 (JWT 토큰 포함)
             wsClient.notifyLogin(
               storedSession.user.id,
               profile.nickname,
               !!storedSession.user.isGuest,
               profile.playerLevel,
+              getAuthToken() || undefined,
             );
           } else {
             // 프로필이 없거나 타임아웃 → 세션 무효

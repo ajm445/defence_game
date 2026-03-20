@@ -23,7 +23,8 @@ const TouchSkillButton: React.FC<TouchSkillButtonProps> = ({
 }) => {
   const isOnCooldown = cooldown > 0;
   const isDisabled = active ? false : (isOnCooldown || disabled);
-  const cooldownPercent = isOnCooldown ? (cooldown / maxCooldown) * 100 : 0;
+  const effectiveMaxCooldown = maxCooldown > 0 ? maxCooldown : 2;
+  const cooldownPercent = isOnCooldown ? (cooldown / effectiveMaxCooldown) * 100 : 0;
 
   // 드래그 방향 지정용
   const startRef = useRef<{ x: number; y: number } | null>(null);

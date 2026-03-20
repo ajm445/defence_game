@@ -454,15 +454,28 @@ export function applyDamageToHero(state: ServerGameState, hero: ServerHero, dama
       hero.hp = 0;
       hero.isDead = true;
       hero.darkBladeActive = false;
-      hero.buffs = [];
       hero.deathTime = state.gameTime;
-
       hero.reviveTimer = COOP_CONFIG.REVIVE.BASE_TIME;
 
-      // 다크블레이드 이펙트 제거
+      // 버서커 E 버프 중 사망: 남은 버프 시간 제외, 실제 쿨다운만 적용
+      const berserkerBuff = hero.buffs?.find(b => b.type === 'berserker' && b.duration > 0);
+      if (berserkerBuff) {
+        hero.skillCooldowns.E = hero._skillE.cooldown;
+        hero._skillE.currentCooldown = hero._skillE.cooldown;
+      }
+
+      hero.buffs = [];
+
+      // 다크나이트 E 쿨다운 초기화
+      if (hero.advancedClass === 'darkKnight') {
+        hero.skillCooldowns.E = 0;
+        hero._skillE.currentCooldown = 0;
+      }
+
+      // 다크블레이드/스프링오브라이프 이펙트 제거
       for (let i = state.activeSkillEffects.length - 1; i >= 0; i--) {
         const eff = state.activeSkillEffects[i];
-        if (eff.type === 'dark_blade' && eff.heroId === hero.id) {
+        if (eff.heroId === hero.id && (eff.type === 'dark_blade' || eff.type === 'spring_of_life')) {
           state.activeSkillEffects.splice(i, 1);
         }
       }

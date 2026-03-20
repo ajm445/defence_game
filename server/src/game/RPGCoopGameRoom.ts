@@ -38,6 +38,12 @@ export class RPGCoopGameRoom {
   // 서버 게임 엔진 (서버 권위 모델)
   private gameEngine: RPGServerGameEngine | null = null;
 
+  // 재접속 대기: 연결 해제된 플레이어 정보 보관
+  private disconnectedPlayerInfos = new Map<string, { info: CoopPlayerInfo; userId: string }>(); // oldPlayerId → { info, userId }
+
+  // 이탈 후 미복귀 플레이어 (경험치 패널티 대상)
+  private abandonedUserIds = new Set<string>();
+
   // 각 플레이어의 heroId 매핑
   private playerHeroMap: Map<string, string> = new Map();
 
@@ -181,8 +187,9 @@ export class RPGCoopGameRoom {
       }
     });
 
-    // 모든 플레이어에게 게임 종료 알림
-    this.broadcast({ type: 'COOP_GAME_OVER', result });
+    // 모든 플레이어에게 게임 종료 알림 (이탈 패널티 정보 포함)
+    const abandonedList = Array.from(this.abandonedUserIds);
+    this.broadcast({ type: 'COOP_GAME_OVER', result, abandonedUserIds: abandonedList });
 
     console.log(`[ServerAuth] 게임 종료: Room ${this.id}, 승리: ${result?.victory}`);
 
@@ -706,6 +713,15 @@ export class RPGCoopGameRoom {
       || leavingPlayer?.name
       || `Player_${playerId.slice(0, 4)}`;
 
+    // 게임 진행 중이면 재접속 대기용으로 플레이어 정보 보관
+    const disconnectingInfo = this.playerInfos.find(p => p.id === playerId);
+    if (this.gameState === 'playing' && disconnectingInfo && leavingPlayer?.userId) {
+      this.disconnectedPlayerInfos.set(playerId, {
+        info: { ...disconnectingInfo, connected: false },
+        userId: leavingPlayer.userId,
+      });
+    }
+
     // ★ 플레이어 목록에서 먼저 제거 (이후 broadcast에서 나간 플레이어 제외)
     this.playerIds = this.playerIds.filter(id => id !== playerId);
     this.playerInfos = this.playerInfos.filter(p => p.id !== playerId);
@@ -719,9 +735,15 @@ export class RPGCoopGameRoom {
       }
     }
 
-    // 게임 진행 중이면 서버 게임 엔진에서 영웅 제거
+    // 게임 진행 중이면 서버 게임 엔진 처리
     if (this.gameEngine && this.gameState === 'playing') {
-      this.gameEngine.removeHero(playerId);
+      if (leavingPlayer?.userId && this.disconnectedPlayerInfos.has(playerId)) {
+        // 재접속 대기: 영웅은 제거하지 않고 입력 큐만 제거 (영웅은 정지 상태로 유지)
+        this.gameEngine.pauseHero(playerId);
+      } else {
+        // 완전 이탈: 영웅 제거
+        this.gameEngine.removeHero(playerId);
+      }
     }
 
     // 모든 플레이어가 나간 경우
@@ -743,6 +765,12 @@ export class RPGCoopGameRoom {
       if (this.hostStartTimer) {
         clearTimeout(this.hostStartTimer);
         this.hostStartTimer = null;
+      }
+
+      // 준비 체크 타이머 초기화 (새 호스트에게 새로운 타이머 시작)
+      if (this.readyCheckTimer) {
+        clearTimeout(this.readyCheckTimer);
+        this.readyCheckTimer = null;
       }
 
       // 새 방장 선정 (이미 나간 플레이어 제외됨)
@@ -777,6 +805,16 @@ export class RPGCoopGameRoom {
       // 게임 종료 상태에서 호스트 변경 시: 비호스트 준비 현황 재확인
       if (this.gameState === 'ended') {
         const allNonHostReady = this.playerInfos.every(p => p.isHost || p.id === this.hostPlayerId || p.isReady);
+
+        // 미준비 플레이어가 있으면 readyCheckTimer 재시작
+        if (!allNonHostReady && this.playerInfos.length > 1) {
+          this.readyCheckTimer = setTimeout(() => {
+            this.readyCheckTimer = null;
+            this.kickUnreadyPlayers();
+          }, READY_CHECK_TIMEOUT);
+          console.log(`[ServerAuth] 호스트 변경 - 준비 체크 타이머 재시작: Room ${this.id}`);
+        }
+
         if (allNonHostReady && this.playerInfos.length > 1) {
           sendToPlayer(this.hostPlayerId, {
             type: 'COOP_ROOM_ERROR',
@@ -818,31 +856,65 @@ export class RPGCoopGameRoom {
 
   /**
    * 플레이어 재접속 처리
+   * 새 playerId로 접속한 플레이어를 기존 게임 세션에 복귀시킵니다.
    */
-  public handlePlayerReconnect(playerId: string): void {
-    console.log(`[ServerAuth] 플레이어 재접속: ${playerId}`);
+  public handlePlayerReconnect(newPlayerId: string): void {
+    console.log(`[ServerAuth] 플레이어 재접속: ${newPlayerId}`);
 
-    const playerInfo = this.playerInfos.find(p => p.id === playerId);
-    if (playerInfo) {
-      playerInfo.connected = true;
+    // 보관된 플레이어 정보에서 복구 (가장 최근 연결 해제된 플레이어)
+    let restoredInfo: CoopPlayerInfo | null = null;
+    let oldPlayerId: string | null = null;
+
+    for (const [oldId, entry] of this.disconnectedPlayerInfos) {
+      // userId 기반 매칭: 새 플레이어의 userId와 일치하는 정보 찾기
+      const newPlayer = players.get(newPlayerId);
+      if (newPlayer?.userId && newPlayer.userId === entry.userId) {
+        restoredInfo = entry.info;
+        oldPlayerId = oldId;
+        break;
+      }
     }
+
+    if (!restoredInfo || !oldPlayerId) {
+      console.warn(`[ServerAuth] 재접속 정보 없음: ${newPlayerId}`);
+      return;
+    }
+
+    // 보관된 정보 삭제
+    this.disconnectedPlayerInfos.delete(oldPlayerId);
+
+    // 새 playerId로 정보 복구
+    const updatedInfo: CoopPlayerInfo = {
+      ...restoredInfo,
+      id: newPlayerId,
+      connected: true,
+    };
+
+    this.playerIds.push(newPlayerId);
+    this.playerInfos.push(updatedInfo);
 
     // 재접속 알림
     this.broadcast({
       type: 'COOP_PLAYER_RECONNECTED',
-      playerId,
+      playerId: newPlayerId,
+      playerName: updatedInfo.name,
     });
 
+    // 게임 진행 중이면 영웅 playerId 교체 + 입력 큐 재생성
+    if (this.gameEngine && this.gameState === 'playing') {
+      this.gameEngine.swapHeroPlayerId(oldPlayerId, newPlayerId);
+      this.gameEngine.restoreInputQueue(newPlayerId);
+    }
+
     // 재접속한 플레이어에게 현재 상태 정보 전달
-    sendToPlayer(playerId, {
+    sendToPlayer(newPlayerId, {
       type: 'COOP_RECONNECT_INFO',
       hostPlayerId: this.hostPlayerId,
-      isHost: playerId === this.hostPlayerId,
+      isHost: newPlayerId === this.hostPlayerId,
       gameState: this.gameState,
     });
 
-    // 게임 진행 중이면 현재 상태도 전송 (서버 권위 모델에서는 엔진이 브로드캐스트 중)
-    // 재접속 플레이어는 다음 브로드캐스트 때 자동으로 상태를 받게 됨
+    console.log(`[ServerAuth] 재접속 완료: ${updatedInfo.name} (${oldPlayerId} → ${newPlayerId})`);
   }
 
   // ============================================
@@ -915,6 +987,39 @@ export class RPGCoopGameRoom {
 
   public getPlayerIds(): string[] {
     return this.playerIds;
+  }
+
+  /**
+   * 60초 유예 만료: 연결 해제된 플레이어의 영웅 제거 + 경험치 패널티 등록
+   */
+  public removeDisconnectedHero(userId: string): void {
+    // disconnectedPlayerInfos에서 해당 userId 찾기
+    for (const [oldPlayerId, entry] of this.disconnectedPlayerInfos) {
+      if (entry.userId === userId) {
+        console.log(`[ServerAuth] 재접속 유예 만료 - 영웅 제거: ${entry.info.name} (userId: ${userId})`);
+        this.disconnectedPlayerInfos.delete(oldPlayerId);
+        this.abandonedUserIds.add(userId);
+
+        // 게임 엔진에서 영웅 제거
+        if (this.gameEngine) {
+          this.gameEngine.removeHero(oldPlayerId);
+        }
+
+        // 남은 플레이어에게 알림
+        this.broadcast({
+          type: 'COOP_PLAYER_ABANDONED',
+          playerName: entry.info.name,
+        });
+        break;
+      }
+    }
+  }
+
+  /**
+   * 특정 userId가 이탈 패널티 대상인지 확인
+   */
+  public isAbandoned(userId: string): boolean {
+    return this.abandonedUserIds.has(userId);
   }
 
   public getGameState(): string {

@@ -1,5 +1,92 @@
 # Changelog
 
+## [1.26.8] - 2026-03-20
+
+### 보안 강화
+- **REST API JWT 인증**: 모든 사용자 변경 API에 `requireAuth` + `requireSameUser` 미들웨어 적용 (authRouter, profileRouter, feedbackRouter, rankingsRouter)
+- **JWT 토큰 관리**: 로그인 시 sessionStorage 저장, API 요청 시 자동 Authorization 헤더 포함, AUTH_ERROR 시 자동 로그아웃
+- **XSS 방지**: `sanitizeText()` (HTML 이스케이프 + 비속어 필터) 도입 — 로비 채팅, DM에 적용
+- **입력 검증 강화**: heroClass, advancedClass, difficulty enum 검증 (CREATE_ROOM, CHANGE_CLASS 등)
+- **랭킹 조작 방지**: clearTime 최소 60초 검증, 참가자 userId 확인, heroClass 유효성 체크
+- **WebSocket 레이트 리밋**: 방 관리 메시지(READY, CLASS, KICK, SETTINGS 등)에 개별 레이트 리밋 적용
+- **계정 삭제 캐스케이드**: friends, friend_requests, user_feedback, player_bans 테이블 함께 삭제
+
+### 재접속 시스템 (수동 재접속 + EXP 패널티)
+- **60초 유예 기간**: 게임 중 연결 해제 시 영웅 일시정지 (pauseHero), 60초 내 수동 재접속 가능
+- **수동 재접속 UI**: 로비 방 목록에 재접속 배너 표시, 클릭 시 `RECONNECT_TO_GAME` 전송
+- **영웅 ID 교체**: `swapHeroPlayerId()`로 기존 영웅 유지한 채 새 연결 연결
+- **EXP 패널티**: 유예 기간 내 미복귀 시 `abandonedUserIds`에 기록, 게임 종료 시 EXP 0
+- **로그인 시 알림**: 재접속 가능한 게임이 있으면 `RECONNECTABLE_GAME` 메시지 전송
+
+### 레인저 W 스킬 다중 화살 데미지 보정
+- **감소형 다중 적중**: 첫 번째 화살 100% 데미지, 이후 화살 50% 데미지 (서버/클라이언트 동기화)
+- **적/기지별 적중 추적**: `enemyHitCounts`/`baseHitCounts` Map으로 개별 대상 적중 횟수 관리
+
+### 서버-클라이언트 데이터 동기화
+- **RPG_ENEMY_CONFIGS 통일**: 클라이언트 적 스탯(melee, ranged, knight, mage, boss, boss2) 서버 값과 동기화
+- **마법사 패시브 startValue 수정**: 0.24 → 0 (서버 일치)
+- **부활 HP 통일**: 50% → 100% (rpgConfig, rpgServerConfig, rpgNetwork 모두 `REVIVE_HP_PERCENT: 1.0`)
+
+### 버그 수정
+- **RPGSkillBar cooldownMaxRef 사이드 이펙트**: 렌더 중 ref 변경 → useEffect로 이동
+- **GameOverScreen useEffect 의존성**: `selectedDifficulty` 누락 추가
+- **LoginScreen useCallback 의존성**: 닉네임 검증 관련 상태 누락 추가
+- **MainMenu useEffect 의존성**: `profile` → `profile?.id`로 변경 (불필요 재실행 방지)
+- **CharacterUpgradeModal 레이아웃**: absolute 배지의 부모 `relative` 누락 수정
+- **TouchSkillButtons 0 나누기 방지**: `maxCooldown > 0 ? maxCooldown : 2`
+- **RPGWaveInfo 기지 수 하드코딩**: 2개 고정 → `enemyBases.length` 동적 계산 + 방향 이름 매핑
+- **DM key.includes 오탐**: `key.includes(userId)` → `split(':')` 정밀 매칭
+- **useRPGStore isCasting 타이밍**: `currentState.gameTime` → `serializedState.gameTime` 서버 기준 사용
+- **다크나이트 HP 드레인 보정**: 하드코딩 0.06 → `_serverUpdateInterval / 1000` 적응형
+- **useRPGGameLoop 이펙트 제거**: N번 개별 `removeSkillEffect` → 배치 `setState` + `.filter()`
+- **버서커 E 쿨다운 비동기**: 사망 시 `_skillE.currentCooldown = _skillE.cooldown` 동기화
+- **보스 처치 spring_of_life 미정리**: 보스 시스템 사망 처리에 spring_of_life 이펙트 정리 추가
+- **CoopRoomManager 카운트다운 참가 차단**: `room.state === 'countdown'` 조건 추가
+- **DM cleanupUser 대화 삭제 방지**: 로그아웃 시 대화 보존
+- **RPGCoopLobbyScreen stale closure**: `useRPGStore.getState()` 직접 참조로 수정
+
+### UX 개선
+- **줌아웃 범위 축소**: `MIN_ZOOM: 0.5` → `0.75` (과도한 줌아웃 방지)
+- **호스트 변경 후 readyCheckTimer 재시작**: 'ended' 상태에서 호스트 변경 시 미준비 타이머 리셋
+
+### 수정 파일 (35개)
+- `server/src/middleware/jwtAuth.ts`: (신규) JWT 인증 미들웨어
+- `server/src/middleware/inputValidator.ts`: heroClass/advancedClass/difficulty 검증 함수
+- `server/src/utils/profanityFilter.ts`: escapeHtml, sanitizeText 추가
+- `server/src/api/authRouter.ts`: JWT 토큰 발급 + requireAuth/requireSameUser 적용
+- `server/src/api/profileRouter.ts`: requireAuth + requireSameUser 적용
+- `server/src/api/rankingsRouter.ts`: requireAuth + clearTime/heroClass/참가자 검증
+- `server/src/api/feedbackRouter.ts`: requireAuth + requireSameUser 적용
+- `server/src/game/RPGCoopGameRoom.ts`: 재접속 시스템 (pauseHero, swapHeroPlayerId, abandonedUserIds)
+- `server/src/game/RPGServerGameEngine.ts`: handleHeroDeath 통합, pauseHero, swapHeroPlayerId, removeHero 개선
+- `server/src/game/rpgServerBossSystem.ts`: 사망 시 E 쿨다운/이펙트 정리
+- `server/src/game/rpgServerConfig.ts`: REVIVE_HP_PERCENT 1.0
+- `server/src/game/rpgServerSkillSystem.ts`: 레인저 W 다중 적중 감소
+- `server/src/room/CoopRoomManager.ts`: 카운트다운 참가 차단, sanitizeText
+- `server/src/friend/DirectMessageManager.ts`: key 정밀 매칭, 대화 보존
+- `server/src/websocket/MessageHandler.ts`: 재접속 핸들러, 레이트 리밋, 입력 검증
+- `server/src/websocket/WebSocketServer.ts`: 연결 해제 시 재접속 등록
+- `shared/types/rpgNetwork.ts`: REVIVE_HP_PERCENT 1.0
+- `src/services/authService.ts`: JWT 토큰 관리 (sessionStorage)
+- `src/services/profileService.ts`: apiRequest JWT 헤더
+- `src/services/WebSocketClient.ts`: reconnectToGame, AUTH_ERROR 핸들러
+- `src/stores/useAuthStore.ts`: 로그인 시 JWT 토큰 전달
+- `src/stores/useRPGStore.ts`: abandonedUserIds, isCasting 수정, HP 드레인 적응형
+- `src/hooks/useNetworkSync.ts`: abandonedUserIds 전달
+- `src/hooks/useRPGGameLoop.ts`: 이펙트 배치 제거
+- `src/constants/rpgConfig.ts`: 적 스탯 동기화, MIN_ZOOM 0.75, REVIVE_HP_PERCENT 1.0
+- `src/game/rpg/skillSystem.ts`: 레인저 W 다중 적중 감소 (클라이언트)
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: 재접속 배너 UI
+- `src/components/screens/RPGModeScreen.tsx`: EXP 패널티 (abandoned → 0 EXP)
+- `src/components/screens/GameOverScreen.tsx`: selectedDifficulty 의존성
+- `src/components/screens/LoginScreen.tsx`: useCallback 의존성
+- `src/components/screens/MainMenu.tsx`: profile?.id 의존성
+- `src/components/ui/RPGSkillBar.tsx`: cooldownMaxRef useEffect 이동
+- `src/components/ui/RPGWaveInfo.tsx`: 동적 기지 수
+- `src/components/ui/CharacterUpgradeModal.tsx`: relative 레이아웃
+- `src/components/touch/TouchSkillButtons.tsx`: 0 나누기 방지
+- `src/types/rpg.ts`: abandonedUserIds 타입
+
 ## [1.26.7] - 2026-03-20
 
 ### 서버-클라이언트 데이터 동기화

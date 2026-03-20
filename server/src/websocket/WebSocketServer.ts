@@ -4,7 +4,7 @@ import express from 'express';
 import cors from 'cors';
 import helmet from 'helmet';
 import { v4 as uuidv4 } from 'uuid';
-import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect, handleAdminDisconnect, broadcastToAdmins, getServerStatus, cleanupAllRooms } from './MessageHandler';
+import { handleMessage, getRoom, getCoopRoom, handleCoopDisconnect, handleAdminDisconnect, broadcastToAdmins, getServerStatus, cleanupAllRooms, registerDisconnectedPlayer } from './MessageHandler';
 import { handlePlayerDisconnect } from '../room/RoomManager';
 import { players, sendMessage, Player, registerUserOffline, removePlayerUserIdIndex } from '../state/players';
 import { gameInviteManager } from '../friend/GameInviteManager';
@@ -262,7 +262,11 @@ export function createWebSocketServer(port: number) {
       // 온라인 사용자 목록에서 제거 및 친구들에게 오프라인 알림
       if (userId) {
         removePlayerUserIdIndex(userId);
-        await registerUserOffline(userId);
+        try {
+          await registerUserOffline(userId);
+        } catch (err) {
+          console.error(`[WebSocket] registerUserOffline 오류 (${userId}):`, err);
+        }
       }
 
       // 관리자에게 접속 종료 이벤트 브로드캐스트
@@ -300,6 +304,10 @@ export function createWebSocketServer(port: number) {
         // 협동 게임 방에서 플레이어 제거 처리
         const coopRoom = getCoopRoom(roomId);
         if (coopRoom) {
+          // 게임 진행 중 연결 해제 시 재접속 대기 등록
+          if (userId && coopRoom.getGameState() === 'playing') {
+            registerDisconnectedPlayer(userId, roomId);
+          }
           coopRoom.handlePlayerDisconnect(playerId);
         }
       }

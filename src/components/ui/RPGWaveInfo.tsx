@@ -68,26 +68,29 @@ export const RPGWaveInfo: React.FC = () => {
       <div className="space-y-2 mb-3">
         <div className="flex justify-between text-sm">
           <span className="text-gray-400">적 기지</span>
-          <span className="text-red-400 font-bold">{destroyedBases}/2 파괴</span>
+          <span className="text-red-400 font-bold">{destroyedBases}/{enemyBases.length} 파괴</span>
         </div>
-        <div className="grid grid-cols-2 gap-2">
-          {enemyBases.map((base) => (
-            <div
-              key={base.id}
-              className={`text-xs px-2 py-1 rounded ${
-                base.destroyed
-                  ? 'bg-gray-600/50 text-gray-400 line-through'
-                  : 'bg-red-500/20 text-red-400'
-              }`}
-            >
-              {base.id === 'left' ? '좌측' : '우측'} 기지
-              {!base.destroyed && (
-                <span className="ml-1 text-gray-500">
-                  ({Math.floor((base.hp / base.maxHp) * 100)}%)
-                </span>
-              )}
-            </div>
-          ))}
+        <div className={`grid ${enemyBases.length <= 2 ? 'grid-cols-2' : 'grid-cols-2'} gap-2`}>
+          {enemyBases.map((base) => {
+            const baseNames: Record<string, string> = { left: '좌측', right: '우측', top: '상단', bottom: '하단' };
+            return (
+              <div
+                key={base.id}
+                className={`text-xs px-2 py-1 rounded ${
+                  base.destroyed
+                    ? 'bg-gray-600/50 text-gray-400 line-through'
+                    : 'bg-red-500/20 text-red-400'
+                }`}
+              >
+                {baseNames[base.id] || base.id} 기지
+                {!base.destroyed && (
+                  <span className="ml-1 text-gray-500">
+                    ({Math.floor((base.hp / base.maxHp) * 100)}%)
+                  </span>
+                )}
+              </div>
+            );
+          })}
         </div>
       </div>
 
@@ -110,7 +113,7 @@ export const RPGWaveInfo: React.FC = () => {
         <div className="text-xs text-gray-400">
           {isBossPhase
             ? <><Emoji emoji="⚔️" size={14} /> 보스를 모두 처치하세요!</>
-            : destroyedBases < 2
+            : destroyedBases < enemyBases.length
               ? <><Emoji emoji="🎯" size={14} /> 적 기지를 파괴하세요!</>
               : <><Emoji emoji="⏳" size={14} /> 보스 등장 준비 중...</>}
         </div>
