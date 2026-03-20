@@ -29,9 +29,11 @@ import { LobbyChat } from '../ui/LobbyChat';
 import { Emoji } from '../common/Emoji';
 import { getHeroImagePath } from '../../utils/heroImages';
 
-// localStorage에서 마지막 선택 직업 읽기
+// localStorage에서 마지막 선택 직업 읽기 (계정별 분리)
 function getLastSelectedClass(): HeroClass {
-  const saved = localStorage.getItem('rpg_last_class') as HeroClass | null;
+  const profile = useAuthStore.getState().profile;
+  if (!profile || profile.isGuest) return 'archer';
+  const saved = localStorage.getItem(`rpg_last_class_${profile.id}`) as HeroClass | null;
   const valid: HeroClass[] = ['archer', 'warrior', 'knight', 'mage'];
   return saved && valid.includes(saved) ? saved : 'archer';
 }
@@ -93,7 +95,7 @@ export const RPGCoopLobbyScreen: React.FC = () => {
   const [showRanking, setShowRanking] = useState(false);
   // 현재 방 설정 (로비에서 표시/변경용)
   const [roomIsPrivate, setRoomIsPrivate] = useState(false);
-  const [roomDifficulty, setRoomDifficulty] = useState<RPGDifficulty>('easy');
+  const [roomDifficulty, setRoomDifficulty] = useState<RPGDifficulty>(() => useRPGStore.getState().selectedDifficulty || 'easy');
   const [roomMapTheme, setRoomMapTheme] = useState<MapTheme>('forest');
   // 방 타임아웃 경고
   const [timeoutWarning, setTimeoutWarning] = useState<string | null>(null);
@@ -676,7 +678,10 @@ export const RPGCoopLobbyScreen: React.FC = () => {
       return;
     }
     soundManager.play('ui_click');
-    localStorage.setItem('rpg_last_class', heroClass);
+    const currentProfile = useAuthStore.getState().profile;
+    if (currentProfile && !currentProfile.isGuest) {
+      localStorage.setItem(`rpg_last_class_${currentProfile.id}`, heroClass);
+    }
     selectClass(heroClass);
     // 서버 전송은 useEffect에서 selectedClass 변경 감지 시 처리
   }, [playerLevel, isGuest, selectClass, multiplayer.players]);
@@ -1078,6 +1083,9 @@ export const RPGCoopLobbyScreen: React.FC = () => {
             {myProgress?.tier === 2 && <span className="ml-1 text-orange-400">★★</span>}
           </span>
           <span className="text-gray-400 text-sm ml-2">변경</span>
+          {isMyReady && (
+            <span className="text-xs text-yellow-400 ml-1">(준비 취소 후 변경)</span>
+          )}
         </button>
       );
     })();

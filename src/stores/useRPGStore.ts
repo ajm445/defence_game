@@ -1779,8 +1779,9 @@ export const useRPGStore = create<RPGStore>()(
     // 게임 단계 설정
     setGamePhase: (phase: RPGGamePhase) => {
       set({ gamePhase: phase });
-      // 보스 페이즈에서 BGM 변경
+      // 보스 페이즈에서 BGM 변경 + 효과음
       if (phase === 'boss_phase') {
+        soundManager.play('boss_spawn');
         soundManager.playBGM('rpg_boss');
       }
     },
@@ -3127,12 +3128,15 @@ export const useRPGStore = create<RPGStore>()(
     // ============================================
 
     addLobbyChatMessage: (message) => {
-      set((state) => ({
-        multiplayer: {
-          ...state.multiplayer,
-          lobbyChatMessages: [...state.multiplayer.lobbyChatMessages, message],
-        },
-      }));
+      set((state) => {
+        const messages = [...state.multiplayer.lobbyChatMessages, message];
+        return {
+          multiplayer: {
+            ...state.multiplayer,
+            lobbyChatMessages: messages.length > 100 ? messages.slice(-100) : messages,
+          },
+        };
+      });
     },
 
     setLobbyChatHistory: (messages) => {

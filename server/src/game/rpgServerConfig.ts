@@ -166,10 +166,10 @@ export const CLASS_CONFIGS: Record<HeroClass, {
   speed: number;
   range: number;
 }> = {
-  warrior: { hp: 500, attack: 40, attackSpeed: 1.0, speed: 3.0, range: 50 },
-  archer: { hp: 350, attack: 35, attackSpeed: 0.8, speed: 3.5, range: 180 },
-  knight: { hp: 700, attack: 30, attackSpeed: 1.2, speed: 2.5, range: 50 },
-  mage: { hp: 300, attack: 50, attackSpeed: 1.5, speed: 3.0, range: 160 },
+  warrior: { hp: 400, attack: 45, attackSpeed: 1.0, speed: 2.8, range: 80 },
+  archer: { hp: 280, attack: 40, attackSpeed: 0.75, speed: 3.0, range: 180 },
+  knight: { hp: 550, attack: 40, attackSpeed: 1.1, speed: 2.4, range: 80 },
+  mage: { hp: 230, attack: 60, attackSpeed: 1.4, speed: 2.8, range: 210 },
 };
 
 // 적 기지 설정
@@ -243,7 +243,7 @@ export const BOSS_SKILL_CONFIGS: Record<string, {
   // 충격파 - 전방위 범위 공격
   shockwave: {
     cooldown: 20,             // 20초 쿨다운
-    damage: 1.5,              // 150% 데미지
+    damage: 9999,             // 즉사 데미지
     radius: 250,              // 250px 반경
     castTime: 1.5,            // 1.5초 시전
     hpThreshold: 0.5,         // HP 50% 이하부터 사용

@@ -1659,7 +1659,7 @@ export function updatePendingSkills(ctx: SkillContext): void {
         const dirLen = Math.sqrt(dir.x * dir.x + dir.y * dir.y) || 1;
         const nx = dir.x / dirLen; // 정규화된 방향 벡터
         const ny = dir.y / dirLen;
-        const lineLength = skill.radius; // 120px
+        const lineLength = skill.radius; // 150px
         const lineHalfWidth = 40; // 폭 ±40px
 
         // 직선 범위 내 적에게 데미지
@@ -2113,7 +2113,11 @@ export function updatePendingSkills(ctx: SkillContext): void {
             const dist = distance(skill.position.x, skill.position.y, enemy.x, enemy.y);
             if (dist <= skill.radius) {
               const caster = skill.casterId ? state.heroes.get(skill.casterId) : undefined;
-              applyDamageToEnemy(ctx, enemy.id, skill.damage, caster);
+              let actualDamage = skill.damage;
+              if (isBossType(enemy.type) && skill.bossDamageMultiplier && skill.bossDamageMultiplier > 1) {
+                actualDamage = Math.floor(skill.damage * skill.bossDamageMultiplier);
+              }
+              applyDamageToEnemy(ctx, enemy.id, actualDamage, caster);
             }
           }
         }

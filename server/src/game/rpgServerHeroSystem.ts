@@ -6,6 +6,7 @@
  */
 
 import type { HeroClass, RPGEnemy } from '../../../src/types/rpg';
+import { BASE_SKILL_COOLDOWNS, ADVANCED_SKILL_COOLDOWNS } from '../../../shared/config/skillCooldowns';
 import type { CoopPlayerInfo } from '../../../shared/types/rpgNetwork';
 import type { ServerHero, ServerEnemyBase, ServerGameState } from './rpgServerTypes';
 import {
@@ -61,28 +62,10 @@ export function getHeroSpawnPositions(playerCount: number): { x: number; y: numb
  * 영웅 스킬 생성
  */
 export function createHeroSkills(heroClass: HeroClass, advancedClass?: AdvancedHeroClass): any[] {
-  const baseSkillConfigs: Record<HeroClass, { qType: string; qCd: number; wType: string; wCd: number; eType: string; eCd: number }> = {
-    warrior: { qType: 'warrior_q', qCd: 1.0, wType: 'warrior_w', wCd: 7.0, eType: 'warrior_e', eCd: 30.0 },
-    archer: { qType: 'archer_q', qCd: 0.8, wType: 'archer_w', wCd: 8.0, eType: 'archer_e', eCd: 30.0 },
-    knight: { qType: 'knight_q', qCd: 1.2, wType: 'knight_w', wCd: 8.0, eType: 'knight_e', eCd: 35.0 },
-    mage: { qType: 'mage_q', qCd: 1.5, wType: 'mage_w', wCd: 7.0, eType: 'mage_e', eCd: 40.0 },
-  };
+  const baseConfig = BASE_SKILL_COOLDOWNS[heroClass];
 
-  const advancedSkillConfigs: Record<AdvancedHeroClass, { wType: string; wCd: number; eType: string; eCd: number }> = {
-    berserker: { wType: 'blood_rush', wCd: 6.0, eType: 'berserker_rage', eCd: 45.0 },
-    guardian: { wType: 'guardian_rush', wCd: 8.0, eType: 'guardian_wall', eCd: 40.0 },
-    sniper: { wType: 'backflip_shot', wCd: 5.0, eType: 'headshot', eCd: 30.0 },
-    ranger: { wType: 'multi_arrow', wCd: 5.0, eType: 'arrow_storm', eCd: 35.0 },
-    paladin: { wType: 'holy_charge', wCd: 8.0, eType: 'holy_judgment', eCd: 60.0 },
-    darkKnight: { wType: 'heavy_strike', wCd: 4.0, eType: 'dark_blade', eCd: 0 },
-    archmage: { wType: 'inferno', wCd: 7.0, eType: 'meteor_shower', eCd: 50.0 },
-    healer: { wType: 'healing_light', wCd: 7.0, eType: 'spring_of_life', eCd: 45.0 },
-  };
-
-  const baseConfig = baseSkillConfigs[heroClass];
-
-  if (advancedClass && advancedSkillConfigs[advancedClass]) {
-    const advConfig = advancedSkillConfigs[advancedClass];
+  if (advancedClass && ADVANCED_SKILL_COOLDOWNS[advancedClass]) {
+    const advConfig = ADVANCED_SKILL_COOLDOWNS[advancedClass];
     return [
       { type: baseConfig.qType, key: 'Q' as const, cooldown: baseConfig.qCd, currentCooldown: 0 },
       { type: advConfig.wType, key: 'W' as const, cooldown: advConfig.wCd, currentCooldown: 0 },

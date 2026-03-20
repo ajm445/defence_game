@@ -213,7 +213,7 @@ export interface UpgradeLevels {
   attack: number;
   speed: number;
   hp: number;
-  attackSpeed: number;
+  attackSpeed: number;  // 공격 쿨다운 감소 (값이 낮을수록 빠름)
   goldRate: number;
   range: number;  // 궁수/마법사 전용
 }
@@ -297,7 +297,7 @@ export interface EnemyAIConfig {
   attackRange: number;     // 공격 사거리
   moveSpeed: number;       // 이동속도
   attackDamage: number;    // 공격력
-  attackSpeed: number;     // 공격 속도 (초)
+  attackSpeed: number;     // 공격 쿨다운 (초, 값이 낮을수록 빠름)
 }
 
 // 적 유닛 (RPG 모드용)

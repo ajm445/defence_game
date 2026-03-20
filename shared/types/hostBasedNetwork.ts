@@ -85,6 +85,8 @@ export interface SerializedHero {
   tier?: 1 | 2;
   // 시전 상태 (스나이퍼 E 스킬 등)
   castingUntil?: number;
+  // 마법사 계열 스킬 쿨다운 감소 비율
+  skillCooldownReduction?: number;
   // 다크나이트 어둠의 칼날 토글 상태
   darkBladeActive?: boolean;
 }

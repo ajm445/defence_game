@@ -1,5 +1,60 @@
 # Changelog
 
+## [1.26.7] - 2026-03-20
+
+### 서버-클라이언트 데이터 동기화
+- **기본 4직업 스탯 통일**: 서버 CLASS_CONFIGS를 클라이언트 값으로 수정 (HP/공격력/속도/사거리)
+- **shockwave 데미지 통일**: 서버 1.5(150%) → 9999(즉사)로 변경하여 클라이언트와 일치
+- **전직 스킬 쿨다운 공유 설정**: `shared/config/skillCooldowns.ts` 생성, 서버/클라이언트 양쪽에서 참조 (이중 하드코딩 제거)
+- **skillCooldownReduction 직렬화**: SerializedHero에 필드 추가, serializeHeroes에서 클라이언트로 전송
+
+### 버그 수정
+- **mage_e 보스 데미지 배율**: 범용 pendingSkill 핸들러에 `bossDamageMultiplier` 체크 추가 (마법사 운석 낙하 보스 추가 데미지 적용)
+- **healing_light 이펙트 위치 추적**: `HERO_CENTERED_EFFECT_TYPES`에 등록하여 힐러 W 이펙트가 힐러를 따라감
+- **비호스트 경험치 처리 안전성**: 게임오버 시 경험치 처리 완료 전까지 준비/나가기 버튼 차단 (로딩 오버레이)
+- **기본 직업 Q 스킬 쿨다운 불일치**: 궁수(0.8→0.7), 기사(1.2→1.1), 마법사(1.5→1.4) 서버 값 통일
+
+### UX 개선
+- **보스 페이즈 진입 피드백**: `boss_spawn` 효과음 + 붉은 화면 플래시 1.5초 (RPGScreenEffects)
+- **다크나이트 E 토글 툴팁**: `쿨타임: 0초` → `토글 (재사용: 2초)` 전용 표시
+- **스킬 툴팁 쿨다운**: `쿨타임` → `기본 쿨타임` 명시 (패시브 쿨감 미반영 안내)
+- **난이도 선택 유지**: 로비 복귀 시 이전 선택 난이도 자동 복원 (useRPGStore.selectedDifficulty)
+- **준비 상태 직업 변경 안내**: 비활성화 시 "(준비 취소 후 변경)" 힌트 텍스트 추가
+
+### 도감 개선
+- **전직 직업 해금 표시**: 미해금 전직 직업에 자물쇠 + "전직 필요" 표시 (classProgress 기반)
+- **기본 직업 해금 조건**: `Lv.X 해금` → `플레이어 Lv.X 해금`으로 명확화
+
+### 직업 기억 개선
+- **계정별 localStorage 분리**: `rpg_last_class` → `rpg_last_class_{userId}` 키 사용
+- **게스트 궁수 고정**: 게스트 로그인 시 항상 궁수 선택 (저장하지 않음)
+
+### 죽은 코드 / 유지보수
+- **RPGClassSelectScreen 제거**: 미사용 화면 삭제 (App.tsx 등록, GameScreen 타입에서도 제거)
+- **로비 채팅 메시지 제한**: 100개 초과 시 오래된 메시지 자동 정리 (메모리 누수 방지)
+- **attackSpeed 주석 명확화**: "값이 낮을수록 빠름" 명시 (rpg.ts)
+- **heavy_strike lineLength 주석 수정**: 120px → 150px
+
+### 수정 파일
+- `server/src/game/rpgServerConfig.ts`: CLASS_CONFIGS 스탯 통일, shockwave 데미지 9999
+- `server/src/game/rpgServerHeroSystem.ts`: 공유 스킬 쿨다운 import
+- `server/src/game/rpgServerGameSystems.ts`: skillCooldownReduction 직렬화
+- `server/src/game/rpgServerSkillSystem.ts`: mage_e bossDamageMultiplier, 주석 수정
+- `shared/config/skillCooldowns.ts`: 신규 - 기본/전직 스킬 쿨다운 공유 설정
+- `shared/types/hostBasedNetwork.ts`: SerializedHero.skillCooldownReduction 추가
+- `src/App.tsx`: RPGClassSelectScreen import/렌더링 제거
+- `src/components/screens/RPGCoopLobbyScreen.tsx`: 계정별 직업 기억, 난이도 유지, 준비 안내
+- `src/components/screens/RPGModeScreen.tsx`: 비호스트 경험치 처리 UI 차단
+- `src/components/ui/ClassEncyclopediaModal.tsx`: 전직 해금 표시, 플레이어 Lv. 명시
+- `src/components/ui/RPGScreenEffects.tsx`: 보스 페이즈 플래시 효과
+- `src/components/ui/RPGSkillBar.tsx`: 토글 툴팁, 기본 쿨타임 표시
+- `src/constants/rpgConfig.ts`: 공유 스킬 쿨다운 참조
+- `src/renderer/rpgRenderer.ts`: healing_light HERO_CENTERED_EFFECT_TYPES 등록
+- `src/stores/useRPGStore.ts`: 보스 페이즈 효과음, 채팅 100개 제한
+- `src/types/game.ts`: rpgClassSelect 제거
+- `src/types/rpg.ts`: attackSpeed 주석
+- `tailwind.config.js`: fadeOut 애니메이션 추가
+
 ## [1.26.6] - 2026-03-20
 
 ### 아크메이지/힐러 스프라이트 완성 + 프레임 싱크

@@ -13,7 +13,6 @@ import { LobbyScreen } from './components/screens/LobbyScreen';
 import { CountdownScreen } from './components/screens/CountdownScreen';
 import { GameScreen } from './components/screens/GameScreen';
 import { RPGModeScreen } from './components/screens/RPGModeScreen';
-import { RPGClassSelectScreen } from './components/screens/RPGClassSelectScreen';
 import { RPGCoopLobbyScreen } from './components/screens/RPGCoopLobbyScreen';
 import { RPGTutorialScreen } from './components/screens/RPGTutorialScreen';
 import { LoginScreen } from './components/screens/LoginScreen';
@@ -63,7 +62,6 @@ function App() {
       {currentScreen === 'difficultySelect' && <DifficultySelectScreen />}
       {currentScreen === 'login' && <LoginScreen />}
       {currentScreen === 'profile' && <ProfileScreen />}
-      {currentScreen === 'rpgClassSelect' && <RPGClassSelectScreen />}
       {currentScreen === 'rpgCoopLobby' && <RPGCoopLobbyScreen />}
       {currentScreen === 'rpgTutorial' && <RPGTutorialScreen />}
       {currentScreen === 'lobby' && <LobbyScreen />}

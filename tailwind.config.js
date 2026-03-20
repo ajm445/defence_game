@@ -57,6 +57,7 @@ export default {
         'float': 'float 3s ease-in-out infinite',
         'slide-up': 'slideUp 0.3s ease-out',
         'fade-in': 'fadeIn 0.5s ease-out',
+        'fade-out': 'fadeOut 1.5s ease-out forwards',
       },
       keyframes: {
         glow: {
@@ -74,6 +75,10 @@ export default {
         fadeIn: {
           '0%': { opacity: '0' },
           '100%': { opacity: '1' },
+        },
+        fadeOut: {
+          '0%': { opacity: '1' },
+          '100%': { opacity: '0' },
         },
       },
     },

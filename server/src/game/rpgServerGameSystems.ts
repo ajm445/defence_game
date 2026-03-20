@@ -337,6 +337,7 @@ function serializeHeroes(state: ServerGameState): SerializedHero[] {
       advancedClass: hero.advancedClass,
       tier: hero.tier,
       castingUntil: hero.castingUntil,
+      skillCooldownReduction: hero.skillCooldownReduction || undefined,
       darkBladeActive: hero.darkBladeActive || undefined,
     });
   }

@@ -16,7 +16,7 @@ import { drawMapDecorations, drawNaturalBoundary, drawBoundaryDarkness, drawZone
 // 대시 이펙트(warrior_w, knight_w, blood_rush 등)와 타겟 위치 이펙트(mage_w, inferno 등)는 제외
 const HERO_CENTERED_EFFECT_TYPES = new Set([
   // 지속 추적 이펙트
-  'spring_of_life', 'dark_blade', 'heavy_strike',
+  'spring_of_life', 'dark_blade', 'heavy_strike', 'healing_light',
   // W스킬 - 영웅 위치에서 발사되는 투사체
   'archer_w', 'backflip_shot', 'multi_arrow',
   // E스킬 - 영웅 중심 버프/버스트 이펙트

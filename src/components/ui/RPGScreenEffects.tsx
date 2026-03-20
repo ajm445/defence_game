@@ -1,5 +1,5 @@
-import React, { useMemo } from 'react';
-import { useHero, useGameTime, useLastDamageTime } from '../../stores/useRPGStore';
+import React, { useMemo, useState, useEffect, useRef } from 'react';
+import { useHero, useGameTime, useLastDamageTime, useRPGGamePhase } from '../../stores/useRPGStore';
 
 /**
  * RPG 화면 효과 컴포넌트
@@ -10,6 +10,19 @@ export const RPGScreenEffects: React.FC = () => {
   const hero = useHero();
   const gameTime = useGameTime();
   const lastDamageTime = useLastDamageTime();
+  const gamePhase = useRPGGamePhase();
+
+  // 보스 페이즈 진입 플래시
+  const [bossFlash, setBossFlash] = useState(false);
+  const prevPhaseRef = useRef(gamePhase);
+  useEffect(() => {
+    if (gamePhase === 'boss_phase' && prevPhaseRef.current !== 'boss_phase') {
+      setBossFlash(true);
+      const timer = setTimeout(() => setBossFlash(false), 1500);
+      return () => clearTimeout(timer);
+    }
+    prevPhaseRef.current = gamePhase;
+  }, [gamePhase]);
 
   // HP 비율 계산
   const hpRatio = useMemo(() => {
@@ -71,7 +84,7 @@ export const RPGScreenEffects: React.FC = () => {
   }, [gameTime, lastDamageTime]);
 
   // 아무 효과도 없으면 렌더링하지 않음
-  if (vignetteIntensity === 0 && pulseIntensity === 0 && damageFlashIntensity === 0) {
+  if (vignetteIntensity === 0 && pulseIntensity === 0 && damageFlashIntensity === 0 && !bossFlash) {
     return null;
   }
 
@@ -109,6 +122,16 @@ export const RPGScreenEffects: React.FC = () => {
               rgba(255, 0, 0, ${damageFlashIntensity * 0.8}) 85%,
               rgba(255, 0, 0, ${damageFlashIntensity}) 100%
             )`,
+          }}
+        />
+      )}
+
+      {/* 보스 페이즈 진입 플래시 (붉은 화면 플래시) */}
+      {bossFlash && (
+        <div
+          className="absolute inset-0 pointer-events-none z-42 animate-fade-out"
+          style={{
+            background: 'radial-gradient(ellipse at center, rgba(255,0,0,0.15) 0%, rgba(180,0,0,0.3) 60%, rgba(120,0,0,0.5) 100%)',
           }}
         />
       )}

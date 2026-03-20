@@ -16,6 +16,7 @@ import { ClassAdvancementPath } from './ClassAdvancementPath';
 import { soundManager } from '../../services/SoundManager';
 import { Emoji } from '../common/Emoji';
 import { getHeroImagePath } from '../../utils/heroImages';
+import { useProfileStore } from '../../stores/useProfileStore';
 
 type TabType = 'basic' | 'advanced';
 
@@ -69,6 +70,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
   const [activeTab, setActiveTab] = useState<TabType>('basic');
   const [selectedBaseClass, setSelectedBaseClass] = useState<HeroClass>('archer');
   const [selectedAdvancedClass, setSelectedAdvancedClass] = useState<AdvancedHeroClass | null>(null);
+  const classProgress = useProfileStore((state) => state.classProgress);
 
   useEffect(() => {
     if (!isOpen) return;
@@ -111,6 +113,14 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
   const colors = classColors[selectedBaseClass];
   const passive = getPassiveDescription(selectedBaseClass);
   const isLocked = playerLevel < CHARACTER_UNLOCK_LEVELS[selectedBaseClass];
+
+  // 전직 직업 해금 여부: 해당 기본 직업의 classProgress에서 advancedClass가 일치하는지 확인
+  const isAdvancedLocked = (advClass: AdvancedHeroClass): boolean => {
+    const baseClass = ADVANCED_CLASS_CONFIGS[advClass].baseClass;
+    const progress = classProgress.find(cp => cp.className === baseClass);
+    if (!progress) return true;
+    return progress.advancedClass !== advClass;
+  };
 
   // 현재 표시할 스탯 (기본 또는 전직)
   const displayStats = activeTab === 'advanced' && advConfig
@@ -204,7 +214,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                           {config.name}
                         </p>
                         <p className="text-xs text-gray-500">
-                          {locked ? `Lv.${unlockLevel} 해금` : unlockLevel === 1 ? '기본' : `Lv.${unlockLevel}`}
+                          {locked ? `플레이어 Lv.${unlockLevel} 해금` : unlockLevel === 1 ? '기본' : `플레이어 Lv.${unlockLevel}`}
                         </p>
                       </div>
                       {locked && <span className="ml-auto"><Emoji emoji="🔒" size={14} /></span>}
@@ -242,6 +252,7 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                         {advOptions.map((advClass) => {
                           const advConf = ADVANCED_CLASS_CONFIGS[advClass];
                           const isSelected = selectedAdvancedClass === advClass;
+                          const advLocked = isAdvancedLocked(advClass);
 
                           return (
                             <button
@@ -252,12 +263,19 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                                 ${isSelected
                                   ? `${classColor.border} ${classColor.bg}`
                                   : 'border-gray-700 bg-gray-800/30 hover:border-gray-600'}
+                                ${advLocked ? 'opacity-60' : ''}
                               `}
                             >
                               <Emoji emoji={advConf.emoji} size={24} />
-                              <p className={`font-bold text-sm ${isSelected ? classColor.text : 'text-white'}`}>
-                                {advConf.name}
-                              </p>
+                              <div className="text-left flex-1">
+                                <p className={`font-bold text-sm ${isSelected ? classColor.text : 'text-white'}`}>
+                                  {advConf.name}
+                                </p>
+                                {advLocked && (
+                                  <p className="text-xs text-gray-500">전직 필요</p>
+                                )}
+                              </div>
+                              {advLocked && <span className="ml-auto"><Emoji emoji="🔒" size={14} /></span>}
                             </button>
                           );
                         })}
@@ -296,9 +314,14 @@ export const ClassEncyclopediaModal: React.FC<ClassEncyclopediaModalProps> = ({
                       전직
                     </span>
                   )}
-                  {isLocked && (
+                  {activeTab === 'basic' && isLocked && (
                     <span className="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded-full">
-                      <Emoji emoji="🔒" size={12} className="mr-1" /> Lv.{CHARACTER_UNLOCK_LEVELS[selectedBaseClass]} 필요
+                      <Emoji emoji="🔒" size={12} className="mr-1" /> 플레이어 Lv.{CHARACTER_UNLOCK_LEVELS[selectedBaseClass]} 필요
+                    </span>
+                  )}
+                  {activeTab === 'advanced' && selectedAdvancedClass && isAdvancedLocked(selectedAdvancedClass) && (
+                    <span className="px-2 py-0.5 bg-gray-700 text-gray-400 text-xs rounded-full">
+                      <Emoji emoji="🔒" size={12} className="mr-1" /> 해당 직업 전직 필요
                     </span>
                   )}
                 </div>

@@ -215,7 +215,7 @@ const SkillButton: React.FC<SkillButtonProps> = ({ skill, heroClass, onUse, onHo
             {getSkillDescription(skill)}
           </div>
           <div className="text-xs text-neon-cyan mt-1">
-            쿨타임: {skill.cooldown}초
+            {skill.cooldown === 0 ? '토글 (재사용: 2초)' : `기본 쿨타임: ${skill.cooldown}초`}
           </div>
           {disabled && disabledReason && (
             <div className="text-xs text-red-400 mt-1">
