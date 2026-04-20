@@ -38,9 +38,17 @@ import { isMaintenanceActive, getMaintenanceState, cleanupMaintenance } from '..
 export { players, sendMessage, sendToPlayer } from '../state/players';
 export type { Player } from '../state/players';
 
+// Cloudflare 우회 차단: 허용된 Host 헤더만 통과 (없으면 비활성)
+const ALLOWED_HOSTS = (process.env.ALLOWED_HOSTS || '')
+  .split(',').map(s => s.trim().toLowerCase()).filter(Boolean);
+const HEALTH_PATHS = new Set(['/health', '/']);
+
 export function createWebSocketServer(port: number) {
   // Express 앱 생성
   const app = express();
+
+  // Cloudflare/Railway 프록시 뒤에서 실제 클라이언트 IP 추적 (req.ip = CF-Connecting-IP)
+  app.set('trust proxy', true);
 
   // 미들웨어 설정
   app.use(helmet({ contentSecurityPolicy: false }));
@@ -56,6 +64,18 @@ export function createWebSocketServer(port: number) {
     credentials: true,
   }));
   app.use(express.json());
+
+  // Host 화이트리스트: Railway 기본 도메인 직접 호출(Cloudflare 우회) 차단
+  app.use((req, res, next) => {
+    if (HEALTH_PATHS.has(req.path)) return next();
+    if (ALLOWED_HOSTS.length === 0) return next();
+    const host = (req.headers.host || '').toLowerCase();
+    if (!ALLOWED_HOSTS.includes(host)) {
+      res.status(403).json({ error: 'Forbidden' });
+      return;
+    }
+    next();
+  });
 
   // Health check
   app.get('/health', (req, res) => {
@@ -84,8 +104,20 @@ export function createWebSocketServer(port: number) {
   // HTTP 서버 생성 (Express 앱 사용)
   const httpServer = createServer(app);
 
-  // WebSocket 서버를 HTTP 서버에 연결
-  const wss = new WebSocketServer({ server: httpServer, maxPayload: 64 * 1024 });
+  // WebSocket 서버를 HTTP 서버에 연결 (Host 화이트리스트 적용)
+  const wss = new WebSocketServer({
+    server: httpServer,
+    maxPayload: 64 * 1024,
+    verifyClient: (info, cb) => {
+      if (ALLOWED_HOSTS.length === 0) return cb(true);
+      const host = (info.req.headers.host || '').toLowerCase();
+      if (!ALLOWED_HOSTS.includes(host)) {
+        cb(false, 403, 'Forbidden');
+        return;
+      }
+      cb(true);
+    },
+  });
 
   // WebSocket 서버 에러 핸들러 (HTTP 서버 에러 전파 방지)
   wss.on('error', (err: NodeJS.ErrnoException) => {
